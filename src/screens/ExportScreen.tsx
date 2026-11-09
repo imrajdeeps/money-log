@@ -1,0 +1,107 @@
+import { useMemo, useState } from 'react';
+import { useApp } from '../context.tsx';
+import { copyText, saveFile } from '../files.ts';
+import { shortDate, stamp } from '../format.ts';
+import { changedAfterExport, exportRows, fmtINR, isoDate, monthOf, toCSV, toTSV } from '../logic.ts';
+
+type Scope = 'new' | 'month' | 'all';
+
+export function ExportScreen() {
+  const app = useApp();
+  const [scope, setScope] = useState<Scope>('new');
+  // The payments that were in the last Copy or Share. "Mark as exported" marks exactly these and nothing else, even if
+  // a sync brings in more payments afterwards.
+  const [batch, setBatch] = useState<string[]>([]);
+
+  const rows = useMemo(() => {
+    const cur = monthOf(isoDate());
+    const list = app.entries.filter((e) => (scope === 'all' ? true : scope === 'month' ? monthOf(e.entry_date) === cur : !e.exported_at));
+    return exportRows(list);
+  }, [app.entries, scope]);
+
+  const markIds = useMemo(() => {
+    const byId = new Map(app.entries.map((e) => [e.id, e]));
+    return rows.filter((r) => !byId.get(r.id)?.exported_at).map((r) => r.id);
+  }, [app.entries, rows]);
+
+  const changed = useMemo(() => changedAfterExport(app.allEntries), [app.allEntries]);
+
+  const tsv = toTSV(rows);
+  const n = rows.length;
+  const plural = (k: number) => `${k} payment${k === 1 ? '' : 's'}`;
+  // Only count batch members that are still unexported (they may have been marked, or deleted, since).
+  const pending = batch.filter((id) => markIds.includes(id));
+
+  async function copy() {
+    const ok = await copyText(tsv);
+    if (ok) setBatch(markIds);
+    app.toast(ok ? `Copied ${plural(n)}. Paste into column A of the first empty row of the Log tab.` : 'Could not copy. Press and hold the text, select all, and copy it.');
+  }
+
+  async function share() {
+    const r = await saveFile(`money-log-${stamp()}.csv`, toCSV(rows), 'text/csv');
+    if (r === 'cancelled') return;
+    setBatch(markIds);
+    app.toast(r === 'shared' ? 'CSV shared.' : 'CSV downloaded.');
+  }
+
+  async function mark() {
+    if (!window.confirm(`Mark the ${plural(pending.length)} you just copied as exported? Do this only after they are in the spreadsheet; they will no longer appear under "Not yet exported".`)) return;
+    await app.markExported(pending);
+    setBatch([]);
+    app.toast(`Marked ${plural(pending.length)} as exported.`);
+  }
+
+  async function acknowledgeChanged() {
+    await app.markExported(changed.map((c) => c.entry.id));
+    app.toast('Done.');
+  }
+
+  return (
+    <section aria-label="Export to the spreadsheet">
+      {changed.length > 0 && (
+        <div className="card notice">
+          <h2>Changed after export</h2>
+          <p className="small">
+            {plural(changed.length)} edited or deleted after being exported, so the matching rows in the spreadsheet's Log tab are out of date.
+            Fix or remove them there by hand (the rows hold the earlier values), then tap Done.
+          </p>
+          <ul className="list">
+            {changed.map(({ entry: e, kind }) => (
+              <li key={e.id} className="catline plain">
+                <span>{shortDate(e.entry_date)} · {e.category} · {fmtINR(e.amount)}</span>
+                <b>{kind}</b>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn" onClick={acknowledgeChanged}>Done, the spreadsheet is updated</button>
+        </div>
+      )}
+
+      <div className="card">
+        <label className="field">
+          <span>Which payments</span>
+          <select value={scope} onChange={(e) => { setScope(e.target.value as Scope); setBatch([]); }}>
+            <option value="new">Not yet exported</option>
+            <option value="month">This month</option>
+            <option value="all">All payments</option>
+          </select>
+        </label>
+        <p className="muted small">{n === 0 ? 'Nothing to export here.' : `${plural(n)}, oldest first. Columns: Date, Category, Amount, Note.`}</p>
+        <textarea className="preview" readOnly rows={8} value={tsv} aria-label="Rows to paste into the Log tab" placeholder="Nothing to export." />
+        <div className="btnrow">
+          <button type="button" className="btn" disabled={n === 0} onClick={copy}>Copy for Excel</button>
+          <button type="button" className="btn ghost" disabled={n === 0} onClick={share}>Share CSV</button>
+        </div>
+        <button type="button" className="btn ghost" disabled={pending.length === 0} onClick={mark}>
+          Mark {pending.length} copied as exported
+        </button>
+      </div>
+      <ol className="steps muted small">
+        <li>Tap <b>Copy for Excel</b> (or open the CSV on your Mac).</li>
+        <li>In the spreadsheet's <b>Log</b> tab, click column A of the first empty row and paste.</li>
+        <li>Come back and tap <b>Mark as exported</b>. It marks the payments you just copied, so the next copy holds only new ones.</li>
+      </ol>
+    </section>
+  );
+}

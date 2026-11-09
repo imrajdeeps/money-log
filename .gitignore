@@ -1,0 +1,15 @@
+node_modules
+node_modules.nosync
+dist
+dist-e2e
+.env
+.env.*
+!.env.example
+*.tsv
+*.local
+.DS_Store
+.claude
+!tests/fixtures/*.tsv
+*.csv
+*.xlsx
+money-log-backup-*.json

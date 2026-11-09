@@ -1,0 +1,81 @@
+import { useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
+import { useApp } from '../context.tsx';
+import { METHODS, fmtINR, isValidDate, isoDate, parseAmount } from '../logic.ts';
+import type { Entry, Method } from '../logic.ts';
+import { CategorySelect } from './CategorySelect.tsx';
+import { MethodChips } from './MethodChips.tsx';
+
+export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+  const app = useApp();
+  const ref = useRef<HTMLDialogElement>(null);
+  const [amount, setAmount] = useState(String(entry.amount));
+  const [category, setCategory] = useState(entry.category);
+  const [method, setMethod] = useState<Method | null>(entry.method);
+  const [note, setNote] = useState(entry.note);
+  const [date, setDate] = useState(entry.entry_date);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const d = ref.current;
+    if (d && !d.open) d.showModal();
+  }, []);
+
+  const close = () => ref.current?.close();
+
+  async function save(ev: FormEvent) {
+    ev.preventDefault();
+    const amt = parseAmount(amount);
+    if (amt === null) return setError('Amount must be a positive number with at most 2 decimals.');
+    if (!category) return setError('Pick a category.');
+    if (!isValidDate(date)) return setError('Pick a valid date.');
+    if (date > isoDate()) return setError('The date cannot be in the future.');
+    await app.updateEntry(entry.id, { amount: amt, category, method, note: note.trim(), date });
+    app.toast(`Updated ${fmtINR(amt)} · ${category}`);
+    close();
+  }
+
+  async function remove() {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    await app.removeEntry(entry.id);
+    app.toast('Deleted');
+    close();
+  }
+
+  return (
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => { if (e.target === ref.current) close(); }}
+      aria-labelledby="edit-title"
+    >
+      <form onSubmit={save} noValidate>
+        <h2 id="edit-title">Edit payment</h2>
+        <label className="field">
+          <span>Amount (₹)</span>
+          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </label>
+        <label className="field" htmlFor="edit-cat"><span>Category</span></label>
+        <CategorySelect id="edit-cat" value={category} onChange={setCategory} plan={app.plan} />
+        <MethodChips value={method} onChange={setMethod} options={METHODS} />
+        <label className="field">
+          <span>Note</span>
+          <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Date</span>
+          <input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        {error && <p className="msg bad" role="alert">{error}</p>}
+        <div className="btnrow">
+          <button type="submit" className="btn">Save</button>
+          <button type="button" className="btn ghost" onClick={close}>Cancel</button>
+        </div>
+        <button type="button" className="btn danger" onClick={remove}>
+          {confirmDelete ? 'Tap again to delete' : 'Delete payment'}
+        </button>
+      </form>
+    </dialog>
+  );
+}
