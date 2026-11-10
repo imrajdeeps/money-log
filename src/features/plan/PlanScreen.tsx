@@ -3,6 +3,7 @@ import { useApp } from '../../data/context.tsx';
 import { DEFAULT_ALERT, buildIcs, classifyDue, cleanAlert, dueRelative, fmtNet } from '../../core/blocks.ts';
 import type { AlertPrefs, DueView, NetItem } from '../../core/blocks.ts';
 import { saveFile } from '../../ui/files.ts';
+import { SwipeRow } from '../../ui/SwipeRow.tsx';
 import { monthLabel, shortDate, stamp } from '../../core/format.ts';
 import { fmtINR, isoDate } from '../../core/logic.ts';
 
@@ -14,11 +15,11 @@ function loadAlert(): AlertPrefs {
 
 const hourLabel = (h: number) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'am' : 'pm'}`;
 
-function DueRow({ v, onToggle, onCalendar }: { v: DueView; onToggle: () => void; onCalendar: (() => void) | null }) {
+function DueRow({ v, onToggle, onCalendar, onDelete }: { v: DueView; onToggle: () => void; onCalendar: (() => void) | null; onDelete: () => void }) {
   const what = v.kind === 'oneoff' ? 'One-off payment' : 'To-do';
   const when = v.due ? `${shortDate(v.due)} · ${dueRelative(v.days)}` : 'No date';
   return (
-    <li className={`duerow${v.isDone ? ' done' : ''}`}>
+    <SwipeRow className={`duerow${v.isDone ? ' done' : ''}`} label={v.title} onDelete={onDelete}>
       <button type="button" className="tick" aria-pressed={v.isDone} aria-label={`${v.isDone ? 'Mark not done' : 'Mark done'}: ${v.title}`} onClick={onToggle}>
         {v.isDone ? '✓' : ''}
       </button>
@@ -28,7 +29,7 @@ function DueRow({ v, onToggle, onCalendar }: { v: DueView; onToggle: () => void;
       </span>
       {v.amount ? <span className="amt">{fmtINR(v.amount)}</span> : null}
       {onCalendar && <button type="button" className="icobtn" aria-label={`Add to calendar: ${v.title}`} onClick={onCalendar}>📅</button>}
-    </li>
+    </SwipeRow>
   );
 }
 
@@ -50,6 +51,10 @@ function DueSection() {
     app.toast(r === 'shared' ? 'Calendar file shared. Open it to add the events.' : 'Calendar file downloaded. Open it to add the events.');
   }
 
+  function remove(v: DueView) {
+    void app.removeDue(v.k).then(() => app.toast(`Removed: ${v.title}`));
+  }
+
   if (!due) return null;
   const overdue = views.filter((v) => v.state === 'overdue');
   const upcoming = views.filter((v) => v.state === 'today' || v.state === 'soon' || v.state === 'later');
@@ -63,7 +68,7 @@ function DueSection() {
       <ul className="list">
         {list.map((v) => (
           <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }}
-            onCalendar={v.due && !v.isDone ? () => { void calendar([v], 'event'); } : null} />
+            onCalendar={v.due && !v.isDone ? () => { void calendar([v], 'event'); } : null} onDelete={() => remove(v)} />
         ))}
       </ul>
     </>
@@ -80,7 +85,7 @@ function DueSection() {
         <details className="finished">
           <summary>Done ({finished.length})</summary>
           <ul className="list">
-            {finished.map((v) => <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onCalendar={null} />)}
+            {finished.map((v) => <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onCalendar={null} onDelete={() => remove(v)} />)}
           </ul>
         </details>
       )}

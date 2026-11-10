@@ -61,6 +61,7 @@ export interface AppApi {
   applyDue: (data: DueData) => Promise<void>;
   applyNet: (data: NetData) => Promise<void>;
   toggleDone: (key: string, done: boolean) => Promise<void>;
+  removeDue: (key: string) => Promise<void>; // take an item off the due list (swipe to delete)
   addCategory: (name: string, group: Cat) => Promise<AddResult>;
   removeCategory: (name: string) => Promise<void>;
   saveBudgets: (budgets: { name: string; amount: number }[]) => Promise<void>;

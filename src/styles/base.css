@@ -265,3 +265,9 @@ dialog .btn.danger { width: 100%; }
 @media (min-width: 600px) {
   .tabs { left: 50%; right: auto; width: 560px; transform: translateX(-50%); border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
 }
+
+/* A list row that slides left to show a red Delete button behind it (ui/SwipeRow). */
+.swiperow { position: relative; overflow: hidden; }
+.swipe-front { position: relative; background: var(--card); transition: transform 0.2s ease; touch-action: pan-y; }
+.swipe-front.dragging { transition: none; }
+.swipe-del { position: absolute; top: 0; right: 0; bottom: 0; width: 92px; display: flex; align-items: center; justify-content: center; border: 0; background: var(--bad); color: var(--bad-ink); cursor: pointer; }

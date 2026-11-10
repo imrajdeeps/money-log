@@ -34,6 +34,7 @@
   --bad: #c8283a;
   --warn: #a35200;
   --good-ink: #ffffff;
+  --bad-ink: #ffffff;       /* the icon on a red Delete button */
   --good-bg: #e3f5ea;
   --bad-bg: #ffe9ec;
   --warn-bg: #fff1d4;
@@ -62,6 +63,7 @@
   --bad: #ff7b86;
   --warn: #ffc24d;
   --good-ink: #0c110e;
+  --bad-ink: #2a0d11;
   --good-bg: #10301f;
   --bad-bg: #3a1519;
   --warn-bg: #38290c;
