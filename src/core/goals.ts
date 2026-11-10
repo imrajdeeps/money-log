@@ -3,7 +3,8 @@
 // each item wins. Goals and top-ups are items of their own (not a list inside a goal), so two phones adding a top-up at
 // the same moment keep both. Removed items stay (marked) so the removal reaches the other phones.
 import { daysInMonth, isValidDate } from './logic.ts';
-import { MAX_AMOUNT, UUID_RE, newId, normName, parseTs, round2 } from './logic.ts';
+import { MAX_AMOUNT, UUID_RE, catKey, newId, normName, parseTs, round2 } from './logic.ts';
+import type { Entry } from './logic.ts';
 
 export const MAX_GOALS = 30; // what one account may keep, removed ones included
 export const MAX_TOPUPS = 500;
@@ -141,4 +142,49 @@ export function cleanGoals(p: any): Goals {
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------- progress and what a goal needs
+
+export interface GoalProgress {
+  fromStart: number; // the amount already saved when the goal was made
+  fromTopUps: number; // top-ups added since
+  fromPayments: number; // payments in the linked category made on or after the day the goal was made
+  saved: number; // the three together
+  remaining: number; // never below zero
+  fraction: number; // 0 to 1, for the bar
+  reached: boolean;
+}
+
+// `entries` are budget entries (shared expenses already at this account's own share, see logic.budgetEntries). The three
+// sources are separate on purpose: a saving is logged as a payment in the linked category, or added as a top-up, not both.
+export function goalProgress(goal: Goal, items: Goals, entries: Entry[]): GoalProgress {
+  const fromTopUps = fromPaiseSum(topUpsOf(items, goal.id).map((t) => t.a));
+  const key = goal.c === '' ? null : catKey(goal.c);
+  const fromPayments = key === null ? 0 : fromPaiseSum(entries.filter((e) => !e.deleted_at && catKey(e.category) === key && e.entry_date >= goal.b).map((e) => e.amount));
+  const saved = fromPaiseSum([goal.s, fromTopUps, fromPayments]);
+  const remaining = Math.max(0, Math.round((goal.a - saved) * 100) / 100);
+  return { fromStart: goal.s, fromTopUps, fromPayments, saved, remaining, fraction: goal.a > 0 ? Math.min(1, saved / goal.a) : 0, reached: remaining === 0 };
+}
+
+const fromPaiseSum = (amounts: number[]): number => amounts.reduce((a, n) => a + Math.round(n * 100), 0) / 100;
+
+// Months from this month to the target date's month, counting this month: a date later this month is 1; never below 1.
+export function monthsLeft(dateIso: string, todayIso: string): number {
+  const [y1 = 1970, m1 = 1] = todayIso.split('-').map(Number);
+  const [y2 = 1970, m2 = 1] = dateIso.split('-').map(Number);
+  return Math.max(1, (y2 * 12 + m2) - (y1 * 12 + m1) + 1);
+}
+
+export type GoalLine =
+  | { state: 'reached' }
+  | { state: 'passed'; remaining: number } // the date has gone by and money is still to go
+  | { state: 'needs'; monthly: number; months: number }; // set aside `monthly` a month for `months` months
+
+// A goal in one line: reached; its date passed with money still to go; or what it needs a month (rounded up to the rupee).
+export function goalLine(goal: Goal, progress: GoalProgress, todayIso: string): GoalLine {
+  if (progress.reached) return { state: 'reached' };
+  if (goal.d < todayIso) return { state: 'passed', remaining: progress.remaining };
+  const months = monthsLeft(goal.d, todayIso);
+  return { state: 'needs', monthly: Math.ceil(progress.remaining / months), months };
 }

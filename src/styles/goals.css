@@ -1,0 +1,9 @@
+/* Goals: a goal's row, its bar and the line saying what it needs. */
+
+.goalrow { padding: 12px 14px; }
+.goalhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.goalrow .bar { margin: 10px 0 6px; }
+.goalstate { margin: 0; font-size: 14px; }
+.goalstate.reached { color: var(--good); font-weight: 600; }
+.goalstate.passed { color: var(--bad); }
+.goalparts { margin: 4px 0 0; }
