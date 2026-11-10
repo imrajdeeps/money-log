@@ -32,14 +32,18 @@ function csp(supabaseUrl: string): Plugin {
     `connect-src 'self'${origin ? ` ${origin}` : ''}`,
     "manifest-src 'self'",
     "worker-src 'self'",
-    "base-uri 'none'",
+    "base-uri 'self'", // the app's own folder, set by the first script in index.html
     "form-action 'none'",
   ].join('; ');
   return {
     name: 'money-log-csp',
     apply: 'build',
     transformIndexHtml(html) {
-      return { html, tags: [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: policy }, injectTo: 'head-prepend' }] };
+      // The one inline script (it finds the app's folder, see index.html) is allowed by its hash, and by nothing else.
+      const inline = /<script id="base-init">([\s\S]*?)<\/script>/.exec(html)?.[1];
+      const hash = inline === undefined ? '' : ` 'sha256-${createHash('sha256').update(inline).digest('base64')}'`;
+      const content = policy.replace("script-src 'self'", `script-src 'self'${hash}`);
+      return { html, tags: [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content }, injectTo: 'head-prepend' }] };
     },
   };
 }

@@ -89,11 +89,20 @@ GitHub account, or give this app its own account, organisation, or custom domain
 ## Finding your way around
 
 The app opens on **Overview**, a dashboard of tiles. Each tile shows one figure; tap it and its details open on a page of
-its own: **Month**, **Plan**, **Groups**, **Export** and **All payments** each have their own address (`/month`, `/plan`,
-`/groups`, `/export`, `/payments`; a group tile such as Saving opens Month with just that group's categories, `/month?g=Saving`), so a refresh, the back button and a bookmark all land on the same page. The top bar
-(wide screens) and the bottom bar (phones) switch between them. Only **+ Add expense** is still a small sheet, because it
-has to open straight from your tap so a phone shows its keyboard at once; close it with its ✕, by tapping the dimmed page,
-with Escape, or with Android's back gesture.
+its own. Every page has its own address, so a refresh, the back button and a bookmark all land on the same page:
+
+| Page | Address |
+|---|---|
+| Overview | `/` |
+| Month (a group tile such as Saving opens just that group's categories) | `/month`, `/month?g=Saving` |
+| Plan, Export, All payments | `/plan`, `/export`, `/payments` |
+| Add expense | `/add` |
+| Groups, and one group | `/groups`, `/groups/<id>` |
+| Settings, and one part of it | `/settings`, `/settings/password` |
+
+The top bar (wide screens) and the bottom bar (phones) switch between them. Add expense is a page too; it keeps what you
+typed if you leave it half done, and puts the cursor in the amount when you open it (an iPhone may still need one tap in
+the field before its keyboard comes up).
 
 | Tile | Shows | Opens |
 | --- | --- | --- |
@@ -113,11 +122,15 @@ links at the top. The app shows no income, cash flow or net worth history, becau
 data say where the data comes from instead.
 
 **Settings** is a short list of headings (Cloud sync, Password and sessions, Appearance, and so on); tapping one opens
-just that part, and the back arrow returns to the list. The page and the part are in the address
-(`/settings?s=password`), so a refresh, the back button or a bookmark lands in the same place. The pages are routed with
+just that part on a page of its own (`/settings/password`), and the back arrow returns to the list. An older link such as
+`/settings?s=password`, or a part that does not exist, still lands somewhere sensible. The pages are routed with
 TanStack Router (files in `src/routes`; `src/routeTree.gen.ts` is generated from them by `npm run dev` or `npm run build`,
-and is committed). GitHub Pages has no file for `/settings`, so the build also writes `404.html` as a copy of the app,
-which Pages serves for such addresses; an unknown address goes to the Overview.
+and is committed). GitHub Pages has no file for `/settings/password`, so the build also writes `404.html` as a copy of the
+app, which Pages serves for such addresses; an unknown address goes to the Overview. A page two levels deep, such as
+`/groups/<id>`, is not in the folder the app's files are in, so `index.html` starts with a tiny script that works out that
+folder from the address (everything before the first page name) and the browser reads `./assets/...` from there; the
+Content-Security-Policy allows exactly that one script, by its hash. This keeps working at `https://name.github.io/repo/`
+and at a custom domain. (A hosting folder that is itself named like a page, for example `/plan/`, would confuse it.)
 
 **All payments** (the Recent payments tile's *See all*) lists every payment on the phone, newest day first, with a search
 (words in any order, matched against the category, note, method and amount; `4500` finds ₹4,500) and filters for month,
@@ -148,11 +161,11 @@ alter table public.plan_blocks add constraint plan_blocks_block_known
 - **Colours:** deep green for the big "This month" tile and selected chips, lime for the main buttons and the Add button,
   an off-white page with white cards by day and near-black green-tinted surfaces by night. Red means overspending or debt,
   amber means close to the limit, green means fine. Every text and background pairing is checked at the WCAG AA level
-  (4.5:1) by `tests/theme.test.ts`, read straight from `src/styles.css`, so a later colour change cannot quietly make text
+  (4.5:1) by `tests/features/settings/theme.test.ts`, read straight from the files in `src/styles/`, so a later colour change cannot quietly make text
   hard to read. (The pale lime button has a soft ring because its edge alone is low-contrast on a white page; its label is not.)
 - **Type:** Outfit, a free font (SIL Open Font License, `src/assets/fonts/OFL.txt`) kept inside the app, about 47 KB in two
   files, so nothing is fetched from the internet and it works offline. It has the ₹ sign, and amounts use its even-width digits.
-- To change the look, edit the colour values at the top of `src/styles.css` (one block for light, one for dark).
+- To change the look, edit the colour values at the top of `src/styles/tokens.css` (one block for light, one for dark).
 
 ## Categories and budgets
 
@@ -215,7 +228,7 @@ A **shared expense** is exported at **your share**, with the full amount kept in
 
 ## Groups, splits and settling up
 
-*Groups* (bottom bar, or the Groups tile). A group has a kind: **Family**, **Trip**, **Flatmates** or **Couple** (a couple is exactly two people; the others hold up to 20). One person can be in several groups. The kind is chosen when the group is made and shown next to its name. *(Each kind will offer its own extras in later steps; see `docs/prd-group-kinds.md`.)* **After updating the app, run `supabase/schema.sql` once more in the Supabase SQL Editor** (it is safe to run again): it allows the two new kinds and the two-person limit of a couple.
+*Groups* (bottom bar, or the Groups tile). A group has a kind: **Family**, **Trip**, **Flatmates** or **Couple** (a couple is exactly two people; the others hold up to 20). One person can be in several groups. The kind is chosen when the group is made and shown next to its name. **Couple:** the group page is one line ("Priya owes you ₹1,250"), and Add expense replaces the split editor with four choices: *You paid · 50/50*, *You paid · Priya owes all*, *Priya paid · 50/50*, *Priya paid · you owe all*. *(The other kinds get their own extras in later steps; see `docs/prd-group-kinds.md`.)* **After updating the app, run `supabase/schema.sql` once more in the Supabase SQL Editor** (it is safe to run again): it allows the two new kinds and the two-person limit of a couple.
 
 - **Make a group:** name it and say what others should call you. You become its admin.
 - **Invite:** the group page shows a code (and a link that carries it). Send it only to people you mean to add. The code
@@ -262,7 +275,7 @@ Uber, electricity ...) and only if that category is in your list. Check it and t
   nothing and say so; a balance is never taken as the amount.
 - The bank's reference number is kept at the end of the note, so pasting the same message twice warns you.
 - It is built for the common Indian formats (UPI, card, ATM, bank transfer). A message it cannot read just says so; send an
-  example and the reader can be taught it (`src/smsParse.ts`, tests in `tests/smsParse.test.ts`). The plan is in
+  example and the reader can be taught it (`src/features/payments/smsParse.ts`, tests in `tests/features/payments/smsParse.test.ts`). The plan is in
   `docs/prd-paste-message.md`.
 
 ## Receipt photos
@@ -342,7 +355,10 @@ npm run check    # type check
 npm run build    # production build into dist/
 ```
 
-`tests/mock-supabase.ts` is a small stand-in for the Supabase sign-in, REST and group-function endpoints the app uses.
+The code is laid out in layers (`core`, `data`, `ui`, `features`, `app`, `routes`); `docs/structure.md` explains the layout and
+how to add a feature, and a test keeps it that way.
+
+`tests/support/mock-supabase.ts` is a small stand-in for the Supabase sign-in, REST and group-function endpoints the app uses.
 It records how those APIs are understood to behave; it is not the real service. `npm run e2e:build` plus
 `npm run e2e:serve` serve a build that talks to the stand-in, for checking in a browser.
 

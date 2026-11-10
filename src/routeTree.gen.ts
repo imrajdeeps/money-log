@@ -11,12 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as AddRouteImport } from './routes/add'
 import { Route as ExportRouteImport } from './routes/export'
-import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as MonthRouteImport } from './routes/month'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as PlanRouteImport } from './routes/plan'
-import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as GroupsIndexRouteImport } from './routes/groups.index'
+import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
+import { Route as SettingsIndexRouteImport } from './routes/settings.index'
+import { Route as SettingsPartRouteImport } from './routes/settings.$part'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,14 +31,14 @@ const SplatRoute = SplatRouteImport.update({
   path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AddRoute = AddRouteImport.update({
+  id: '/add',
+  path: '/add',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExportRoute = ExportRouteImport.update({
   id: '/export',
   path: '/export',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GroupsRoute = GroupsRouteImport.update({
-  id: '/groups',
-  path: '/groups',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MonthRoute = MonthRouteImport.update({
@@ -53,85 +56,121 @@ const PlanRoute = PlanRouteImport.update({
   path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const GroupsIndexRoute = GroupsIndexRouteImport.update({
+  id: '/groups/',
+  path: '/groups/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupsGroupIdRoute = GroupsGroupIdRouteImport.update({
+  id: '/groups/$groupId',
+  path: '/groups/$groupId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPartRoute = SettingsPartRouteImport.update({
+  id: '/settings/$part',
+  path: '/settings/$part',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/add': typeof AddRoute
   '/export': typeof ExportRoute
-  '/groups': typeof GroupsRoute
   '/month': typeof MonthRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
-  '/settings': typeof SettingsRoute
+  '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/settings/$part': typeof SettingsPartRoute
+  '/groups/': typeof GroupsIndexRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/add': typeof AddRoute
   '/export': typeof ExportRoute
-  '/groups': typeof GroupsRoute
   '/month': typeof MonthRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
-  '/settings': typeof SettingsRoute
+  '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/settings/$part': typeof SettingsPartRoute
+  '/groups': typeof GroupsIndexRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/add': typeof AddRoute
   '/export': typeof ExportRoute
-  '/groups': typeof GroupsRoute
   '/month': typeof MonthRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
-  '/settings': typeof SettingsRoute
+  '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/settings/$part': typeof SettingsPartRoute
+  '/groups/': typeof GroupsIndexRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/$'
+    | '/add'
     | '/export'
-    | '/groups'
     | '/month'
     | '/payments'
     | '/plan'
-    | '/settings'
+    | '/groups/$groupId'
+    | '/settings/$part'
+    | '/groups/'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$'
+    | '/add'
     | '/export'
-    | '/groups'
     | '/month'
     | '/payments'
     | '/plan'
+    | '/groups/$groupId'
+    | '/settings/$part'
+    | '/groups'
     | '/settings'
   id:
     | '__root__'
     | '/'
     | '/$'
+    | '/add'
     | '/export'
-    | '/groups'
     | '/month'
     | '/payments'
     | '/plan'
-    | '/settings'
+    | '/groups/$groupId'
+    | '/settings/$part'
+    | '/groups/'
+    | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  AddRoute: typeof AddRoute
   ExportRoute: typeof ExportRoute
-  GroupsRoute: typeof GroupsRoute
   MonthRoute: typeof MonthRoute
   PaymentsRoute: typeof PaymentsRoute
   PlanRoute: typeof PlanRoute
-  SettingsRoute: typeof SettingsRoute
+  GroupsGroupIdRoute: typeof GroupsGroupIdRoute
+  SettingsPartRoute: typeof SettingsPartRoute
+  GroupsIndexRoute: typeof GroupsIndexRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -150,18 +189,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/add': {
+      id: '/add'
+      path: '/add'
+      fullPath: '/add'
+      preLoaderRoute: typeof AddRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/export': {
       id: '/export'
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof ExportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/groups': {
-      id: '/groups'
-      path: '/groups'
-      fullPath: '/groups'
-      preLoaderRoute: typeof GroupsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/month': {
@@ -185,11 +224,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
+    '/groups/': {
+      id: '/groups/'
+      path: '/groups'
+      fullPath: '/groups/'
+      preLoaderRoute: typeof GroupsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groups/$groupId': {
+      id: '/groups/$groupId'
+      path: '/groups/$groupId'
+      fullPath: '/groups/$groupId'
+      preLoaderRoute: typeof GroupsGroupIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
       path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/$part': {
+      id: '/settings/$part'
+      path: '/settings/$part'
+      fullPath: '/settings/$part'
+      preLoaderRoute: typeof SettingsPartRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -198,12 +258,15 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  AddRoute: AddRoute,
   ExportRoute: ExportRoute,
-  GroupsRoute: GroupsRoute,
   MonthRoute: MonthRoute,
   PaymentsRoute: PaymentsRoute,
   PlanRoute: PlanRoute,
-  SettingsRoute: SettingsRoute,
+  GroupsGroupIdRoute: GroupsGroupIdRoute,
+  SettingsPartRoute: SettingsPartRoute,
+  GroupsIndexRoute: GroupsIndexRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

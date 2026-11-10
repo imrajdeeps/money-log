@@ -1,0 +1,11 @@
+/* The styles, in this order (later files may override earlier ones). One file per area; see docs/structure.md. */
+@import './tokens.css';
+@import './base.css';
+@import './plan.css';
+@import './groups.css';
+@import './payments.css';
+@import './month.css';
+@import './settings.css';
+@import './shell.css';
+@import './home.css';
+@import './responsive.css';
