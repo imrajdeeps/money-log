@@ -6,9 +6,9 @@ import { PaceChart } from '../components/PaceChart.tsx';
 import { RecentList } from '../components/RecentList.tsx';
 import { dueRelative, fmtNet } from '../blocks.ts';
 import { planForMonth } from '../categories.ts';
-import { dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, topCategories } from '../dashboard.ts';
+import { dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from '../dashboard.ts';
 import { monthLabel, shortDate } from '../format.ts';
-import { GROUPS, fmtINR, isoDate, monthOf, shiftMonth } from '../logic.ts';
+import { fmtINR, isoDate, monthOf, shiftMonth } from '../logic.ts';
 
 // The sheets a tile can open (App.tsx owns them).
 export type Section = 'recent' | 'month' | 'plan' | 'groups' | 'export';
@@ -38,6 +38,9 @@ export function HomeScreen({ open, openAdd, goSettings }: Props) {
   const netFacts = useMemo(() => (app.net?.items ?? []).filter((i) => i !== net?.main && i !== net?.goal).slice(0, 2), [app.net, net]);
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
   const ex = useMemo(() => exportOverview(app.entries, app.allEntries, app.me), [app.entries, app.allEntries, app.me]);
+
+  const tiles = overviewGroups(ov.summary.groups);
+  const tileSpan = (12 / tiles.length) as 3 | 4 | 6 | 12;
 
   const mon = new Intl.DateTimeFormat('en-IN', { month: 'short' }).format(new Date(`${month}-15T12:00:00`));
   const lastMon = new Intl.DateTimeFormat('en-IN', { month: 'short' }).format(new Date(`${shiftMonth(month, -1)}-15T12:00:00`));
@@ -110,10 +113,10 @@ export function HomeScreen({ open, openAdd, goSettings }: Props) {
           </BentoCard>
         )}
 
-        {GROUPS.map((g) => {
+        {tiles.map((g, i) => {
           const t = ov.summary.groups[g];
           return (
-            <BentoCard key={g} title={g} span={3} compact onOpen={() => open('month')} openLabel={`Open the month: ${g}`}>
+            <BentoCard key={g} title={g} span={tileSpan} compact className={tiles.length % 2 === 1 && i === tiles.length - 1 ? 'fill' : undefined} onOpen={() => open('month')} openLabel={`Open the month: ${g}`}>
               <p className="stat-num">{fmtINR(t.spent)}</p>
               <p className="muted small">{t.budgeted ? `of ${fmtINR(t.planned)}` : ' '}</p>
               <BudgetLine group={g} spent={t.spent} planned={t.planned} over={false} budgeted={t.budgeted} />
