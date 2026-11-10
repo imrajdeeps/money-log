@@ -37,7 +37,7 @@ export function GroupsScreen({ groupId, onOpen, openSettings }: { groupId?: stri
   }
 
   return (
-    <section aria-label="Groups" className="grouplist">
+    <section aria-label="Groups" className="[&>*+*]:mt-4 [&>p]:mb-0">
       <JoinCard />
       {app.groups.length === 0 && !app.joinCode && <p className="text-muted">No groups yet. Make one for the family or a trip, or join one with a code.</p>}
       {app.groups.length > 0 && (

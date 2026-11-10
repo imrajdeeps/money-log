@@ -10,6 +10,8 @@
     'alignItems', 'justifyContent', 'gap', 'opacity', 'textDecorationLine', 'overflow', 'cursor', 'whiteSpace', 'minHeight', 'maxWidth', 'zIndex', 'top', 'transform'];
   const ROUTES = ['/', '/month', '/plan', '/goals', '/payments', '/add', '/export', '/settings', '/settings/account', '/settings/recurring', '/settings/appearance',
     '/settings/plan', '/settings/receipts', '/settings/lock', '/settings/backup', '/settings/erase', '/settings/about', '/groups'];
+  // more addresses to visit (for example the pages of groups that only exist in one browser): window.__snapExtra = ['/groups/<id>']
+  const routes = () => [...ROUTES, ...(window.__snapExtra ?? [])];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const go = async (to) => { history.pushState({}, '', to); window.dispatchEvent(new PopStateEvent('popstate')); await wait(450); };
 
@@ -44,7 +46,7 @@
     const startPath = location.pathname;
     for (const theme of ['light', 'dark']) {
       document.documentElement.dataset.theme = theme;
-      for (const route of ROUTES) { await go(route); window.scrollTo(0, 0); pages[`${theme} ${route}`] = capture(styles); }
+      for (const route of routes()) { await go(route); window.scrollTo(0, 0); pages[`${theme} ${route}`] = capture(styles); }
     }
     document.documentElement.dataset.theme = startTheme;
     await go(startPath);

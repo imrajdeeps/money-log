@@ -37,7 +37,7 @@ export function TripSettings({ group, isAdmin }: { group: Group; isAdmin: boolea
       {isAdmin && (
         <button
           type="button"
-          className={ui.btn(closed ? 'ghost' : 'solid')}
+          className={ui.btn(closed ? 'ghost' : 'solid', 'md', ui.inCard)}
           disabled={act.busy}
           onClick={() => {
             const question = closed ? 'Reopen this trip? People can add expenses and join with the code again.' : 'Close this trip? Nobody can add expenses or join. Settling up still works, and you can reopen it.';
