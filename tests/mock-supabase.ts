@@ -1,5 +1,5 @@
-// A small stand-in for the parts of Supabase that Money Log uses (sign-in by emailed code, the PostgREST tables and the
-// group functions). The group rules mirror supabase/schema.sql in outline; the real rules are tested in supabase/rls_tests.sql.
+// A small stand-in for the parts of Supabase that Money Log uses (sign-in by emailed code or by password, the PostgREST tables
+// and the group functions). The group rules mirror supabase/schema.sql in outline; the real rules are tested in supabase/rls_tests.sql.
 // It encodes how I understand those APIs behave. It is NOT the real service: passing these tests shows the app's own
 // logic is sound, not that real Supabase accepts every request. Use it for tests and for browser checks only.
 import { createServer } from 'node:http';
@@ -20,8 +20,12 @@ export interface MockState {
   accessTtlSec: number;
   users: Map<string, string>; // email -> user id
   codes: Map<string, string>;
-  access: Map<string, { uid: string; exp: number }>;
-  refresh: Map<string, { uid: string; email: string }>;
+  passwords: Map<string, string>; // email -> password (the real service keeps only a hash)
+  confirmSignups: boolean; // Supabase's "Confirm email": a new account cannot sign in until its email is confirmed
+  unconfirmed: Set<string>;
+  signupsOpen: boolean;
+  access: Map<string, { uid: string; exp: number; sid: string }>; // sid = the session (one per sign-in on a device)
+  refresh: Map<string, { uid: string; email: string; sid: string }>;
   entries: Map<string, any>;
   plans: Map<string, any>;
   groups: Map<string, any>;
@@ -38,7 +42,8 @@ export interface MockState {
 export async function startMock(opts: { staticDir?: string; port?: number } = {}) {
   const state: MockState = {
     otp: '123456', accessTtlSec: 3600,
-    users: new Map(), codes: new Map(), access: new Map(), refresh: new Map(),
+    users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true,
+    access: new Map(), refresh: new Map(),
     entries: new Map(), plans: new Map(), groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
     receipts: new Map(), objects: new Map(), history: [],
     requests: [], failNext: null,
@@ -54,12 +59,12 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
   };
   const rls = (table: string) => ({ code: '42501', details: null, hint: null, message: `new row violates row-level security policy for table "${table}"` });
 
-  function newSession(uid: string, email: string) {
+  function newSession(uid: string, email: string, sid: string = randomUUID()) {
     const access_token = `at-${randomUUID()}`;
     const refresh_token = `rt-${randomUUID()}`;
     const expires_at = Math.floor(Date.now() / 1000) + state.accessTtlSec;
-    state.access.set(access_token, { uid, exp: expires_at });
-    state.refresh.set(refresh_token, { uid, email });
+    state.access.set(access_token, { uid, exp: expires_at, sid });
+    state.refresh.set(refresh_token, { uid, email, sid });
     return { access_token, token_type: 'bearer', expires_in: state.accessTtlSec, expires_at, refresh_token, user: { id: uid, email } };
   }
 
@@ -275,12 +280,50 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
         const r = state.refresh.get(b.refresh_token);
         if (!r) return send(res, 400, { error: 'invalid_grant', error_description: 'Invalid Refresh Token: Refresh Token Not Found' });
         state.refresh.delete(b.refresh_token); // refresh tokens rotate: each works once
-        return send(res, 200, newSession(r.uid, r.email));
+        return send(res, 200, newSession(r.uid, r.email, r.sid)); // a refresh continues the same session
+      }
+      if (path === '/auth/v1/signup' && req.method === 'POST') {
+        const b = await body(req);
+        if (!state.signupsOpen) return send(res, 422, { code: 422, error_code: 'signup_disabled', msg: 'Signups not allowed for this instance' });
+        if (typeof b.password === 'string' && b.password.length < 6) return send(res, 422, { code: 422, error_code: 'weak_password', msg: 'Password should be at least 6 characters.' });
+        if (state.confirmSignups) {
+          // with email confirmation on, the real service answers the same way for a known and an unknown address
+          if (!state.users.has(b.email)) { state.users.set(b.email, randomUUID()); state.passwords.set(b.email, b.password); state.unconfirmed.add(b.email); }
+          return send(res, 200, { id: state.users.get(b.email), email: b.email });
+        }
+        if (state.users.has(b.email)) return send(res, 422, { code: 422, error_code: 'user_already_exists', msg: 'User already registered' });
+        state.users.set(b.email, randomUUID());
+        state.passwords.set(b.email, b.password);
+        return send(res, 200, newSession(state.users.get(b.email)!, b.email));
+      }
+      if (path === '/auth/v1/token' && req.method === 'POST' && url.searchParams.get('grant_type') === 'password') {
+        const b = await body(req);
+        if (state.passwords.get(b.email) !== b.password || b.password === undefined) return send(res, 400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
+        if (state.unconfirmed.has(b.email)) return send(res, 400, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' });
+        return send(res, 200, newSession(state.users.get(b.email)!, b.email));
+      }
+      if (path === '/auth/v1/user' && req.method === 'PUT') {
+        const uid = uidOf(req);
+        if (!uid) return send(res, 401, { code: 401, msg: 'invalid JWT' });
+        const b = await body(req);
+        const email = [...state.users].find(([, id]) => id === uid)?.[0];
+        if (!email) return send(res, 404, { msg: 'User not found' });
+        if (typeof b.password === 'string') {
+          if (b.password.length < 6) return send(res, 422, { code: 422, error_code: 'weak_password', msg: 'Password should be at least 6 characters.' });
+          if (state.passwords.get(email) === b.password) return send(res, 422, { code: 422, error_code: 'same_password', msg: 'New password should be different from the old password.' });
+          state.passwords.set(email, b.password);
+        }
+        return send(res, 200, { id: uid, email });
       }
       if (path === '/auth/v1/logout' && req.method === 'POST') {
-        const uid = uidOf(req);
-        for (const [k, v] of state.refresh) if (v.uid === uid) state.refresh.delete(k);
-        for (const [k, v] of state.access) if (v.uid === uid) state.access.delete(k);
+        // scope: local = this session, others = every other session of the user, global (the default) = all of them.
+        const m = /^Bearer (.+)$/.exec(String(req.headers.authorization ?? ''));
+        const cur = m ? state.access.get(m[1]!) : undefined;
+        if (!cur) return send(res, 401, { code: 401, msg: 'invalid JWT' });
+        const scope = url.searchParams.get('scope') ?? 'global';
+        const drop = (sid: string) => scope === 'local' ? sid === cur.sid : scope === 'others' ? sid !== cur.sid : true;
+        for (const [k, v] of state.refresh) if (v.uid === cur.uid && drop(v.sid)) state.refresh.delete(k);
+        // an access token already issued keeps working until it runs out, as with the real service; only the refresh tokens go
         return send(res, 204);
       }
 

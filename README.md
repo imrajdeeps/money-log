@@ -1,11 +1,12 @@
 # Money Log
 
 A small installable web app (PWA) for logging payments in about five seconds and seeing the month against your
-spreadsheet plan. Release 1 is the quick log, month vs budget, cloud sync with email-code sign-in, and export to the
+spreadsheet plan. Release 1 is the quick log, month vs budget, cloud sync with sign-in, and export to the
 spreadsheet's Log tab. Release 2 adds shared groups (a family group, trip groups) with splits and settle-up, a due list
 with a calendar file, and a net worth and goals snapshot. Release 3 adds receipt photos, the edit history of shared
 expenses, a one-tap "add my share to my budget", an optional PIN lock, and a Method column for the spreadsheet's Log tab.
-Release 4 gives the app its own categories and budgets, so importing the spreadsheet is optional.
+Release 4 gives the app its own categories and budgets, so importing the spreadsheet is optional. Release 5 adds email and
+password sign-in, account creation and session controls (the email code stays as a fallback).
 It works on iPhone and Android, and offline.
 
 The repository holds code only. Your plan numbers, balances and payments never go in it; they live on your phone and
@@ -26,9 +27,20 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
 3. Paste and run `supabase/rls_tests.sql`. The last message must be `ALL ACCESS TESTS PASSED`. It uses fake users,
    groups and rows inside a transaction that is rolled back, so nothing is kept. Run it again after every change to
    `schema.sql`.
-4. **Authentication, email templates:** edit **both** the *Confirm signup* and the *Magic Link* templates so the email
-   contains the 6-digit code, for example `Your Money Log code is {{ .Token }}`. A brand-new account's first email uses
-   *Confirm signup*; every later one uses *Magic Link*. The app asks for the code, not a link.
+4. **Authentication, how people sign in.** The app signs in with **email and password** (Settings, Create account) and
+   keeps an **email code** as the way back in when a password is forgotten. Decide the next two settings together:
+   - **Email delivery.** Supabase's built-in email sender on the free plan only sends to the addresses of your own
+     Supabase team members, at most 2 emails an hour (checked on Supabase's pages, 10 Nov 2026). So the email code, the
+     confirmation email and any link sent to a family member **do not reach them** until you add a custom email (SMTP)
+     service under *Authentication, SMTP settings* (a free Supabase plan can use one; Supabase lists Resend, Brevo, Postmark,
+     SendGrid, SES and ZeptoMail; check that provider's own free limits). If you want **no email at all**, use the next setting.
+   - **Authentication, Providers, Email, "Confirm email".** **Off** (simplest, free, no email needed): a new account
+     can sign in at once with its password. Anyone can then create an account with any address, including one that is not
+     theirs, while sign-ups are on (see step 5; they still see none of your data). **On**: a new account must open a link
+     first, which needs the email service above; the app then says "open the confirmation link, then sign in". The app
+     works with either setting.
+   - If you use the email **code**, edit **both** the *Confirm signup* and the *Magic Link* templates so the email contains
+     the 6-digit code, for example `Your Money Log code is {{ .Token }}`. The app asks for the code, not a link.
 5. **Sign-ups.** Turn **Allow new users to sign up** on **only while you are inviting someone**, and turn it off again
    once they have signed in once (people who already have an account keep working). Why it matters: the app's key is
    public by design, so while sign-ups are on a stranger can create an account on your project. Such an account can see
@@ -37,8 +49,9 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
 6. **Project settings, API:** copy the *Project URL* and the *publishable* (or *anon*) key. These two are public by
    design. **Never** copy the `service_role` or secret key into this project.
 
-Supabase's built-in email sender has a low hourly limit. That is fine for occasional sign-ins because the session stays
-on your phone; add your own email (SMTP) service in Supabase if you hit it.
+A signed-in phone stays signed in: it renews its sign-in by itself, so you rarely need an email or a password again.
+Sign-ups and password sign-in attempts are rate limited by Supabase per IP address (30 sign-ups or codes and 150 sign-ins per
+5 minutes, checked 10 Nov 2026), which is plenty for a family.
 
 ### 2. GitHub (the website)
 
@@ -61,7 +74,8 @@ GitHub account, or give this app its own account, organisation, or custom domain
 
 1. Open the address from step 2.4. iPhone: use Safari, tap Share, then Add to Home Screen. Android: use Chrome, menu,
    Install app.
-2. **Settings:** send yourself a code, sign in.
+2. **Settings:** *Create account* with your email and a password (at least 10 characters; a few words in a row work well), or
+   sign in. An account you made earlier with an email code can set a password under *Password and sessions*.
 3. Start logging. Nothing has to be imported: the app has its own categories (see the next section). If you also keep the
    spreadsheet, **Settings, Spreadsheet plan:** paste its blocks (the section after that).
 
@@ -226,7 +240,14 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
 ## Security notes
 
 - The only secrets are the sign-in session tokens stored in this browser's IndexedDB. The page itself holds only the
-  public Supabase URL and key.
+  public Supabase URL and key. Your password is sent to Supabase when you sign in or change it and is never kept in the app
+  or in the repository; Supabase stores only a hash. The free plan does not check passwords against known leaks, so the app
+  refuses short, very common and email-like passwords itself.
+- Sessions: Supabase keeps a signed-in device signed in until it signs out; the free plan cannot time sessions out. Settings,
+  *Password and sessions* signs out your other devices or every device (a device that is open at that moment drops out when it
+  next renews its sign-in, within about an hour) and changes the password. Supabase gives an app no list of signed-in devices,
+  so the app cannot show one. The "sign out other devices and everywhere" calls are written to Supabase's documented sign-out
+  options but are checked here only against my stand-in server: try them once on your own project.
 - Every table has row-level security, and `supabase/rls_tests.sql` checks it. You read and write your own private rows
   and nothing else of anyone's. A shared expense or payment is readable by the current members of its group and changed
   only by its creator. Groups and memberships change only through database functions that check the rules (a valid code,

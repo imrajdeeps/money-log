@@ -40,7 +40,7 @@ function device(email = 'me@example.com', cfg?: { supabaseUrl: string; supabaseK
 const iso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
 const entry = (over: Partial<Parameters<typeof makeEntry>[0]> = {}): Entry =>
   makeEntry({ amount: 100, category: 'Rent', method: 'UPI', note: 'n', date: '2026-11-09', ...over }, iso());
-const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
+const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
 
 test('without a Supabase URL and key the app stays local and never touches the network', async () => {
   reset();
@@ -1114,4 +1114,159 @@ test('category rows from the server that fail validation are ignored, and anothe
   assert.deepEqual(Object.keys(await mineOf(a)), ['gym']);
   await x.sync.sync();
   assert.deepEqual(await mineOf(x), {}, "another account sees nothing of A's categories");
+});
+
+// ------------------------------------------------------------------ Release 5: email and password, and sessions
+const PW = 'correct horse battery';
+const pwDevice = async (email = 'pw@example.com') => { const d = device(email); await d.sync.init(); return d; };
+
+test('create an account with a password, sign out, and sign in again with it', async () => {
+  reset();
+  const a = await pwDevice();
+  assert.equal(await a.sync.signUp('pw@example.com', PW), 'signed-in');
+  assert.equal(a.sync.getState().mode, 'idle');
+  assert.equal(a.sync.getState().email, 'pw@example.com');
+  assert.ok(await a.store.getMeta('session'));
+  assert.equal(await a.store.getMeta<string>('localOwner'), [...mock.state.users.values()][0]);
+  assert.equal(JSON.stringify(await a.store.getMeta('session')).includes(PW), false, 'the password is never kept on the phone');
+
+  await a.sync.signOut();
+  assert.equal(a.sync.getState().mode, 'signedout');
+  await assert.rejects(a.sync.signInWithPassword('pw@example.com', 'wrong password!'), /email or password is not right/);
+  assert.equal(a.sync.getState().mode, 'signedout', 'a wrong password changes nothing');
+  await assert.rejects(a.sync.signInWithPassword('nobody@example.com', PW), /email or password is not right/, 'the same message for an unknown address');
+  await a.sync.signInWithPassword('pw@example.com', PW);
+  assert.equal(a.sync.getState().mode, 'idle');
+});
+
+test('a weak password or a bad email is refused before anything is sent', async () => {
+  reset();
+  const a = await pwDevice();
+  const before = mock.state.requests.length;
+  await assert.rejects(a.sync.signUp('pw@example.com', 'short'), /at least 10/);
+  await assert.rejects(a.sync.signUp('pw@example.com', 'pw@example.com'), /email/);
+  await assert.rejects(a.sync.signUp('not an email', PW), /valid email/);
+  await assert.rejects(a.sync.signInWithPassword('pw@example.com', ''), /Enter your password/);
+  assert.equal(mock.state.requests.length, before, 'no request went out');
+});
+
+test('with email confirmation on, sign-up waits for the link and sign-in is refused until then', async () => {
+  reset();
+  mock.state.confirmSignups = true;
+  const a = await pwDevice();
+  assert.equal(await a.sync.signUp('pw@example.com', PW), 'confirm');
+  assert.equal(a.sync.getState().mode, 'signedout');
+  assert.equal(await a.store.getMeta('session'), undefined);
+  await assert.rejects(a.sync.signInWithPassword('pw@example.com', PW), /Confirm your email/);
+  mock.state.unconfirmed.clear(); // the person opened the link
+  await a.sync.signInWithPassword('pw@example.com', PW);
+  assert.equal(a.sync.getState().mode, 'idle');
+  // signing up again with a known address looks the same as a new one, so nothing leaks about who has an account
+  const b = await pwDevice('other@example.com');
+  mock.state.confirmSignups = true;
+  assert.equal(await b.sync.signUp('pw@example.com', 'another long phrase'), 'confirm');
+  await assert.rejects(b.sync.signInWithPassword('pw@example.com', 'another long phrase'), /email or password is not right/, "the other person's password does not work");
+});
+
+test('an address that already has an account, closed sign-ups and the service rate limit give readable messages', async () => {
+  reset();
+  const a = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  const b = await pwDevice('pw@example.com');
+  await assert.rejects(b.sync.signUp('pw@example.com', 'another long phrase'), /already an account/);
+  mock.state.signupsOpen = false;
+  await assert.rejects(b.sync.signUp('new@example.com', PW), /switched off/);
+  mock.state.signupsOpen = true;
+  mock.state.failNext = { status: 429, body: { code: 429, error_code: 'over_request_rate_limit', msg: 'Request rate limit reached' } };
+  await assert.rejects(b.sync.signInWithPassword('pw@example.com', PW), /Too many tries/);
+  await b.sync.signInWithPassword('pw@example.com', PW); // the next one goes through
+});
+
+test('a password can be set after a code sign-in, changed, and the new one works on another phone', async () => {
+  reset();
+  const a = device('code@example.com');
+  await a.signIn(); // by emailed code, as the first accounts were made
+  await assert.rejects(a.sync.changePassword('short'), /at least 10/);
+  await assert.rejects(a.sync.changePassword('code@example.com'), /email/);
+  await a.sync.changePassword(PW);
+  await assert.rejects(a.sync.changePassword(PW), /different from the current/);
+  const b = await pwDevice('code@example.com');
+  await b.sync.signInWithPassword('code@example.com', PW);
+  assert.equal(await b.store.getMeta<string>('localOwner'), await a.store.getMeta<string>('localOwner'), 'same account on both phones');
+  await a.sync.changePassword('a second long phrase');
+  await b.sync.signOut();
+  await assert.rejects(b.sync.signInWithPassword('code@example.com', PW), /email or password is not right/, 'the old password stopped working');
+  await b.sync.signInWithPassword('code@example.com', 'a second long phrase');
+});
+
+test('a phone holding another account\'s data refuses a password sign-in to a different account', async () => {
+  reset();
+  const a = await pwDevice('first@example.com');
+  await a.sync.signUp('first@example.com', PW);
+  await a.sync.signOut(); // signing out keeps the data on the phone
+  const other = await pwDevice('second@example.com');
+  await other.sync.signUp('second@example.com', PW);
+  await assert.rejects(a.sync.signInWithPassword('second@example.com', PW), (e: any) => e instanceof SyncError && e.kind === 'owner-mismatch');
+  assert.equal(a.sync.getState().mode, 'signedout');
+  await a.sync.signInWithPassword('first@example.com', PW); // its own account is fine
+});
+
+test('sign out other devices ends their sessions at their next refresh and keeps this one', async () => {
+  reset();
+  const a = await pwDevice(); const b = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  await b.sync.signInWithPassword('pw@example.com', PW);
+  await a.store.putEntries([entry({ note: 'from a' })]);
+  await a.sync.sync(); await b.sync.sync();
+  await a.sync.signOutOthers();
+  assert.equal(a.sync.getState().mode, 'idle', 'this phone stays signed in');
+  // and it keeps working past its next token refresh, which only succeeds if its own refresh token survived
+  const mine = await a.store.getMeta<any>('session');
+  await a.store.setMeta('session', { ...mine, expires_at: 0 });
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.ok(((await a.store.getMeta<any>('session')).expires_at) > Date.now() / 1000, 'a fresh session was issued');
+
+  // the other phone still has an access token that works until it runs out; then its refresh is refused
+  const s = await b.store.getMeta<any>('session');
+  await b.store.setMeta('session', { ...s, expires_at: 0 });
+  await b.sync.sync();
+  assert.equal(b.sync.getState().mode, 'signedout');
+  assert.match(b.sync.getState().error ?? '', /expired|sign in again/i);
+  assert.equal(await b.store.getMeta('session'), undefined);
+  assert.equal((await b.store.allEntries()).length, 1, 'its payments stay on the phone');
+  await b.sync.signInWithPassword('pw@example.com', PW); // and it can sign straight back in
+  assert.equal(b.sync.getState().mode, 'idle');
+});
+
+test('sign out everywhere ends every session including this one, keeps the data, and needs the connection', async () => {
+  reset();
+  const a = await pwDevice(); const b = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  await b.sync.signInWithPassword('pw@example.com', PW);
+  await a.store.putEntries([entry()]);
+  a.net.offline = true;
+  await assert.rejects(a.sync.signOutEverywhere(), (e: any) => e instanceof SyncError && e.kind === 'offline');
+  assert.ok(await a.store.getMeta('session'), 'still signed in: the service had not confirmed');
+  a.net.offline = false;
+  await a.sync.signOutEverywhere();
+  assert.equal(a.sync.getState().mode, 'signedout');
+  assert.equal(await a.store.getMeta('session'), undefined);
+  assert.equal((await a.store.allEntries()).length, 1, 'payments stay on the phone');
+  const s = await b.store.getMeta<any>('session');
+  await b.store.setMeta('session', { ...s, expires_at: 0 });
+  await b.sync.sync();
+  assert.equal(b.sync.getState().mode, 'signedout');
+});
+
+test('signing out one phone does not end the same account\'s session on another', async () => {
+  reset();
+  const a = await pwDevice(); const b = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  await b.sync.signInWithPassword('pw@example.com', PW);
+  await a.sync.signOut(); // scope local
+  const s = await b.store.getMeta<any>('session');
+  await b.store.setMeta('session', { ...s, expires_at: 0 }); // force a refresh on b
+  await b.sync.sync();
+  assert.equal(b.sync.getState().mode, 'idle', b.sync.getState().error ?? '');
 });
