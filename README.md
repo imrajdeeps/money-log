@@ -45,7 +45,8 @@ GitHub Pages on a free account needs a **public** repository, which is fine: it 
    public values from step 1.6.
 4. Push to `main` (or run the workflow by hand). It runs the tests, builds, and publishes to
    `https://YOUR-NAME.github.io/REPO-NAME/`. If you add or change the two variables later, run the whole workflow again
-   (not just its failed step): the values are baked into the build.
+   (not just its failed step): the values are baked into the build. A pull request into `main` runs the same tests and
+   build but publishes nothing; only a push to `main` (or running the workflow by hand) deploys.
 
 **Keep this origin clean.** All sites under `YOUR-NAME.github.io` share one browser origin, so another page there
 could read this app's stored data and sign-in. Do not host other sites you do not fully control under the same
