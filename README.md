@@ -6,7 +6,7 @@ spreadsheet's Log tab. Release 2 adds shared groups (a family group, trip groups
 with a calendar file, and a net worth and goals snapshot. Release 3 adds receipt photos, the edit history of shared
 expenses, a one-tap "add my share to my budget", an optional PIN lock, and a Method column for the spreadsheet's Log tab.
 Release 4 gives the app its own categories and budgets, so importing the spreadsheet is optional. Release 5 adds email and
-password sign-in, account creation and session controls (the email code stays as a fallback). The home screen is a
+password sign-in, account creation and session controls (email and password only, so no email is needed). The home screen is a
 dashboard of tiles, each opening its details in a sheet, with a **+ Add expense** button always one tap away.
 It works on iPhone and Android, and offline.
 
@@ -31,20 +31,19 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
    `schema.sql`. (Supabase's Storage refuses plain SQL deletes on its file tables, error 42501 "Use the Storage API instead".
    The test removes its fake files the way Storage itself does, by setting `storage.allow_delete_query` around that one
    delete. The app never deletes files through SQL: it uses the Storage API.)
-4. **Authentication, how people sign in.** The app signs in with **email and password** (Settings, Create account) and
-   keeps an **email code** as the way back in when a password is forgotten. Decide the next two settings together:
-   - **Email delivery.** Supabase's built-in email sender on the free plan only sends to the addresses of your own
-     Supabase team members, at most 2 emails an hour (checked on Supabase's pages, 10 Nov 2026). So the email code, the
-     confirmation email and any link sent to a family member **do not reach them** until you add a custom email (SMTP)
-     service under *Authentication, SMTP settings* (a free Supabase plan can use one; Supabase lists Resend, Brevo, Postmark,
-     SendGrid, SES and ZeptoMail; check that provider's own free limits). If you want **no email at all**, use the next setting.
-   - **Authentication, Providers, Email, "Confirm email".** **Off** (simplest, free, no email needed): a new account
-     can sign in at once with its password. Anyone can then create an account with any address, including one that is not
-     theirs, while sign-ups are on (see step 5; they still see none of your data). **On**: a new account must open a link
-     first, which needs the email service above; the app then says "open the confirmation link, then sign in". The app
-     works with either setting.
-   - If you use the email **code**, edit **both** the *Confirm signup* and the *Magic Link* templates so the email contains
-     the 6-digit code, for example `Your Money Log code is {{ .Token }}`. The app asks for the code, not a link.
+4. **Authentication, how people sign in.** The app signs in with **email and password** (Settings, Create account). It sends
+   no codes and needs no emails. Set this once:
+   - **Authentication, Sign In / Providers, "Confirm email": switch it OFF** and Save. Why: Supabase's built-in email sender on
+     the free plan only sends to the addresses of your own Supabase team members, at most 2 emails an hour (checked on
+     Supabase's pages, 10 Nov 2026), so a confirmation link would never reach a family member. With it off, a new account can
+     sign in at once with its password. The trade-off: anyone can create an account with any address, including one that is
+     not theirs, while sign-ups are on (see step 5; they still see none of your data). If you leave it on, a new account must
+     open an emailed link first and the app says so.
+   - **Why there is no "email me a code".** While you use Supabase's built-in email, its email templates are locked (read-only,
+     "Set up custom SMTP to edit templates", seen in the dashboard on 10 Nov 2026), and the default sign-in email holds a
+     link, not a code. This app takes a password or a typed code, never a link, so it offers passwords only. If you ever add
+     your own email service (Authentication, Emails, SMTP Settings; the free plan allows it) the templates unlock and a code
+     could be offered again; nothing in the app needs it today.
 5. **Sign-ups.** Turn **Allow new users to sign up** on **only while you are inviting someone**, and turn it off again
    once they have signed in once (people who already have an account keep working). Why it matters: the app's key is
    public by design, so while sign-ups are on a stranger can create an account on your project. Such an account can see
@@ -54,7 +53,7 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
    design. **Never** copy the `service_role` or secret key into this project.
 
 A signed-in phone stays signed in: it renews its sign-in by itself, so you rarely need an email or a password again.
-Sign-ups and password sign-in attempts are rate limited by Supabase per IP address (30 sign-ups or codes and 150 sign-ins per
+Sign-ups and password sign-in attempts are rate limited by Supabase per IP address (30 sign-ups and 150 sign-ins per
 5 minutes, checked 10 Nov 2026), which is plenty for a family.
 
 ### 2. GitHub (the website)
@@ -79,7 +78,8 @@ GitHub account, or give this app its own account, organisation, or custom domain
 1. Open the address from step 2.4. iPhone: use Safari, tap Share, then Add to Home Screen. Android: use Chrome, menu,
    Install app.
 2. **Settings:** *Create account* with your email and a password (at least 10 characters; a few words in a row work well), or
-   sign in. An account you made earlier with an email code can set a password under *Password and sessions*.
+   sign in. If you once tried an email-code sign-in with the same address, delete that unfinished user first (Supabase,
+   Authentication, Users, the three dots, Delete user) and then create the account here.
 3. Start logging. Nothing has to be imported: the app has its own categories (see below). If you also keep the
    spreadsheet, **Settings, Spreadsheet plan:** paste its blocks (see "Getting the plan from the spreadsheet").
 
@@ -240,6 +240,22 @@ after the time you choose (every time, after 1 minute, or after 5 minutes). Afte
 longer (30 seconds, then 1, 2, 4... up to 15 minutes). It is a privacy screen, **not encryption**: the data stays readable in
 this browser's storage to anyone who can open its developer tools, so your phone's own lock is what protects it. A forgotten PIN
 cannot be recovered: you erase this phone's copy and sign in again (what is in the cloud stays).
+
+## If someone forgets their password
+
+The app cannot email a new password: Supabase's free built-in email only reaches your own team (see step 1.4). So the person
+who runs the project resets it, in Supabase's **SQL Editor** (read the line, put the real address in, Run):
+
+```sql
+update auth.users
+set encrypted_password = extensions.crypt('a-long-temporary-password', extensions.gen_salt('bf'))
+where email = 'person@example.com';
+```
+
+Then the person signs in with that temporary password and changes it at once in *Settings, Password and sessions*. This is
+the usual way to set a password directly in Supabase, written for its standard setup (the password functions live in the
+`extensions` schema), but it has **not been tried on a real project**. The SQL Editor keeps a copy of what you ran: delete that
+snippet afterwards, and do not use a password the person uses anywhere else. A password you set yourself and forgot is reset the same way.
 
 ## Updating the app
 

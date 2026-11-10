@@ -181,6 +181,9 @@ export function createSync(opts: SyncOptions) {
   }
 
   // ------------------------------------------------------------ sign in / out
+  // Sign-in by emailed code. No screen offers it now: Supabase's free built-in email cannot send a code (its templates are locked
+  // to a link without a custom email service), so the app signs in with email and password. Kept because the tests sign their
+  // phones in with it, and a project that sets up its own email service could offer it again.
   async function requestCode(email: string): Promise<void> {
     if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SyncError('http', 'Enter a valid email address.');
