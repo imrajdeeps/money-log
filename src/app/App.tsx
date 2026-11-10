@@ -125,7 +125,7 @@ function Shell() {
         </p>
       )}
       <main>
-        <div hidden={page !== 'home'}><HomeScreen open={goPage} openMonth={goMonth} openAdd={goAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
+        <div hidden={page !== 'home'}><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
         <div hidden={page !== 'settings'} className="narrow">
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>

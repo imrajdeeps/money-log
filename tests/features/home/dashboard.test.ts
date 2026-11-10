@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
+import { coupleTiles, dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from '../../../src/features/payments/payments.ts';
 import { dueKey } from '../../../src/core/blocks.ts';
 import type { DueBlock } from '../../../src/core/blocks.ts';
@@ -187,4 +187,34 @@ test('all payments: search finds words in any order, amounts without commas, and
   assert.deepEqual(paymentMonths(es), ['2026-11', '2026-10']);
   assert.deepEqual(paymentCategories([...es, mk(10, 'groceries', '2026-11-06')]), ['Fuel', 'Groceries', 'Rent'], 'one name per spelling in any case');
   assert.equal(totalShare(es, ME), 6600);
+});
+
+const CA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const CB = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const grp = (id: string, kind: 'couple' | 'family' | 'trip'): import('../../../src/core/groups.ts').Group =>
+  ({ id, name: id, kind, created_at: '2026-11-10T00:00:00Z', starts_on: null, ends_on: null, closed_at: null, usual_split: null });
+const mem = (gid: string, uid: string, name: string, left: string | null = null) =>
+  ({ group_id: gid, user_id: uid, display_name: name, role: 'member' as const, joined_at: '2026-11-10T00:00:00Z', left_at: left });
+const G1 = '11111111-1111-4111-8111-111111111111';
+const G2 = '22222222-2222-4222-8222-222222222222';
+const G3 = '33333333-3333-4333-8333-333333333333';
+const G4 = '44444444-4444-4444-8444-444444444444';
+const shared = (gid: string, amount: number, paidBy: string): Entry => ({
+  id: `s${gid}${amount}`, owner_id: paidBy, entry_date: '2026-11-09', category: 'Food', amount, note: '', method: null, created_at: '2026-11-09T10:00:00Z',
+  updated_at: '2026-11-09T10:00:00Z', deleted_at: null, exported_at: null, group_id: gid, paid_by: paidBy, shares: { [CA]: amount / 2, [CB]: amount / 2 }, share_of: null, dirty: 0,
+});
+
+test('one Overview tile for each couple that has both people, with the one line', () => {
+  const groups = [grp(G1, 'couple'), grp(G2, 'family'), grp(G3, 'couple'), grp(G4, 'trip')];
+  const members = [mem(G1, CA, 'Raj'), mem(G1, CB, 'Priya'), mem(G2, CA, 'Raj'), mem(G2, CB, 'Priya'), mem(G3, CA, 'Raj')]; // G3: the partner has not joined
+  const tiles = coupleTiles(groups, members, [shared(G1, 100, CA)], [], CA);
+  assert.deepEqual(tiles, [{ id: G1, partner: 'Priya', text: 'Priya owes you ₹50', tone: 'owed' }]);
+  assert.equal(coupleTiles(groups, members, [shared(G1, 100, CB)], [], CA)[0]!.text, 'You owe Priya ₹50');
+  assert.equal(coupleTiles(groups, members, [], [], CA)[0]!.tone, 'muted');
+  assert.deepEqual(coupleTiles(groups, members, [], [], null), []);
+  // a partner who has left, and a third couple: none, and never more than two tiles
+  assert.deepEqual(coupleTiles([grp(G1, 'couple')], [mem(G1, CA, 'Raj'), mem(G1, CB, 'Priya', '2026-11-10T00:00:00Z')], [], [], CA), []);
+  const many = [grp(G1, 'couple'), grp(G3, 'couple'), grp(G4, 'couple')];
+  const both = [G1, G3, G4].flatMap((g) => [mem(g, CA, 'Raj'), mem(g, CB, 'Priya')]);
+  assert.equal(coupleTiles(many, both, [], [], CA).length, 2);
 });

@@ -7,7 +7,7 @@ import { RecurringTile } from '../recurring/index.ts';
 import { RecentList } from '../payments/index.ts';
 import { dueRelative, fmtNet } from '../../core/blocks.ts';
 import { planForMonth } from '../../core/categories.ts';
-import { dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
+import { coupleTiles, dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
 import { monthLabel, shortDate } from '../../core/format.ts';
 import type { Group } from '../../core/logic.ts';
 import { fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
@@ -18,6 +18,7 @@ export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export';
 interface Props {
   open: (s: Section, anchor?: string) => void;
   openMonth: (group?: Group) => void; // the Month page, for one group's categories or for all
+  openGroup: (id: string) => void; // one group's page
   openAdd: () => void;
   goSettings: () => void;
   manageRecurring: () => void;
@@ -28,7 +29,7 @@ const whole = (f: number): string => `${Math.round(f * 100)}%`;
 
 // The surface layer: one figure or picture per tile, every tile a door to its details. Everything shown is worked out from
 // what the app already holds; there is no tile for figures the app does not record (income, net worth over time).
-export function HomeScreen({ open, openMonth, openAdd, goSettings, manageRecurring }: Props) {
+export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, manageRecurring }: Props) {
   const app = useApp();
   const today = isoDate();
   const month = monthOf(today);
@@ -41,6 +42,7 @@ export function HomeScreen({ open, openMonth, openAdd, goSettings, manageRecurri
   // two more of the snapshot's figures for context; the Plan sheet lists them all
   const netFacts = useMemo(() => (app.net?.items ?? []).filter((i) => i !== net?.main && i !== net?.goal).slice(0, 2), [app.net, net]);
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
+  const couples = useMemo(() => coupleTiles(app.groups, app.members, app.groupEntries, app.settlements, app.me), [app.groups, app.members, app.groupEntries, app.settlements, app.me]);
   const ex = useMemo(() => exportOverview(app.entries, app.allEntries, app.me), [app.entries, app.allEntries, app.me]);
 
   const tiles = overviewGroups(ov.summary.groups);
@@ -179,6 +181,13 @@ export function HomeScreen({ open, openMonth, openAdd, goSettings, manageRecurri
             </ul>
           )}
         </BentoCard>
+
+        {couples.map((c) => (
+          <BentoCard key={c.id} title={`You and ${c.partner}`} span={4} onOpen={() => openGroup(c.id)} openLabel={`Open your couple group with ${c.partner}`}>
+            <p className={`stat-num ${c.tone}`}>{c.text}</p>
+            <p className="muted small">{c.tone === 'muted' ? 'Nothing to settle' : 'Open to settle up'}</p>
+          </BentoCard>
+        ))}
 
         {!app.syncEnabled ? (
           <BentoCard title="Groups" span={4}><BentoEmpty>Groups need cloud sync, which is not set up in this build.</BentoEmpty></BentoCard>

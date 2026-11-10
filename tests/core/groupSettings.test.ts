@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanGroup, cleanUsualSplit } from '../../src/core/groups.ts';
+import { cleanGroup, cleanUsualSplit, usualSplitValues } from '../../src/core/groups.ts';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -37,4 +37,14 @@ test('the usual split: equal, or percentages that add up to 100', () => {
 test('flatmates keep a valid usual split and drop a broken one', () => {
   assert.deepEqual(cleanGroup({ ...base, kind: 'flatmates', usual_split: { mode: 'percent', percent: { [A]: 70, [B]: 30 } } })?.usual_split, { mode: 'percent', percent: { [A]: 70, [B]: 30 } });
   assert.equal(cleanGroup({ ...base, kind: 'flatmates', usual_split: { mode: 'percent', percent: { [A]: 70 } } })?.usual_split, null);
+});
+
+test('a new expense starts from the usual split only while it still fits the people in the group', () => {
+  const split = { mode: 'percent' as const, percent: { [A]: 60, [B]: 40 } };
+  assert.deepEqual(usualSplitValues(split, [A, B]), { [A]: '60', [B]: '40' });
+  assert.equal(usualSplitValues(null, [A, B]), null);
+  assert.equal(usualSplitValues({ mode: 'equal' }, [A, B]), null);
+  assert.equal(usualSplitValues(split, [A]), null); // B left: 60 is not 100
+  const C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  assert.deepEqual(usualSplitValues(split, [A, B, C]), { [A]: '60', [B]: '40', [C]: '0' }); // C joined later: 0%
 });
