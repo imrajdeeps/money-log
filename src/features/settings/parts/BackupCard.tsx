@@ -5,6 +5,7 @@ import { makeBackup, parseBackup } from '../../../data/backup.ts';
 import { readTextFile, saveFile } from '../../../ui/files.ts';
 import { stamp } from '../../../core/format.ts';
 import { errText } from './shared.ts';
+import * as ui from '../../../ui/styles.ts';
 
 export function BackupCard() {
   const app = useApp();
@@ -30,17 +31,17 @@ export function BackupCard() {
   }
 
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h2>Backup</h2>
-      <p className="muted small">A file with all your payments and the plan. Keep one somewhere safe (iCloud Drive, for example) from time to time.</p>
-      <div className="btnrow">
-        <button type="button" className="btn" onClick={download}>Download backup</button>
-        <label className="btn ghost filebtn">
+      <p className="text-muted text-[13px]">A file with all your payments and the plan. Keep one somewhere safe (iCloud Drive, for example) from time to time.</p>
+      <div className={ui.btnRow}>
+        <button type="button" className={ui.btn()} onClick={download}>Download backup</button>
+        <label className={ui.btn('ghost', 'md', 'mt-0')}>
           Restore
           <input type="file" accept=".json,application/json" onChange={restore} />
         </label>
       </div>
-      {msg && <p className="msg" role="status">{msg}</p>}
+      {msg && <p className={ui.msg()} role="status">{msg}</p>}
     </div>
   );
 }

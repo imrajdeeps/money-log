@@ -4,6 +4,7 @@ import { useApp } from '../../../data/context.tsx';
 import { clockLabel } from '../../../core/format.ts';
 import { MIN_PASSWORD } from '../../../data/password.ts';
 import { errText } from './shared.ts';
+import * as ui from '../../../ui/styles.ts';
 
 export function AccountCard() {
   const app = useApp();
@@ -57,72 +58,72 @@ export function AccountCard() {
 
   if (!app.syncEnabled) {
     return (
-      <div className="card">
+      <div className={ui.card()}>
         <h2>Cloud sync</h2>
-        <p className="muted">Cloud sync is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.</p>
+        <p className="text-muted">Cloud sync is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.</p>
       </div>
     );
   }
 
   if (s.mode === 'signedout') {
-    const note = (msg || s.error) && <p className={`msg ${msg?.bad || !msg ? 'bad' : ''}`} role="alert">{msg?.text ?? s.error}</p>;
+    const note = (msg || s.error) && <p className={ui.msg(msg?.bad || !msg ? 'bad' : undefined)} role="alert">{msg?.text ?? s.error}</p>;
     return (
-      <div className="card">
+      <div className={ui.card()}>
         <h2>{how === 'signup' ? 'Create an account' : 'Sign in to sync'}</h2>
         {app.authNotice && (
-          <p className={`msg ${app.authNotice.bad ? 'bad' : 'good'}`} role="alert">
-            {app.authNotice.text} <button type="button" className="linkbtn" onClick={app.dismissAuthNotice}>Dismiss</button>
+          <p className={ui.msg(app.authNotice.bad ? 'bad' : 'good')} role="alert">
+            {app.authNotice.text} <button type="button" className={ui.linkBtn} onClick={app.dismissAuthNotice}>Dismiss</button>
           </p>
         )}
-        <p className="muted small">Your payments are saved on this phone either way. Signing in only adds the cloud copy and your other devices.</p>
-        <div className="chips" role="group" aria-label="How to sign in">
-          <button type="button" className="chip" aria-pressed={how === 'signin'} onClick={() => choose('signin')}>Sign in</button>
-          <button type="button" className="chip" aria-pressed={how === 'signup'} onClick={() => choose('signup')}>Create account</button>
+        <p className="text-muted text-[13px]">Your payments are saved on this phone either way. Signing in only adds the cloud copy and your other devices.</p>
+        <div className={ui.chips} role="group" aria-label="How to sign in">
+          <button type="button" className={ui.chip} aria-pressed={how === 'signin'} onClick={() => choose('signin')}>Sign in</button>
+          <button type="button" className={ui.chip} aria-pressed={how === 'signup'} onClick={() => choose('signup')}>Create account</button>
         </div>
         {how === 'signin' && (
           <form onSubmit={signIn} noValidate>
-            <label className="field">
+            <label className={ui.field}>
               <span>Email</span>
               <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} />
             </label>
-            <label className="field">
+            <label className={ui.field}>
               <span>Password</span>
               <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} />
             </label>
             {note}
-            <div className="btnrow">
-              <button type="submit" className="btn" disabled={busy || !email.trim() || !password}>Sign in</button>
+            <div className={ui.btnRow}>
+              <button type="submit" className={ui.btn()} disabled={busy || !email.trim() || !password}>Sign in</button>
             </div>
-            <p className="muted small"><button type="button" className="linkbtn" aria-expanded={forgot} onClick={() => { setForgot(!forgot); setResetNote(null); }}>Forgot your password?</button></p>
+            <p className="text-muted text-[13px]"><button type="button" className={ui.linkBtn} aria-expanded={forgot} onClick={() => { setForgot(!forgot); setResetNote(null); }}>Forgot your password?</button></p>
             {forgot && (
-              <div className="newcat" role="group" aria-label="Reset your password">
-                <p className="small">We will email {email.trim() ? <b>{email.trim()}</b> : 'the address above'} a link to choose a new password. Open it on this phone.</p>
-                <button type="button" className="btn" disabled={busy || !email.trim()} onClick={sendReset}>Email me a reset link</button>
-                {resetNote && <p className={`msg ${resetNote.bad ? 'bad' : 'good'}`} role={resetNote.bad ? 'alert' : 'status'}>{resetNote.text}</p>}
-                <p className="muted small">It reaches the addresses this project's email can send to: today that is the project owner's. For anyone else, ask whoever runs the project to reset it (README, "If someone forgets their password").</p>
+              <div className={ui.newCat} role="group" aria-label="Reset your password">
+                <p className="text-[13px]">We will email {email.trim() ? <b>{email.trim()}</b> : 'the address above'} a link to choose a new password. Open it on this phone.</p>
+                <button type="button" className={ui.btn()} disabled={busy || !email.trim()} onClick={sendReset}>Email me a reset link</button>
+                {resetNote && <p className={ui.msg(resetNote.bad ? 'bad' : 'good')} role={resetNote.bad ? 'alert' : 'status'}>{resetNote.text}</p>}
+                <p className="text-muted text-[13px]">It reaches the addresses this project's email can send to: today that is the project owner's. For anyone else, ask whoever runs the project to reset it (README, "If someone forgets their password").</p>
               </div>
             )}
           </form>
         )}
         {how === 'signup' && (
           <form onSubmit={signUp} noValidate>
-            <label className="field">
+            <label className={ui.field}>
               <span>Email</span>
               <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} />
             </label>
-            <label className="field">
+            <label className={ui.field}>
               <span>Password (at least {MIN_PASSWORD} characters)</span>
               <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} />
             </label>
-            <label className="field">
+            <label className={ui.field}>
               <span>Repeat the password</span>
               <input type="password" autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} disabled={busy} />
             </label>
             {note}
-            <div className="btnrow">
-              <button type="submit" className="btn" disabled={busy || !email.trim() || !password || !password2}>Create account</button>
+            <div className={ui.btnRow}>
+              <button type="submit" className={ui.btn()} disabled={busy || !email.trim() || !password || !password2}>Create account</button>
             </div>
-            <p className="muted small">A few words in a row make a strong password. If you forget it, use "Forgot your password?" on the Sign in form (see the README for who it can reach).</p>
+            <p className="text-muted text-[13px]">A few words in a row make a strong password. If you forget it, use "Forgot your password?" on the Sign in form (see the README for who it can reach).</p>
           </form>
         )}
       </div>
@@ -130,39 +131,39 @@ export function AccountCard() {
   }
 
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h2>Cloud sync</h2>
       <p>Signed in as <b>{s.email}</b></p>
-      <p className="muted small">
+      <p className="text-muted text-[13px]">
         {s.pending ? `${s.pending} change${s.pending === 1 ? '' : 's'} waiting to upload. ` : 'Everything is uploaded. '}
         {s.lastSync ? `Last sync ${clockLabel(s.lastSync)}.` : ''}
         {s.mode === 'offline' ? ' You are offline; it will catch up when the connection returns.' : ''}
       </p>
-      {s.error && <p className="msg bad" role="alert">{s.error}</p>}
-      <div className="btnrow">
-        <button type="button" className="btn" onClick={app.syncNow} disabled={s.mode === 'syncing'}>Sync now</button>
-        <button type="button" className="btn ghost" aria-expanded={leaving} onClick={() => setLeaving(!leaving)}>Sign out</button>
+      {s.error && <p className={ui.msg('bad')} role="alert">{s.error}</p>}
+      <div className={ui.btnRow}>
+        <button type="button" className={ui.btn()} onClick={app.syncNow} disabled={s.mode === 'syncing'}>Sync now</button>
+        <button type="button" className={ui.btn('ghost')} aria-expanded={leaving} onClick={() => setLeaving(!leaving)}>Sign out</button>
       </div>
       {leaving && (
-        <div className="newcat" role="group" aria-label="Sign out">
+        <div className={ui.newCat} role="group" aria-label="Sign out">
           <p><b>Also erase this phone's copy of your data?</b></p>
-          <p className="muted small">
+          <p className="text-muted text-[13px]">
             Erase it before someone else uses this phone or you sign in with another account. Everything already in the cloud stays there
             and comes back when you sign in again. Keep it if this is still your phone and you will sign back in.
           </p>
           {s.pending > 0 && (
-            <p className="msg bad" role="alert">
+            <p className={ui.msg('bad')} role="alert">
               {s.pending} change{s.pending === 1 ? ' has' : 's have'} not reached the cloud. Erasing loses {s.pending === 1 ? 'it' : 'them'}; signing out and keeping the data does not.
             </p>
           )}
-          <div className="btnrow">
-            <button type="button" className="btn" onClick={() => { void app.signOut(); }}>Sign out, keep the data</button>
+          <div className={ui.btnRow}>
+            <button type="button" className={ui.btn()} onClick={() => { void app.signOut(); }}>Sign out, keep the data</button>
           </div>
-          <div className="btnrow">
-            <button type="button" className="btn danger" onClick={async () => { await app.eraseAll(); app.toast('Signed out and erased this phone.'); }}>Sign out and erase this phone</button>
+          <div className={ui.btnRow}>
+            <button type="button" className={ui.btn('danger')} onClick={async () => { await app.eraseAll(); app.toast('Signed out and erased this phone.'); }}>Sign out and erase this phone</button>
           </div>
-          <div className="btnrow">
-            <button type="button" className="btn ghost" onClick={() => setLeaving(false)}>Cancel</button>
+          <div className={ui.btnRow}>
+            <button type="button" className={ui.btn('ghost')} onClick={() => setLeaving(false)}>Cancel</button>
           </div>
         </div>
       )}

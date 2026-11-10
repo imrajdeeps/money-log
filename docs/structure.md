@@ -16,8 +16,8 @@ src/
       index.ts    the only file other code may import from this folder
   app/        starts the app: main.tsx, the page frame (App.tsx), the router.
   routes/     one small file per address (TanStack Router reads this folder). routeTree.gen.ts is generated.
-  styles/     tokens.css (the colours for the light and dark themes, kept for good), the Tailwind theme in index.css, and
-              the old hand-written CSS, one file per area, shrinking as features move to Tailwind classes (see Styling).
+  styles/     tokens.css (the colours for the light and dark themes) and index.css (the Tailwind theme, the plain element
+              rules, and the two things a class says badly: see Styling).
   assets/     fonts.
 tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds the stand-in Supabase server and fixtures.
 ```
@@ -31,32 +31,43 @@ tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds
 3. **`core` is plain TypeScript.** No React, no router. That is why the Node test runner can load it without a browser.
 4. **Imports are relative** (`../../core/logic.ts`) and keep their `.ts` / `.tsx` extension.
 
-## Styling (Tailwind, from version 1.11)
+## Styling (Tailwind)
 
-Components are styled with Tailwind utility classes. The colours live in `src/styles/tokens.css` as CSS variables, one set for
-light and one for dark (`<html data-theme>`); `src/styles/index.css` gives them Tailwind names (`bg-card`, `text-muted`,
+Everything is styled with Tailwind utility classes in the components. The colours live in `src/styles/tokens.css` as CSS variables,
+one set for light and one for dark (`<html data-theme>`); `src/styles/index.css` gives them Tailwind names (`bg-card`, `text-muted`,
 `border-line`, `text-good`, `bg-primary` ...) with `@theme inline`, so the two themes work with no `dark:` classes. Use those
-names, not Tailwind's default palette (it is switched off).
+names, not Tailwind's default palette (it is switched off). Sizes are written in pixels (`text-[13px]`): the named sizes
+(`text-sm`) also set a line height.
 
-During the move there are three CSS layers, lowest first: Tailwind's theme, `legacy` (the old CSS files) and utilities. A utility
-therefore wins over a legacy rule where both apply, and a feature is converted by replacing its class names with utilities and
-deleting its rules from the legacy file. There is no Tailwind preflight yet: the legacy base still does the resetting; it goes
-last, when the last legacy file is gone. Plain CSS still belongs in `tokens.css` and in `index.css` (keyframes, `@font-face`).
+What every screen shares (buttons, cards, lists, rows, fields, messages, meters, the photo and split pieces) is in
+`src/ui/styles.ts` as functions and constants: `btn('ghost', 'small')`, `card('notice')`, `list()`, `msg('bad')`, `field`,
+`chips`... **Each variant is a complete class string, never "base plus override":** two utilities for the same property are
+decided by the order of the generated stylesheet, not the order in the string. The page frame's classes are in
+`app/shellStyles.ts`, the Overview tiles' in `ui/tileStyles.ts`, the tile grid in `ui/Bento.tsx` (a container query: `@container`,
+`@min-[600px]:`). A rule that depends on a neighbour is written on the parent (`[&>li+li]:border-t`) or the card (`[ul+&]:mt-3.5`).
+
+`index.css` keeps only what a class says badly: the `@theme` (colour names, animations), a `base` layer of plain element rules
+(headings, form fields, dialogs: there is no Tailwind preflight), `.hero` (the one tile that re-points the colour tokens, so its text,
+meters and chart recolour themselves) and `.pace` (the chart's SVG strokes).
 
 ### Motion
 
 Keyframes and `animate-*` utilities are defined in `index.css` (`--animate-page-in`, `--animate-rise`, `--animate-toast`); use the
 utility on a component (`animate-page-in`, `animate-rise`). Animations fill only backwards, so the finished state is the normal
-style and hover and press effects keep working. Dialogs, meters and button presses are in the small `base` layer at the end of
-`index.css` because they are elements, not components. The `prefers-reduced-motion` rule in `responsive.css` turns every
+style and hover and press effects keep working. Dialogs open from the `base` layer of
+`index.css`; meters, button presses and tiles carry their own motion classes. The `prefers-reduced-motion` rule at the end of `index.css` turns every
 animation and transition into nothing.
 
 ### Checking the look after a CSS change
 
 There are no visual tests. `tests/support/style-snapshot.js` records the computed style of every visible element on every
-page (light and dark) and compares it later: serve a build (`npm run e2e:build`, copy the script to `dist-e2e/snap.js`,
-`npm run e2e:serve`), load the script in the page, run `await window.__snap('save', 'name')` at phone width and at desktop width,
-make the change, rebuild, and run `await window.__snap('compare', 'name')`. An empty list means the look did not change.
+page (light and dark) and compares it later. Serve a build (`npm run e2e:build`, copy the script to `dist-e2e/snap.js`,
+`npm run e2e:serve`), load the script in the page, and run `await window.__snap('save', 'name')` at phone, tablet and desktop width
+(reload the page after resizing). Make the change, rebuild, and run `await window.__snap('compare', 'name')`: it lists what changed,
+grouped (a changed height that only ripples down from another change is left out). An empty list means the look did not change.
+`window.__snapExtra = ['/groups/<id>']` adds pages that exist only in one browser; a third argument, `'scenes'`, records the
+dialogs that need a click (budgets, an expense). Animations are cancelled while recording. Record the baseline from the build
+**before** the change: keep that build's folder so it can be served again.
 
 ## Adding things
 

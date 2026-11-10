@@ -4,6 +4,7 @@ import { equalShares, fromPaise, toPaise } from '../../core/groups.ts';
 import type { Group, Member, UsualSplit } from '../../core/groups.ts';
 import { parseAmount } from '../../core/logic.ts';
 import { useAction } from './useAction.ts';
+import * as ui from '../../ui/styles.ts';
 
 const pctText = (n: number): string => `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0$/, '')}%`;
 
@@ -41,7 +42,7 @@ export function UsualSplitCard({ group, people, isAdmin }: { group: Group; peopl
 
   const late = usual?.mode === 'percent' ? people.filter((p) => usual.percent[p.user_id] === undefined) : [];
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h3>Usual split</h3>
       {!editing && (
         <>
@@ -50,44 +51,44 @@ export function UsualSplitCard({ group, people, isAdmin }: { group: Group; peopl
               ? people.map((p) => `${who(p)} ${pctText(usual.percent[p.user_id] ?? 0)}`).join(' · ')
               : 'Equal between everyone. Each new expense starts from this, and you can change it for a single expense.'}
           </p>
-          {late.length > 0 && <p className="muted small">{late.map(who).join(', ')} joined after this was set and {late.length === 1 ? 'is' : 'are'} at 0% until an admin updates it.</p>}
+          {late.length > 0 && <p className="text-muted text-[13px]">{late.map(who).join(', ')} joined after this was set and {late.length === 1 ? 'is' : 'are'} at 0% until an admin updates it.</p>}
           {isAdmin && (
-            <div className="btnrow">
-              <button type="button" className="btn ghost" onClick={startEditing}>{usual ? 'Change' : 'Set a usual split'}</button>
-              {usual && <button type="button" className="btn ghost" disabled={act.busy} onClick={() => { void act.run(() => app.setUsualSplit(group.id, null), 'Usual split cleared'); }}>Clear</button>}
+            <div className={ui.btnRow}>
+              <button type="button" className={ui.btn('ghost')} onClick={startEditing}>{usual ? 'Change' : 'Set a usual split'}</button>
+              {usual && <button type="button" className={ui.btn('ghost')} disabled={act.busy} onClick={() => { void act.run(() => app.setUsualSplit(group.id, null), 'Usual split cleared'); }}>Clear</button>}
             </div>
           )}
         </>
       )}
       {editing && (
         <>
-          <fieldset className="chips">
+          <fieldset className={ui.chips}>
             <legend>Split</legend>
-            <button type="button" className="chip" aria-pressed={mode === 'equal'} onClick={() => setMode('equal')}>Equal</button>
-            <button type="button" className="chip" aria-pressed={mode === 'percent'} onClick={() => setMode('percent')}>Percent</button>
+            <button type="button" className={ui.chip} aria-pressed={mode === 'equal'} onClick={() => setMode('equal')}>Equal</button>
+            <button type="button" className={ui.chip} aria-pressed={mode === 'percent'} onClick={() => setMode('percent')}>Percent</button>
           </fieldset>
           {mode === 'percent' && (
-            <ul className="list plainlist splitlist">
+            <ul className={ui.list(true, 'mt-2 mx-0 mb-0')}>
               {people.map((p) => (
-                <li key={p.user_id} className="splitrow">
-                  <span className="who">{who(p)}</span>
-                  <input className="num" inputMode="decimal" aria-label={`Percent for ${p.display_name}`} placeholder="%" value={values[p.user_id] ?? ''} onChange={(e) => { setValues({ ...values, [p.user_id]: e.target.value }); act.setError(''); }} />
+                <li key={p.user_id} className={ui.splitRow}>
+                  <span className="flex-1">{who(p)}</span>
+                  <input className="w-24 text-right" inputMode="decimal" aria-label={`Percent for ${p.display_name}`} placeholder="%" value={values[p.user_id] ?? ''} onChange={(e) => { setValues({ ...values, [p.user_id]: e.target.value }); act.setError(''); }} />
                 </li>
               ))}
             </ul>
           )}
           {mode === 'percent' && (
-            <p className={addsUp ? 'muted small' : 'msg bad'} role="status">
+            <p className={addsUp ? 'text-muted text-[13px]' : ui.msg('bad')} role="status">
               {total === null ? 'Use numbers from 0 to 100 with at most 2 decimals.' : addsUp ? 'Adds up to 100%.' : `The percentages add up to ${pctText(total)}, not 100%.`}
             </p>
           )}
-          <div className="btnrow">
-            <button type="button" className="btn" disabled={act.busy || !addsUp} onClick={() => { void save(); }}>Save</button>
-            <button type="button" className="btn ghost" disabled={act.busy} onClick={() => setEditing(false)}>Cancel</button>
+          <div className={ui.btnRow}>
+            <button type="button" className={ui.btn()} disabled={act.busy || !addsUp} onClick={() => { void save(); }}>Save</button>
+            <button type="button" className={ui.btn('ghost')} disabled={act.busy} onClick={() => setEditing(false)}>Cancel</button>
           </div>
         </>
       )}
-      {act.error && <p className="msg bad" role="alert">{act.error}</p>}
+      {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
     </div>
   );
 }

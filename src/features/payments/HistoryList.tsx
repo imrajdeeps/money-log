@@ -3,6 +3,7 @@ import { useApp } from '../../data/context.tsx';
 import { describeHistory } from '../../core/history.ts';
 import type { HistoryRow } from '../../core/history.ts';
 import { memberName } from '../../core/groups.ts';
+import * as ui from '../../ui/styles.ts';
 
 // What changed in a shared expense and who changed it. Needs a connection: the history lives in the cloud, not on the phone.
 export function HistoryList({ entryId, groupId }: { entryId: string; groupId: string }) {
@@ -28,18 +29,18 @@ export function HistoryList({ entryId, groupId }: { entryId: string; groupId: st
   if (!rows) {
     return (
       <div>
-        <button type="button" className="btn ghost" disabled={busy} onClick={() => { void load(); }}>{busy ? 'Loading…' : 'Show history'}</button>
-        {error && <p className="msg bad" role="alert">{error}</p>}
+        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => { void load(); }}>{busy ? 'Loading…' : 'Show history'}</button>
+        {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
       </div>
     );
   }
-  if (!rows.length) return <p className="muted small">No history kept for this expense yet.</p>;
+  if (!rows.length) return <p className="text-muted text-[13px]">No history kept for this expense yet.</p>;
   return (
-    <ul className="list history" aria-label="History">
+    <ul className={ui.list(false, 'my-2 mx-0')} aria-label="History">
       {rows.map((r) => (
-        <li key={r.id} className="histrow">
-          <p className="small"><b>{name(r.changed_by)}</b> · <span className="muted">{new Date(r.changed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span></p>
-          {describeHistory(r, name).map((line, i) => <p key={i} className="small">{line}</p>)}
+        <li key={r.id} className={ui.histRow}>
+          <p className="text-[13px]"><b>{name(r.changed_by)}</b> · <span className="text-muted">{new Date(r.changed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span></p>
+          {describeHistory(r, name).map((line, i) => <p key={i} className="text-[13px]">{line}</p>)}
         </li>
       ))}
     </ul>

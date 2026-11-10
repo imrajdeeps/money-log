@@ -6,6 +6,7 @@ import { METHODS, fmtINR, parseAmount } from '../../core/logic.ts';
 import type { Method } from '../../core/logic.ts';
 import { activeRecurring } from '../../core/recurring.ts';
 import type { RecurItem } from '../../core/recurring.ts';
+import * as ui from '../../ui/styles.ts';
 
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`;
 export const describeRecurring = (it: RecurItem) => [fmtINR(it.a), `on the ${ordinal(it.d)}`, it.m, it.n].filter(Boolean).join(' · ');
@@ -47,51 +48,51 @@ export function RecurringCard() {
   }
 
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h2>Recurring payments</h2>
-      <p className="muted small">
+      <p className="text-muted text-[13px]">
         Rent, an SIP, a subscription: set it once. Each month the Overview shows it from its day, and one tap logs it on that day
         (you can edit the payment afterwards). A month the app was not opened is not added later. {app.syncEnabled ? 'Your other phones get the list when you sync.' : ''}
       </p>
       {items.length > 0 && (
-        <ul className="list recurlist">
+        <ul className={ui.list()}>
           {items.map((it) => (
-            <li key={it.id} className="row static">
-              <span className="row-main"><b>{it.c}</b><small>{describeRecurring(it)}</small></span>
-              <button type="button" className="btn small ghost" onClick={() => edit(it)}>Edit</button>
-              <button type="button" className={`btn small ${removing === it.id ? 'danger' : 'ghost'}`} onClick={() => remove(it.id)}>{removing === it.id ? 'Tap to remove' : 'Remove'}</button>
+            <li key={it.id} className={ui.rowStatic}>
+              <span className={ui.rowMain()}><b>{it.c}</b><small>{describeRecurring(it)}</small></span>
+              <button type="button" className={ui.btn('ghost', 'small')} onClick={() => edit(it)}>Edit</button>
+              <button type="button" className={ui.btn(removing === it.id ? 'danger' : 'ghost', 'small')} onClick={() => remove(it.id)}>{removing === it.id ? 'Tap to remove' : 'Remove'}</button>
             </li>
           ))}
         </ul>
       )}
-      {items.length === 0 && !draft && <p className="muted">Nothing set yet.</p>}
+      {items.length === 0 && !draft && <p className="text-muted">Nothing set yet.</p>}
       {draft ? (
         <form onSubmit={save} noValidate>
-          <label className="field"><span>Category</span><CategorySelect id="rc-cat" value={draft.category} onChange={(v) => set({ category: v })} /></label>
-          <div className="btnrow">
-            <label className="field half"><span>Amount (₹)</span><input inputMode="decimal" value={draft.amount} onChange={(e) => set({ amount: e.target.value })} placeholder="0" /></label>
-            <label className="field half"><span>Day of the month</span>
+          <label className={ui.field}><span>Category</span><CategorySelect id="rc-cat" value={draft.category} onChange={(v) => set({ category: v })} /></label>
+          <div className={ui.btnRow}>
+            <label className={ui.fieldHalf}><span>Amount (₹)</span><input inputMode="decimal" value={draft.amount} onChange={(e) => set({ amount: e.target.value })} placeholder="0" /></label>
+            <label className={ui.fieldHalf}><span>Day of the month</span>
               <select value={draft.day} onChange={(e) => set({ day: e.target.value })}>
                 {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{ordinal(d)}</option>)}
               </select>
             </label>
           </div>
-          <label className="field"><span>Method (optional)</span>
+          <label className={ui.field}><span>Method (optional)</span>
             <select value={draft.method} onChange={(e) => set({ method: e.target.value as Method | '' })}>
               <option value="">Not set</option>
               {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </label>
-          <label className="field"><span>Note (optional)</span><input value={draft.note} maxLength={200} onChange={(e) => set({ note: e.target.value })} /></label>
-          {draft.day === '29' || draft.day === '30' || draft.day === '31' ? <p className="muted small">In a shorter month it falls on the month's last day.</p> : null}
-          {error && <p className="msg bad" role="alert">{error}</p>}
-          <div className="btnrow">
-            <button type="submit" className="btn">{draft.id ? 'Save changes' : 'Add'}</button>
-            <button type="button" className="btn ghost" onClick={() => { setDraft(null); setError(''); }}>Cancel</button>
+          <label className={ui.field}><span>Note (optional)</span><input value={draft.note} maxLength={200} onChange={(e) => set({ note: e.target.value })} /></label>
+          {draft.day === '29' || draft.day === '30' || draft.day === '31' ? <p className="text-muted text-[13px]">In a shorter month it falls on the month's last day.</p> : null}
+          {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+          <div className={ui.btnRow}>
+            <button type="submit" className={ui.btn()}>{draft.id ? 'Save changes' : 'Add'}</button>
+            <button type="button" className={ui.btn('ghost')} onClick={() => { setDraft(null); setError(''); }}>Cancel</button>
           </div>
         </form>
       ) : (
-        <button type="button" className="btn" onClick={() => { setDraft(EMPTY); setError(''); setRemoving(null); }}>Add a recurring payment</button>
+        <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => { setDraft(EMPTY); setError(''); setRemoving(null); }}>Add a recurring payment</button>
       )}
     </div>
   );

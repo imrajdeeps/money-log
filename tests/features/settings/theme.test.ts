@@ -6,8 +6,9 @@ import { THEME_BG, THEME_KEY, cleanChoice, resolveTheme } from '../../../src/fea
 import type { ThemeChoice } from '../../../src/features/settings/theme.ts';
 
 const read = (p: string) => readFileSync(new URL(`../../../${p}`, import.meta.url), 'utf8');
-// the stylesheet is one file per area, imported in order by src/styles/index.css: read them in that order
-const css = [...read('src/styles/index.css').matchAll(/@import '\.\/([\w-]+)\.css'/g)].map((m) => read(`src/styles/${m[1]}.css`)).join('\n');
+// the stylesheet is src/styles/index.css and the files it imports (tokens.css): read them in that order
+const index = read('src/styles/index.css');
+const css = [...index.matchAll(/@import '\.\/([\w-]+)\.css'/g)].map((m) => read(`src/styles/${m[1]}.css`)).join('\n') + '\n' + index;
 
 test('only "light" and "dark" are real choices; anything else, or nothing, means match my phone', () => {
   assert.equal(cleanChoice('light'), 'light');
@@ -72,7 +73,7 @@ function block(selector: string): Record<string, string> {
 }
 const light = block(':root');
 const dark = { ...light, ...block(":root[data-theme='dark']") }; // the dark block only overrides what differs
-const hero = { ...light, ...block('.bento-card.hero') };
+const hero = { ...light, ...block('.hero') };
 
 const lum = (hex: string) => {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
