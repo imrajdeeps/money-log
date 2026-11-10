@@ -5,6 +5,7 @@ import { saveProfile } from '../../../data/profile.ts';
 import { useProfile } from '../../../data/useProfile.ts';
 import { MAX_PROFILE_NAME, cleanName, formatWhatsapp, initials, normalizeWhatsapp } from '../../../core/profile.ts';
 import * as ui from '../../../ui/styles.ts';
+import { tr } from '../../../core/i18n.ts';
 
 // Who this phone belongs to: a round picture with initials, the name (it fills "your name in this group"), the email of the
 // account, an optional WhatsApp number, and what this phone holds. The profile is kept on this phone only; the number is not
@@ -24,7 +25,7 @@ export function ProfileCard() {
     saveProfile({ name: cleanName(name), whatsapp: n.value });
     setName(cleanName(name));
     setNumber(formatWhatsapp(n.value));
-    setNote({ text: 'Saved on this phone.', bad: false });
+    setNote({ text: tr('Saved on this phone.'), bad: false });
   }
 
   const stat = (value: number, label: string) => (
@@ -41,26 +42,26 @@ export function ProfileCard() {
           {initials(profile.name, email)}
         </div>
         <div className="min-w-0">
-          <h2 className="m-0 [overflow-wrap:anywhere]">{profile.name || 'Your profile'}</h2>
-          <p className="text-muted text-[13px] m-0 [overflow-wrap:anywhere]">{email ?? 'Not signed in: this phone only'}</p>
+          <h2 className="m-0 [overflow-wrap:anywhere]">{profile.name || tr('Your profile')}</h2>
+          <p className="text-muted text-[13px] m-0 [overflow-wrap:anywhere]">{email ?? tr('Not signed in: this phone only')}</p>
         </div>
       </div>
 
       <form onSubmit={save} noValidate>
         <label className={ui.field}>
-          <span>Your name</span>
-          <input value={name} maxLength={MAX_PROFILE_NAME} autoComplete="name" onChange={(e) => { setName(e.target.value); setNote(null); }} placeholder="What others see you as in groups" />
+          <span>{tr('Your name')}</span>
+          <input value={name} maxLength={MAX_PROFILE_NAME} autoComplete="name" onChange={(e) => { setName(e.target.value); setNote(null); }} placeholder={tr('What others see you as in groups')} />
         </label>
         <label className={ui.field}>
-          <span>WhatsApp number (optional)</span>
+          <span>{tr('WhatsApp number (optional)')}</span>
           <input value={number} inputMode="tel" autoComplete="tel" onChange={(e) => { setNumber(e.target.value); setNote(null); }} placeholder="+91 98765 43210" />
         </label>
-        <p className="text-muted text-[13px]">Kept on this phone only. It is not verified, and nothing is sent to it.</p>
+        <p className="text-muted text-[13px]">{tr('Kept on this phone only. It is not verified, and nothing is sent to it.')}</p>
         {note && <p className={ui.msg(note.bad ? 'bad' : 'good')} role={note.bad ? 'alert' : 'status'}>{note.text}</p>}
-        <button type="submit" className={ui.btn('solid', 'md', 'w-full mt-1.5')}>Save profile</button>
+        <button type="submit" className={ui.btn('solid', 'md', 'w-full mt-1.5')}>{tr('Save profile')}</button>
       </form>
 
-      <h3 className="text-[16px] mt-5 mb-2">This phone holds</h3>
+      <h3 className="text-[16px] mt-5 mb-2">{tr('This phone holds')}</h3>
       <div className="flex gap-2 border border-line rounded-xl py-3">
         {stat(app.entries.length, 'payments')}
         {stat(app.groups.length, 'groups')}

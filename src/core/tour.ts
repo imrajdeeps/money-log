@@ -34,6 +34,7 @@ export const NEWS_STEPS: readonly TourStep[] = [
   { id: 'news-category', since: '1.13.0', go: 'month', target: 'category-actions', title: 'New: actions on a category', text: 'Tap the three dots on a category to set its budget, or to add an expense with the category already chosen. A budget that came from your spreadsheet can now be changed here too.' },
   { id: 'news-settings', since: '1.13.0', go: 'settings', target: 'settings-profile', title: 'New: Settings in groups, and your Profile', text: 'Settings is now in groups. Profile holds your name and an optional WhatsApp number, and when you are signed in, Sign out and Switch account are at the top.' },
   { id: 'news-tour', since: '1.14.0', go: 'about', target: 'about-tour', title: 'New: this tour', text: 'You can take the full tour, or just see what is new, whenever you like from here.' },
+  { id: 'news-language', since: '1.15.0', go: 'settings', target: 'settings-language', title: 'New: your language', text: 'The whole app can now be in English, Hindi or Hinglish. Choose it under Settings, Language, and it changes at once.' },
 ];
 
 /** a is later than b: positive; earlier: negative; same: 0. Versions are "1.13.0" (missing parts count as 0). */

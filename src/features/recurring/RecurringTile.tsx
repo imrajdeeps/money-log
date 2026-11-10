@@ -7,6 +7,7 @@ import { fmtINR, isoDate } from '../../core/logic.ts';
 import { activeRecurring, recurringThisMonth } from '../../core/recurring.ts';
 import * as ui from '../../ui/styles.ts';
 import * as hs from '../../ui/tileStyles.ts';
+import { tr } from '../../core/i18n.ts';
 
 const SHOWN = 4;
 
@@ -24,33 +25,33 @@ export function RecurringTile({ onManage }: { onManage: () => void }) {
   async function act(id: string, how: 'log' | 'skip', label: string) {
     try {
       await app.logRecurring(id, how);
-      app.toast(how === 'log' ? `Logged ${label}` : `Skipped ${label} this month`);
+      app.toast(how === 'log' ? tr('Logged {0}', label) : tr('Skipped {0} this month', label));
     } catch {
-      app.toast('Could not log it. Try again.');
+      app.toast(tr('Could not log it. Try again.'));
     }
   }
 
   return (
-    <BentoCard title="Recurring" span={12} action={<button type="button" className={hs.seeAll} onClick={onManage}>Manage</button>}>
+    <BentoCard title={tr('Recurring')} span={12} action={<button type="button" className={hs.seeAll} onClick={onManage}>{tr('Manage')}</button>}>
       {rows.length === 0 ? (
-        <p className={hs.note}>All recurring payments are logged for {monthLabel(today.slice(0, 7))}.</p>
+        <p className={hs.note}>{tr('All recurring payments are logged for {0}.', monthLabel(today.slice(0, 7)))}</p>
       ) : (
         <>
-          <p className={hs.statNum()}>{due.length === 0 ? 'Nothing due yet' : `${due.length} to log`}</p>
+          <p className={hs.statNum()}>{due.length === 0 ? tr('Nothing due yet') : tr('{0} to log', due.length)}</p>
           <ul className={hs.mini}>
             {rows.map(({ item, date, state }) => (
               <li key={item.id}>
-                <span className={ui.rowMain()}><b>{item.c}</b><small>{state === 'due' ? describeRecurring(item) : `${fmtINR(item.a)} · due ${shortDate(date)}`}</small></span>
+                <span className={ui.rowMain()}><b>{item.c}</b><small>{state === 'due' ? describeRecurring(item) : tr('{0} · due {1}', fmtINR(item.a), shortDate(date))}</small></span>
                 {state === 'due' && (
                   <>
-                    <button type="button" className={ui.btn('ghost', 'small')} onClick={() => act(item.id, 'skip', item.c)} aria-label={`Skip ${item.c} this month`}>Skip</button>
-                    <button type="button" className={ui.btn('solid', 'small')} onClick={() => act(item.id, 'log', `${item.c} ${fmtINR(item.a)}`)} aria-label={`Log ${item.c} ${fmtINR(item.a)}`}>Log</button>
+                    <button type="button" className={ui.btn('ghost', 'small')} onClick={() => act(item.id, 'skip', item.c)} aria-label={tr('Skip {0} this month', item.c)}>{tr('Skip')}</button>
+                    <button type="button" className={ui.btn('solid', 'small')} onClick={() => act(item.id, 'log', `${item.c} ${fmtINR(item.a)}`)} aria-label={tr('Log {0} {1}', item.c, fmtINR(item.a))}>{tr('Log')}</button>
                   </>
                 )}
               </li>
             ))}
           </ul>
-          {todo.length > SHOWN && <p className={hs.note}>+{todo.length - SHOWN} more this month</p>}
+          {todo.length > SHOWN && <p className={hs.note}>{tr('+{0} more this month', todo.length - SHOWN)}</p>}
         </>
       )}
     </BentoCard>

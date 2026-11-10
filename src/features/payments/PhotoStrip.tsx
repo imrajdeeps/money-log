@@ -6,6 +6,7 @@ import { TakePhoto } from './TakePhoto.tsx';
 import { MAX_PHOTOS, liveFor, sizeText } from '../../core/receipts.ts';
 import type { Receipt } from '../../core/receipts.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // The picture of one photo, loaded when it appears (from this phone, or fetched from the cloud) and released when it goes.
 function usePicture(r: Receipt): { url: string | null; error: string } {
@@ -21,7 +22,7 @@ function usePicture(r: Receipt): { url: string | null; error: string } {
       if (!alive) return;
       made = URL.createObjectURL(b);
       setUrl(made);
-    }).catch((e: unknown) => { if (alive) setError(e instanceof Error ? (e.message === 'No connection' ? 'Offline' : e.message) : String(e)); });
+    }).catch((e: unknown) => { if (alive) setError(e instanceof Error ? (e.message === 'No connection' ? tr('Offline') : e.message) : String(e)); });
     return () => { alive = false; if (made) URL.revokeObjectURL(made); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r.id, r.uploaded_at]);
@@ -32,9 +33,9 @@ function Thumb({ r, mine, onOpen }: { r: Receipt; mine: boolean; onOpen: () => v
   const { url, error } = usePicture(r);
   const waiting = mine && !r.uploaded_at;
   return (
-    <button type="button" className={ui.thumb} onClick={onOpen} aria-label={`Receipt photo, ${sizeText(r.bytes)}${waiting ? ', waiting to upload' : ''}`}>
+    <button type="button" className={ui.thumb} onClick={onOpen} aria-label={tr('Receipt photo, {0}{1}', sizeText(r.bytes), waiting ? tr(', waiting to upload') : '')}>
       {url ? <img src={url} alt="" /> : <span className="text-muted text-[13px]">{error || '…'}</span>}
-      {waiting && <span className={ui.thumbTag}>Waiting to upload</span>}
+      {waiting && <span className={ui.thumbTag}>{tr('Waiting to upload')}</span>}
     </button>
   );
 }
@@ -46,15 +47,15 @@ function Viewer({ r, mine, onClose }: { r: Receipt; mine: boolean; onClose: () =
   const [confirm, setConfirm] = useState(false);
   useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
   return (
-    <dialog ref={ref} className={ui.viewer} onClose={onClose} onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }} aria-label="Receipt photo">
-      {url ? <img src={url} alt="Receipt" /> : <p className="text-muted">{error || 'Loading…'}</p>}
+    <dialog ref={ref} className={ui.viewer} onClose={onClose} onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }} aria-label={tr('Receipt photo')}>
+      {url ? <img src={url} alt={tr('Receipt')} /> : <p className="text-muted">{error || 'Loading…'}</p>}
       <div className={ui.btnRow}>
         {mine && (
           <button type="button" className={ui.btn('danger', 'md', 'w-full')} onClick={() => { if (!confirm) { setConfirm(true); return; } void app.removeReceipt(r.id).then(() => ref.current?.close()); }}>
-            {confirm ? 'Tap again to delete' : 'Delete photo'}
+            {confirm ? tr('Tap again to delete') : tr('Delete photo')}
           </button>
         )}
-        <button type="button" className={ui.btn('ghost')} onClick={() => ref.current?.close()}>Close</button>
+        <button type="button" className={ui.btn('ghost')} onClick={() => ref.current?.close()}>{tr('Close')}</button>
       </div>
     </dialog>
   );
@@ -93,21 +94,21 @@ export function PhotoStrip({ entryId, canEdit }: { entryId: string; canEdit: boo
   const shown = photos.find((p) => p.id === open);
   return (
     <div className={ui.photoStrip}>
-      <p className={ui.fieldLabel}>Receipt photos{photos.length ? ` (${photos.length} of ${MAX_PHOTOS})` : ''}</p>
+      <p className={ui.fieldLabel}>{tr('Receipt photos{0}', photos.length ? tr(' ({0} of {1})', photos.length, MAX_PHOTOS) : '')}</p>
       <div className={ui.thumbs}>
         {photos.map((r) => <Thumb key={r.id} r={r} mine={r.owner_id === app.me} onOpen={() => setOpen(r.id)} />)}
         {canEdit && room > 0 && (
           <>
             <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
             <label className={ui.addPhoto(busy)}>
-              Choose photo
+              {tr('Choose photo')}
               <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
             </label>
           </>
         )}
       </div>
       {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-      {canEdit && !app.me && <p className="text-muted text-[13px]">Sign in to attach photos.</p>}
+      {canEdit && !app.me && <p className="text-muted text-[13px]">{tr('Sign in to attach photos.')}</p>}
       {shown && <Viewer r={shown} mine={shown.owner_id === app.me && canEdit} onClose={() => setOpen(null)} />}
     </div>
   );

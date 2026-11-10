@@ -4,6 +4,7 @@ import { useApp } from '../../data/context.tsx';
 import type { Goal } from '../../core/goals.ts';
 import { isoDate, parseAmount } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // An amount typed in a field: blank or zero is 0 (allowed where an amount is optional), anything else must be a good amount.
 const typed = (v: string): number | null => (v.trim() === '' || /^0+(\.0*)?$/.test(v.trim()) ? 0 : parseAmount(v));
@@ -28,41 +29,40 @@ export function GoalForm({ goal, onDone }: { goal?: Goal; onDone: () => void }) 
   async function submit(ev: FormEvent) {
     ev.preventDefault();
     const t = parseAmount(target);
-    if (t === null) return setError('Enter a target above zero, with at most two decimals.');
+    if (t === null) return setError(tr('Enter a target above zero, with at most two decimals.'));
     const s = typed(saved);
-    if (s === null) return setError('The amount already saved must be zero or more, with at most two decimals.');
+    if (s === null) return setError(tr('The amount already saved must be zero or more, with at most two decimals.'));
     setBusy(true);
     setError('');
     const input = { name, target: t, date, saved: s, category };
     const problem = goal ? await app.editGoal(goal.id, input) : await app.addGoal(input);
     setBusy(false);
     if (problem) return setError(problem);
-    app.toast(goal ? 'Goal saved' : 'Goal added');
+    app.toast(goal ? tr('Goal saved') : tr('Goal added'));
     onDone();
   }
 
   return (
     <form className={ui.card()} onSubmit={submit} noValidate>
-      <h2>{goal ? 'Change goal' : 'New goal'}</h2>
-      <label className={ui.field}><span>Goal</span><input value={name} maxLength={60} placeholder="Emergency fund, new laptop, trip" onChange={(e) => { setName(e.target.value); setError(''); }} /></label>
-      <label className={ui.field}><span>Target amount (₹)</span><input inputMode="decimal" value={target} placeholder="100000" onChange={(e) => { setTarget(e.target.value); setError(''); }} /></label>
-      <label className={ui.field}><span>Target date</span><input type="date" value={date} min={goal ? undefined : today} onChange={(e) => { setDate(e.target.value); setError(''); }} /></label>
-      <label className={ui.field}><span>Already saved (₹, optional)</span><input inputMode="decimal" value={saved} placeholder="0" onChange={(e) => { setSaved(e.target.value); setError(''); }} /></label>
+      <h2>{goal ? tr('Change goal') : tr('New goal')}</h2>
+      <label className={ui.field}><span>{tr('Goal')}</span><input value={name} maxLength={60} placeholder={tr('Emergency fund, new laptop, trip')} onChange={(e) => { setName(e.target.value); setError(''); }} /></label>
+      <label className={ui.field}><span>{tr('Target amount (₹)')}</span><input inputMode="decimal" value={target} placeholder="100000" onChange={(e) => { setTarget(e.target.value); setError(''); }} /></label>
+      <label className={ui.field}><span>{tr('Target date')}</span><input type="date" value={date} min={goal ? undefined : today} onChange={(e) => { setDate(e.target.value); setError(''); }} /></label>
+      <label className={ui.field}><span>{tr('Already saved (₹, optional)')}</span><input inputMode="decimal" value={saved} placeholder="0" onChange={(e) => { setSaved(e.target.value); setError(''); }} /></label>
       <label className={ui.field}>
-        <span>Count payments in this category (optional)</span>
+        <span>{tr('Count payments in this category (optional)')}</span>
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">None: I will add what I set aside</option>
+          <option value="">{tr('None: I will add what I set aside')}</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </label>
       <p className="text-muted text-[13px]">
-        {category ? `Payments you log in ${category} from ${goal ? goal.b : 'today'} on count towards this goal. ` : ''}
-        Log a saving as a payment or add it as a top-up, not both, so it is not counted twice.
+        {tr('{0}Log a saving as a payment or add it as a top-up, not both, so it is not counted twice.', category ? tr('Payments you log in {0} from {1} on count towards this goal. ', category, goal ? goal.b : tr('today')) : '')}
       </p>
       {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
       <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{goal ? 'Save' : 'Add goal'}</button>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>Cancel</button>
+        <button type="submit" className={ui.btn()} disabled={busy}>{goal ? tr('Save') : tr('Add goal')}</button>
+        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
       </div>
     </form>
   );

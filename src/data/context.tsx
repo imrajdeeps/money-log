@@ -27,6 +27,7 @@ import { createSync } from './sync.ts';
 import type { DueDone, GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
 import type { AppApi, Engine } from './appApi.ts';
 import { clearProfile } from './profile.ts';
+import { tr } from '../core/i18n.ts';
 export type { AppApi } from './appApi.ts';
 
 // A link from a Supabase email brings its answer in the address bar. Read it once, when the page loads, and take it out of
@@ -159,7 +160,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else if (link.kind === 'error') {
       setAuthNotice({ text: link.message, bad: true });
     } else {
-      setAuthNotice({ text: 'That link is not one this app uses. Sign in with your email and password.', bad: true });
+      setAuthNotice({ text: tr('That link is not one this app uses. Sign in with your email and password.'), bad: true });
     }
   }, []);
 
@@ -296,7 +297,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* the address bar is only cosmetic */ }
   }, []);
 
-  const engine = () => { const e = engRef.current; if (!e) throw new Error('The app is still starting.'); return e.sync; };
+  const engine = () => { const e = engRef.current; if (!e) throw new Error(tr('The app is still starting.')); return e.sync; };
   const createGroup = useCallback((name: string, kind: GroupKind, displayName: string) => engine().createGroup(name, kind, displayName), []);
   const joinGroup = useCallback(async (code: string, displayName: string) => { const id = await engine().joinGroup(code, displayName); clearJoinCode(); return id; }, [clearJoinCode]);
   const resetInvite = useCallback((groupId: string) => engine().resetInvite(groupId), []);
@@ -312,10 +313,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const e = engRef.current;
     const owner = await e?.store.getMeta<string>('localOwner');
     if (!e) return;
-    if (!owner) throw new Error('Sign in to attach receipt photos.');
+    if (!owner) throw new Error(tr('Sign in to attach receipt photos.'));
     const all = await e.store.allReceipts();
-    if (liveFor(all, entryId).length + pictures.length > MAX_PHOTOS) throw new Error(`A payment can carry ${MAX_PHOTOS} photos.`);
-    if (pictures.length > photoRoom(all, owner)) throw new Error(`An account can keep ${MAX_ACCOUNT_PHOTOS} photos. Delete some old ones to add more.`);
+    if (liveFor(all, entryId).length + pictures.length > MAX_PHOTOS) throw new Error(tr('A payment can carry {0} photos.', MAX_PHOTOS));
+    if (pictures.length > photoRoom(all, owner)) throw new Error(tr('An account can keep {0} photos. Delete some old ones to add more.', MAX_ACCOUNT_PHOTOS));
     const nowIso = new Date().toISOString();
     for (const blob of pictures) {
       const r = makeReceipt(entryId, owner, blob.size, nowIso);
@@ -349,19 +350,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const checkCurrent = useCallback(async (pin: string): Promise<string | null> => {
     const e = engRef.current;
     const cfg = lockRef.current;
-    if (!e || !cfg) return 'No PIN is set.';
+    if (!e || !cfg) return tr('No PIN is set.');
     const tries = (await e.store.getMeta<LockTries>('lockTries')) ?? { fails: 0, until: 0 };
     const wait = secondsToWait(tries, Date.now());
-    if (wait > 0) return `Too many wrong tries. Wait ${wait} seconds.`;
+    if (wait > 0) return tr('Too many wrong tries. Wait {0} seconds.', wait);
     if (await checkPin(cfg, pin)) { await e.store.setMeta('lockTries', { fails: 0, until: 0 }); return null; }
     await e.store.setMeta('lockTries', registerFailure(tries, Date.now()));
-    return 'That PIN is not right.';
+    return tr('That PIN is not right.');
   }, []);
 
   const updateLock = useCallback(async (currentPin: string, change: 'remove' | { pin?: string; timeoutSec?: number }): Promise<string | null> => {
     const e = engRef.current;
     const cfg = lockRef.current;
-    if (!e || !cfg) return 'No PIN is set.';
+    if (!e || !cfg) return tr('No PIN is set.');
     const bad = await checkCurrent(currentPin);
     if (bad) return bad;
     if (change === 'remove') await e.store.delMeta('lock');
@@ -436,7 +437,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [afterChange]);
 
   const addCategory = useCallback(async (name: string, group: Cat): Promise<AddResult> => {
-    let result: AddResult = { ok: false, error: 'The app is still starting.' };
+    let result: AddResult = { ok: false, error: tr('The app is still starting.') };
     await changeMine((m, list, nowIso) => {
       result = addCategoryTo(m, list, name, group, nowIso);
       return result.ok ? result.mine : m;

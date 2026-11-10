@@ -6,6 +6,7 @@ import { fmtINR, isValidDate, laterThan, newId, parseTs, round2 } from './logic.
 import type { Entry, Shares } from './logic.ts';
 import { isGroupKind } from './groupKinds.ts';
 import type { GroupKind } from './groupKinds.ts';
+import { tr } from './i18n.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_AMOUNT = 1e9;
@@ -162,28 +163,28 @@ const numberText = (s: string): number | null => (/^\d*\.?\d{0,2}$/.test(s.trim(
 // What the split editor shows: shares from the chosen mode, or the one thing that is wrong with the input.
 export function computeShares(mode: SplitMode, total: number, ids: string[], included: Set<string>, values: Record<string, string>): SplitResult {
   const bad = (problem: string): SplitResult => ({ shares: null, problem });
-  if (!(total > 0)) return bad('Enter the amount first.');
+  if (!(total > 0)) return bad(tr('Enter the amount first.'));
   if (mode === 'equal') {
     const who = ids.filter((id) => included.has(id));
-    return who.length ? { shares: equalShares(total, who), problem: null } : bad('Pick at least one person to split between.');
+    return who.length ? { shares: equalShares(total, who), problem: null } : bad(tr('Pick at least one person to split between.'));
   }
   const nums: { id: string; n: number }[] = [];
   for (const id of ids) {
     const n = numberText(values[id] ?? '');
-    if (n === null) return bad('Use numbers with at most 2 decimals.');
+    if (n === null) return bad(tr('Use numbers with at most 2 decimals.'));
     nums.push({ id, n });
   }
   if (mode === 'percent') {
     const sum = round2(nums.reduce((a, x) => a + x.n, 0));
-    if (Math.abs(sum - 100) > 0.001) return bad(`The percentages add up to ${sum}, not 100.`);
+    if (Math.abs(sum - 100) > 0.001) return bad(tr('The percentages add up to {0}, not 100.', sum));
     const s = percentShares(total, nums.map((x) => ({ id: x.id, pct: x.n })));
-    return s ? { shares: s, problem: null } : bad('Check the percentages.');
+    return s ? { shares: s, problem: null } : bad(tr('Check the percentages.'));
   }
   const sum = toPaise(nums.reduce((a, x) => a + x.n, 0));
-  if (sum !== toPaise(total)) return bad(`The amounts add up to ${fmtINR(fromPaise(sum))}; the expense is ${fmtINR(total)}.`);
+  if (sum !== toPaise(total)) return bad(tr('The amounts add up to {0}; the expense is {1}.', fmtINR(fromPaise(sum)), fmtINR(total)));
   const s: Shares = {};
   for (const x of nums) if (x.n > 0) s[x.id] = round2(x.n);
-  return Object.keys(s).length ? { shares: s, problem: null } : bad('Someone has to owe something.');
+  return Object.keys(s).length ? { shares: s, problem: null } : bad(tr('Someone has to owe something.'));
 }
 
 // ---------------------------------------------------------------- who owes whom
@@ -228,7 +229,7 @@ export function simplifyDebts(balances: Record<string, number>): Debt[] {
 }
 
 export const memberName = (members: Member[], gid: string, uid: string | null): string =>
-  members.find((m) => m.group_id === gid && m.user_id === uid)?.display_name ?? 'Former member';
+  members.find((m) => m.group_id === gid && m.user_id === uid)?.display_name ?? tr('Former member');
 
 export const activeMembers = (members: Member[], gid: string): Member[] =>
   members.filter((m) => m.group_id === gid && !m.left_at).sort((a, b) => a.display_name.localeCompare(b.display_name));

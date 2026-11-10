@@ -1,4 +1,6 @@
 // The person's profile: a name and an optional WhatsApp number. Pure rules; where it is kept is data/profile.ts.
+import { tr } from './i18n.ts';
+
 export interface Profile { name: string; whatsapp: string }
 export const MAX_PROFILE_NAME = 40;
 export const EMPTY_PROFILE: Profile = { name: '', whatsapp: '' };
@@ -17,7 +19,7 @@ export function normalizeWhatsapp(input: string): NumberResult {
   let s = t.replace(/[\s\-().]/g, '');
   if (s.startsWith('00')) s = `+${s.slice(2)}`;
   if (/^[6-9]\d{9}$/.test(s)) s = `+91${s}`;
-  if (!/^\+[1-9]\d{7,14}$/.test(s)) return { ok: false, error: 'Enter the number with its country code, like +91 98765 43210.' };
+  if (!/^\+[1-9]\d{7,14}$/.test(s)) return { ok: false, error: tr('Enter the number with its country code, like +91 98765 43210.') };
   return { ok: true, value: s };
 }
 

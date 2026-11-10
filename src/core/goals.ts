@@ -5,6 +5,7 @@
 import { daysInMonth, isValidDate } from './logic.ts';
 import { MAX_AMOUNT, UUID_RE, catKey, newId, normName, parseTs, round2 } from './logic.ts';
 import type { Entry } from './logic.ts';
+import { tr } from './i18n.ts';
 
 export const MAX_GOALS = 30; // what one account may keep, removed ones included
 export const MAX_TOPUPS = 500;
@@ -26,12 +27,12 @@ const amountOk = (n: unknown, min: 'zero' | 'above'): boolean =>
 
 export function checkGoalInput(i: GoalInput): string | null {
   const n = normName(i.name);
-  if (n === '' || n.length > 60) return 'Give the goal a name of up to 60 characters.';
-  if (!amountOk(i.target, 'above')) return 'Enter a target above zero, with at most two decimals.';
-  if (!isValidDate(i.date)) return 'Pick a target date.';
-  if (!amountOk(i.saved, 'zero')) return 'The amount already saved must be zero or more, with at most two decimals.';
-  if (i.saved >= i.target) return 'The amount already saved is at least the target, so the goal is already reached.';
-  if (normName(i.category).length > 80) return 'Choose a category from the list.';
+  if (n === '' || n.length > 60) return tr('Give the goal a name of up to 60 characters.');
+  if (!amountOk(i.target, 'above')) return tr('Enter a target above zero, with at most two decimals.');
+  if (!isValidDate(i.date)) return tr('Pick a target date.');
+  if (!amountOk(i.saved, 'zero')) return tr('The amount already saved must be zero or more, with at most two decimals.');
+  if (i.saved >= i.target) return tr('The amount already saved is at least the target, so the goal is already reached.');
+  if (normName(i.category).length > 80) return tr('Choose a category from the list.');
   return null;
 }
 
@@ -42,14 +43,14 @@ const count = (items: Goals, k: 'g' | 't') => Object.values(items).filter((x) =>
 export function addGoal(items: Goals, i: GoalInput, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
   const error = checkGoalInput(i);
   if (error) return { ok: false, error };
-  if (count(items, 'g') >= MAX_GOALS) return { ok: false, error: 'That is the most goals one account can keep.' };
+  if (count(items, 'g') >= MAX_GOALS) return { ok: false, error: tr('That is the most goals one account can keep.') };
   const goal: Goal = { id, k: 'g', n: normName(i.name), a: i.target, d: i.date, s: i.saved, c: normName(i.category), b: todayIso, x: 0, t: nowIso };
   return { ok: true, items: { ...items, [id]: goal } };
 }
 
 export function editGoal(items: Goals, id: string, i: GoalInput, nowIso: string): GoalResult {
   const cur = items[id];
-  if (!cur || cur.k !== 'g' || cur.x) return { ok: false, error: 'That goal is gone.' };
+  if (!cur || cur.k !== 'g' || cur.x) return { ok: false, error: tr('That goal is gone.') };
   const error = checkGoalInput(i);
   if (error) return { ok: false, error };
   return { ok: true, items: { ...items, [id]: { ...cur, n: normName(i.name), a: i.target, d: i.date, s: i.saved, c: normName(i.category), t: nowIso } } };
@@ -66,10 +67,10 @@ export function removeGoal(items: Goals, id: string, nowIso: string): Goals {
 
 export function addTopUp(items: Goals, goalId: string, amount: number, date: string, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
   const goal = items[goalId];
-  if (!goal || goal.k !== 'g' || goal.x) return { ok: false, error: 'That goal is gone.' };
-  if (!amountOk(amount, 'above')) return { ok: false, error: 'Enter an amount above zero, with at most two decimals.' };
-  if (!isValidDate(date) || date > todayIso) return { ok: false, error: 'Pick a date that is today or earlier.' };
-  if (count(items, 't') >= MAX_TOPUPS) return { ok: false, error: 'That is the most top-ups one account can keep.' };
+  if (!goal || goal.k !== 'g' || goal.x) return { ok: false, error: tr('That goal is gone.') };
+  if (!amountOk(amount, 'above')) return { ok: false, error: tr('Enter an amount above zero, with at most two decimals.') };
+  if (!isValidDate(date) || date > todayIso) return { ok: false, error: tr('Pick a date that is today or earlier.') };
+  if (count(items, 't') >= MAX_TOPUPS) return { ok: false, error: tr('That is the most top-ups one account can keep.') };
   return { ok: true, items: { ...items, [id]: { id, k: 't', g: goalId, a: amount, d: date, x: 0, t: nowIso } } };
 }
 

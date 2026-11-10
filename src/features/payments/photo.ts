@@ -3,8 +3,9 @@
 // The picture is re-drawn at most 1,600 pixels on its longest side and saved again as JPEG, which also drops everything
 // the original file carried besides the pixels (location, camera, time): only the picture itself is ever uploaded.
 import { MAX_BYTES, MAX_SIDE, fitWithin } from '../../core/receipts.ts';
+import { tr } from '../../core/i18n.ts';
 
-const unreadable = () => new Error('That picture could not be read. Try a JPEG or PNG photo.');
+const unreadable = () => new Error(tr('That picture could not be read. Try a JPEG or PNG photo.'));
 
 function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
@@ -39,5 +40,5 @@ export async function shrinkImage(file: Blob): Promise<Blob> {
   } finally {
     bitmap.close();
   }
-  throw new Error('That picture is too detailed to shrink to 1 MB. Try another one.');
+  throw new Error(tr('That picture is too detailed to shrink to 1 MB. Try another one.'));
 }

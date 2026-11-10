@@ -13,6 +13,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'lock', group: 'Privacy and security', title: 'App lock', blurb: 'A PIN for this phone' },
   { id: 'receipts', group: 'Privacy and security', title: 'Receipt photos', blurb: 'Storage used on this phone' },
   { id: 'appearance', group: 'App', title: 'Appearance', blurb: 'Light, dark or match the phone' },
+  { id: 'language', group: 'App', title: 'Language', blurb: 'English, Hindi or Hinglish' },
   { id: 'about', group: 'App', title: 'About', blurb: 'Version and how to install' },
   { id: 'erase', group: 'Danger zone', title: 'Erase', blurb: 'Clear everything on this phone' },
 ] as const satisfies readonly { id: string; group: SettingsGroup; title: string; blurb: string }[];

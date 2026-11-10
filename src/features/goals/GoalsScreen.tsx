@@ -8,6 +8,7 @@ import { GoalForm } from './GoalForm.tsx';
 import { GoalRow } from './GoalRow.tsx';
 import { PlanCard } from './PlanCard.tsx';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // The goals page: short-term goals (due within 12 months) and long-term ones, each with its progress and what it needs.
 export function GoalsScreen() {
@@ -38,7 +39,7 @@ export function GoalsScreen() {
           {mine.map((r) => (
             <GoalRow key={r.goal.id} goal={r.goal} progress={r.progress} line={r.line} topUps={r.topUps}
               onEdit={() => setForm(r.goal)}
-              onRemove={() => { void app.removeGoal(r.goal.id).then(() => app.toast(`Removed: ${r.goal.n}`)); }} />
+              onRemove={() => { void app.removeGoal(r.goal.id).then(() => app.toast(tr('Removed: {0}', r.goal.n))); }} />
           ))}
         </ul>
       </>
@@ -46,17 +47,17 @@ export function GoalsScreen() {
   };
 
   return (
-    <section aria-label="Goals">
+    <section aria-label={tr('Goals')}>
       {form ? (
         <GoalForm key={form === 'new' ? 'new' : form.id} goal={form === 'new' ? undefined : form} onDone={() => setForm(null)} />
       ) : (
-        <button type="button" className={ui.btn()} onClick={() => setForm('new')}>Add a goal</button>
+        <button type="button" className={ui.btn()} onClick={() => setForm('new')}>{tr('Add a goal')}</button>
       )}
-      {goals.length === 0 && !form && <p className="text-muted">No goals yet. Make one with a name, a target and a date, and see what to set aside each month.</p>}
+      {goals.length === 0 && !form && <p className="text-muted">{tr('No goals yet. Make one with a name, a target and a date, and see what to set aside each month.')}</p>}
       {goals.length > 0 && <PlanCard plan={plan} />}
-      {list('Short term', 'short', 'due within 12 months')}
-      {list('Long term', 'long', 'more than 12 months away')}
-      {goals.length > 0 && <p className="text-muted text-[13px]">Slide a goal or a top-up to the left to remove it. A goal moves from long term to short term by itself as its date gets close.</p>}
+      {list(tr('Short term'), 'short', tr('due within 12 months'))}
+      {list(tr('Long term'), 'long', 'more than 12 months away')}
+      {goals.length > 0 && <p className="text-muted text-[13px]">{tr('Slide a goal or a top-up to the left to remove it. A goal moves from long term to short term by itself as its date gets close.')}</p>}
     </section>
   );
 }

@@ -6,6 +6,7 @@ import { shortDate } from '../../core/format.ts';
 import { byRecent, fmtINR, myShare } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // One payment as a tappable row: category, the day, method, note, your share.
 export function PaymentRow({ entry: e, onOpen, compact = false }: { entry: Entry; onOpen: (e: Entry) => void; compact?: boolean }) {
@@ -15,10 +16,10 @@ export function PaymentRow({ entry: e, onOpen, compact = false }: { entry: Entry
     <button type="button" className={compact ? ui.rowCompact : ui.row} onClick={() => onOpen(e)}>
       <span className={ui.rowMain()}>
         <b>{e.category}</b>
-        <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? `shared with ${groupName(e.group_id)}, total ${fmtINR(e.amount)}` : ''].filter(Boolean).join(' · ')}</small>
+        <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? tr('shared with {0}, total {1}', groupName(e.group_id), fmtINR(e.amount)) : ''].filter(Boolean).join(' · ')}</small>
       </span>
       <span className="font-bold tabular-nums">{fmtINR(myShare(e, app.me))}</span>
-      {app.syncEnabled && e.dirty ? <span className={ui.dot} role="img" aria-label="Waiting to sync" /> : null}
+      {app.syncEnabled && e.dirty ? <span className={ui.dot} role="img" aria-label={tr('Waiting to sync')} /> : null}
     </button>
   );
 }

@@ -2,6 +2,7 @@
 // and goals snapshot. No DOM, no storage, no network, so the browser and the Node test runner share this file.
 import { fmtINR, isValidDate, laterThan, parsePlanText, parseTs, round2, splitCsvLine } from './logic.ts';
 import type { PlanData, PlanSummary } from './logic.ts';
+import { tr } from './i18n.ts';
 
 const MAX_AMOUNT = 1e9;
 
@@ -191,11 +192,11 @@ export function classifyDue(items: DueItem[], map: DoneMap, importedAt: string, 
 }
 
 export function dueRelative(days: number | null): string {
-  if (days === null) return 'no date';
-  if (days === 0) return 'today';
-  if (days === 1) return 'tomorrow';
-  if (days === -1) return 'yesterday';
-  return days > 0 ? `in ${days} days` : `${-days} days ago`;
+  if (days === null) return tr('no date');
+  if (days === 0) return tr('today');
+  if (days === 1) return tr('tomorrow');
+  if (days === -1) return tr('yesterday');
+  return days > 0 ? tr('in {0} days', days) : tr('{0} days ago', -days);
 }
 
 // ---------------------------------------------------------------- calendar file (.ics)
@@ -254,7 +255,7 @@ export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string): s
     if (!i.due || i.isDone) continue;
     const next = new Date(Date.UTC(Number(i.due.slice(0, 4)), Number(i.due.slice(5, 7)) - 1, Number(i.due.slice(8, 10)) + 1));
     const nextIso = `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, '0')}${String(next.getUTCDate()).padStart(2, '0')}`;
-    const what = i.kind === 'oneoff' ? 'One-off payment' : 'To-do';
+    const what = i.kind === 'oneoff' ? tr('One-off payment') : tr('To-do');
     const summary = i.amount ? `${i.title} (${fmtINR(i.amount)})` : i.title;
     lines.push(
       'BEGIN:VEVENT',
@@ -263,7 +264,7 @@ export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string): s
       `DTSTART;VALUE=DATE:${icsDate(i.due)}`,
       `DTEND;VALUE=DATE:${nextIso}`,
       `SUMMARY:${icsText(summary)}`,
-      `DESCRIPTION:${icsText(`${what} from your Money Log plan.`)}`,
+      `DESCRIPTION:${icsText(tr('{0} from your Money Log plan.', what))}`,
       'TRANSP:TRANSPARENT',
       'BEGIN:VALARM',
       'ACTION:DISPLAY',

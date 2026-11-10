@@ -4,6 +4,8 @@
 // and a link that failed arrives as
 //   https://site/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired
 // The caller removes the fragment from the address bar as soon as it has been read, so tokens are not left in the history.
+import { tr } from '../core/i18n.ts';
+
 export type AuthLink =
   | { kind: 'recovery'; accessToken: string; refreshToken: string; expiresIn: number }
   | { kind: 'error'; message: string }
@@ -18,9 +20,9 @@ export function parseAuthHash(hash: string): AuthLink | null {
 
   if (p.has('error') || p.has('error_code')) {
     const code = p.get('error_code') ?? '';
-    if (code === 'otp_expired') return { kind: 'error', message: 'That link has expired or was already used. Ask for a new one.' };
+    if (code === 'otp_expired') return { kind: 'error', message: tr('That link has expired or was already used. Ask for a new one.') };
     const text = (p.get('error_description') ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
-    return { kind: 'error', message: text ? `That link did not work: ${text}.` : 'That link did not work. Ask for a new one.' };
+    return { kind: 'error', message: text ? tr('That link did not work: {0}.', text) : tr('That link did not work. Ask for a new one.') };
   }
 
   const access = p.get('access_token');
@@ -28,7 +30,7 @@ export function parseAuthHash(hash: string): AuthLink | null {
   const type = (p.get('type') ?? '').slice(0, 30);
   const refresh = p.get('refresh_token') ?? '';
   if (type !== 'recovery') return { kind: 'other', type };
-  if (!TOKEN.test(access) || !TOKEN.test(refresh)) return { kind: 'error', message: 'That link looks damaged. Ask for a new one.' };
+  if (!TOKEN.test(access) || !TOKEN.test(refresh)) return { kind: 'error', message: tr('That link looks damaged. Ask for a new one.') };
   const n = Number(p.get('expires_in'));
   return { kind: 'recovery', accessToken: access, refreshToken: refresh, expiresIn: Number.isFinite(n) && n > 0 && n <= 604800 ? Math.floor(n) : 3600 };
 }
