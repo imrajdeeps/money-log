@@ -196,6 +196,16 @@ Settings, **Download backup** saves one JSON file with all *your own* payments (
 the three plan blocks, the Done marks and your categories and budgets. It does not include receipt photos. Keep one in iCloud Drive now and then. **Restore** merges it back in (newer
 copies win).
 
+**The free Supabase plan does not back up your database automatically** (daily backups, kept for 7 days, start with the paid
+Pro plan; checked on Supabase's backup pages on 10 Nov 2026). Supabase's own advice for Free projects is to export regularly
+with its command-line tool, so this JSON file is your safety copy: download one now and then, and after anything important.
+Photos are not in it; they live only in Supabase Storage.
+
+**Free projects are paused when they go quiet.** Supabase pauses a Free project that has had too little database activity over
+a week (it emails you about a week beforehand); using the app daily counts as activity. A paused project can be resumed from
+the Supabase dashboard (Organizations, the project, Resume project) for up to a year after it was paused. Until you resume
+it, sync stops but logging on the phone keeps working and catches up afterwards.
+
 ## Developing
 
 ```bash
@@ -240,7 +250,7 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
   scripts, fonts, analytics or images.
 - The service worker caches only this app's own files. Requests to Supabase are never cached.
 - When two phones edit the same payment, the latest edit wins, on the phones and in the database alike (the database
-  ignores a write older than the stored one). Sign out and Erase affect only the phone you use them on.
+  ignores a write older than the stored one). Sign out and Erase affect only the phone you use them on. Sign out asks whether to also erase this phone's copy of your data (choose erase before handing the phone over or signing in with another account).
 - Packages are installed with a lockfile and without install scripts. Workflow actions are pinned to major versions;
   pin them to commit SHAs if you want stricter supply-chain control.
 
