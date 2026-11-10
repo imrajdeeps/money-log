@@ -1,6 +1,6 @@
 {
   "name": "money-log",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "private": true,
   "type": "module",
   "description": "Money Log: log payments in seconds and see the month against your plan. Installable web app (PWA).",

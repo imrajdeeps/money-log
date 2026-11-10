@@ -483,10 +483,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await afterChange();
   }, [afterChange]);
 
-  const addRecurring = useCallback(async (i: RecurInput): Promise<string | null> => {
+  const addRecurring = useCallback(async (i: RecurInput, loggedMonth?: string): Promise<string | null> => {
     let error: string | null = null;
     await changeRecurring((items, nowIso) => {
-      const r = addRecurringTo(items, i, nowIso);
+      const r = addRecurringTo(items, i, nowIso, undefined, loggedMonth);
       if (!r.ok) { error = r.error; return items; }
       return r.items;
     });

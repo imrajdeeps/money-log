@@ -27,11 +27,13 @@ export function checkRecurInput(i: RecurInput): string | null {
 
 export type RecurResult = { ok: true; items: Recurring } | { ok: false; error: string };
 
-export function addRecurring(items: Recurring, i: RecurInput, nowIso: string, id: string = newId()): RecurResult {
+// `loggedMonth`: a payment that was just logged by hand (the Repeat tick in Add expense) is already done for its month, so it is first offered next month.
+export function addRecurring(items: Recurring, i: RecurInput, nowIso: string, id: string = newId(), loggedMonth = ''): RecurResult {
+  if (loggedMonth !== '' && !MONTH_RE.test(loggedMonth)) return { ok: false, error: tr('That recurring payment is gone.') };
   const error = checkRecurInput(i);
   if (error) return { ok: false, error };
   if (Object.keys(items).length >= MAX_RECURRING) return { ok: false, error: tr('That is the most recurring payments one account can keep.') };
-  return { ok: true, items: { ...items, [id]: { id, c: normName(i.category), a: i.amount, d: i.day, m: i.method, n: i.note.trim(), x: 0, t: nowIso, l: '' } } };
+  return { ok: true, items: { ...items, [id]: { id, c: normName(i.category), a: i.amount, d: i.day, m: i.method, n: i.note.trim(), x: 0, t: nowIso, l: loggedMonth } } };
 }
 
 export function editRecurring(items: Recurring, id: string, i: RecurInput, nowIso: string): RecurResult {
