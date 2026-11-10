@@ -6,7 +6,6 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 
 ## Ideas that came up and are not scheduled
 - Verify the WhatsApp number on the profile by sending a code on WhatsApp (skipped for now by the owner). Needs a provider (Meta WhatsApp Business API or Twilio via Supabase phone sign-in), per-message cost, a server-side secret, rate limits, and a privacy note.
-- A "repeat every month" tickbox in Add expense (makes a recurring payment).
 - Category trends, home-screen shortcuts.
 - Bank or UPI statement (CSV) import, and reading messages automatically (needs a native Android app).
 - Calendar: when an event is deleted in the app, also send a cancel for it in the calendar file, so the phone's calendar removes it when the file is opened again.
@@ -14,7 +13,8 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 
 ## Done
 
-### Versions 1.13 to 1.17 (done: on main)
+### Versions 1.13 to 1.18 (done: on main)
+- [x] **A "Repeat every month" tickbox in Add expense** (from the ideas list, picked by the owner) — done in 1.18: makes the payment also a recurring payment, first offered next month.
 - [x] **Undo after deleting or editing a payment** (from the ideas list, picked by the owner) — done in 1.17: an Undo button in the message for 8 seconds, for the person's own payments without receipt photos; shared group expenses are left out on purpose.
 - [x] **A button on the Month page for the picked category** — the owner's words: "on /month page on selected category show a button on top right btn which on click will ask set budget for this category or add expense for this category expense with prefilled category". When a category is picked on `/month`, show a button at the top right; it asks two things: set the budget for this category, or add an expense with this category already chosen. Needs: the Add expense page to take a category from the address, and the budgets dialog to open on one category.
 - [x] **Budgets set in the spreadsheet can be changed in the app** — "also the item that budget is set in the spreadsheet should still be able to change that". Today those rows say "set in the spreadsheet" and cannot be edited. Decided (the owner was away): a number set in the app wins over the spreadsheet's for that category; clear it to go back to the spreadsheet's. An import never overwrites it.

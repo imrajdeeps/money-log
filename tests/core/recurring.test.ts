@@ -81,3 +81,21 @@ test('what comes from the server is checked: malformed items are dropped, good o
   assert.deepEqual(Object.keys(cleanRecurring(evil)).sort(), [U(1), U(2)]);
   for (const junk of [null, undefined, 5, 'x', []]) assert.deepEqual(cleanRecurring(junk), {});
 });
+
+test('a payment made to repeat when it was logged by hand is first offered next month, not again this month', () => {
+  const input = { category: 'Rent', amount: 9000, day: 5, method: 'UPI' as const, note: 'flat' };
+  const r = addRecurring({}, input, '2026-11-05T10:00:00.000Z', undefined, '2026-11');
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  const item = Object.values(r.items)[0]!;
+  assert.equal(item.l, '2026-11');
+  assert.deepEqual(recurringThisMonth(r.items, '2026-11-20'), [], 'this month is already logged');
+  assert.equal(recurringThisMonth(r.items, '2026-12-01').length, 1, 'and it comes up in December');
+  assert.equal(recurringThisMonth(r.items, '2026-12-01')[0]!.date, '2026-12-05');
+  // a past month (a payment logged for an earlier date) is marked for that month, so this month still offers it
+  const past = addRecurring({}, input, '2026-11-05T10:00:00.000Z', undefined, '2026-09');
+  assert.ok(past.ok);
+  if (past.ok) assert.equal(recurringThisMonth(past.items, '2026-11-20').length, 1);
+  assert.equal(addRecurring({}, input, '2026-11-05T10:00:00.000Z', undefined, 'nonsense').ok, false, 'a bad month is refused');
+  assert.equal(Object.values((addRecurring({}, input, '2026-11-05T10:00:00.000Z') as { ok: true; items: Record<string, { l: string }> }).items)[0]!.l, '', 'without it, nothing is marked');
+});

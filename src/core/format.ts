@@ -58,3 +58,6 @@ export function monthShort(key: string): string {
 export function weekdayShort(i: number): string {
   return fmt('wd', { weekday: 'short' }).format(new Date(2024, 0, 1 + i)); // 1 January 2024 was a Monday
 }
+
+/** 1st, 2nd, 3rd, 4th ... 11th, 12th, 13th, 21st: the day of the month in English; in Hindi and Hinglish just the number ("5 को"). */
+export const ordinal = (n: number): string => getLang() !== 'en' ? String(n) : `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`;

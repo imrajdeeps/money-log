@@ -8,8 +8,8 @@ import { activeRecurring } from '../../core/recurring.ts';
 import type { RecurItem } from '../../core/recurring.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
+import { ordinal } from '../../core/format.ts';
 
-const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`;
 export const describeRecurring = (it: RecurItem) => [fmtINR(it.a), tr('on the {0}', ordinal(it.d)), it.m, it.n].filter(Boolean).join(' · ');
 
 interface Draft { id: string | null; category: string; amount: string; day: string; method: Method | ''; note: string }

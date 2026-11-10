@@ -38,6 +38,7 @@ export const NEWS_STEPS: readonly TourStep[] = [
   { id: 'news-language', since: '1.15.0', go: 'settings', target: 'settings-language', title: 'New: your language', text: 'The whole app can now be in English, Hindi or Hinglish. Choose it under Settings, Language, and it changes at once.' },
   { id: 'news-insights', since: '1.16.0', go: 'analytics', target: 'analytics', title: 'New: Insights', text: 'A new page with your spending in charts: month by month, by category, by day of the week, and where this month is likely to end. The Overview also has a smoother chart with a dashed line for the likely month end.' },
   { id: 'news-undo', since: '1.17.0', go: 'home', title: 'New: Undo', text: 'After you edit or delete one of your own payments, a message with an Undo button stays for a few seconds. Tap it and the payment is back as it was. (Shared group expenses and payments with receipt photos cannot be undone.)' },
+  { id: 'news-repeat', since: '1.18.0', go: 'home', title: 'New: Repeat every month', text: 'When you add a payment, tick Repeat every month and it is also set up as a monthly payment: it comes up on the same day each month to log with one tap. You can change or remove it under Settings, Recurring payments.' },
 ];
 
 /** a is later than b: positive; earlier: negative; same: 0. Versions are "1.13.0" (missing parts count as 0). */

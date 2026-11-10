@@ -48,7 +48,7 @@ export interface AppApi {
   doneMap: DoneMap;
   mine: Mine; // the categories and budgets set in the app
   recurring: Recurring; // payments that repeat every month, removed ones included
-  addRecurring: (i: RecurInput) => Promise<string | null>; // null when it worked, else what to tell the person
+  addRecurring: (i: RecurInput, loggedMonth?: string) => Promise<string | null>; // null when it worked, else what to tell the person
   editRecurring: (id: string, i: RecurInput) => Promise<string | null>;
   removeRecurring: (id: string) => Promise<void>;
   logRecurring: (id: string, how: 'log' | 'skip') => Promise<void>;

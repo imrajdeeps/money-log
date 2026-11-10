@@ -156,6 +156,9 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Repeat every month (version 1.18)
+In Add expense, tick **Repeat every month** (for a private payment) and, besides saving the payment, the app sets it up as a recurring payment: the same category, amount, method and note, on the same day of the month. This month's is the one you just saved, so it first comes up next month, to log with one tap. Change or remove it under Settings, Recurring payments.
+
 ## Undo (version 1.17)
 After you edit or delete one of your own payments, the message at the bottom has an **Undo** button for about eight seconds: tap it and the payment is back as it was. Not offered for a shared group expense (it is also other people's, and the group has rules about changing it afterwards) or for a payment that has receipt photos (deleting a payment removes its photos for good, and Undo cannot bring them back).
 
