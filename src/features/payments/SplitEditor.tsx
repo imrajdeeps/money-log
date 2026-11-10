@@ -1,12 +1,17 @@
-import { computeShares, equalShares, fromPaise, sharesPaise, toPaise } from '../../core/groups.ts';
-import type { Member, SplitMode } from '../../core/groups.ts';
+import { computeShares, equalShares, fromPaise, sharesPaise, toPaise, usualSplitValues } from '../../core/groups.ts';
+import type { Member, SplitMode, UsualSplit } from '../../core/groups.ts';
 import { fmtINR } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 
 // Everything the person has chosen about who paid and how the expense is divided.
 export interface SplitState { paidBy: string; mode: SplitMode; included: string[]; values: Record<string, string> }
 
-export const freshSplit = (me: string, people: Member[]): SplitState => ({ paidBy: me, mode: 'equal', included: people.map((m) => m.user_id), values: {} });
+// A new expense in a group: you paid and everyone shares equally, or (flatmates) the group's usual percentages.
+export function freshSplit(me: string, people: Member[], usual: UsualSplit | null = null): SplitState {
+  const ids = people.map((m) => m.user_id);
+  const values = usualSplitValues(usual, ids);
+  return values ? { paidBy: me, mode: 'percent', included: ids, values } : { paidBy: me, mode: 'equal', included: ids, values: {} };
+}
 
 // Starts the editor from an existing expense: an even split shows as Equal, anything else as exact amounts.
 export function splitFromEntry(e: Entry, people: Member[]): SplitState {

@@ -1,50 +1,18 @@
-import { useMemo } from 'react';
-import { useApp } from '../../data/context.tsx';
-import { memberName } from '../../core/groups.ts';
+import { SummaryCard } from './SummaryCard.tsx';
 import type { Group } from '../../core/groups.ts';
-import { groupSummary, tripLength, wholePercents } from '../../core/groupSummary.ts';
-import { shortDate } from '../../core/format.ts';
+import { tripLength } from '../../core/groupSummary.ts';
 import { fmtINR } from '../../core/logic.ts';
 
-// A trip at a glance: what it cost, who paid and whose share it is, where the money went and on which days.
+// A trip at a glance, over its whole life; with dates it also says how many days and what that is a day.
 export function TripSummary({ group }: { group: Group }) {
-  const app = useApp();
-  const me = app.me ?? '';
-  const s = useMemo(() => groupSummary(app.groupEntries, group.id), [app.groupEntries, group.id]);
-  const percents = useMemo(() => wholePercents(s.byCategory.map((c) => c.share)), [s]);
   const days = tripLength(group.starts_on, group.ends_on);
-  const name = (uid: string) => (uid === me ? 'You' : memberName(app.members, group.id, uid));
-
-  if (s.count === 0) return <div className="card"><h3>Trip summary</h3><p className="muted small">Nothing has been spent yet. The summary appears with the first shared expense.</p></div>;
   return (
-    <div className="card tripsummary">
-      <h3>Trip summary</h3>
-      <p className="big-num">{fmtINR(s.total)}</p>
-      <p className="muted small">
-        {s.count} {s.count === 1 ? 'expense' : 'expenses'}
-        {days ? ` over ${days} ${days === 1 ? 'day' : 'days'} · ${fmtINR(Math.round(s.total / days))} a day` : ''}
-      </p>
-
-      <h3 className="h2">Who paid and whose share</h3>
-      <ul className="list plainlist">
-        {s.perPerson.map((p) => (
-          <li key={p.user} className="catline plain"><span>{name(p.user)}</span><span>paid {fmtINR(p.paid)} · share {fmtINR(p.share)}</span></li>
-        ))}
-      </ul>
-
-      <h3 className="h2">Where it went</h3>
-      <ul className="list plainlist">
-        {s.byCategory.map((c, i) => (
-          <li key={c.category} className="catline plain"><span>{c.category}</span><span>{fmtINR(c.total)} <small className="muted">{percents[i]}%</small></span></li>
-        ))}
-      </ul>
-
-      <h3 className="h2">Day by day</h3>
-      <ul className="list plainlist">
-        {s.byDay.map((d) => (
-          <li key={d.date} className="catline plain"><span>{shortDate(d.date)}</span><span>{fmtINR(d.total)}</span></li>
-        ))}
-      </ul>
-    </div>
+    <SummaryCard
+      group={group}
+      title="Trip summary"
+      byDay
+      empty="Nothing has been spent yet. The summary appears with the first shared expense."
+      extra={days ? (total) => ` over ${days} ${days === 1 ? 'day' : 'days'} · ${fmtINR(Math.round(total / days))} a day` : undefined}
+    />
   );
 }

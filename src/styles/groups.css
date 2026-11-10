@@ -40,4 +40,4 @@
 
 /* Trips: the note on a closed trip, and the summary figures */
 .closedbanner { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--card-2, var(--bg)); border: 1px solid var(--line); font-size: 14px; }
-.tripsummary .big-num { margin: 0; }
+.groupsummary .big-num { margin: 0; }
