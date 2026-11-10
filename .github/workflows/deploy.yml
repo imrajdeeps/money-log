@@ -1,6 +1,7 @@
 name: Deploy to GitHub Pages
 
-# Runs on every push to main. It tests, builds, and publishes the built site to GitHub Pages.
+# Pull requests run the tests and the build, so a change is checked before it can be merged; nothing is published.
+# A push to main runs the same checks and then publishes the built site to GitHub Pages.
 # One-time setup in the repository (see README.md):
 #   Settings -> Pages -> Source: "GitHub Actions"
 #   Settings -> Secrets and variables -> Actions -> Variables: VITE_SUPABASE_URL and VITE_SUPABASE_KEY
@@ -9,23 +10,26 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  # A newer run of the same pull request replaces the older one. A run on main is never cancelled half way, so a
+  # deployment is not left unfinished (and a pull request run can never cancel it: the group includes the branch).
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
+    name: Test and build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -36,16 +40,22 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ vars.VITE_SUPABASE_KEY }}
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   deploy:
+    name: Deploy
+    # Pull requests stop after the checks above.
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
