@@ -1,3 +1,4 @@
+import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
@@ -81,7 +82,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
 
   return (
     <section aria-label={`Group ${group.name}`}>
-      <button type="button" className="btn ghost backbtn" onClick={onBack}>‹ All groups</button>
+      <button type="button" className="btn ghost backbtn" onClick={onBack}><span className="inline-flex rotate-180"><Icon name="chevron" size={18} /></span> All groups</button>
       <h2>{group.name} <span className="tag">{kindLabel(group.kind)}</span>{closed && <> <span className="tag">Closed</span></>}</h2>
       {dates && <p className="muted small">{dates}</p>}
       <p className="muted small">
@@ -159,7 +160,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
                 <li key={s.id} className="duerow">
                   <span className="row-main"><b>{nameOf(s.from_user)} paid {nameOf(s.to_user)}</b><small>{shortDate(s.settle_date)} · payment recorded</small></span>
                   <span className="amt">{fmtINR(s.amount)}</span>
-                  {canRemove && <button type="button" className="icobtn" aria-label="Remove this payment" onClick={() => { if (window.confirm('Remove this recorded payment? The balances change back.')) void app.removeSettlement(s.id); }}>✕</button>}
+                  {canRemove && <button type="button" className="icobtn" aria-label="Remove this payment" onClick={() => { if (window.confirm('Remove this recorded payment? The balances change back.')) void app.removeSettlement(s.id); }}><Icon name="close" size={18} /></button>}
                 </li>
               );
             }

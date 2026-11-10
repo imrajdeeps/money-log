@@ -1,3 +1,4 @@
+import { Icon } from '../../ui/Icon.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
@@ -90,7 +91,7 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
                       </label>
                     )}
                     {c.source !== 'plan' && (
-                      <button type="button" className="icobtn" aria-label={`Remove ${c.name}`} onClick={() => { void app.removeCategory(c.name); }}>✕</button>
+                      <button type="button" className="icobtn" aria-label={`Remove ${c.name}`} onClick={() => { void app.removeCategory(c.name); }}><Icon name="close" size={18} /></button>
                     )}
                   </li>
                 ))}

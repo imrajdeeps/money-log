@@ -20,6 +20,8 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 - [ ] **Better icons for the whole app** — the owner's words: "the app icons in not looking good, if possible can se enhance the icons of the complete app". Two things to look at when this is picked up: the app icon on the home screen and in the browser tab (`public/icons`), and the small icons inside the app (`src/ui/Icon.tsx`). Ask which one the owner means, or do both.
 - [ ] **A splash screen when the app opens** — "also add a splash sceen in the app when open". On a phone the installed app can show one while it starts (the manifest's background colour and icon, plus an in-app screen with the logo until the data is loaded; today it shows a plain loading placeholder).
 
+- [ ] **Question to answer: can AI be used in the app, and how, or why not?** (the owner's words: "after finishing this work can we use AI in this web-app if yes how, if no then why"). Answered in the report after version 1.11; if the owner wants it, it starts with a question round and a PRD.
+
 ## Last (the owner will pick this up at the end)
 - [ ] **Analytics** — charts and insights inside the app (spending over time, category trends, month against month, goal progress). Needs a question round on which figures matter. In-app only: no tracking and nothing sent anywhere.
 

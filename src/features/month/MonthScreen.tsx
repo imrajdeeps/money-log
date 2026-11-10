@@ -1,3 +1,4 @@
+import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { monthLabel } from '../../core/format.ts';
@@ -26,9 +27,9 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
   return (
     <section aria-label="Month against plan">
       <div className="monthbar">
-        <button type="button" className="btn ghost sq" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}>‹</button>
+        <button type="button" className="btn ghost sq" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><span className="inline-flex rotate-180"><Icon name="chevron" size={22} /></span></button>
         <h2 aria-live="polite">{monthLabel(month)}</h2>
-        <button type="button" className="btn ghost sq" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}>›</button>
+        <button type="button" className="btn ghost sq" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={22} /></button>
       </div>
 
       {noBudgets && (
