@@ -4,7 +4,7 @@ import { useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-r
 import { AppProvider, useApp } from '../data/context.tsx';
 import { cleanSection } from '../features/settings/index.ts';
 import type { SettingsSection } from '../features/settings/index.ts';
-import { BentoSkeleton } from '../ui/Bento.tsx';
+import { Splash } from '../ui/Splash.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import type { IconName } from '../ui/Icon.tsx';
 import { LockScreen } from '../features/settings/index.ts';
@@ -32,6 +32,8 @@ const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', export: '/ex
 const SECTIONS = Object.keys(ROUTES) as Section[];
 const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', export: 'Export to the spreadsheet', payments: 'All payments', goals: 'Goals' };
 
+const SPLASH_MS = 900; // how long the start screen stays, at least
+
 const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'month', label: 'Month', icon: 'month' },
   { id: 'plan', label: 'Plan', icon: 'plan' },
@@ -58,6 +60,20 @@ function Shell() {
   const section = cleanSection(params.part); // the part of Settings that is open, if any
   const groupId = params.groupId; // the group that is open, if any
   const group = useSearch({ from: '/month', shouldThrow: false })?.g; // the Month page shows just this group's categories
+  // The start screen stays for at least a moment (not at all with reduced motion), then fades while the app appears under it.
+  const [held, setHeld] = useState(false);
+  const [splashGone, setSplashGone] = useState(false);
+  useEffect(() => {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const t = window.setTimeout(() => setHeld(true), reduced ? 0 : SPLASH_MS);
+    return () => window.clearTimeout(t);
+  }, []);
+  const showApp = app.ready && held;
+  useEffect(() => {
+    if (!showApp) return;
+    const t = window.setTimeout(() => setSplashGone(true), 350);
+    return () => window.clearTimeout(t);
+  }, [showApp]);
   const amountRef = useRef<HTMLInputElement>(null);
   const anchor = useRef<string | undefined>(undefined); // a part of the next page to scroll to (net worth, on the Plan page)
 
@@ -88,20 +104,14 @@ function Shell() {
     if (app.locked) document.querySelectorAll<HTMLDialogElement>('.app dialog[open]').forEach((d) => d.close());
   }, [app.locked]);
 
-  if (!app.ready) {
-    return (
-      <div className="app">
-        <header className="top"><div className="brand"><h1>Money Log</h1></div></header>
-        <BentoSkeleton label="Opening your payments…" />
-      </div>
-    );
-  }
+  if (!showApp) return <Splash />;
 
   const toast = <div key={app.toastMsg} className="toast animate-toast" role="status" aria-live="polite">{app.toastMsg}</div>; // a new message is a new element, so it slides in again
   const current = (id: Page) => (page === id || (id === 'plan' && page === 'goals') ? 'page' : undefined); // the Goals page belongs to Plan
 
   return (
     <>
+      {!splashGone && <Splash leaving />}
       {app.locked && <LockScreen />}
       <div className="app" inert={app.locked}>
       <header className="top">

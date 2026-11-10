@@ -55,30 +55,3 @@ export function BentoEmpty({ children, cta, onCta }: { children: ReactNode; cta?
     </div>
   );
 }
-
-// Placeholder tiles in the dashboard's own shapes while the payments are read from the phone.
-const SHAPES: { span: Span; compact?: boolean; kind: 'hero' | 'stat' | 'list' }[] = [
-  { span: 8, kind: 'hero' }, { span: 4, kind: 'stat' },
-  { span: 3, compact: true, kind: 'stat' }, { span: 3, compact: true, kind: 'stat' }, { span: 3, compact: true, kind: 'stat' }, { span: 3, compact: true, kind: 'stat' },
-  { span: 8, kind: 'list' }, { span: 4, kind: 'list' },
-  { span: 4, kind: 'stat' }, { span: 4, kind: 'stat' }, { span: 4, kind: 'stat' },
-];
-
-export function BentoSkeleton({ label }: { label: string }) {
-  return (
-    <div role="status">
-      <span className="sr">{label}</span>
-      <BentoGrid>
-        {SHAPES.map((s, i) => (
-          <div key={i} className={`bento-card span-${s.span}${s.compact ? ' compact' : ''} skel-card`} aria-hidden="true">
-            <span className="skel skel-title" />
-            <span className={`skel ${s.kind === 'hero' ? 'skel-hero' : 'skel-figure'}`} />
-            {s.kind === 'hero' && <span className="skel skel-chart" />}
-            {s.kind === 'list' && <><span className="skel skel-line" /><span className="skel skel-line" /><span className="skel skel-line short" /></>}
-            {s.kind === 'stat' && <span className="skel skel-line short" />}
-          </div>
-        ))}
-      </BentoGrid>
-    </div>
-  );
-}
