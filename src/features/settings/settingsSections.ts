@@ -1,17 +1,21 @@
-// Settings is a short list of headings; tapping one opens just that part. The part is kept in the address (?s=password),
+// Settings is a list of headings in groups; tapping one opens just that part. The part is kept in the address (?s=password),
 // so a refresh, the back button and a link all land in the same place.
+export const SETTINGS_GROUPS = ['Account', 'Money', 'Privacy and security', 'App', 'Danger zone'] as const;
+export type SettingsGroup = (typeof SETTINGS_GROUPS)[number];
+
 export const SETTINGS_SECTIONS = [
-  { id: 'account', title: 'Cloud sync', blurb: 'Sign in, sync, sign out' },
-  { id: 'password', title: 'Password and sessions', blurb: 'Change it, sign out other devices' },
-  { id: 'recurring', title: 'Recurring payments', blurb: 'Rent, SIPs, subscriptions: log with one tap' },
-  { id: 'appearance', title: 'Appearance', blurb: 'Light, dark or match the phone' },
-  { id: 'plan', title: 'Spreadsheet plan', blurb: 'Import your monthly plan (optional)' },
-  { id: 'receipts', title: 'Receipt photos', blurb: 'Storage used on this phone' },
-  { id: 'lock', title: 'App lock', blurb: 'A PIN for this phone' },
-  { id: 'backup', title: 'Backup', blurb: 'Save or restore a copy of your data' },
-  { id: 'erase', title: 'Erase', blurb: 'Clear everything on this phone' },
-  { id: 'about', title: 'About', blurb: 'Version and how to install' },
-] as const;
+  { id: 'profile', group: 'Account', title: 'Profile', blurb: 'Your name and WhatsApp number' },
+  { id: 'account', group: 'Account', title: 'Cloud sync', blurb: 'Sign in, sync, sign out' },
+  { id: 'password', group: 'Account', title: 'Password and sessions', blurb: 'Change it, sign out other devices' },
+  { id: 'recurring', group: 'Money', title: 'Recurring payments', blurb: 'Rent, SIPs, subscriptions: log with one tap' },
+  { id: 'plan', group: 'Money', title: 'Spreadsheet plan', blurb: 'Import your monthly plan (optional)' },
+  { id: 'backup', group: 'Money', title: 'Backup', blurb: 'Save or restore a copy of your data' },
+  { id: 'lock', group: 'Privacy and security', title: 'App lock', blurb: 'A PIN for this phone' },
+  { id: 'receipts', group: 'Privacy and security', title: 'Receipt photos', blurb: 'Storage used on this phone' },
+  { id: 'appearance', group: 'App', title: 'Appearance', blurb: 'Light, dark or match the phone' },
+  { id: 'about', group: 'App', title: 'About', blurb: 'Version and how to install' },
+  { id: 'erase', group: 'Danger zone', title: 'Erase', blurb: 'Clear everything on this phone' },
+] as const satisfies readonly { id: string; group: SettingsGroup; title: string; blurb: string }[];
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]['id'];
 

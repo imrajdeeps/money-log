@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { loadProfile, saveProfile } from '../../data/profile.ts';
 
-const NAME_KEY = 'money-log.name';
+// "Your name in this group" starts from the name in the profile, and what is typed there is kept in the profile.
+export const rememberedName = (): string => loadProfile().name;
 
-export const rememberedName = (): string => { try { return localStorage.getItem(NAME_KEY) ?? ''; } catch { return ''; } };
-
-export const rememberName = (n: string) => { try { localStorage.setItem(NAME_KEY, n); } catch { /* a convenience only */ } };
+export const rememberName = (n: string) => saveProfile({ ...loadProfile(), name: n });
 
 // Runs a group action, keeping the button busy and showing the server's own message when it refuses.
 export function useAction() {
