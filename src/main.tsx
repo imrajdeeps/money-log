@@ -2,6 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './styles.css';
+import { startTheme } from './theme.ts';
+
+startTheme(); // before anything is drawn by React: paint the stored theme and follow the phone's setting
 
 const root = document.getElementById('root');
 if (root) {

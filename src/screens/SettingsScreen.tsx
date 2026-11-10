@@ -8,9 +8,11 @@ import { clockLabel, monthLabel, shortDate, stamp } from '../format.ts';
 import { GROUPS } from '../logic.ts';
 import { LOCK_TIMEOUTS, validPin } from '../lock.ts';
 import { MIN_PASSWORD } from '../password.ts';
+import { useTheme } from '../theme.ts';
+import type { ThemeChoice } from '../theme.ts';
 import { quota, sizeText, usedBytes } from '../receipts.ts';
 
-export const VERSION = '5.0.0';
+export const VERSION = '7.0.0';
 const importedOn = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -196,6 +198,30 @@ function AccountCard() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const LOOKS: { id: ThemeChoice; label: string }[] = [
+  { id: 'system', label: 'Match my phone' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+];
+
+function AppearanceCard() {
+  const { choice, theme, set } = useTheme();
+  return (
+    <div className="card">
+      <h2>Appearance</h2>
+      <div className="chips" role="group" aria-label="Light or dark">
+        {LOOKS.map((l) => (
+          <button key={l.id} type="button" className="chip" aria-pressed={choice === l.id} onClick={() => set(l.id)}>{l.label}</button>
+        ))}
+      </div>
+      <p className="muted small">
+        {choice === 'system' ? `It follows your phone's setting, and is ${theme} now.` : `Always ${choice} on this phone, whatever the phone's own setting is.`}
+        {' '}The sun or moon button at the top switches between light and dark any time.
+      </p>
     </div>
   );
 }
@@ -512,7 +538,7 @@ function AboutCard() {
   return (
     <div className="card">
       <h2>About</h2>
-      <p className="muted small">Money Log {VERSION} · Release 5. Amounts are in rupees.</p>
+      <p className="muted small">Money Log {VERSION} · Release 7. Amounts are in rupees.</p>
       {app.storageKind === 'memory' && (
         <p className="msg bad" role="alert">This browser would not let the app store data, so payments will be lost when you close it. Open it in a normal (not private) window.</p>
       )}
@@ -526,6 +552,7 @@ export function SettingsScreen() {
     <section aria-label="Settings">
       <AccountCard />
       <PasswordCard />
+      <AppearanceCard />
       <PlanCard />
       <ReceiptsCard />
       <AppLockCard />
