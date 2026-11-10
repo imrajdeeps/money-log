@@ -2,8 +2,9 @@
 // already know; nothing here is new data. Kept separate so the Node test runner can check them.
 import { classifyDue } from '../../core/blocks.ts';
 import type { DoneMap, DueBlock, DueView, NetItem } from '../../core/blocks.ts';
-import { fromPaise, groupBalances } from '../../core/groups.ts';
-import type { Group as SharedGroup, Settlement } from '../../core/groups.ts';
+import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
+import type { Group as SharedGroup, Member, Settlement } from '../../core/groups.ts';
+import { coupleLine } from '../../core/couple.ts';
 import { GROUPS, budgetEntries, catKey, changedAfterExport, daysInMonth, exportRows, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from '../../core/logic.ts';
 
@@ -100,6 +101,24 @@ export function dueOverview(due: DueBlock | null, done: DoneMap, todayIso: strin
 }
 
 // This account's position across all its groups, in rupees: what it is owed and what it owes (both 0 or more).
+// One Overview tile for each couple the account is half of (a couple with both people in it): the partner's name and the
+// one line, "Priya owes you ₹50". At most two, so the Overview does not fill up.
+export interface CoupleTile { id: string; partner: string; text: string; tone: 'owed' | 'late' | 'muted' }
+export function coupleTiles(groups: SharedGroup[], members: Member[], entries: Entry[], settlements: Settlement[], me: string | null): CoupleTile[] {
+  if (!me) return [];
+  const out: CoupleTile[] = [];
+  for (const g of groups) {
+    if (g.kind !== 'couple') continue;
+    const people = activeMembers(members, g.id);
+    const partner = people.length === 2 && people.some((m) => m.user_id === me) ? people.find((m) => m.user_id !== me) : undefined;
+    if (!partner) continue;
+    const line = coupleLine(groupBalances(g.id, entries, settlements)[me] ?? 0, partner.display_name);
+    out.push({ id: g.id, partner: partner.display_name, ...line });
+    if (out.length === 2) break;
+  }
+  return out;
+}
+
 export function groupsOverview(groups: SharedGroup[], entries: Entry[], settlements: Settlement[], me: string | null): { owed: number; owe: number } {
   let owed = 0;
   let owe = 0;

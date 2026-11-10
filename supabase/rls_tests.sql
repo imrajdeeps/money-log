@@ -294,7 +294,8 @@ declare
   i int;
   u text;
   rpc constant text[] := array['create_group(text,text,text)', 'join_group(text,text)', 'reset_invite(uuid)', 'leave_group(uuid)',
-                               'remove_member(uuid,uuid)', 'make_admin(uuid,uuid)', 'set_display_name(uuid,text)'];
+                               'remove_member(uuid,uuid)', 'make_admin(uuid,uuid)', 'set_display_name(uuid,text)',
+                               'set_trip_dates(uuid,date,date)', 'set_group_closed(uuid,boolean)', 'set_usual_split(uuid,jsonb)'];
   internal constant text[] := array['group_balance(uuid,uuid)', 'was_group_member(uuid,uuid)', 'new_invite_code()',
                                     'validate_entry_group()', 'validate_settlement()', 'names_former_member(uuid,uuid,jsonb)', 'enforce_row_cap()'];
   helpers constant text[] := array['is_group_member(uuid)', 'is_group_admin(uuid)'];
@@ -679,6 +680,72 @@ begin
     perform pg_temp.act_as(d);
     if not pg_temp.fails(format($q$select public.join_group(%L, 'Dev')$q$, ccode)) then raise exception 'FAIL a third person joined a couple after one left and another joined'; end if;
     raise notice 'PASS new kinds are accepted, unknown kinds refused, and a couple is two people';
+  end;
+
+  -- =========================================================================
+  -- 5c. BEHAVIOUR: trips (dates, closing) and flatmates (the usual split)
+  -- =========================================================================
+  declare
+    gt uuid;
+    gf uuid;
+    tcode text;
+    fcode text;
+  begin
+    perform pg_temp.act_as(a);
+    gt := public.create_group('Goa trip 2', 'trip', 'Asha');
+    gf := public.create_group('Flat 9', 'flatmates', 'Asha');
+    select i.code into tcode from public.group_invites i where i.group_id = gt;
+    select i.code into fcode from public.group_invites i where i.group_id = gf;
+    perform pg_temp.act_as(b);
+    perform public.join_group(tcode, 'Ravi');
+    perform public.join_group(fcode, 'Ravi');
+
+    -- dates: admins only, trips only, in order
+    if not pg_temp.fails(format($q$select public.set_trip_dates(%L, '2026-12-01', '2026-12-05')$q$, gt)) then raise exception 'FAIL a member who is not an admin set trip dates'; end if;
+    perform pg_temp.act_as(a);
+    perform public.set_trip_dates(gt, '2026-12-01', '2026-12-05');
+    if (select starts_on from public.groups where id = gt) <> date '2026-12-01' or (select ends_on from public.groups where id = gt) <> date '2026-12-05' then raise exception 'FAIL the trip dates were not stored'; end if;
+    if not pg_temp.fails(format($q$select public.set_trip_dates(%L, '2026-12-05', '2026-12-01')$q$, gt)) then raise exception 'FAIL a trip ended before it started'; end if;
+    if not pg_temp.fails(format($q$select public.set_trip_dates(%L, '2026-12-01', '2026-12-05')$q$, gf)) then raise exception 'FAIL dates were set on a flatmates group'; end if;
+    if not pg_temp.fails(format($q$select public.set_group_closed(%L, true)$q$, gf)) then raise exception 'FAIL a flatmates group was closed'; end if;
+    if not pg_temp.fails($q$update public.groups set closed_at = now()$q$) then raise exception 'FAIL a member wrote a group directly'; end if;
+
+    -- closing: admins only; then no new expense and no new person, but settling up still works; reopening undoes it
+    perform pg_temp.act_as(b);
+    if not pg_temp.fails(format($q$select public.set_group_closed(%L, true)$q$, gt)) then raise exception 'FAIL a member who is not an admin closed a trip'; end if;
+    perform pg_temp.act_as(a);
+    insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
+      values (gen_random_uuid(), a::uuid, '2026-12-02', 'Hotel', 100, gt, a::uuid, jsonb_build_object(a, 50, b, 50));
+    perform public.set_group_closed(gt, true);
+    if (select closed_at from public.groups where id = gt) is null then raise exception 'FAIL the trip was not closed'; end if;
+    if not pg_temp.fails(format(shared_row, a, 40, gt, a, jsonb_build_object(a, 20, b, 20)::text)) then raise exception 'FAIL an expense was added to a closed trip'; end if;
+    insert into public.settlements (id, group_id, from_user, to_user, amount, settle_date)
+      values (gen_random_uuid(), gt, b::uuid, a::uuid, 50, '2026-12-05');
+    perform pg_temp.act_as(c);
+    if not pg_temp.fails(format($q$select public.join_group(%L, 'Cee')$q$, tcode)) then raise exception 'FAIL someone joined a closed trip'; end if;
+    perform pg_temp.act_as(a);
+    perform public.set_group_closed(gt, false);
+    if (select closed_at from public.groups where id = gt) is not null then raise exception 'FAIL the trip was not reopened'; end if;
+    insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
+      values (gen_random_uuid(), a::uuid, '2026-12-03', 'Taxi', 40, gt, a::uuid, jsonb_build_object(a, 20, b, 20));
+    raise notice 'PASS trips: dates, closing and reopening, and what a closed trip refuses';
+
+    -- the flatmates' usual split: admins only, flatmates only, current members only, adding up to 100
+    perform pg_temp.act_as(b);
+    if not pg_temp.fails(format($q$select public.set_usual_split(%L, %L::jsonb)$q$, gf, jsonb_build_object('mode', 'equal')::text)) then raise exception 'FAIL a member who is not an admin set the usual split'; end if;
+    perform pg_temp.act_as(a);
+    perform public.set_usual_split(gf, jsonb_build_object('mode', 'equal'));
+    perform public.set_usual_split(gf, jsonb_build_object('mode', 'percent', 'percent', jsonb_build_object(a, 60, b, 40)));
+    if (select (usual_split -> 'percent' ->> a)::numeric from public.groups where id = gf) <> 60 then raise exception 'FAIL the usual split was not stored'; end if;
+    if not pg_temp.fails(format($q$select public.set_usual_split(%L, %L::jsonb)$q$, gf, jsonb_build_object('mode', 'percent', 'percent', jsonb_build_object(a, 50, b, 40))::text)) then raise exception 'FAIL percentages that add up to 90 were accepted'; end if;
+    if not pg_temp.fails(format($q$select public.set_usual_split(%L, %L::jsonb)$q$, gf, jsonb_build_object('mode', 'percent', 'percent', jsonb_build_object(a, 50, c, 50))::text)) then raise exception 'FAIL a percent was given to someone who is not in the group'; end if;
+    if not pg_temp.fails(format($q$select public.set_usual_split(%L, %L::jsonb)$q$, gf, jsonb_build_object('mode', 'percent', 'percent', jsonb_build_object(a, 150, b, -50))::text)) then raise exception 'FAIL percentages outside 0 to 100 were accepted'; end if;
+    if not pg_temp.fails(format($q$select public.set_usual_split(%L, %L::jsonb)$q$, gf, jsonb_build_object('mode', 'weird')::text)) then raise exception 'FAIL an unknown split mode was accepted'; end if;
+    if not pg_temp.fails(format($q$select public.set_usual_split(%L, %L::jsonb)$q$, gf, jsonb_build_object('mode', 'equal', 'x', 1)::text)) then raise exception 'FAIL an equal split with extra content was accepted'; end if;
+    if not pg_temp.fails(format($q$select public.set_usual_split(%L, %L::jsonb)$q$, gt, jsonb_build_object('mode', 'equal')::text)) then raise exception 'FAIL a trip was given a usual split'; end if;
+    perform public.set_usual_split(gf, null);
+    if (select usual_split from public.groups where id = gf) is not null then raise exception 'FAIL the usual split was not cleared'; end if;
+    raise notice 'PASS flatmates: the usual split is checked and only admins can set it';
   end;
 
   -- coming back is as a plain member, even for a former admin; a group with no admin is taken over by the next joiner

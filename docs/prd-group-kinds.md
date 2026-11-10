@@ -1,5 +1,7 @@
 # PRD: Group kinds that each do something different
 
+**Status:** delivered in versions 1.8 (the four kinds, the Couple screen) and 1.9 (Trip, Flatmates, Family, the Couple tile). The Overview tile was added after the first draft, at the owner's request.
+
 ## Problem
 A group is "Family" or "Trip", but the choice is only a label: both behave exactly the same. Real groups differ. A trip has
 dates and an end ("who owes whom, then we are done"). Flatmates split the rent the same way every month. A couple is two

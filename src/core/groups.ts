@@ -14,7 +14,19 @@ export const toPaise = (rupees: number): number => Math.round(rupees * 100);
 export const fromPaise = (paise: number): number => paise / 100;
 
 // ---------------------------------------------------------------- the group data that comes from the server
-export interface Group { id: string; name: string; kind: GroupKind; created_at: string }
+// Flatmates: how a new shared expense is split unless the person changes it. Equal, or a percent for each person named
+// (people who joined later are not named: they start at 0).
+export type UsualSplit = { mode: 'equal' } | { mode: 'percent'; percent: Record<string, number> };
+export interface Group {
+  id: string;
+  name: string;
+  kind: GroupKind;
+  created_at: string;
+  starts_on: string | null; // a trip's first and last day (optional)
+  ends_on: string | null;
+  closed_at: string | null; // a closed trip takes no new expenses and no new people
+  usual_split: UsualSplit | null; // flatmates only
+}
 export interface Member { group_id: string; user_id: string; display_name: string; role: 'admin' | 'member'; joined_at: string; left_at: string | null }
 export interface Invite { group_id: string; code: string; expires_at: string }
 export interface Settlement {
@@ -35,10 +47,51 @@ const isId = (v: unknown): v is string => typeof v === 'string' && UUID_RE.test(
 const isTs = (v: unknown): boolean => Number.isFinite(parseTs(v));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function cleanUsualSplit(v: any): UsualSplit | null {
+  if (!v || typeof v !== 'object') return null;
+  if (v.mode === 'equal') return { mode: 'equal' };
+  if (v.mode !== 'percent' || !v.percent || typeof v.percent !== 'object' || Array.isArray(v.percent)) return null;
+  const percent: Record<string, number> = {};
+  let total = 0;
+  for (const [id, n] of Object.entries(v.percent)) {
+    if (!isId(id) || typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 100) return null;
+    percent[id.toLowerCase()] = round2(n);
+    total += n;
+  }
+  return Math.abs(total - 100) < 0.005 ? { mode: 'percent', percent } : null;
+}
+
+// The percentages (as the split editor holds them, one text per person) that a flatmates group's usual split gives the
+// people in it now, or null to start from an equal split: nothing set, "equal", or percentages that do not add up to 100
+// for the people who are in the group today (someone left, or joined after it was set).
+export function usualSplitValues(usual: UsualSplit | null, ids: string[]): Record<string, string> | null {
+  if (!usual || usual.mode !== 'percent') return null;
+  const values: Record<string, string> = {};
+  let total = 0;
+  for (const id of ids) {
+    const p = usual.percent[id] ?? 0;
+    values[id] = String(p);
+    total += p;
+  }
+  return Math.abs(total - 100) < 0.005 ? values : null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanGroup(g: any): Group | null {
   if (!g || !isId(g.id) || typeof g.name !== 'string' || g.name.length < 1 || g.name.length > 60) return null;
   if (!isGroupKind(g.kind)) return null;
-  return { id: g.id.toLowerCase(), name: g.name, kind: g.kind, created_at: isTs(g.created_at) ? g.created_at : new Date(0).toISOString() };
+  const day = (d: unknown): string | null => (typeof d === 'string' && isValidDate(d) ? d : null);
+  const trip = g.kind === 'trip';
+  return {
+    id: g.id.toLowerCase(),
+    name: g.name,
+    kind: g.kind,
+    created_at: isTs(g.created_at) ? g.created_at : new Date(0).toISOString(),
+    starts_on: trip ? day(g.starts_on) : null,
+    ends_on: trip ? day(g.ends_on) : null,
+    closed_at: trip && isTs(g.closed_at) ? g.closed_at : null,
+    usual_split: g.kind === 'flatmates' ? cleanUsualSplit(g.usual_split) : null,
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

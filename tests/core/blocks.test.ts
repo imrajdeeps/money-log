@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  parseDueText, cleanDue, dueKey, setDone, mergeDone, sameDone, cleanDoneMap, pruneDone, isDone, classifyDue, daysBetween, dueRelative,
+  parseDueText, cleanDue, dueKey, setDone, mergeDone, sameDone, cleanDoneMap, pruneDone, isDone, isRemoved, removeDue, classifyDue, daysBetween, dueRelative,
   alertTrigger, buildIcs, cleanAlert, DEFAULT_ALERT, parseNetText, cleanNet, fmtNet, parseBlockText,
 } from '../../src/core/blocks.ts';
 import type { DoneMap, DueData } from '../../src/core/blocks.ts';
@@ -247,4 +247,36 @@ test('the spreadsheet due and net worth blocks import cleanly', { skip: !REAL_DU
   assert.ok(n.ok, n.ok ? '' : n.error);
   assert.ok(n.data.asOf);
   console.log(`  real blocks: ${d.summary.oneoffs} one-offs, ${d.summary.todos} to-dos; ${n.summary.items} figures as of ${n.summary.asOf}`);
+});
+
+test('a removed item leaves the list, the calendar file and the counts; importing again brings it back', () => {
+  const items = parsedDue().items;
+  const gone = items[0]!;
+  const map = removeDue({}, gone.k, '2026-12-05T10:00:00.000Z'); // after the import
+  assert.ok(isRemoved(gone, map, IMPORTED));
+  assert.ok(!isRemoved(items[1]!, map, IMPORTED));
+  const views = classifyDue(items, map, IMPORTED, '2026-12-10');
+  assert.equal(views.length, items.length - 1);
+  assert.ok(!views.some((v) => v.k === gone.k));
+  assert.ok(!buildIcs(views, DEFAULT_ALERT, '2026-12-10T00:00:00Z').includes(gone.title)); // nothing about it in a new calendar file
+  // a list imported later than the removal shows it again
+  assert.ok(!isRemoved(gone, map, '2026-12-08T00:00:00.000Z'));
+  assert.equal(classifyDue(items, map, '2026-12-08T00:00:00.000Z', '2026-12-10').length, items.length);
+});
+
+test('a removed mark keeps its Done state, is later than the mark it replaces, and syncs like a Done mark', () => {
+  const done = setDone({}, 'k', true, '2026-12-05T10:00:00.000Z');
+  const removed = removeDue(done, 'k', '2026-12-05T09:00:00.000Z'); // a slow clock
+  assert.equal(removed.k!.d, 1);
+  assert.equal(removed.k!.x, 1);
+  assert.ok(Date.parse(removed.k!.t) > Date.parse(done.k!.t));
+  // survives cleaning and compares as different from the same mark without it
+  assert.deepEqual(cleanDoneMap(removed), removed);
+  assert.ok(!sameDone(removed, { k: { d: 1, t: removed.k!.t } }));
+  assert.ok(sameDone(removed, cleanDoneMap(JSON.parse(JSON.stringify(removed)))));
+  // the latest change wins: another phone's later Done toggle undoes the removal, an earlier one does not
+  assert.equal(mergeDone(removed, { k: { d: 0, t: '2026-12-06T00:00:00.000Z' } }).k!.x, undefined);
+  assert.equal(mergeDone(removed, { k: { d: 0, t: '2026-12-05T00:00:00.000Z' } }).k!.x, 1);
+  // junk in the x field is dropped
+  assert.equal(cleanDoneMap({ k: { d: 0, t: '2026-12-05T10:00:00.000Z', x: 'yes' } }).k!.x, undefined);
 });

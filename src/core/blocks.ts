@@ -106,12 +106,20 @@ export function cleanDue(p: any): DueData | null {
   return { v: 1, items };
 }
 
-// The Done marks made in the app. Per key, the latest change wins, on every phone alike.
-export type DoneMap = Record<string, { d: 0 | 1; t: string }>;
+// The marks made in the app on items of the due list: Done, and Removed (x = 1, the swipe-to-delete). Per key, the latest
+// change wins, on every phone alike. A mark made after the list was imported wins over the spreadsheet; importing the list
+// again brings back what was removed, like everything else the import replaces.
+export type DoneMap = Record<string, { d: 0 | 1; t: string; x?: 1 }>;
 
 export function setDone(map: DoneMap, key: string, done: boolean, nowIso: string): DoneMap {
   const prev = map[key];
   return { ...map, [key]: { d: done ? 1 : 0, t: prev ? laterThan(prev.t, nowIso) : nowIso } };
+}
+
+// Removes an item from the list (Done stays as it was, in case the item comes back with a new import).
+export function removeDue(map: DoneMap, key: string, nowIso: string): DoneMap {
+  const prev = map[key];
+  return { ...map, [key]: { d: prev?.d ?? 0, t: prev ? laterThan(prev.t, nowIso) : nowIso, x: 1 } };
 }
 
 export function mergeDone(local: DoneMap, remote: DoneMap): DoneMap {
@@ -125,7 +133,7 @@ export function mergeDone(local: DoneMap, remote: DoneMap): DoneMap {
 
 export const sameDone = (a: DoneMap, b: DoneMap): boolean => {
   const ka = Object.keys(a);
-  return ka.length === Object.keys(b).length && ka.every((k) => b[k] && b[k].d === a[k]!.d && b[k].t === a[k]!.t);
+  return ka.length === Object.keys(b).length && ka.every((k) => b[k] && b[k].d === a[k]!.d && b[k].t === a[k]!.t && (b[k].x ?? 0) === (a[k]!.x ?? 0));
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,7 +142,7 @@ export function cleanDoneMap(p: any): DoneMap {
   if (!p || typeof p !== 'object') return out;
   for (const [k, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
     if (k.length > 400 || !v || (v.d !== 0 && v.d !== 1) || !Number.isFinite(parseTs(v.t))) continue;
-    out[k] = { d: v.d, t: v.t };
+    out[k] = v.x === 1 ? { d: v.d, t: v.t, x: 1 } : { d: v.d, t: v.t };
     if (Object.keys(out).length >= 1000) break;
   }
   return out;
@@ -152,6 +160,12 @@ export function isDone(item: DueItem, map: DoneMap, importedAt: string): boolean
   return m && parseTs(m.t) > parseTs(importedAt) ? m.d === 1 : item.done;
 }
 
+// Removed in the app after the list was imported.
+export function isRemoved(item: DueItem, map: DoneMap, importedAt: string): boolean {
+  const m = map[item.k];
+  return m !== undefined && m.x === 1 && parseTs(m.t) > parseTs(importedAt);
+}
+
 export type DueState = 'overdue' | 'today' | 'soon' | 'later' | 'nodate' | 'done';
 export interface DueView extends DueItem { isDone: boolean; state: DueState; days: number | null }
 
@@ -164,7 +178,7 @@ const RANK: Record<DueState, number> = { overdue: 0, today: 1, soon: 2, later: 3
 
 // Overdue first (oldest first), then by date; undated items after dated ones; finished items last.
 export function classifyDue(items: DueItem[], map: DoneMap, importedAt: string, todayIso: string, soonDays = 14): DueView[] {
-  const views = items.map((i): DueView => {
+  const views = items.filter((i) => !isRemoved(i, map, importedAt)).map((i): DueView => {
     const done = isDone(i, map, importedAt);
     const days = i.due ? daysBetween(todayIso, i.due) : null;
     const state: DueState = done ? 'done' : days === null ? 'nodate' : days < 0 ? 'overdue' : days === 0 ? 'today' : days <= soonDays ? 'soon' : 'later';

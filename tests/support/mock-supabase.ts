@@ -110,6 +110,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     if (!r.group_id) return r.paid_by || r.shares ? refuse('A private payment cannot carry paid_by or shares') : null;
     if (!active(r.group_id, uid)) return denied('entries');
     if (!r.paid_by || !r.shares || typeof r.shares !== 'object' || Array.isArray(r.shares)) return refuse('A shared expense needs paid_by and shares');
+    if ((!old || old.group_id !== r.group_id) && state.groups.get(r.group_id)?.closed_at) return refuse('This trip is closed');
     if (r.owner_id !== r.paid_by && !(r.owner_id in r.shares)) return refuse('You can only record an expense that you paid or share in');
     const total = Object.values<number>(r.shares).reduce((a, v) => a + money(v), 0);
     if (total !== money(r.amount)) return refuse(`The shares add up to ${total / 100} but the expense is ${r.amount}`);
@@ -139,7 +140,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (nm.length < 1 || nm.length > 60 || !['family', 'trip', 'flatmates', 'couple'].includes(a.p_kind) || dn.length < 1 || dn.length > 40) return err(400, '22023', 'Check the group name, kind and your name');
       if ([...state.groups.values()].filter((g) => g.created_by === uid).length >= 10) return err(400, '53400', 'You can create at most 10 groups');
       const id = randomUUID();
-      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, created_at: new Date().toISOString() });
+      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, created_at: new Date().toISOString(), starts_on: null, ends_on: null, closed_at: null, usual_split: null });
       state.members.set(`${id}|${uid}`, { group_id: id, user_id: uid, display_name: dn, role: 'admin', joined_at: new Date().toISOString(), left_at: null });
       state.invites.set(id, { group_id: id, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
       return ok(id);
@@ -151,6 +152,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       const inv = [...state.invites.values()].find((i) => i.code === norm && Date.parse(i.expires_at) > Date.now());
       if (!inv) return err(400, '22023', 'That code is not valid or has expired');
       if (active(inv.group_id, uid)) return ok(inv.group_id);
+      if (state.groups.get(inv.group_id)?.closed_at) return err(400, '53400', 'This trip is closed');
       if (activeIn(inv.group_id).length >= 20) return err(400, '53400', 'This group is full (20 people)');
       if (state.groups.get(inv.group_id)?.kind === 'couple' && activeIn(inv.group_id).length >= 2) return err(400, '53400', 'A couple is only two people');
       state.members.set(`${inv.group_id}|${uid}`, { group_id: inv.group_id, user_id: uid, display_name: dn, role: 'member', joined_at: new Date().toISOString(), left_at: null });
@@ -187,6 +189,40 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       const m = member(a.p_group, a.p_user);
       if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
       m.role = 'admin';
+      return ok();
+    }
+    if (name === 'set_trip_dates') {
+      if (!adminOf(a.p_group)) return lockedOut;
+      const g = state.groups.get(a.p_group);
+      if (a.p_starts && a.p_ends && a.p_ends < a.p_starts) return err(400, '22023', 'The trip cannot end before it starts');
+      if (!g || g.kind !== 'trip') return err(400, '22023', 'Only a trip has dates');
+      g.starts_on = a.p_starts ?? null; g.ends_on = a.p_ends ?? null;
+      return ok();
+    }
+    if (name === 'set_group_closed') {
+      if (!adminOf(a.p_group)) return lockedOut;
+      const g = state.groups.get(a.p_group);
+      if (typeof a.p_closed !== 'boolean') return err(400, '22023', 'Say whether the trip is closed');
+      if (!g || g.kind !== 'trip') return err(400, '22023', 'Only a trip can be closed');
+      g.closed_at = a.p_closed ? (g.closed_at ?? new Date().toISOString()) : null;
+      return ok();
+    }
+    if (name === 'set_usual_split') {
+      if (!adminOf(a.p_group)) return lockedOut;
+      const g = state.groups.get(a.p_group);
+      if (!g || g.kind !== 'flatmates') return err(400, '22023', 'Only flatmates have a usual split');
+      const s = a.p_split;
+      if (s === null || s === undefined) { g.usual_split = null; return ok(); }
+      if (s.mode === 'equal' && Object.keys(s).length === 1) { g.usual_split = { mode: 'equal' }; return ok(); }
+      if (s.mode !== 'percent' || Object.keys(s).length !== 2 || !s.percent || typeof s.percent !== 'object') return err(400, '22023', 'The usual split is equal or percent');
+      let total = 0;
+      for (const [u, p] of Object.entries<number>(s.percent)) {
+        if (typeof p !== 'number' || p < 0 || p > 100) return err(400, '22023', 'A percent is between 0 and 100, with at most 2 decimals');
+        if (!active(a.p_group, u)) return err(400, '22023', 'The split names someone who is not in this group');
+        total += p;
+      }
+      if (Math.abs(total - 100) > 0.001) return err(400, '22023', `The percentages add up to ${total}, not 100`);
+      g.usual_split = s;
       return ok();
     }
     if (name === 'set_display_name') {
