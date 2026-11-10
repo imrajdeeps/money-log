@@ -10,6 +10,7 @@ import { LockScreen } from './components/LockScreen.tsx';
 import { QuickLog } from './components/QuickLog.tsx';
 import { RecentList } from './components/RecentList.tsx';
 import { SyncPill } from './components/SyncPill.tsx';
+import { ThemeToggle } from './components/ThemeToggle.tsx';
 import { ExportScreen } from './screens/ExportScreen.tsx';
 import { GroupsScreen } from './screens/GroupsScreen.tsx';
 import { HomeScreen } from './screens/HomeScreen.tsx';
@@ -88,6 +89,7 @@ function Shell() {
         </nav>
         <div className="top-actions">
           <SyncPill onOpenSettings={goSettings} />
+          <ThemeToggle />
           <button type="button" className="btn addbtn" aria-haspopup="dialog" onClick={openAdd}><Icon name="plus" size={20} />Add expense</button>
           <button type="button" className="iconbtn gear" aria-label="Settings" aria-current={page === 'settings' ? 'page' : undefined} onClick={goSettings}>
             <Icon name="settings" />
