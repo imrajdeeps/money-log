@@ -501,7 +501,7 @@ dialog.viewer img { display: block; width: 100%; max-height: 70vh; object-fit: c
   .bento-card.is-action:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover), var(--inner); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
   .bento-card.is-action:hover .bento-chev { color: var(--accent); transform: translateX(2px); }
   .list .row:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
-  .drawer-x:hover, .iconbtn:hover { background: var(--bg); color: var(--ink); }
+  .iconbtn:hover { background: var(--bg); color: var(--ink); }
 }
 .bento-card.is-action:active { transform: translateY(0) scale(0.995); }
 
@@ -596,50 +596,6 @@ dialog.viewer img { display: block; width: 100%; max-height: 70vh; object-fit: c
 .skel-line.short { width: 55%; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 
-/* detail sheets: from the bottom on a phone, from the right on a wider screen */
-dialog.drawer {
-  position: fixed;
-  inset: auto 0 0 0;
-  width: 100%;
-  max-width: none;
-  height: auto;
-  max-height: calc(100dvh - 16px - env(safe-area-inset-top));
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 20px 20px 0 0;
-  overflow: hidden;
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18);
-}
-dialog.drawer[open] { display: flex; flex-direction: column; animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-dialog.drawer.closing { animation: sheet-down 0.2s ease-in forwards; }
-dialog.drawer[open]::backdrop { animation: fade-in 0.22s ease backwards; }
-dialog.drawer.closing::backdrop { animation: fade-out 0.2s ease forwards; }
-html:has(dialog.drawer[open]) { overflow: hidden; }
-.drawer-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.drawer-head { position: relative; flex: none; display: flex; align-items: center; gap: 8px; padding: 16px 8px 8px 20px; border-bottom: 1px solid var(--line); }
-.drawer-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 18px; }
-.drawer-grip { position: absolute; top: 6px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 999px; background: var(--line); }
-.drawer-x { flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer; }
-.drawer-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 16px calc(28px + env(safe-area-inset-bottom)); }
-.drawer .toast { bottom: calc(16px + env(safe-area-inset-bottom)); }
-@media (min-width: 720px) {
-  dialog.drawer { inset: 0 0 0 auto; width: min(560px, 100vw); height: 100dvh; max-height: 100dvh; border-radius: 20px 0 0 20px; box-shadow: -10px 0 40px rgba(0, 0, 0, 0.18); }
-  dialog.drawer[open] { animation-name: panel-in; }
-  dialog.drawer.closing { animation-name: panel-out; }
-  .drawer-grip { display: none; }
-  .drawer-head { padding: calc(14px + env(safe-area-inset-top)) 12px 12px 24px; }
-  .drawer-body { padding: 20px 24px 32px; }
-  .drawer .toast { left: auto; right: 16px; width: min(528px, calc(100% - 32px)); }
-}
-@keyframes sheet-up { from { transform: translateY(100%); } }
-@keyframes sheet-down { to { transform: translateY(100%); } }
-@keyframes panel-in { from { transform: translateX(100%); } }
-@keyframes panel-out { to { transform: translateX(100%); } }
-@keyframes fade-in { from { opacity: 0; } }
-@keyframes fade-out { to { opacity: 0; } }
 
 /* wide screens: section links and the Add button in the header instead of the bottom bar */
 @media (min-width: 1024px) {

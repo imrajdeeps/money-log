@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
-import { useMatches, useNavigate, useSearch } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
+import { useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { AppProvider, useApp } from './context.tsx';
+import { cleanSection } from './settingsSections.ts';
 import type { SettingsSection } from './settingsSections.ts';
 import { BentoSkeleton } from './components/Bento.tsx';
-import { DetailDrawer } from './components/DetailDrawer.tsx';
-import type { DrawerHandle } from './components/DetailDrawer.tsx';
 import { Icon } from './components/Icon.tsx';
 import type { IconName } from './components/Icon.tsx';
 import { LockScreen } from './components/LockScreen.tsx';
@@ -22,11 +21,11 @@ import { MonthScreen } from './screens/MonthScreen.tsx';
 import { PlanScreen } from './screens/PlanScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
 
-// Every tab is a page with its own address (/month, /plan, /groups, /export, /payments, /settings), so a refresh and the
-// back button stay where they were. The Overview and Settings stay mounted behind the others (they keep their place);
-// the other pages are drawn only while they are showing. The one thing that is still a sheet is Add expense, because it
-// must open straight from the tap so a phone shows its keyboard at once.
-type Page = 'home' | 'settings' | Section;
+// Everything is a page with its own address, so a refresh and the back button stay where they were:
+//   /  /month  /plan  /export  /payments  /add  /groups  /groups/<id>  /settings  /settings/<part>
+// The Overview, Settings and Add expense stay mounted behind the others (they keep their place and a half-typed payment);
+// the other pages are drawn only while they are showing.
+type Page = 'home' | 'settings' | 'add' | Section;
 
 const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', export: '/export', payments: '/payments' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
@@ -53,29 +52,28 @@ function Shell() {
   const app = useApp();
   const navigate = useNavigate();
   const routeId = useMatches({ select: (ms) => ms[ms.length - 1]?.routeId });
-  const page: Page = routeId === '/settings' ? 'settings' : SECTIONS.find((s) => routeId === ROUTES[s]) ?? 'home';
-  const section = useSearch({ from: '/settings', shouldThrow: false })?.s;
+  const page: Page = routeId?.startsWith('/settings') ? 'settings' : routeId === '/add' ? 'add' : SECTIONS.find((s) => routeId === ROUTES[s] || routeId?.startsWith(`${ROUTES[s]}/`)) ?? 'home';
+  const params = useParams({ strict: false }) as { part?: string; groupId?: string };
+  const section = cleanSection(params.part); // the part of Settings that is open, if any
+  const groupId = params.groupId; // the group that is open, if any
   const group = useSearch({ from: '/month', shouldThrow: false })?.g; // the Month page shows just this group's categories
-  const [adding, setAdding] = useState(false); // the Add expense sheet is open
   const amountRef = useRef<HTMLInputElement>(null);
-  const addRef: RefObject<DrawerHandle | null> = useRef<DrawerHandle>(null);
   const anchor = useRef<string | undefined>(undefined); // a part of the next page to scroll to (net worth, on the Plan page)
 
-  const closeAdd = useCallback(() => addRef.current?.close(), []);
-  // Straight from the tap, so the amount field gets the focus (and a phone its keyboard) at once.
-  const openAdd = useCallback(() => addRef.current?.open(), []);
-  const goHome = useCallback(() => { closeAdd(); void navigate({ to: '/' }); }, [closeAdd, navigate]);
-  const goPage = useCallback((to: Section, part?: string) => { closeAdd(); anchor.current = part; void navigate({ to: ROUTES[to] }); }, [closeAdd, navigate]);
-  const goMonth = useCallback((g?: Group) => { closeAdd(); void navigate({ to: '/month', search: g ? { g } : {} }); }, [closeAdd, navigate]);
-  const goSettings = useCallback((to?: SettingsSection) => { closeAdd(); void navigate({ to: '/settings', search: to ? { s: to } : {} }); }, [closeAdd, navigate]);
-  // Whichever way the address changed (a tap, the back button, a link), the sheet closes and the page starts at the top,
-  // or at the part that was asked for.
+  const goHome = useCallback(() => { void navigate({ to: '/' }); }, [navigate]);
+  const goAdd = useCallback(() => { void navigate({ to: '/add' }); }, [navigate]);
+  const goPage = useCallback((to: Section, part?: string) => { anchor.current = part; void navigate({ to: ROUTES[to] }); }, [navigate]);
+  const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
+  const goGroup = useCallback((id?: string) => { void navigate(id ? { to: '/groups/$groupId', params: { groupId: id } } : { to: '/groups' }); }, [navigate]);
+  const goSettings = useCallback((to?: SettingsSection) => { void navigate(to ? { to: '/settings/$part', params: { part: to } } : { to: '/settings' }); }, [navigate]);
+  // Whichever way the address changed (a tap, the back button, a link), the page starts at the top, or at the part that
+  // was asked for; and Add expense puts the cursor in the amount.
   useEffect(() => {
-    closeAdd();
     const part = anchor.current ? document.getElementById(anchor.current) : null;
     anchor.current = undefined;
     if (part) part.scrollIntoView(); else window.scrollTo(0, 0);
-  }, [page, section, group, closeAdd]);
+    if (page === 'add') amountRef.current?.focus({ preventScroll: true });
+  }, [page, section, group, groupId]);
 
   // A reset link was opened: the new password is chosen in Settings. A link that failed: a new one is asked for there.
   useEffect(() => {
@@ -83,8 +81,8 @@ function Shell() {
   }, [app.ready, app.recovering, app.authNotice, app.locked, goSettings]);
   // A join link was opened: show where it can be used, once the PIN screen (if any) is out of the way.
   useEffect(() => { if (app.ready && app.joinCode && !app.locked) goPage('groups'); }, [app.ready, app.joinCode, app.locked, goPage]);
-  // The PIN screen must not sit under an open sheet or dialog (they are drawn above the page): close them all before it
-  // is painted and before it puts the focus in its PIN field.
+  // The PIN screen must not sit under an open dialog (they are drawn above the page): close them all before it is painted
+  // and before it puts the focus in its PIN field.
   useLayoutEffect(() => {
     if (app.locked) document.querySelectorAll<HTMLDialogElement>('.app dialog[open]').forEach((d) => d.close());
   }, [app.locked]);
@@ -115,7 +113,7 @@ function Shell() {
         <div className="top-actions">
           <SyncPill onOpenSettings={() => goSettings('account')} />
           <ThemeToggle />
-          <button type="button" className="btn addbtn" aria-haspopup="dialog" onClick={openAdd}><Icon name="plus" size={20} />Add expense</button>
+          <button type="button" className="btn addbtn" aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={20} />Add expense</button>
           <button type="button" className="iconbtn gear" aria-label="Settings" aria-current={current('settings')} onClick={() => goSettings()}>
             <Icon name="settings" />
           </button>
@@ -127,35 +125,34 @@ function Shell() {
         </p>
       )}
       <main>
-        <div hidden={page !== 'home'}><HomeScreen open={goPage} openMonth={goMonth} openAdd={openAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
+        <div hidden={page !== 'home'}><HomeScreen open={goPage} openMonth={goMonth} openAdd={goAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
         <div hidden={page !== 'settings'} className="narrow">
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
+        <div hidden={page !== 'add'} className="narrow">
+          <PageBody title="Add expense" back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} /></PageBody>
+        </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} /></PageBody>}
         {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} /></PageBody>}
-        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen openSettings={() => goSettings('account')} /></PageBody>}
+        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
         {page === 'export' && <PageBody title={TITLES.export}><ExportScreen /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}
       </main>
 
-      <DetailDrawer ref={addRef} title="Add expense" initialFocus={amountRef} onOpenChange={setAdding}>
-        <QuickLog amountRef={amountRef} onSaved={closeAdd} />
-        {adding && toast}
-      </DetailDrawer>
 
       <nav className="tabs" aria-label="Sections">
         <button type="button" aria-current={current('home')} onClick={goHome}>
           <Icon name="home" />Home
         </button>
         <button type="button" aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" />Month</button>
-        <button type="button" className="fab" aria-label="Add expense" aria-haspopup="dialog" onClick={openAdd}>
+        <button type="button" className="fab" aria-label="Add expense" aria-current={current('add')} onClick={goAdd}>
           <span className="fab-circle"><Icon name="plus" size={26} /></span>
           <span aria-hidden="true">Add</span>
         </button>
         <button type="button" aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" />Plan</button>
         <button type="button" aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" />Groups</button>
       </nav>
-      {adding ? <div className="toast" role="status" aria-live="polite" /> : toast}
+      {toast}
       </div>
     </>
   );

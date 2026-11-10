@@ -89,11 +89,20 @@ GitHub account, or give this app its own account, organisation, or custom domain
 ## Finding your way around
 
 The app opens on **Overview**, a dashboard of tiles. Each tile shows one figure; tap it and its details open on a page of
-its own: **Month**, **Plan**, **Groups**, **Export** and **All payments** each have their own address (`/month`, `/plan`,
-`/groups`, `/export`, `/payments`; a group tile such as Saving opens Month with just that group's categories, `/month?g=Saving`), so a refresh, the back button and a bookmark all land on the same page. The top bar
-(wide screens) and the bottom bar (phones) switch between them. Only **+ Add expense** is still a small sheet, because it
-has to open straight from your tap so a phone shows its keyboard at once; close it with its ✕, by tapping the dimmed page,
-with Escape, or with Android's back gesture.
+its own. Every page has its own address, so a refresh, the back button and a bookmark all land on the same page:
+
+| Page | Address |
+|---|---|
+| Overview | `/` |
+| Month (a group tile such as Saving opens just that group's categories) | `/month`, `/month?g=Saving` |
+| Plan, Export, All payments | `/plan`, `/export`, `/payments` |
+| Add expense | `/add` |
+| Groups, and one group | `/groups`, `/groups/<id>` |
+| Settings, and one part of it | `/settings`, `/settings/password` |
+
+The top bar (wide screens) and the bottom bar (phones) switch between them. Add expense is a page too; it keeps what you
+typed if you leave it half done, and puts the cursor in the amount when you open it (an iPhone may still need one tap in
+the field before its keyboard comes up).
 
 | Tile | Shows | Opens |
 | --- | --- | --- |
@@ -113,11 +122,15 @@ links at the top. The app shows no income, cash flow or net worth history, becau
 data say where the data comes from instead.
 
 **Settings** is a short list of headings (Cloud sync, Password and sessions, Appearance, and so on); tapping one opens
-just that part, and the back arrow returns to the list. The page and the part are in the address
-(`/settings?s=password`), so a refresh, the back button or a bookmark lands in the same place. The pages are routed with
+just that part on a page of its own (`/settings/password`), and the back arrow returns to the list. An older link such as
+`/settings?s=password`, or a part that does not exist, still lands somewhere sensible. The pages are routed with
 TanStack Router (files in `src/routes`; `src/routeTree.gen.ts` is generated from them by `npm run dev` or `npm run build`,
-and is committed). GitHub Pages has no file for `/settings`, so the build also writes `404.html` as a copy of the app,
-which Pages serves for such addresses; an unknown address goes to the Overview.
+and is committed). GitHub Pages has no file for `/settings/password`, so the build also writes `404.html` as a copy of the
+app, which Pages serves for such addresses; an unknown address goes to the Overview. A page two levels deep, such as
+`/groups/<id>`, is not in the folder the app's files are in, so `index.html` starts with a tiny script that works out that
+folder from the address (everything before the first page name) and the browser reads `./assets/...` from there; the
+Content-Security-Policy allows exactly that one script, by its hash. This keeps working at `https://name.github.io/repo/`
+and at a custom domain. (A hosting folder that is itself named like a page, for example `/plan/`, would confuse it.)
 
 **All payments** (the Recent payments tile's *See all*) lists every payment on the phone, newest day first, with a search
 (words in any order, matched against the category, note, method and amount; `4500` finds ₹4,500) and filters for month,

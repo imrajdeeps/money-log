@@ -323,12 +323,12 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
 }
 
 // ---------------------------------------------------------------- the tab
-export function GroupsScreen({ openSettings }: { openSettings: () => void }) {
+// groupId: the group named in the address (/groups/<id>), or none for the list. onOpen(id) goes to a group, onOpen() to the list.
+export function GroupsScreen({ groupId, onOpen, openSettings }: { groupId?: string; onOpen: (id?: string) => void; openSettings: () => void }) {
   const app = useApp();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const open = app.groups.find((g) => g.id === openId);
+  const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
   // An invitation arrived (a tapped link): go back to the list, where the join form is.
-  useEffect(() => { if (app.joinCode) setOpenId(null); }, [app.joinCode]);
+  useEffect(() => { if (app.joinCode && groupId) onOpen(); }, [app.joinCode, groupId, onOpen]);
 
   if (!app.syncEnabled) {
     return <div className="card notice"><p><strong>Groups need cloud sync.</strong> It is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.</p></div>;
@@ -341,7 +341,15 @@ export function GroupsScreen({ openSettings }: { openSettings: () => void }) {
       </div>
     );
   }
-  if (open) return <GroupDetail group={open} onBack={() => setOpenId(null)} />;
+  if (open) return <GroupDetail group={open} onBack={() => onOpen()} />;
+  if (groupId) {
+    return (
+      <div className="card notice">
+        <p><strong>That group is not here.</strong> It may have been removed, or you may not be in it.</p>
+        <button type="button" className="btn" onClick={() => onOpen()}>All groups</button>
+      </div>
+    );
+  }
 
   return (
     <section aria-label="Groups" className="grouplist">
@@ -353,7 +361,7 @@ export function GroupsScreen({ openSettings }: { openSettings: () => void }) {
             const bal = groupBalances(g.id, app.groupEntries, app.settlements)[app.me ?? ''] ?? 0;
             return (
               <li key={g.id}>
-                <button type="button" className="row" onClick={() => setOpenId(g.id)}>
+                <button type="button" className="row" onClick={() => onOpen(g.id)}>
                   <span className="row-main">
                     <b>{g.name}</b>
                     <small>{kindLabel(g.kind)} · {activeMembers(app.members, g.id).length} people</small>
