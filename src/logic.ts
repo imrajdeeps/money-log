@@ -36,8 +36,8 @@ export interface Plan extends PlanData { importedAt: string; dirty: 0 | 1 }
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_AMOUNT = 1e9;
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const MAX_AMOUNT = 1e9;
 
 export const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 

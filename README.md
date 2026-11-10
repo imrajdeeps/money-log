@@ -338,7 +338,7 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
   other's chosen names. They never see your private payments, your plan, or your email address. Recording a payment
   between two people needs no confirmation from the other: this is meant for groups of people who trust each other.
 - Because the key is public and sign-ups are open while you invite people, each account is capped (20,000 payments and
-  2,000 recorded group payments; plan data only under five known names; at most 10 groups made and 20 people per group),
+  2,000 recorded group payments; plan data only under six known names; at most 10 groups made and 20 people per group),
   so a stranger's account cannot fill the free database. For stricter control keep sign-ups off except when inviting.
 - Receipt photos: the Storage bucket `receipts` is private, JPEG only, 1 MB per file. A file can be uploaded only into your
   own folder and only for a photo you declared first; you can read your own files and those on shared expenses of groups you

@@ -1352,3 +1352,65 @@ test('forgot password: a rate limit and an address the project\'s email cannot r
   await a.sync.requestPasswordReset('pw@example.com', SITE); // and the next one goes through
   assert.equal(mock.state.recoveries.length, 1);
 });
+
+// ------------------------------------------------------------------ recurring payments (a merged block, like the categories)
+import { addRecurring, markHandled } from '../src/recurring.ts';
+import type { Recurring } from '../src/recurring.ts';
+import type { RecurBlock } from '../src/sync.ts';
+
+const recurOf = async (d: ReturnType<typeof device>): Promise<Recurring> => (await d.store.getMeta<RecurBlock>('recurring'))?.items ?? {};
+const changeRecur = (d: ReturnType<typeof device>, f: (r: Recurring) => Recurring) =>
+  d.store.mutateMeta<RecurBlock>('recurring', (cur) => ({ items: f(cur?.items ?? {}), dirty: 1 }));
+const RID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const addRent = (id: string, at: string) => (r: Recurring): Recurring => {
+  const x = addRecurring(r, { category: 'Rent', amount: 20000, day: 5, method: 'UPI', note: '' }, at, id);
+  assert.ok(x.ok);
+  return x.ok ? x.items : r;
+};
+
+test('recurring payments travel between phones, and nothing is left waiting', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeRecur(a, addRent(RID(1), iso()));
+  await a.sync.refreshPending();
+  assert.equal(a.sync.getState().pending, 1, 'one block waits to upload');
+  await a.sync.sync();
+  assert.equal(a.sync.getState().pending, 0);
+  assert.equal((await a.store.getMeta<RecurBlock>('recurring'))!.dirty, 0);
+  assert.ok([...mock.state.plans.values()].some((p) => p.block === 'recurring'), 'stored as its own block in the cloud');
+  await b.sync.sync();
+  assert.equal((await recurOf(b))[RID(1)]?.c, 'Rent');
+  assert.equal((await b.store.getMeta<RecurBlock>('recurring'))!.dirty, 0);
+  assert.equal(b.sync.getState().pending, 0);
+});
+
+test('a month logged on one phone is not offered again on the other, even after an older edit there', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeRecur(a, addRent(RID(1), iso(-5000)));
+  await a.sync.sync(); await b.sync.sync();
+  // phone B edits the amount (later), phone A logs November (earlier), both offline
+  await changeRecur(b, (r) => ({ ...r, [RID(1)]: { ...r[RID(1)]!, a: 22000, t: iso(-1000) } }));
+  await changeRecur(a, (r) => markHandled(r, RID(1), '2026-11', iso(-2000)));
+  await a.sync.sync(); await b.sync.sync(); await a.sync.sync();
+  for (const d of [a, b]) {
+    const it = (await recurOf(d))[RID(1)]!;
+    assert.equal(it.a, 22000, 'the later edit won on both phones');
+    assert.equal(it.l, '2026-11', 'the logged month survived on both phones');
+  }
+});
+
+test('recurring payments of another account, and malformed rows from the cloud, are never taken in', async () => {
+  reset();
+  const a = device('a@example.com'); const x = device('x@example.com');
+  await a.signIn(); await x.signIn();
+  const uid = [...mock.state.users.values()][0]!;
+  await changeRecur(a, addRent(RID(1), iso()));
+  await a.sync.sync(); await x.sync.sync();
+  assert.deepEqual(await recurOf(x), {}, "another account sees nothing of A's recurring payments");
+  mock.state.plans.set(`${uid}|recurring`, { block: 'recurring', imported_at: iso(), payload: { v: 1, items: { [RID(1)]: { id: RID(1), c: 'Rent', a: -5, d: 5, m: null, n: '', x: 0, t: iso(), l: '' }, junk: 5 } } });
+  await a.sync.sync();
+  assert.equal((await recurOf(a))[RID(1)]?.a, 20000, 'the bad copy was ignored; this phone keeps its good one');
+});

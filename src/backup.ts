@@ -3,11 +3,13 @@ import { cleanDoneMap, cleanDue, cleanNet } from './blocks.ts';
 import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from './blocks.ts';
 import { cleanMine } from './categories.ts';
 import type { Mine } from './categories.ts';
+import { cleanRecurring } from './recurring.ts';
+import type { Recurring } from './recurring.ts';
 import { cleanEntry, cleanPlan, parseTs } from './logic.ts';
 import type { Entry, Plan, PlanData } from './logic.ts';
 
 // What a backup may hold beyond payments and the budget plan. Every field is optional, so a Release 1 backup still loads.
-export interface BackupExtras { due?: DueBlock | null; networth?: NetBlock | null; dueDone?: DoneMap; categories?: Mine }
+export interface BackupExtras { due?: DueBlock | null; networth?: NetBlock | null; dueDone?: DoneMap; categories?: Mine; recurring?: Recurring }
 
 export interface Backup {
   app: 'money-log';
@@ -19,6 +21,7 @@ export interface Backup {
   networth?: (NetData & { importedAt: string }) | null;
   dueDone?: DoneMap;
   categories?: Mine; // the person's own categories and budgets
+  recurring?: Recurring; // payments that repeat every month
 }
 
 // Only payments this account made go in: a backup is a copy of your own data, never of what others shared with you.
@@ -34,6 +37,7 @@ export function makeBackup(entries: Entry[], plan: Plan | null, nowIso: string, 
   if (extras.networth) out.networth = { v: 1, asOf: extras.networth.asOf, items: extras.networth.items, importedAt: extras.networth.importedAt };
   if (extras.dueDone && Object.keys(extras.dueDone).length) out.dueDone = extras.dueDone;
   if (extras.categories && Object.keys(extras.categories).length) out.categories = extras.categories;
+  if (extras.recurring && Object.keys(extras.recurring).length) out.recurring = extras.recurring;
   return out;
 }
 
@@ -46,6 +50,7 @@ export type BackupParse =
       networth: (NetData & { importedAt: string }) | null;
       dueDone: DoneMap;
       categories: Mine;
+      recurring: Recurring;
       skipped: number;
     }
   | { ok: false; error: string };
@@ -73,6 +78,7 @@ export function parseBackup(text: string): BackupParse {
     networth: withDate(cleanNet, j.networth),
     dueDone: cleanDoneMap(j.dueDone),
     categories: cleanMine(j.categories),
+    recurring: cleanRecurring(j.recurring),
     skipped,
   };
 }
