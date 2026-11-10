@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useApp } from '../context.tsx';
 import { makeBackup, parseBackup } from '../backup.ts';
 import { parseBlockText } from '../blocks.ts';
@@ -7,21 +7,51 @@ import { readTextFile, saveFile } from '../files.ts';
 import { clockLabel, monthLabel, shortDate, stamp } from '../format.ts';
 import { GROUPS } from '../logic.ts';
 import { LOCK_TIMEOUTS, validPin } from '../lock.ts';
+import { MIN_PASSWORD } from '../password.ts';
 import { quota, sizeText, usedBytes } from '../receipts.ts';
 
-export const VERSION = '4.0.0';
+export const VERSION = '5.0.0';
 const importedOn = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 function AccountCard() {
   const app = useApp();
   const s = app.sync;
+  const [how, setHow] = useState<'signin' | 'signup' | 'code'>('signin');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [leaving, setLeaving] = useState(false); // the sign-out choice is showing
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+
+  function choose(next: 'signin' | 'signup' | 'code') {
+    setHow(next); setMsg(null); setSent(false); setCode(''); setPassword2('');
+  }
+
+  async function signIn(ev: FormEvent) {
+    ev.preventDefault();
+    setBusy(true); setMsg(null);
+    try {
+      await app.signInWithPassword(email.trim(), password);
+      setPassword('');
+      app.toast('Signed in');
+    } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
+  }
+
+  async function signUp(ev: FormEvent) {
+    ev.preventDefault();
+    if (password !== password2) { setMsg({ text: 'The two passwords are not the same.', bad: true }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const r = await app.signUp(email.trim(), password);
+      setPassword(''); setPassword2('');
+      if (r === 'signed-in') app.toast('Account created');
+      else setMsg({ text: `Almost there: open the confirmation link we emailed to ${email.trim()}, then come back and sign in. If you already have an account with this address, just sign in.`, bad: false });
+    } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
+  }
 
   async function sendCode() {
     setBusy(true); setMsg(null);
@@ -51,31 +81,80 @@ function AccountCard() {
   }
 
   if (s.mode === 'signedout') {
+    const note = (msg || s.error) && <p className={`msg ${msg?.bad || !msg ? 'bad' : ''}`} role="alert">{msg?.text ?? s.error}</p>;
     return (
       <div className="card">
-        <h2>Sign in to sync</h2>
-        <p className="muted small">No password: we email you a code. Your payments are saved on this phone either way.</p>
-        <label className="field">
-          <span>Email</span>
-          <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} />
-        </label>
-        {sent && (
-          <label className="field">
-            <span>6-digit code</span>
-            <input inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={code} onChange={(e) => setCode(e.target.value)} disabled={busy} />
-          </label>
-        )}
-        {(msg || s.error) && <p className={`msg ${msg?.bad || !msg ? 'bad' : ''}`} role="alert">{msg?.text ?? s.error}</p>}
-        <div className="btnrow">
-          {!sent ? (
-            <button type="button" className="btn" disabled={busy || !email.trim()} onClick={sendCode}>Send code</button>
-          ) : (
-            <>
-              <button type="button" className="btn" disabled={busy || !code.trim()} onClick={verify}>Sign in</button>
-              <button type="button" className="btn ghost" disabled={busy} onClick={sendCode}>Send again</button>
-            </>
-          )}
+        <h2>{how === 'signup' ? 'Create an account' : 'Sign in to sync'}</h2>
+        <p className="muted small">Your payments are saved on this phone either way. Signing in only adds the cloud copy and your other devices.</p>
+        <div className="chips" role="group" aria-label="How to sign in">
+          <button type="button" className="chip" aria-pressed={how === 'signin'} onClick={() => choose('signin')}>Sign in</button>
+          <button type="button" className="chip" aria-pressed={how === 'signup'} onClick={() => choose('signup')}>Create account</button>
+          <button type="button" className="chip" aria-pressed={how === 'code'} onClick={() => choose('code')}>Email code</button>
         </div>
+        {how === 'signin' && (
+          <form onSubmit={signIn} noValidate>
+            <label className="field">
+              <span>Email</span>
+              <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} />
+            </label>
+            <label className="field">
+              <span>Password</span>
+              <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} />
+            </label>
+            {note}
+            <div className="btnrow">
+              <button type="submit" className="btn" disabled={busy || !email.trim() || !password}>Sign in</button>
+            </div>
+            <p className="muted small">Forgot your password? <button type="button" className="linkbtn" onClick={() => choose('code')}>Get an email code</button>, sign in with it, then set a new password under Password and sessions.</p>
+          </form>
+        )}
+        {how === 'signup' && (
+          <form onSubmit={signUp} noValidate>
+            <label className="field">
+              <span>Email</span>
+              <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} />
+            </label>
+            <label className="field">
+              <span>Password (at least {MIN_PASSWORD} characters)</span>
+              <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} />
+            </label>
+            <label className="field">
+              <span>Repeat the password</span>
+              <input type="password" autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} disabled={busy} />
+            </label>
+            {note}
+            <div className="btnrow">
+              <button type="submit" className="btn" disabled={busy || !email.trim() || !password || !password2}>Create account</button>
+            </div>
+            <p className="muted small">A few words in a row make a strong password. There is no way to recover it from the app: if you forget it, use an email code.</p>
+          </form>
+        )}
+        {how === 'code' && (
+          <>
+            <p className="muted small">No password: we email you a 6-digit code.</p>
+            <label className="field">
+              <span>Email</span>
+              <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} />
+            </label>
+            {sent && (
+              <label className="field">
+                <span>6-digit code</span>
+                <input inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={code} onChange={(e) => setCode(e.target.value)} disabled={busy} />
+              </label>
+            )}
+            {note}
+            <div className="btnrow">
+              {!sent ? (
+                <button type="button" className="btn" disabled={busy || !email.trim()} onClick={sendCode}>Send code</button>
+              ) : (
+                <>
+                  <button type="button" className="btn" disabled={busy || !code.trim()} onClick={verify}>Sign in</button>
+                  <button type="button" className="btn ghost" disabled={busy} onClick={sendCode}>Send again</button>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -117,6 +196,78 @@ function AccountCard() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PasswordCard() {
+  const app = useApp();
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [ask, setAsk] = useState<null | 'others' | 'everywhere'>(null); // a sign-out waits for a second tap
+  const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  if (!app.syncEnabled || app.sync.mode === 'signedout' || app.sync.mode === 'local') return null;
+
+  async function save(ev: FormEvent) {
+    ev.preventDefault();
+    if (password !== password2) { setMsg({ text: 'The two passwords are not the same.', bad: true }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      await app.changePassword(password);
+      setPassword(''); setPassword2('');
+      setMsg({ text: 'Password saved. You can now sign in with your email and this password.', bad: false });
+    } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
+  }
+
+  async function signOutFrom(which: 'others' | 'everywhere') {
+    if (ask !== which) { setAsk(which); return; }
+    setBusy(true); setMsg(null); setAsk(null);
+    try {
+      if (which === 'others') {
+        await app.signOutOthers();
+        setMsg({ text: 'Your other devices are signed out. A device that is open right now is signed out the next time it renews its sign-in, within about an hour.', bad: false });
+      } else {
+        await app.signOutEverywhere();
+        app.toast('Signed out everywhere');
+      }
+    } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card">
+      <h2>Password and sessions</h2>
+      <form onSubmit={save} noValidate>
+        <p className="muted small">Set a password to sign in without an email code, or change it. Others cannot see it and it is not kept on this phone.</p>
+        <label className="field">
+          <span>New password (at least {MIN_PASSWORD} characters)</span>
+          <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} disabled={busy} />
+        </label>
+        <label className="field">
+          <span>Repeat the new password</span>
+          <input type="password" autoComplete="new-password" value={password2} onChange={(e) => { setPassword2(e.target.value); setMsg(null); }} disabled={busy} />
+        </label>
+        <div className="btnrow">
+          <button type="submit" className="btn" disabled={busy || !password || !password2}>Save password</button>
+        </div>
+      </form>
+      {msg && <p className={`msg ${msg.bad ? 'bad' : 'good'}`} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
+      <h3 className="h2">Where you are signed in</h3>
+      <p className="muted small">
+        This phone stays signed in and renews its sign-in by itself until you sign out. If you lose a phone, sign out your other devices
+        here, or everywhere, then change the password.
+      </p>
+      <div className="btnrow">
+        <button type="button" className="btn ghost" disabled={busy} onClick={() => { void signOutFrom('others'); }}>
+          {ask === 'others' ? 'Tap again: sign out other devices' : 'Sign out my other devices'}
+        </button>
+      </div>
+      <div className="btnrow">
+        <button type="button" className="btn danger" disabled={busy} onClick={() => { void signOutFrom('everywhere'); }}>
+          {ask === 'everywhere' ? 'Tap again: sign out everywhere' : 'Sign out everywhere, this phone too'}
+        </button>
+      </div>
+      {ask && <button type="button" className="btn ghost small" onClick={() => setAsk(null)}>Cancel</button>}
     </div>
   );
 }
@@ -361,7 +512,7 @@ function AboutCard() {
   return (
     <div className="card">
       <h2>About</h2>
-      <p className="muted small">Money Log {VERSION} · Release 4. Amounts are in rupees.</p>
+      <p className="muted small">Money Log {VERSION} · Release 5. Amounts are in rupees.</p>
       {app.storageKind === 'memory' && (
         <p className="msg bad" role="alert">This browser would not let the app store data, so payments will be lost when you close it. Open it in a normal (not private) window.</p>
       )}
@@ -374,6 +525,7 @@ export function SettingsScreen() {
   return (
     <section aria-label="Settings">
       <AccountCard />
+      <PasswordCard />
       <PlanCard />
       <ReceiptsCard />
       <AppLockCard />

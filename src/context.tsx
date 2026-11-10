@@ -80,6 +80,11 @@ export interface AppApi {
   syncNow: () => void;
   requestCode: (email: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<'signed-in' | 'confirm'>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  changePassword: (password: string) => Promise<void>;
+  signOutOthers: () => Promise<void>;
+  signOutEverywhere: () => Promise<void>;
   signOut: () => Promise<void>;
   eraseAll: () => Promise<void>;
 }
@@ -487,6 +492,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await engRef.current?.sync.verifyCode(email, code);
     void engRef.current?.sync.sync();
   }, []);
+  const signUp = useCallback(async (email: string, password: string) => {
+    const r = await engine().signUp(email, password);
+    if (r === 'signed-in') void engRef.current?.sync.sync();
+    return r;
+  }, []);
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    await engine().signInWithPassword(email, password);
+    void engRef.current?.sync.sync();
+  }, []);
+  const changePassword = useCallback((password: string) => engine().changePassword(password), []);
+  const signOutOthers = useCallback(() => engine().signOutOthers(), []);
+  const signOutEverywhere = useCallback(() => engine().signOutEverywhere(), []);
   const signOut = useCallback(async () => { await engRef.current?.sync.signOut(); }, []);
   const eraseAll = useCallback(async () => {
     await engRef.current?.sync.eraseAll();
@@ -512,8 +529,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast,
     addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName,
-    syncNow, requestCode, verifyCode, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, requestCode, verifyCode, signOut, eraseAll]);
+    syncNow, requestCode, verifyCode, signUp, signInWithPassword, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, requestCode, verifyCode, signUp, signInWithPassword, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

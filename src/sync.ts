@@ -1,11 +1,13 @@
 // Cloud sync with Supabase over its plain REST endpoints (no client library, so there is no extra third-party code).
-//   Sign-in:  POST /auth/v1/otp, POST /auth/v1/verify, POST /auth/v1/token?grant_type=refresh_token, POST /auth/v1/logout
+//   Sign-in:  POST /auth/v1/otp, POST /auth/v1/verify, POST /auth/v1/signup, POST /auth/v1/token?grant_type=password|refresh_token,
+//             PUT /auth/v1/user, POST /auth/v1/logout
 //   Data:     /rest/v1/entries and /rest/v1/plan_blocks (PostgREST). Row-level security in the database decides what
 //             each signed-in user may read or write; this code never relies on filtering rows client-side for safety.
 //
 // Entries are written to the phone first. Each carries dirty = 1 until a push succeeds, so nothing is lost offline.
 import { cleanDoneMap, cleanDue, cleanNet, mergeDone, sameDone } from './blocks.ts';
 import { cleanMine, mergeMine, sameMine } from './categories.ts';
+import { authMessage, checkPassword } from './password.ts';
 import type { Mine } from './categories.ts';
 import type { DoneMap } from './blocks.ts';
 import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from './groups.ts';
@@ -188,6 +190,11 @@ export function createSync(opts: SyncOptions) {
   async function verifyCode(email: string, code: string): Promise<void> {
     if (!/^\d{4,10}$/.test(code.trim())) throw new SyncError('http', 'The code is the 6 digits from the email.');
     const res = await request('/auth/v1/verify', { method: 'POST', auth: false, body: { type: 'email', email, token: code.trim() } });
+    await finishSignIn(res);
+  }
+
+  // Every way of signing in ends here: keep the session, and refuse a phone that still holds another account's data.
+  async function finishSignIn(res: unknown): Promise<void> {
     const sess = toSession(res);
     const owner = await store.getMeta<string>('localOwner');
     if (owner && owner !== sess.user_id) {
@@ -197,6 +204,63 @@ export function createSync(opts: SyncOptions) {
     await store.setMeta('localOwner', sess.user_id);
     set({ mode: 'idle', email: sess.email, error: null });
     await refreshPending();
+  }
+
+  // ------------------------------------------------------------ email and password (Supabase Auth, plain HTTP)
+  // The service's answers become readable messages; the password itself is sent once and never stored on the phone.
+  async function authRequest(path: string, o: Parameters<typeof request>[1] = {}): Promise<any> {
+    try {
+      return await request(path, o);
+    } catch (e) {
+      if (e instanceof SyncError && e.kind === 'http') throw new SyncError('http', authMessage(e.status, e.message), e.status);
+      throw e;
+    }
+  }
+  const validEmail = (email: string) => {
+    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SyncError('http', 'Enter a valid email address.');
+  };
+
+  // 'signed-in' when the project lets new accounts in at once; 'confirm' when it first wants the email confirmed
+  // (Supabase's "Confirm email" setting), in which case the person signs in after opening the link.
+  async function signUp(email: string, password: string): Promise<'signed-in' | 'confirm'> {
+    validEmail(email);
+    const bad = checkPassword(password, email);
+    if (bad) throw new SyncError('http', bad);
+    const res = await authRequest('/auth/v1/signup', { method: 'POST', auth: false, body: { email, password } });
+    if (res && typeof res.access_token === 'string') { await finishSignIn(res); return 'signed-in'; }
+    return 'confirm';
+  }
+
+  async function signInWithPassword(email: string, password: string): Promise<void> {
+    validEmail(email);
+    if (!password) throw new SyncError('http', 'Enter your password.');
+    const res = await authRequest('/auth/v1/token?grant_type=password', { method: 'POST', auth: false, body: { email, password } });
+    await finishSignIn(res);
+  }
+
+  // Sets the first password of an account that signed in with a code, or changes the current one.
+  async function changePassword(password: string): Promise<void> {
+    const bad = checkPassword(password, state.email ?? '');
+    if (bad) throw new SyncError('http', bad);
+    await authRequest('/auth/v1/user', { method: 'PUT', body: { password } });
+  }
+
+  // The other devices lose their refresh tokens at once; an access token already issued works until it runs out
+  // (up to an hour), which the service cannot shorten.
+  async function signOutOthers(): Promise<void> {
+    await authRequest('/auth/v1/logout?scope=others', { method: 'POST' });
+  }
+
+  // Every device including this one. Needs the connection: the service has to confirm before this phone forgets its own.
+  async function signOutEverywhere(): Promise<void> {
+    try {
+      await authRequest('/auth/v1/logout?scope=global', { method: 'POST' });
+    } catch (e) {
+      if (!(e instanceof SyncError && e.kind === 'signed-out')) throw e; // already signed out on the server: just forget it here
+    }
+    await store.delMeta('session');
+    set({ mode: enabled ? 'signedout' : 'local', email: null, error: null });
   }
 
   async function signOut(): Promise<void> {
@@ -672,6 +736,11 @@ export function createSync(opts: SyncOptions) {
     init,
     requestCode,
     verifyCode,
+    signUp,
+    signInWithPassword,
+    changePassword,
+    signOutOthers,
+    signOutEverywhere,
     signOut,
     eraseAll,
     sync,
