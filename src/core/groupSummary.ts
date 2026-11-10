@@ -4,6 +4,7 @@ import { fromPaise, toPaise } from './groups.ts';
 import { shortDate } from './format.ts';
 import { catKey, normName } from './logic.ts';
 import type { Entry } from './logic.ts';
+import { tr } from './i18n.ts';
 
 export interface GroupSummary {
   count: number; // payments counted
@@ -60,8 +61,8 @@ export function tripLength(starts: string | null, ends: string | null): number |
 // "1 Dec to 5 Dec", "From 1 Dec", "Until 5 Dec", or null when the trip has no dates.
 export function tripDatesLabel(starts: string | null, ends: string | null): string | null {
   if (starts && ends) return starts === ends ? shortDate(starts) : `${shortDate(starts)} to ${shortDate(ends)}`;
-  if (starts) return `From ${shortDate(starts)}`;
-  if (ends) return `Until ${shortDate(ends)}`;
+  if (starts) return tr('From {0}', shortDate(starts));
+  if (ends) return tr('Until {0}', shortDate(ends));
   return null;
 }
 

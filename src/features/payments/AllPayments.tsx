@@ -9,6 +9,7 @@ import type { Entry } from '../../core/logic.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from './payments.ts';
 import type { PaymentFilter } from './payments.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 const ROW = 59; // a row is 58px tall plus the line between rows; the real height is measured once drawn
 
@@ -46,32 +47,32 @@ export function AllPayments() {
     return () => ro.disconnect();
   }, [hasAny, rows.length === 0]);
 
-  if (app.entries.length === 0) return <p className="text-muted">No payments yet. They all appear here, with search and filters.</p>;
+  if (app.entries.length === 0) return <p className="text-muted">{tr('No payments yet. They all appear here, with search and filters.')}</p>;
 
   return (
     <>
       <div className={ui.payFilters}>
-        <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Search note, category or amount" aria-label="Search payments" enterKeyHint="search" autoComplete="off" />
+        <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder={tr('Search note, category or amount')} aria-label={tr('Search payments')} enterKeyHint="search" autoComplete="off" />
         <div className={ui.paySelects}>
-          <select value={f.month} onChange={(e) => set({ month: e.target.value })} aria-label="Month">
-            <option value="">Any month</option>
+          <select value={f.month} onChange={(e) => set({ month: e.target.value })} aria-label={tr('Month')}>
+            <option value="">{tr('Any month')}</option>
             {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
           </select>
-          <select value={f.category} onChange={(e) => set({ category: e.target.value })} aria-label="Category">
-            <option value="">Any category</option>
+          <select value={f.category} onChange={(e) => set({ category: e.target.value })} aria-label={tr('Category')}>
+            <option value="">{tr('Any category')}</option>
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select value={f.method} onChange={(e) => set({ method: e.target.value })} aria-label="Method">
-            <option value="">Any method</option>
+          <select value={f.method} onChange={(e) => set({ method: e.target.value })} aria-label={tr('Method')}>
+            <option value="">{tr('Any method')}</option>
             {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <p className="text-muted text-[13px]" role="status">
-          {rows.length} {rows.length === 1 ? 'payment' : 'payments'} · {fmtINR(total)}
-          {isFiltered(f) && <> · <button type="button" className={ui.linkBtn} onClick={() => setF(NO_FILTER)}>Clear filters</button></>}
+          {tr('{0} payments · {1}', rows.length, fmtINR(total))}
+          {isFiltered(f) && <> · <button type="button" className={ui.linkBtn} onClick={() => setF(NO_FILTER)}>{tr('Clear filters')}</button></>}
         </p>
       </div>
-      {rows.length === 0 && <p className="text-muted">Nothing matches. Try fewer words or clear the filters.</p>}
+      {rows.length === 0 && <p className="text-muted">{tr('Nothing matches. Try fewer words or clear the filters.')}</p>}
       <ul ref={listRef} className={ui.list() + ' relative [&>li]:absolute [&>li]:top-0 [&>li]:left-0 [&>li]:w-full'} style={{ height: rows.length === 0 ? 0 : virt.getTotalSize(), display: rows.length === 0 ? 'none' : undefined }}>
         {virt.getVirtualItems().map((v) => (
           <li key={v.key} data-index={v.index} ref={virt.measureElement} style={{ transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}>

@@ -4,6 +4,8 @@
 // is NOT: encryption. The payments stay readable inside this browser's storage for anyone who can open its developer tools,
 // so the lock only stops someone glancing at an unlocked phone. The phone's own lock is the real protection.
 
+import { tr } from '../core/i18n.ts';
+
 export interface LockConfig {
   v: 1;
   salt: string; // base64
@@ -40,7 +42,7 @@ async function derive(pin: string, salt: Uint8Array<ArrayBuffer>, iterations: nu
 }
 
 export async function makeLock(pin: string, timeoutSec: number): Promise<LockConfig> {
-  if (!validPin(pin)) throw new Error('A PIN is 4 to 8 digits.');
+  if (!validPin(pin)) throw new Error(tr('A PIN is 4 to 8 digits.'));
   const salt = crypto.getRandomValues(new Uint8Array(16));
   return { v: 1, salt: b64(salt), iterations: ITERATIONS, hash: b64(await derive(pin, salt, ITERATIONS)), timeoutSec };
 }

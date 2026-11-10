@@ -2,6 +2,7 @@ import { COUPLE_CHOICES, coupleChoiceOf, coupleLabel, coupleSetting, coupleSumma
 import type { Member } from '../../core/groups.ts';
 import type { SplitState } from './SplitEditor.tsx';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // Add expense in a Couple group: one tap says who paid and who owes, instead of the full split editor.
 export function CoupleSplit({ people, me, total, value, onChange }: { people: Member[]; me: string; total: number; value: SplitState; onChange: (next: SplitState) => void }) {
@@ -12,7 +13,7 @@ export function CoupleSplit({ people, me, total, value, onChange }: { people: Me
   return (
     <div className={ui.split}>
       <fieldset className={ui.chips}>
-        <legend>Who paid, and who owes</legend>
+        <legend>{tr('Who paid, and who owes')}</legend>
         {COUPLE_CHOICES.map((c) => (
           <button key={c} type="button" className={ui.chip} aria-pressed={choice === c} onClick={() => onChange({ ...value, mode: 'equal', ...coupleSetting(c, me, partner.user_id) })}>
             {coupleLabel(c, name)}

@@ -5,6 +5,7 @@ import { shrinkImage } from './photo.ts';
 import { TakePhoto } from './TakePhoto.tsx';
 import { MAX_PHOTOS, sizeText } from '../../core/receipts.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // Photos chosen while a payment is being logged, before it is saved (they are attached to it when it is).
 export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: (next: Blob[]) => void }) {
@@ -36,12 +37,12 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
 
   return (
     <div className={ui.photoStrip}>
-      <p className={ui.fieldLabel}>Receipt photo (optional)</p>
+      <p className={ui.fieldLabel}>{tr('Receipt photo (optional)')}</p>
       <div className={ui.thumbs}>
         {photos.map((p, i) => (
           <span key={urls[i]} className={ui.thumb}>
-            <img src={urls[i]} alt={`Photo ${i + 1}, ${sizeText(p.size)}`} />
-            <button type="button" className={ui.thumbX} aria-label={`Remove photo ${i + 1}`} onClick={() => onChange(photos.filter((_, j) => j !== i))}>
+            <img src={urls[i]} alt={tr('Photo {0}, {1}', i + 1, sizeText(p.size))} />
+            <button type="button" className={ui.thumbX} aria-label={tr('Remove photo {0}', i + 1)} onClick={() => onChange(photos.filter((_, j) => j !== i))}>
               <Icon name="close" size={14} />
             </button>
           </span>
@@ -50,7 +51,7 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
           <>
             <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
             <label className={ui.addPhoto(busy)}>
-              Choose photo
+              {tr('Choose photo')}
               <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
             </label>
           </>

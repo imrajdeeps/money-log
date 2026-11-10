@@ -12,6 +12,7 @@ import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse
 import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, parseAmount } from '../../core/logic.ts';
 import type { Method, NewEntryInput } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 const METHOD_KEY = 'money-log.method';
 
@@ -77,7 +78,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
     setError('');
     const bits = [fmtINR(p.amount), p.merchant, cat].filter(Boolean).join(' · ');
     const dup = alreadyAdded(app.entries, p.ref) ? ' A saved payment already has this reference, so save only if it is a different one.' : '';
-    setReadNote({ text: `Filled in: ${bits}.${cat ? '' : ' Pick a category.'} Check it, then save.${dup}`, bad: dup !== '' });
+    setReadNote({ text: tr('Filled in: {0}.{1} Check it, then save.{2}', bits, cat ? '' : ' ' + tr('Pick a category.'), dup), bad: dup !== '' });
   }
 
   async function pasteAndRead() {
@@ -87,30 +88,30 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
       setMessage(text);
       readMessage(text);
     } catch {
-      setReadNote({ text: 'The browser did not let Money Log read the clipboard. Paste the message into the box instead.', bad: true });
+      setReadNote({ text: tr('The browser did not let Money Log read the clipboard. Paste the message into the box instead.'), bad: true });
     }
   }
 
   async function save(ev: FormEvent) {
     ev.preventDefault();
     const amt = parseAmount(amount);
-    if (amt === null) return fail(amount.trim() === '' ? 'Enter an amount.' : 'Amount must be a positive number with at most 2 decimals.');
-    if (!category) return fail('Pick a category.');
+    if (amt === null) return fail(amount.trim() === '' ? tr('Enter an amount.') : tr('Amount must be a positive number with at most 2 decimals.'));
+    if (!category) return fail(tr('Pick a category.'));
     const d = date ?? today;
-    if (!isValidDate(d)) return fail('Pick a valid date.');
-    if (d > today) return fail('The date cannot be in the future.');
+    if (!isValidDate(d)) return fail(tr('Pick a valid date.'));
+    if (d > today) return fail(tr('The date cannot be in the future.'));
     let group: NewEntryInput['group'] = null;
     if (groupId) {
-      if (!app.me || !split) return fail('Sign in to share an expense with a group.');
+      if (!app.me || !split) return fail(tr('Sign in to share an expense with a group.'));
       const r = computeShares(split.mode, amt, people.map((m) => m.user_id), new Set(split.included), split.values);
       if (!r.shares) return fail(r.problem);
-      if (split.paidBy !== app.me && !(app.me in r.shares)) return fail('You can only record an expense that you paid or share in.');
+      if (split.paidBy !== app.me && !(app.me in r.shares)) return fail(tr('You can only record an expense that you paid or share in.'));
       group = { group_id: groupId, paid_by: split.paidBy, shares: r.shares };
     }
     const id = await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group });
-    let toast = `Saved ${fmtINR(amt)} · ${category}`;
+    let toast = tr('Saved {0} · {1}', fmtINR(amt), category);
     if (photos.length) {
-      try { await app.addReceipts(id, photos); } catch (e) { toast += `. The photo could not be attached: ${e instanceof Error ? e.message : String(e)}`; }
+      try { await app.addReceipts(id, photos); } catch (e) { toast += tr('. The photo could not be attached: {0}', e instanceof Error ? e.message : String(e)); }
     }
     app.toast(toast);
     setPhotos([]);
@@ -127,21 +128,21 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
   }
 
   return (
-    <form onSubmit={save} noValidate autoComplete="off" className="quicklog" aria-label="Log a payment">
+    <form onSubmit={save} noValidate autoComplete="off" className="quicklog" aria-label={tr('Log a payment')}>
       <details className={ui.pasteBox} open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
-        <summary>Paste a payment message</summary>
-        <p className="text-muted text-[13px]">Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.</p>
+        <summary>{tr('Paste a payment message')}</summary>
+        <p className="text-muted text-[13px]">{tr('Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.')}</p>
         <textarea
           rows={3}
           value={message}
           onChange={(e) => { setMessage(e.target.value); setReadNote(null); }}
           placeholder="e.g. Rs 450.00 debited from A/c XX1234 to VPA swiggy@icici. UPI Ref 412345678901"
-          aria-label="Payment message"
+          aria-label={tr('Payment message')}
           spellCheck={false}
         />
         <div className={ui.btnRowOf('mt-2.5 mb-1')}>
-          <button type="button" className={ui.btn('ghost')} onClick={() => { void pasteAndRead(); }}>Paste and read</button>
-          <button type="button" className={ui.btn()} disabled={message.trim() === ''} onClick={() => readMessage(message)}>Read message</button>
+          <button type="button" className={ui.btn('ghost')} onClick={() => { void pasteAndRead(); }}>{tr('Paste and read')}</button>
+          <button type="button" className={ui.btn()} disabled={message.trim() === ''} onClick={() => readMessage(message)}>{tr('Read message')}</button>
         </div>
         {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
       </details>
@@ -153,14 +154,14 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
           inputMode="decimal"
           enterKeyHint="done"
           placeholder="0"
-          aria-label="Amount in rupees"
+          aria-label={tr('Amount in rupees')}
           value={amount}
           onChange={(e) => { setAmount(e.target.value); setError(''); }}
         />
       </label>
 
       {frequent.length > 0 && (
-        <div className={ui.chips} role="group" aria-label="Frequent categories">
+        <div className={ui.chips} role="group" aria-label={tr('Frequent categories')}>
           {frequent.map((c) => (
             <button key={c} type="button" className={ui.chip} aria-pressed={category === c} onClick={() => { setCategory(c); setError(''); }}>
               {c}
@@ -169,18 +170,18 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
         </div>
       )}
 
-      <label className={ui.field} htmlFor="log-cat"><span>Category</span></label>
+      <label className={ui.field} htmlFor="log-cat"><span>{tr('Category')}</span></label>
       <CategorySelect id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
 
       <MethodChips value={method} onChange={pickMethod} options={METHODS} />
 
       <label className={ui.field}>
-        <span>Note (optional)</span>
+        <span>{tr('Note (optional)')}</span>
         <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. lunch with team" />
       </label>
 
       <label className={ui.field}>
-        <span>Date</span>
+        <span>{tr('Date')}</span>
         <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
       </label>
 
@@ -188,7 +189,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
 
       {app.groups.some((g) => !g.closed_at) && (
         <label className={ui.field}>
-          <span>Share with</span>
+          <span>{tr('Share with')}</span>
           <select
             value={groupId}
             onChange={(e) => {
@@ -198,7 +199,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
               setError('');
             }}
           >
-            <option value="">Nobody (private)</option>
+            <option value="">{tr('Nobody (private)')}</option>
             {app.groups.filter((g) => !g.closed_at).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         </label>
@@ -208,12 +209,12 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
           {app.groups.find((g) => g.id === groupId)?.kind === 'couple' && people.length === 2
             ? <CoupleSplit people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
             : <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />}
-          <p className="text-muted text-[13px]">Everyone in {groupName(groupId)} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.</p>
+          <p className="text-muted text-[13px]">{tr('Everyone in {0} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.', groupName(groupId))}</p>
         </>
       )}
 
       <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
-      <button type="submit" className={ui.btn('solid', 'big')}>{groupId ? 'Save shared expense' : 'Save payment'}</button>
+      <button type="submit" className={ui.btn('solid', 'big')}>{groupId ? tr('Save shared expense') : tr('Save payment')}</button>
     </form>
   );
 }

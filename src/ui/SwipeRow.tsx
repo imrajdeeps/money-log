@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode, RefObject } from 'react';
 import { Icon } from './Icon.tsx';
+import { tr } from '../core/i18n.ts';
 
 const WIDTH = 92; // how far the row slides to show Delete
 const INTENT = 8; // how far a finger moves before it counts as a swipe (and not a tap or a scroll)
@@ -59,7 +60,7 @@ export function SwipeRow({ children, onDelete, label, className, as = 'li' }: { 
         // hidden until the row moves: at a fractional position its red edge would show round the row's border
         className={`absolute top-0 right-0 bottom-0 w-[92px] flex items-center justify-center border-0 bg-bad text-bad-ink cursor-pointer transition-opacity ${shift === 0 ? 'opacity-0' : 'opacity-100'}`}
         tabIndex={open ? 0 : -1}
-        aria-label={`Delete: ${label}`}
+        aria-label={tr('Delete: {0}', label)}
         onClick={() => { setShift(0); onDelete(); }}
         onFocus={() => setShift(-WIDTH)}
       >

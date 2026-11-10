@@ -3,6 +3,7 @@
 // spreadsheet. No DOM, no storage, no network, so the browser and the Node test runner share this file.
 import { GROUPS, catKey, laterThan, normName, parseTs, round2 } from './logic.ts';
 import type { Group, PlanData } from './logic.ts';
+import { tr } from './i18n.ts';
 
 const MAX_AMOUNT = 1e9;
 export const MAX_NAME = 60; // entries.category allows 80; this leaves room and keeps the pickers readable
@@ -28,9 +29,9 @@ export const BUILTIN: readonly { c: string; g: Group }[] = [
 // ---------------------------------------------------------------- names
 export function checkName(raw: string): string | null {
   const n = normName(raw);
-  if (n === '') return 'Enter a name for the category.';
-  if (n.length > MAX_NAME) return `Use at most ${MAX_NAME} characters.`;
-  if (catKey(n) === '__proto__') return 'Choose a different name.'; // would not be a plain key in the map below
+  if (n === '') return tr('Enter a name for the category.');
+  if (n.length > MAX_NAME) return tr('Use at most {0} characters.', MAX_NAME);
+  if (catKey(n) === '__proto__') return tr('Choose a different name.'); // would not be a plain key in the map below
   return null;
 }
 
@@ -118,12 +119,12 @@ export function addCategory(mine: Mine, visible: CategoryInfo[], rawName: string
   if (bad) return { ok: false, error: bad };
   const name = normName(rawName);
   const k = catKey(name);
-  if (visible.some((c) => catKey(c.name) === k)) return { ok: false, error: `"${name}" is already in your list.` };
-  if (!(GROUPS as readonly string[]).includes(group)) return { ok: false, error: 'Pick a group.' };
+  if (visible.some((c) => catKey(c.name) === k)) return { ok: false, error: tr('"{0}" is already in your list.', name) };
+  if (!(GROUPS as readonly string[]).includes(group)) return { ok: false, error: tr('Pick a group.') };
   const prev = own(mine, k);
-  if (!prev && Object.keys(mine).length >= MAX_ITEMS) return { ok: false, error: 'Too many categories.' };
+  if (!prev && Object.keys(mine).length >= MAX_ITEMS) return { ok: false, error: tr('Too many categories.') };
   if (!builtinOf(k) && Object.values(mine).filter((m) => !m.x && !builtinOf(catKey(m.n))).length >= MAX_OWN) {
-    return { ok: false, error: `You can keep at most ${MAX_OWN} categories of your own.` };
+    return { ok: false, error: tr('You can keep at most {0} categories of your own.', MAX_OWN) };
   }
   const b = builtinOf(k);
   return { ok: true, mine: put(mine, b ? b.c : name, b ? b.g : group, prev?.b ?? 0, 0, nowIso), name: b ? b.c : name };

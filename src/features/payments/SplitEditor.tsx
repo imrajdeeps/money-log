@@ -3,6 +3,7 @@ import type { Member, SplitMode, UsualSplit } from '../../core/groups.ts';
 import { fmtINR } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // Everything the person has chosen about who paid and how the expense is divided.
 export interface SplitState { paidBy: string; mode: SplitMode; included: string[]; values: Record<string, string> }
@@ -38,21 +39,21 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
   const ids = people.map((m) => m.user_id);
   const result = computeShares(value.mode, total, ids, new Set(value.included), value.values);
   const set = (patch: Partial<SplitState>) => onChange({ ...value, ...patch });
-  const name = (m: Member) => (m.user_id === me ? `${m.display_name} (you)` : m.display_name);
+  const name = (m: Member) => (m.user_id === me ? tr('{0} (you)', m.display_name) : m.display_name);
 
   return (
     <div className={ui.split}>
       <label className={ui.field}>
-        <span>Who paid</span>
+        <span>{tr('Who paid')}</span>
         <select value={value.paidBy} onChange={(e) => set({ paidBy: e.target.value })}>
           {people.map((m) => <option key={m.user_id} value={m.user_id}>{name(m)}</option>)}
         </select>
       </label>
 
       <fieldset className={ui.chips}>
-        <legend>Split</legend>
+        <legend>{tr('Split')}</legend>
         {MODES.map((m) => (
-          <button key={m.id} type="button" className={ui.chip} aria-pressed={value.mode === m.id} onClick={() => set({ mode: m.id })}>{m.label}</button>
+          <button key={m.id} type="button" className={ui.chip} aria-pressed={value.mode === m.id} onClick={() => set({ mode: m.id })}>{tr(m.label)}</button>
         ))}
       </fieldset>
 
@@ -76,7 +77,7 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
                   <input
                     className="w-24 text-right"
                     inputMode="decimal"
-                    aria-label={`${value.mode === 'percent' ? 'Percent' : 'Amount'} for ${m.display_name}`}
+                    aria-label={tr('{0} for {1}', value.mode === 'percent' ? tr('Percent') : tr('Amount'), m.display_name)}
                     placeholder={value.mode === 'percent' ? '%' : '₹'}
                     value={value.values[m.user_id] ?? ''}
                     onChange={(e) => set({ values: { ...value.values, [m.user_id]: e.target.value } })}
@@ -89,7 +90,7 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
         })}
       </ul>
       {total > 0 && result.problem && <p className={ui.msg('bad')} role="status">{result.problem}</p>}
-      {total > 0 && result.shares && <p className="text-muted text-[13px]">Adds up to {fmtINR(fromPaise(sharesPaise(result.shares)))}.</p>}
+      {total > 0 && result.shares && <p className="text-muted text-[13px]">{tr('Adds up to {0}.', fmtINR(fromPaise(sharesPaise(result.shares))))}</p>}
     </div>
   );
 }

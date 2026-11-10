@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // What to do with one category of the Month page: set its budget, or add an expense that already has this category.
 export function CategoryActions({ category, onBudget, onAddExpense, onClose }: { category: string; onBudget: () => void; onAddExpense: () => void; onClose: () => void }) {
@@ -17,10 +18,10 @@ export function CategoryActions({ category, onBudget, onAddExpense, onClose }: {
       aria-labelledby="category-actions-title"
     >
       <h2 id="category-actions-title">{category}</h2>
-      <p className="text-muted text-[13px]">What would you like to do with this category?</p>
-      <button type="button" className={ui.btn('solid', 'md', 'w-full mt-2.5')} onClick={() => { close(); onBudget(); }}>Set budget</button>
-      <button type="button" className={ui.btn('ghost', 'md', 'w-full mt-2.5')} onClick={() => { close(); onAddExpense(); }}>Add expense</button>
-      <button type="button" className={ui.btn('ghost', 'md', 'w-full mt-2.5')} onClick={close}>Cancel</button>
+      <p className="text-muted text-[13px]">{tr('What would you like to do with this category?')}</p>
+      <button type="button" className={ui.btn('solid', 'md', 'w-full mt-2.5')} onClick={() => { close(); onBudget(); }}>{tr('Set budget')}</button>
+      <button type="button" className={ui.btn('ghost', 'md', 'w-full mt-2.5')} onClick={() => { close(); onAddExpense(); }}>{tr('Add expense')}</button>
+      <button type="button" className={ui.btn('ghost', 'md', 'w-full mt-2.5')} onClick={close}>{tr('Cancel')}</button>
     </dialog>
   );
 }

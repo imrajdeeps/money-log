@@ -1,5 +1,6 @@
 import type { Method } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 interface Props {
   value: Method | null;
@@ -11,7 +12,7 @@ interface Props {
 export function MethodChips({ value, onChange, options }: Props) {
   return (
     <fieldset className={ui.chips}>
-      <legend>Payment method</legend>
+      <legend>{tr('Payment method')}</legend>
       {options.map((m) => (
         <button key={m} type="button" className={ui.chip} aria-pressed={value === m} onClick={() => onChange(value === m ? null : m)}>
           {m}

@@ -24,8 +24,10 @@ import { SettingsScreen } from '../features/settings/index.ts';
 import { TourHost } from '../features/tour/index.ts';
 import type { TourPage } from '../core/tour.ts';
 import { VERSION } from '../core/version.ts';
+import { useLang } from '../data/useLang.ts';
 import * as ui from '../ui/styles.ts';
 import * as sh from './shellStyles.ts';
+import { tr } from '../core/i18n.ts';
 
 // Everything is a page with its own address, so a refresh and the back button stay where they were:
 //   /  /month  /plan  /export  /payments  /add  /groups  /groups/<id>  /settings  /settings/<part>
@@ -46,11 +48,11 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'export', label: 'Export', icon: 'export' },
 ];
 
-function PageBody({ title, back, backLabel = 'Overview', onBack, children }: { title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }) {
+function PageBody({ title, back, backLabel = tr('Overview'), onBack, children }: { title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }) {
   return (
     <section className={`${sh.page} animate-page-in`} aria-labelledby="page-title">
       {back && <button type="button" className={ui.backLink} onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
-      <div className={ui.pageHead}><h2 id="page-title">{title}</h2></div>
+      <div className={ui.pageHead}><h2 id="page-title">{tr(title)}</h2></div>
       {children}
     </section>
   );
@@ -130,24 +132,24 @@ function Shell() {
       <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0 || app.groups.length > 0} go={tourGo} />
       <div className={sh.app} inert={app.locked}>
       <header className={sh.top}>
-        <div className={sh.brand}><h1>Money Log</h1></div>
-        <nav className={sh.topNav} aria-label="Sections">
-          <button type="button" data-tour="home" className={sh.topNavBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>Overview</button>
-          {NAV.map((n) => <button key={n.id} type="button" data-tour={n.id} className={sh.topNavBtn(!!current(n.id))} aria-current={current(n.id)} onClick={() => goPage(n.id)}>{n.label}</button>)}
-          <button type="button" data-tour="settings" className={sh.topNavBtn(!!current('settings'))} aria-current={current('settings')} onClick={() => goSettings()}>Settings</button>
+        <div className={sh.brand}><h1>{tr('Money Log')}</h1></div>
+        <nav className={sh.topNav} aria-label={tr('Sections')}>
+          <button type="button" data-tour="home" className={sh.topNavBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>{tr('Overview')}</button>
+          {NAV.map((n) => <button key={n.id} type="button" data-tour={n.id} className={sh.topNavBtn(!!current(n.id))} aria-current={current(n.id)} onClick={() => goPage(n.id)}>{tr(n.label)}</button>)}
+          <button type="button" data-tour="settings" className={sh.topNavBtn(!!current('settings'))} aria-current={current('settings')} onClick={() => goSettings()}>{tr('Settings')}</button>
         </nav>
         <div className={sh.topActions}>
           <SyncPill onOpenSettings={() => goSettings('account')} />
           <ThemeToggle />
-          <button type="button" data-tour="add" className={ui.btn('solid', 'none', sh.addBtn)} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={20} />Add expense</button>
-          <button type="button" data-tour="settings" className={`${ui.iconBtn} ${sh.gear}`} aria-label="Settings" aria-current={current('settings')} onClick={() => goSettings()}>
+          <button type="button" data-tour="add" className={ui.btn('solid', 'none', sh.addBtn)} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={20} />{tr('Add expense')}</button>
+          <button type="button" data-tour="settings" className={`${ui.iconBtn} ${sh.gear}`} aria-label={tr('Settings')} aria-current={current('settings')} onClick={() => goSettings()}>
             <Icon name="settings" />
           </button>
         </div>
       </header>
       {app.storageKind === 'memory' && (
         <p className={ui.banner} role="alert">
-          This browser would not let Money Log keep data, so payments will be lost when you close it. Open it in a normal (not private) window.
+          {tr('This browser would not let Money Log keep data, so payments will be lost when you close it. Open it in a normal (not private) window.')}
         </p>
       )}
       <main className={sh.main}>
@@ -156,28 +158,28 @@ function Shell() {
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
         <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
-          <PageBody title="Add expense" back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} /></PageBody>
+          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} /></PageBody>}
         {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} openGoals={() => goPage('goals')} /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
-        {page === 'goals' && <PageBody title={TITLES.goals} back backLabel="Plan" onBack={() => goPage('plan')}><GoalsScreen /></PageBody>}
+        {page === 'goals' && <PageBody title={TITLES.goals} back backLabel={tr('Plan')} onBack={() => goPage('plan')}><GoalsScreen /></PageBody>}
         {page === 'export' && <PageBody title={TITLES.export}><ExportScreen /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}
       </main>
 
 
-      <nav className={sh.tabs} aria-label="Sections">
+      <nav className={sh.tabs} aria-label={tr('Sections')}>
         <button type="button" data-tour="home" className={sh.tabBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>
-          <Icon name="home" size={24} duotone={page === 'home'} />Home
+          <Icon name="home" size={24} duotone={page === 'home'} />{tr('Home')}
         </button>
-        <button type="button" data-tour="month" className={sh.tabBtn(!!current('month'))} aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" size={24} duotone={page === 'month'} />Month</button>
-        <button type="button" data-tour="add" className={sh.tabBtn(!!current('add'), true)} aria-label="Add expense" aria-current={current('add')} onClick={goAdd}>
+        <button type="button" data-tour="month" className={sh.tabBtn(!!current('month'))} aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" size={24} duotone={page === 'month'} />{tr('Month')}</button>
+        <button type="button" data-tour="add" className={sh.tabBtn(!!current('add'), true)} aria-label={tr('Add expense')} aria-current={current('add')} onClick={goAdd}>
           <span className={sh.fabCircle}><Icon name="plus" size={26} /></span>
-          <span aria-hidden="true">Add</span>
+          <span aria-hidden="true">{tr('Add')}</span>
         </button>
-        <button type="button" data-tour="plan" className={sh.tabBtn(!!current('plan'))} aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" size={24} />Plan</button>
-        <button type="button" data-tour="groups" className={sh.tabBtn(!!current('groups'))} aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" size={24} duotone={page === 'groups'} />Groups</button>
+        <button type="button" data-tour="plan" className={sh.tabBtn(!!current('plan'))} aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" size={24} />{tr('Plan')}</button>
+        <button type="button" data-tour="groups" className={sh.tabBtn(!!current('groups'))} aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" size={24} duotone={page === 'groups'} />{tr('Groups')}</button>
       </nav>
       {toast}
       </div>
@@ -186,9 +188,11 @@ function Shell() {
 }
 
 export default function App() {
+  const lang = useLang();
+  // the texts are looked up while drawing, so a new language draws the whole screen again from the top (the data stays)
   return (
     <AppProvider>
-      <Shell />
+      <Shell key={lang} />
     </AppProvider>
   );
 }
