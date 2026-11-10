@@ -169,7 +169,7 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
     <section aria-label={`Group ${group.name}`}>
       <button type="button" className="btn ghost backbtn" onClick={onBack}>‹ All groups</button>
       <h2>{group.name} <span className="tag">{group.kind === 'family' ? 'Family' : 'Trip'}</span></h2>
-      <p className="muted small">{people.length} {people.length === 1 ? 'person' : 'people'}. Add a shared expense on the Log tab by choosing this group under "Share with".</p>
+      <p className="muted small">{people.length} {people.length === 1 ? 'person' : 'people'}. Add a shared expense with + Add expense by choosing this group under "Share with".</p>
 
       <div className="card">
         <h3>Balances</h3>

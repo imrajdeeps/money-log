@@ -130,7 +130,7 @@ function SnapshotSection() {
   if (!n) return null;
   const imported = new Date(n.importedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   return (
-    <section aria-label="Net worth and goals">
+    <section aria-label="Net worth and goals" id="networth">
       <h2 className="h2">Net worth and goals</h2>
       <p className="muted small">
         {n.asOf ? `Plan month ${monthLabel(n.asOf.slice(0, 7))}. ` : ''}Imported {imported}. These are the spreadsheet's figures at that time; they do not change as you log payments.

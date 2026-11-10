@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useMemo, useState } from 'react';
+import type { FormEvent, RefObject } from 'react';
 import { useApp } from '../context.tsx';
-import { CategorySelect } from '../components/CategorySelect.tsx';
-import { EditDialog } from '../components/EditDialog.tsx';
-import { MethodChips } from '../components/MethodChips.tsx';
-import { PendingPhotos } from '../components/PendingPhotos.tsx';
-import { SplitEditor, freshSplit } from '../components/SplitEditor.tsx';
-import type { SplitState } from '../components/SplitEditor.tsx';
-import { shortDate } from '../format.ts';
+import { CategorySelect } from './CategorySelect.tsx';
+import { MethodChips } from './MethodChips.tsx';
+import { PendingPhotos } from './PendingPhotos.tsx';
+import { SplitEditor, freshSplit } from './SplitEditor.tsx';
+import type { SplitState } from './SplitEditor.tsx';
 import { activeMembers, computeShares } from '../groups.ts';
-import { METHODS, byRecent, catKey, fmtINR, frequentCategories, isValidDate, isoDate, myShare, parseAmount } from '../logic.ts';
-import type { Entry, Method, NewEntryInput } from '../logic.ts';
+import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, parseAmount } from '../logic.ts';
+import type { Method, NewEntryInput } from '../logic.ts';
 
 const METHOD_KEY = 'money-log.method';
 
@@ -23,16 +21,16 @@ function lastMethod(): Method | null {
   }
 }
 
-export function LogScreen({ active }: { active: boolean }) {
+// The payment form behind the "+ Add expense" button. It lives in a sheet that stays mounted, so a half-typed payment
+// survives closing it; the sheet focuses the amount (amountRef) the moment it opens.
+export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void }) {
   const app = useApp();
-  const amountRef = useRef<HTMLInputElement>(null);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [method, setMethod] = useState<Method | null>(lastMethod);
   const [note, setNote] = useState('');
   const [date, setDate] = useState<string | null>(null); // null = today
   const [error, setError] = useState('');
-  const [editing, setEditing] = useState<Entry | null>(null);
   const [photos, setPhotos] = useState<Blob[]>([]);
   const [groupId, setGroupId] = useState(''); // '' = private
   const [split, setSplit] = useState<SplitState | null>(null);
@@ -40,9 +38,6 @@ export function LogScreen({ active }: { active: boolean }) {
   const people = useMemo(() => (groupId ? activeMembers(app.members, groupId) : []), [app.members, groupId]);
   const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
 
-  useEffect(() => { if (active) amountRef.current?.focus(); }, [active]);
-
-  const recent = useMemo(() => app.entries.slice().sort(byRecent).slice(0, 20), [app.entries]);
   const frequent = useMemo(() => {
     // shown under the list's spelling, so a plan that spells "rent" differently from older payments ("Rent") still counts
     const canonical = new Map(app.categories.map((c) => [catKey(c.name), c.name]));
@@ -87,100 +82,77 @@ export function LogScreen({ active }: { active: boolean }) {
     setGroupId(''); // the next payment is private unless chosen otherwise
     setSplit(null);
     setError('');
-    amountRef.current?.focus();
+    onSaved();
   }
 
   return (
-    <section aria-label="Log a payment">
-      <form onSubmit={save} noValidate autoComplete="off" className="card">
-        <label className="amount">
-          <span aria-hidden="true">₹</span>
-          <input
-            ref={amountRef}
-            inputMode="decimal"
-            enterKeyHint="done"
-            placeholder="0"
-            aria-label="Amount in rupees"
-            value={amount}
-            onChange={(e) => { setAmount(e.target.value); setError(''); }}
-          />
-        </label>
+    <form onSubmit={save} noValidate autoComplete="off" className="quicklog" aria-label="Log a payment">
+      <label className="amount">
+        <span aria-hidden="true">₹</span>
+        <input
+          ref={amountRef}
+          inputMode="decimal"
+          enterKeyHint="done"
+          placeholder="0"
+          aria-label="Amount in rupees"
+          value={amount}
+          onChange={(e) => { setAmount(e.target.value); setError(''); }}
+        />
+      </label>
 
-        {frequent.length > 0 && (
-          <div className="chips quick" role="group" aria-label="Frequent categories">
-            {frequent.map((c) => (
-              <button key={c} type="button" className="chip" aria-pressed={category === c} onClick={() => { setCategory(c); setError(''); }}>
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <label className="field" htmlFor="log-cat"><span>Category</span></label>
-        <CategorySelect id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
-
-        <MethodChips value={method} onChange={pickMethod} options={METHODS} />
-
-        <label className="field">
-          <span>Note (optional)</span>
-          <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. lunch with team" />
-        </label>
-
-        <label className="field">
-          <span>Date</span>
-          <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
-        </label>
-
-        {app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
-
-        {app.groups.length > 0 && (
-          <label className="field">
-            <span>Share with</span>
-            <select
-              value={groupId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setGroupId(id);
-                setSplit(id && app.me ? freshSplit(app.me, activeMembers(app.members, id)) : null);
-                setError('');
-              }}
-            >
-              <option value="">Nobody (private)</option>
-              {app.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          </label>
-        )}
-        {groupId && split && app.me && (
-          <>
-            <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
-            <p className="muted small">Everyone in {groupName(groupId)} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.</p>
-          </>
-        )}
-
-        <p className="msg bad" role="alert" hidden={!error}>{error}</p>
-        <button type="submit" className="btn big">{groupId ? 'Save shared expense' : 'Save payment'}</button>
-      </form>
-
-      <h2 className="h2">Recent</h2>
-      {recent.length === 0 ? (
-        <p className="muted">No payments yet. Your last 20 appear here.</p>
-      ) : (
-        <ul className="list">
-          {recent.map((e) => (
-            <li key={e.id}>
-              <button type="button" className="row" onClick={() => setEditing(e)}>
-                <span className="row-main">
-                  <b>{e.category}</b>
-                  <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? `shared with ${groupName(e.group_id)}, total ${fmtINR(e.amount)}` : ''].filter(Boolean).join(' · ')}</small>
-                </span>
-                <span className="amt">{fmtINR(myShare(e, app.me))}</span>
-                {app.syncEnabled && e.dirty ? <span className="dot" role="img" aria-label="Waiting to sync" /> : null}
-              </button>
-            </li>
+      {frequent.length > 0 && (
+        <div className="chips quick" role="group" aria-label="Frequent categories">
+          {frequent.map((c) => (
+            <button key={c} type="button" className="chip" aria-pressed={category === c} onClick={() => { setCategory(c); setError(''); }}>
+              {c}
+            </button>
           ))}
-        </ul>
+        </div>
       )}
-      {editing && <EditDialog key={editing.id} entry={editing} onClose={() => setEditing(null)} />}
-    </section>
+
+      <label className="field" htmlFor="log-cat"><span>Category</span></label>
+      <CategorySelect id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
+
+      <MethodChips value={method} onChange={pickMethod} options={METHODS} />
+
+      <label className="field">
+        <span>Note (optional)</span>
+        <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. lunch with team" />
+      </label>
+
+      <label className="field">
+        <span>Date</span>
+        <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
+      </label>
+
+      {app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
+
+      {app.groups.length > 0 && (
+        <label className="field">
+          <span>Share with</span>
+          <select
+            value={groupId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setGroupId(id);
+              setSplit(id && app.me ? freshSplit(app.me, activeMembers(app.members, id)) : null);
+              setError('');
+            }}
+          >
+            <option value="">Nobody (private)</option>
+            {app.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </label>
+      )}
+      {groupId && split && app.me && (
+        <>
+          <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
+          <p className="muted small">Everyone in {groupName(groupId)} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.</p>
+        </>
+      )}
+
+      <p className="msg bad" role="alert" hidden={!error}>{error}</p>
+      <button type="submit" className="btn big">{groupId ? 'Save shared expense' : 'Save payment'}</button>
+    </form>
   );
 }

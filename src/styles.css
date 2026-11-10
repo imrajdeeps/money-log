@@ -7,13 +7,22 @@
   --brand: #1f3864;
   --brand-ink: #ffffff;
   --accent: #2f6fdd;
-  --good: #1a7f4b;
-  --bad: #c0392b;
-  --warn: #9a5b00;
-  --good-bg: #e3f4ea;
-  --bad-bg: #fbe5e2;
-  --warn-bg: #fff1d6;
-  --radius: 14px;
+  /* Vivid colour only where it means money: emerald for savings and money owed to you, rose for overspending and debt,
+     amber for close to the limit. Everything else stays neutral. */
+  --good: #047857;
+  --bad: #be123c;
+  --warn: #b45309;
+  --good-bg: #e6f6ee;
+  --bad-bg: #ffe8ec;
+  --warn-bg: #fff2d6;
+  --chart-ref: #a0abba; /* last month's line: a quiet grey next to the brand colour */
+  --skel: #e7ebf0;
+  --skel-hi: #f3f5f8;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-hover: 0 12px 28px -14px rgba(15, 23, 42, 0.35);
+  --inner: 0 0 0 0 transparent;
+  --radius: 16px;
+  --radius-lg: 20px;
   color-scheme: light dark;
 }
 
@@ -26,12 +35,18 @@
     --line: #2a3650;
     --brand: #3a5ca3;
     --accent: #7fa8ff;
-    --good: #4cc38a;
-    --bad: #ff8576;
-    --warn: #f0b04a;
-    --good-bg: #123325;
-    --bad-bg: #3b1a1a;
+    --good: #34d399;
+    --bad: #fb7185;
+    --warn: #fbbf24;
+    --good-bg: #0f3226;
+    --bad-bg: #3d1520;
     --warn-bg: #3a2c10;
+    --chart-ref: #5d6c88;
+    --skel: #1f2a40;
+    --skel-hi: #28354f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-hover: 0 14px 32px -14px rgba(0, 0, 0, 0.7);
+    --inner: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 }
 
@@ -42,16 +57,19 @@ html, body {
   background: var(--bg);
   color: var(--ink);
   font: 16px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  /* Every amount, percentage and date lines up digit for digit and does not shift as it changes. */
+  font-variant-numeric: tabular-nums;
   -webkit-text-size-adjust: 100%;
 }
 body { overscroll-behavior-y: none; }
 
 .app {
-  max-width: 560px;
+  max-width: 1240px;
   margin: 0 auto;
   min-height: 100dvh;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(84px + env(safe-area-inset-bottom));
+  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(100px + env(safe-area-inset-bottom));
 }
+.narrow { max-width: 600px; margin: 0 auto; }
 
 .boot { padding: 48px 16px; text-align: center; color: var(--muted); }
 .offscreen { position: fixed; left: -9999px; top: 0; }
@@ -73,6 +91,7 @@ p { margin: 0 0 10px; }
 }
 
 .pill {
+  position: relative;
   border: 1px solid var(--line);
   background: var(--card);
   color: var(--ink);
@@ -147,7 +166,7 @@ input[type='file'] { display: none; }
   background: var(--card);
   color: var(--ink);
   border-radius: 999px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 6px 14px;
   font: inherit;
   font-size: 14px;
@@ -239,7 +258,8 @@ input[type='file'] { display: none; }
 }
 .tabs button {
   flex: 1;
-  min-height: 60px;
+  min-width: 0;
+  min-height: 62px;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -250,16 +270,15 @@ input[type='file'] { display: none; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   cursor: pointer;
 }
-.tabs button .ico { font-size: 20px; line-height: 1; }
 .tabs button[aria-current='page'] { color: var(--accent); }
 
 .toast {
   position: fixed;
   left: 16px; right: 16px;
-  bottom: calc(76px + env(safe-area-inset-bottom));
+  bottom: calc(96px + env(safe-area-inset-bottom));
   max-width: 528px;
   margin: 0 auto;
   padding: 12px 16px;
@@ -320,7 +339,7 @@ dialog .btn.danger { width: 100%; }
 .plainlist { background: transparent; border: 0; border-radius: 0; }
 .plainlist > li + li { border-top: 1px solid var(--line); }
 .plainlist .catline.plain { padding: 10px 0; }
-.btn.small { min-height: 40px; padding: 0 12px; font-size: 14px; flex: none; width: auto; }
+.btn.small { min-height: 44px; padding: 0 12px; font-size: 14px; flex: none; width: auto; }
 .backbtn { width: auto; margin-bottom: 8px; }
 .card > .btn.small { width: auto; }
 .row.static { cursor: default; }
@@ -336,6 +355,7 @@ dialog .btn.danger { width: 100%; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumbtag { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 4px; font-size: 10px; font-weight: 700; background: var(--warn-bg); color: var(--warn); }
 .thumbx { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 14px; cursor: pointer; }
+.thumbx::after { content: ''; position: absolute; inset: -8px; } /* a 44px target around the small round button */
 .addphoto { position: relative; min-height: 84px; width: auto; padding: 0 14px; margin: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .addphoto.disabled { opacity: 0.5; pointer-events: none; }
 dialog.viewer { max-width: 96vw; }
@@ -368,3 +388,225 @@ dialog.viewer img { display: block; width: 100%; max-height: 70vh; object-fit: c
 /* Release 5: password sign-in */
 .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
 .chips + form, .chips + p { margin-top: 12px; }
+
+/* Bento dashboard, detail sheets, bottom bar with the Add button */
+.pill::after { content: ''; position: absolute; inset: -5px -2px; } /* a 44px target without a taller pill */
+.icon { display: block; flex: none; }
+
+/* header: the brand and the sync pill everywhere; the section links and the Add button on a wide screen, a Settings
+   button on a phone (its sections are in the bottom bar) */
+.brand { flex: 1; min-width: 0; }
+.topnav { display: none; }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.addbtn { display: none; gap: 6px; min-height: 44px; padding: 8px 16px 8px 12px; }
+.iconbtn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); cursor: pointer; }
+.iconbtn[aria-current='page'] { color: var(--accent); border-color: var(--accent); }
+
+.pagehead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 2px 0 14px; }
+.pagehead h2 { font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+.pagehead p { margin: 0; }
+
+/* bottom bar: Home, Month, the raised Add button, Plan, Groups */
+.tabs .fab { color: var(--ink); }
+.fab-circle {
+  width: 56px; height: 56px; margin-top: -34px; /* takes an icon's 22px in the row, so "Add" lines up with the other labels */
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--brand); color: var(--brand-ink);
+  box-shadow: 0 0 0 4px var(--card), 0 8px 18px -6px rgba(15, 23, 42, 0.55);
+  transition: transform 0.15s ease;
+}
+.fab:active .fab-circle { transform: scale(0.94); }
+.tabs .fab:focus-visible { outline: none; }
+.tabs .fab:focus-visible .fab-circle { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+/* the grid: one column on a phone (small stat tiles two to a row), 6 columns on a tablet, 12 on a wide screen. It
+   measures its own width, so it works inside anything. */
+.bento-wrap { container-type: inline-size; }
+.bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bento-card {
+  grid-column: span 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow), var(--inner);
+}
+.bento-card.compact { grid-column: span 1; padding: 14px; }
+@container (min-width: 600px) {
+  .bento { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; grid-auto-flow: row dense; }
+  .bento-card, .bento-card.compact { grid-column: span 3; padding: 18px; }
+  .bento-card.span-8, .bento-card.span-12 { grid-column: span 6; }
+}
+@container (min-width: 900px) {
+  .bento { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; grid-auto-flow: row; }
+  .bento-card.span-3 { grid-column: span 3; }
+  .bento-card.span-4 { grid-column: span 4; }
+  .bento-card.span-6 { grid-column: span 6; }
+  .bento-card.span-8 { grid-column: span 8; }
+  .bento-card.span-12 { grid-column: span 12; }
+}
+.bento-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; margin-bottom: 8px; }
+.bento-head h3 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); }
+.bento-chev { display: inline-flex; color: var(--muted); transition: transform 0.18s ease, color 0.18s ease; }
+.bento-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.bento-body > p { margin: 0; }
+/* the invisible button stretched over a tile that opens its details */
+.bento-hit { position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.bento-hit:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.bento-card.is-action { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+@media (hover: hover) {
+  .bento-card.is-action:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover), var(--inner); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .bento-card.is-action:hover .bento-chev { color: var(--accent); transform: translateX(2px); }
+  .list .row:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+  .drawer-x:hover, .iconbtn:hover { background: var(--bg); color: var(--ink); }
+}
+.bento-card.is-action:active { transform: translateY(0) scale(0.995); }
+
+/* figures: one hero number per page, stat numbers on the other tiles, muted text for everything around them */
+.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.hero-num { font-size: clamp(36px, 7vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 4px; }
+.hero-top .muted { margin: 0; }
+.stat-num { font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; margin: 0; overflow-wrap: anywhere; }
+.compact .stat-num { font-size: 21px; }
+.stat-unit { font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.bento-body .muted.small { margin: 2px 0 0; }
+.foot { margin-top: auto !important; padding-top: 10px; }
+.status { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+.status.bad { color: var(--bad); }
+.delta { display: inline-block; padding: 5px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.delta.bad { background: var(--bad-bg); color: var(--bad); }
+.delta.good { background: var(--good-bg); color: var(--good); }
+.warn-text { color: var(--warn); font-weight: 600; margin: 4px 0 0; }
+.left.warn { color: var(--warn); }
+.goal { margin-top: 10px; }
+.netfacts { list-style: none; margin: 12px 0 0; padding: 0; font-size: 14px; }
+.netfacts li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); }
+.netfacts span { color: var(--muted); min-width: 0; }
+.netfacts b { font-weight: 600; white-space: nowrap; }
+
+/* the month's spending by day */
+.pace { display: block; width: 100%; height: 112px; overflow: visible; margin-top: 6px; }
+.pace path, .pace line { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.pace .pace-base { stroke: var(--line); stroke-width: 1; }
+.pace .pace-budget { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; stroke-linecap: butt; }
+.pace .pace-last { stroke: var(--chart-ref); stroke-width: 2; }
+.pace .pace-area { fill: var(--accent); fill-opacity: 0.1; stroke: none; }
+.pace .pace-now { stroke: var(--accent); stroke-width: 2; }
+.pace .pace-ring { stroke: var(--card); stroke-width: 12; }
+.pace .pace-dot { stroke: var(--accent); stroke-width: 8; }
+.pace-axis { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; padding: 0; font-size: 13px; color: var(--muted); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.legend b { color: var(--ink); font-weight: 600; }
+.key { display: inline-block; width: 16px; border-top: 2px solid var(--accent); }
+.key.last { border-top-color: var(--chart-ref); }
+.key.budget { border-top: 2px dashed var(--muted); }
+
+/* budget meters: the track is a light step of the fill's own colour */
+.bar.meter-accent { --meter: var(--accent); }
+.bar.meter-warn { --meter: var(--warn); }
+.bar.meter-bad { --meter: var(--bad); }
+.bar.meter-good { --meter: var(--good); }
+.bar.meter-idle { --meter: var(--muted); }
+.bar[class*='meter-'] { background: color-mix(in srgb, var(--meter) 16%, transparent); }
+.bar[class*='meter-'] i { background: var(--meter); border-radius: 0 4px 4px 0; }
+
+/* where the month's money went: one colour, the bar is the share of the month */
+.shares { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 2px 0 0; padding: 0; }
+.share-line { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.share-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.share-bar { display: block; height: 6px; margin-top: 4px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.share-bar i { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+
+/* short lists inside tiles */
+.mini { list-style: none; margin: 10px 0 0; padding: 0; }
+.mini li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.mini .row-main small { white-space: nowrap; }
+.bento-card .plainlist.recent { margin: 0 -8px; }
+.recent .row { min-height: 54px; padding: 8px; border-radius: 12px; }
+.seeall { position: relative; z-index: 2; min-height: 44px; margin: -10px -10px -10px 0; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+/* empty tiles: what is missing and the one thing to do about it */
+.bento-empty { flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; }
+.bento-empty p { margin: 0; font-size: 14px; }
+.bento-empty .btn { position: relative; z-index: 2; }
+
+/* loading placeholders in the tiles' shapes */
+.skel-card { gap: 12px; }
+.skel { display: block; border-radius: 8px; background: linear-gradient(90deg, var(--skel) 25%, var(--skel-hi) 50%, var(--skel) 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
+.skel-title { width: 40%; height: 12px; }
+.skel-figure { width: 60%; height: 26px; }
+.skel-hero { width: 50%; height: 46px; }
+.skel-chart { width: 100%; height: 112px; }
+.skel-line { width: 100%; height: 14px; }
+.skel-line.short { width: 55%; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* detail sheets: from the bottom on a phone, from the right on a wider screen */
+dialog.drawer {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  max-height: calc(100dvh - 16px - env(safe-area-inset-top));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18);
+}
+dialog.drawer[open] { display: flex; flex-direction: column; animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+dialog.drawer.closing { animation: sheet-down 0.2s ease-in forwards; }
+dialog.drawer[open]::backdrop { animation: fade-in 0.22s ease backwards; }
+dialog.drawer.closing::backdrop { animation: fade-out 0.2s ease forwards; }
+html:has(dialog.drawer[open]) { overflow: hidden; }
+.drawer-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.drawer-head { position: relative; flex: none; display: flex; align-items: center; gap: 8px; padding: 16px 8px 8px 20px; border-bottom: 1px solid var(--line); }
+.drawer-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 18px; }
+.drawer-grip { position: absolute; top: 6px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 999px; background: var(--line); }
+.drawer-x { flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer; }
+.drawer-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 16px calc(28px + env(safe-area-inset-bottom)); }
+.drawer .toast { bottom: calc(16px + env(safe-area-inset-bottom)); }
+@media (min-width: 720px) {
+  dialog.drawer { inset: 0 0 0 auto; width: min(560px, 100vw); height: 100dvh; max-height: 100dvh; border-radius: 20px 0 0 20px; box-shadow: -10px 0 40px rgba(0, 0, 0, 0.18); }
+  dialog.drawer[open] { animation-name: panel-in; }
+  dialog.drawer.closing { animation-name: panel-out; }
+  .drawer-grip { display: none; }
+  .drawer-head { padding: calc(14px + env(safe-area-inset-top)) 12px 12px 24px; }
+  .drawer-body { padding: 20px 24px 32px; }
+  .drawer .toast { left: auto; right: 16px; width: min(528px, calc(100% - 32px)); }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes sheet-down { to { transform: translateY(100%); } }
+@keyframes panel-in { from { transform: translateX(100%); } }
+@keyframes panel-out { to { transform: translateX(100%); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+
+/* wide screens: section links and the Add button in the header instead of the bottom bar */
+@media (min-width: 1024px) {
+  .app { padding: 16px 32px 48px; }
+  .top { padding: 4px 0 24px; }
+  .brand { flex: none; }
+  .topnav { display: flex; flex: 1; justify-content: center; gap: 2px; }
+  .topnav button { min-height: 44px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .topnav button:hover { background: var(--card); color: var(--ink); }
+  .topnav button[aria-current='page'] { background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+  .addbtn { display: inline-flex; }
+  .gear, .tabs { display: none; }
+  .toast { bottom: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after, ::backdrop { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .bento-card.is-action:hover, .bento-card.is-action:active, .fab:active .fab-circle { transform: none; }
+}
