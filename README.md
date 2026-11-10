@@ -156,6 +156,11 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## The tour (version 1.14)
+A new person (no payments or groups yet) sees a nine-step tour of the whole app the first time it opens; someone who already uses the
+app sees only what is new since they last saw a tour. Either can be skipped at any step (Escape too), and Settings, About has
+"Take the tour" and "What is new" to see them again. Which version's tour was seen is remembered on the phone only.
+
 ## Light and dark, colours and type
 
 - **Light or dark:** the sun or moon button at the top switches between them. *Settings, Appearance* also has **Match my

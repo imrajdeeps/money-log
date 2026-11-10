@@ -12,7 +12,7 @@ src/
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
               the sync pill, file helpers.
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
-    home/  payments/  recurring/  month/  plan/  goals/  export/  groups/  settings/
+    home/  payments/  recurring/  month/  plan/  goals/  export/  groups/  settings/  tour/
       index.ts    the only file other code may import from this folder
   app/        starts the app: main.tsx, the page frame (App.tsx), the router.
   routes/     one small file per address (TanStack Router reads this folder). routeTree.gen.ts is generated.
@@ -68,6 +68,15 @@ grouped (a changed height that only ripples down from another change is left out
 `window.__snapExtra = ['/groups/<id>']` adds pages that exist only in one browser; a third argument, `'scenes'`, records the
 dialogs that need a click (budgets, an expense). Animations are cancelled while recording. Record the baseline from the build
 **before** the change: keep that build's folder so it can be served again.
+
+## The guided tour
+
+`core/tour.ts` holds the steps (`FIRST_STEPS`: the whole app; `NEWS_STEPS`: one step per new thing, each with the version that brought
+it) and who gets which (`pickTour`). `data/tour.ts` keeps the last version whose tour was finished or skipped (on the phone only).
+`features/tour/TourHost.tsx` draws it: a spotlight on the part named by a step's `target` (a `data-tour="..."` attribute somewhere in the
+page; the first one that is showing, so a phone's bottom bar and a wide screen's header can share a name) and a card beside it.
+**When you add a feature people will notice, add a news step with the new version in `NEWS_STEPS`**, put `data-tour` on the part to
+point at, and bump `core/version.ts` and `package.json` together.
 
 ## Adding things
 
