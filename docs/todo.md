@@ -1,3 +1,9 @@
+# TODO
+
+What is planned, in the order it will be picked up. **How it works:** anything the owner asks for while other work is running is written here first, in the owner's words. The running work is finished (and its pull request opened), then the next item is picked from this list.
+
+**Open items are first, finished ones are under Done at the end.** Nothing is open right now: the next thing is whatever the owner asks for.
+
 ## Ideas that came up and are not scheduled
 - Verify the WhatsApp number on the profile by sending a code on WhatsApp (skipped for now by the owner). Needs a provider (Meta WhatsApp Business API or Twilio via Supabase phone sign-in), per-message cost, a server-side secret, rate limits, and a privacy note.
 - A "repeat every month" tickbox in Add expense (makes a recurring payment).
