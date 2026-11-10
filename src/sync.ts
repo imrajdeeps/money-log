@@ -7,6 +7,8 @@
 // Entries are written to the phone first. Each carries dirty = 1 until a push succeeds, so nothing is lost offline.
 import { cleanDoneMap, cleanDue, cleanNet, mergeDone, sameDone } from './blocks.ts';
 import { cleanMine, mergeMine, sameMine } from './categories.ts';
+import { cleanRecurring, mergeRecurring, sameRecurring } from './recurring.ts';
+import type { Recurring } from './recurring.ts';
 import { authMessage, checkPassword } from './password.ts';
 import type { Mine } from './categories.ts';
 import type { DoneMap } from './blocks.ts';
@@ -66,14 +68,17 @@ const BLOCK_NAMES = Object.keys(BLOCKS) as BlockName[];
 const isBlock = (n: unknown): n is BlockName => typeof n === 'string' && Object.hasOwn(BLOCKS, n);
 interface StoredBlock { importedAt: string; dirty: 0 | 1 }
 // Two more blocks are made in the app instead of imported, merged per item (the latest change to each item wins) and
-// synced as one row each: the Done marks on the due list, and the categories and budgets the person set.
+// synced as one row each: the Done marks on the due list, the categories and budgets the person set, and the payments
+// that repeat every month.
 export interface DueDone { items: DoneMap; dirty: 0 | 1 }
 export interface MineBlock { items: Mine; dirty: 0 | 1 }
+export interface RecurBlock { items: Recurring; dirty: 0 | 1 }
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Items = Record<string, any>;
 const MERGED: { block: string; meta: string; clean: (p: unknown) => Items; merge: (a: Items, b: Items) => Items; same: (a: Items, b: Items) => boolean }[] = [
   { block: 'due_done', meta: 'dueDone', clean: cleanDoneMap, merge: mergeDone, same: sameDone },
   { block: 'categories', meta: 'mine', clean: cleanMine, merge: mergeMine, same: sameMine },
+  { block: 'recurring', meta: 'recurring', clean: cleanRecurring, merge: mergeRecurring, same: sameRecurring },
 ];
 /* eslint-enable @typescript-eslint/no-explicit-any */
 

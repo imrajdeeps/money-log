@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { daysInMonth, dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, spentByDay, topCategories } from '../src/dashboard.ts';
+import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from '../src/payments.ts';
 import { dueKey } from '../src/blocks.ts';
 import type { DueBlock } from '../src/blocks.ts';
 import { planForMonth, setBudget, categoryList } from '../src/categories.ts';
@@ -160,4 +161,30 @@ test('the overview shows all four groups until a budget is set, then only the gr
   assert.deepEqual(overviewGroups(none.summary.groups), ['Spending', 'EMI', 'Family', 'Saving']);
   const some = monthOverview([], ME, planForMonth(null, mineWithBudgets(), '2026-11'), planForMonth(null, mineWithBudgets(), '2026-10'), '2026-11-10');
   assert.deepEqual(overviewGroups(some.summary.groups), ['Spending', 'EMI', 'Saving'], 'Family has no budget, so no tile');
+});
+
+// ---------------------------------------------------------------- All payments: search and filters
+
+test('all payments: search finds words in any order, amounts without commas, and filters combine', () => {
+  const es = [
+    mk(4500, 'Rent', '2026-11-01', { note: 'November flat', method: 'UPI' }),
+    mk(450, 'Groceries', '2026-11-05', { note: 'Big Basket order', method: 'Card' }),
+    mk(450, 'Groceries', '2026-10-28', { note: 'vegetables', method: 'Cash' }),
+    mk(1200, 'Fuel', '2026-10-20', { method: 'UPI' }),
+  ];
+  const ids = (f: Partial<typeof NO_FILTER>) => filterPayments(es, { ...NO_FILTER, ...f }, ME).map((e) => `${e.category}${e.entry_date.slice(5)}`);
+  assert.deepEqual(ids({}), ['Groceries11-05', 'Rent11-01', 'Groceries10-28', 'Fuel10-20'], 'all four, newest first');
+  assert.deepEqual(ids({ q: 'basket big' }), ['Groceries11-05'], 'words in any order');
+  assert.deepEqual(ids({ q: '₹4,500' }), ['Rent11-01'], 'amount typed with a rupee sign and a comma');
+  assert.equal(ids({ q: '450' }).length, 3, '450 is also found inside 4500');
+  assert.deepEqual(ids({ category: 'groceries' }).length, 2);
+  assert.deepEqual(ids({ month: '2026-10' }).sort(), ['Fuel10-20', 'Groceries10-28']);
+  assert.deepEqual(ids({ month: '2026-10', method: 'UPI' }), ['Fuel10-20'], 'filters combine');
+  assert.deepEqual(ids({ q: 'nothing like this' }), []);
+  assert.equal(isFiltered(NO_FILTER), false);
+  assert.equal(isFiltered({ ...NO_FILTER, q: '  ' }), false);
+  assert.equal(isFiltered({ ...NO_FILTER, method: 'UPI' }), true);
+  assert.deepEqual(paymentMonths(es), ['2026-11', '2026-10']);
+  assert.deepEqual(paymentCategories([...es, mk(10, 'groceries', '2026-11-06')]), ['Fuel', 'Groceries', 'Rent'], 'one name per spelling in any case');
+  assert.equal(totalShare(es, ME), 6600);
 });

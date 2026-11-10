@@ -3,6 +3,7 @@
 export const SETTINGS_SECTIONS = [
   { id: 'account', title: 'Cloud sync', blurb: 'Sign in, sync, sign out' },
   { id: 'password', title: 'Password and sessions', blurb: 'Change it, sign out other devices' },
+  { id: 'recurring', title: 'Recurring payments', blurb: 'Rent, SIPs, subscriptions: log with one tap' },
   { id: 'appearance', title: 'Appearance', blurb: 'Light, dark or match the phone' },
   { id: 'plan', title: 'Spreadsheet plan', blurb: 'Import your monthly plan (optional)' },
   { id: 'receipts', title: 'Receipt photos', blurb: 'Storage used on this phone' },

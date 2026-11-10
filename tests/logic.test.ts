@@ -346,3 +346,13 @@ test('the link from a private payment to the shared expense it records is kept a
   assert.equal(cleanEntry({ ...e, share_of: undefined })!.share_of, null, 'older rows have none');
   assert.equal(editEntry(e, { note: 'x' }, '2026-11-10T00:00:00.000Z').share_of, src, 'edits keep the link');
 });
+
+test('a budget is "nearly used" from 80% up to and including 100%, never with no budget or once over', async () => {
+  const { nearBudget } = await import('../src/logic.ts');
+  assert.equal(nearBudget(799, 1000), false);
+  assert.equal(nearBudget(800, 1000), true);
+  assert.equal(nearBudget(1000, 1000), true);
+  assert.equal(nearBudget(1001, 1000), false, 'over has its own state');
+  assert.equal(nearBudget(500, 0), false);
+  assert.equal(nearBudget(0, 0), false);
+});
