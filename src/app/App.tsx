@@ -21,6 +21,9 @@ import type { Group } from '../core/logic.ts';
 import { MonthScreen } from '../features/month/index.ts';
 import { PlanScreen } from '../features/plan/index.ts';
 import { SettingsScreen } from '../features/settings/index.ts';
+import { TourHost } from '../features/tour/index.ts';
+import type { TourPage } from '../core/tour.ts';
+import { VERSION } from '../core/version.ts';
 import * as ui from '../ui/styles.ts';
 import * as sh from './shellStyles.ts';
 
@@ -87,6 +90,13 @@ function Shell() {
   const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
   const goGroup = useCallback((id?: string) => { void navigate(id ? { to: '/groups/$groupId', params: { groupId: id } } : { to: '/groups' }); }, [navigate]);
   const goSettings = useCallback((to?: SettingsSection) => { void navigate(to ? { to: '/settings/$part', params: { part: to } } : { to: '/settings' }); }, [navigate]);
+  // the tour moves the page behind its card
+  const tourGo = useCallback((to: TourPage) => {
+    if (to === 'home') goHome();
+    else if (to === 'settings') goSettings();
+    else if (to === 'about') goSettings('about');
+    else goPage(to);
+  }, [goHome, goSettings, goPage]);
   // Whichever way the address changed (a tap, the back button, a link), the page starts at the top, or at the part that
   // was asked for; and Add expense puts the cursor in the amount.
   useEffect(() => {
@@ -117,19 +127,20 @@ function Shell() {
     <>
       {!splashGone && <Splash leaving />}
       {app.locked && <LockScreen />}
+      <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0 || app.groups.length > 0} go={tourGo} />
       <div className={sh.app} inert={app.locked}>
       <header className={sh.top}>
         <div className={sh.brand}><h1>Money Log</h1></div>
         <nav className={sh.topNav} aria-label="Sections">
-          <button type="button" className={sh.topNavBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>Overview</button>
-          {NAV.map((n) => <button key={n.id} type="button" className={sh.topNavBtn(!!current(n.id))} aria-current={current(n.id)} onClick={() => goPage(n.id)}>{n.label}</button>)}
-          <button type="button" className={sh.topNavBtn(!!current('settings'))} aria-current={current('settings')} onClick={() => goSettings()}>Settings</button>
+          <button type="button" data-tour="home" className={sh.topNavBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>Overview</button>
+          {NAV.map((n) => <button key={n.id} type="button" data-tour={n.id} className={sh.topNavBtn(!!current(n.id))} aria-current={current(n.id)} onClick={() => goPage(n.id)}>{n.label}</button>)}
+          <button type="button" data-tour="settings" className={sh.topNavBtn(!!current('settings'))} aria-current={current('settings')} onClick={() => goSettings()}>Settings</button>
         </nav>
         <div className={sh.topActions}>
           <SyncPill onOpenSettings={() => goSettings('account')} />
           <ThemeToggle />
-          <button type="button" className={ui.btn('solid', 'none', sh.addBtn)} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={20} />Add expense</button>
-          <button type="button" className={`${ui.iconBtn} ${sh.gear}`} aria-label="Settings" aria-current={current('settings')} onClick={() => goSettings()}>
+          <button type="button" data-tour="add" className={ui.btn('solid', 'none', sh.addBtn)} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={20} />Add expense</button>
+          <button type="button" data-tour="settings" className={`${ui.iconBtn} ${sh.gear}`} aria-label="Settings" aria-current={current('settings')} onClick={() => goSettings()}>
             <Icon name="settings" />
           </button>
         </div>
@@ -157,16 +168,16 @@ function Shell() {
 
 
       <nav className={sh.tabs} aria-label="Sections">
-        <button type="button" className={sh.tabBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>
+        <button type="button" data-tour="home" className={sh.tabBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>
           <Icon name="home" size={24} duotone={page === 'home'} />Home
         </button>
-        <button type="button" className={sh.tabBtn(!!current('month'))} aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" size={24} duotone={page === 'month'} />Month</button>
-        <button type="button" className={sh.tabBtn(!!current('add'), true)} aria-label="Add expense" aria-current={current('add')} onClick={goAdd}>
+        <button type="button" data-tour="month" className={sh.tabBtn(!!current('month'))} aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" size={24} duotone={page === 'month'} />Month</button>
+        <button type="button" data-tour="add" className={sh.tabBtn(!!current('add'), true)} aria-label="Add expense" aria-current={current('add')} onClick={goAdd}>
           <span className={sh.fabCircle}><Icon name="plus" size={26} /></span>
           <span aria-hidden="true">Add</span>
         </button>
-        <button type="button" className={sh.tabBtn(!!current('plan'))} aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" size={24} />Plan</button>
-        <button type="button" className={sh.tabBtn(!!current('groups'))} aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" size={24} duotone={page === 'groups'} />Groups</button>
+        <button type="button" data-tour="plan" className={sh.tabBtn(!!current('plan'))} aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" size={24} />Plan</button>
+        <button type="button" data-tour="groups" className={sh.tabBtn(!!current('groups'))} aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" size={24} duotone={page === 'groups'} />Groups</button>
       </nav>
       {toast}
       </div>
