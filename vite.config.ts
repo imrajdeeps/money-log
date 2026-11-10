@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -112,11 +113,26 @@ self.addEventListener('fetch', (event) => {
   };
 }
 
+// GitHub Pages answers an address it has no file for (https://name.github.io/money-log/settings, typed in or
+// refreshed) with 404.html. Making that file a copy of the app puts the person back on the page they were on.
+function spaFallback(): Plugin {
+  return {
+    name: 'money-log-404',
+    apply: 'build',
+    enforce: 'post',
+    generateBundle(_options, bundle) {
+      const page = bundle['index.html'];
+      if (page?.type === 'asset') this.emitFile({ type: 'asset', fileName: '404.html', source: page.source });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   return {
     base: BASE,
-    plugins: [csp(env.VITE_SUPABASE_URL ?? ''), serviceWorker()],
+    // Writes src/routeTree.gen.ts from the files in src/routes. One chunk: the app is small and works offline.
+    plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: false }), csp(env.VITE_SUPABASE_URL ?? ''), serviceWorker(), spaFallback()],
     build: { target: 'es2022', modulePreload: { polyfill: false } },
     oxc: { jsx: { runtime: 'automatic' } },
   };

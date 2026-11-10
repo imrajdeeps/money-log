@@ -19,6 +19,7 @@ import { editEntry, isMine, makeEntry, markExportedEntry, parseTs, softDelete } 
 import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from './logic.ts';
 import { openStore } from './store.ts';
 import type { Store } from './store.ts';
+import { BASEPATH, appRootUrl } from './paths.ts';
 import { createSync } from './sync.ts';
 import type { DueDone, MineBlock, Sync, SyncState } from './sync.ts';
 
@@ -547,7 +548,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await engine().signInWithPassword(email, password);
     void engRef.current?.sync.sync();
   }, []);
-  const requestPasswordReset = useCallback((email: string) => engine().requestPasswordReset(email, window.location.origin + window.location.pathname), []);
+  const requestPasswordReset = useCallback((email: string) => engine().requestPasswordReset(email, appRootUrl(window.location.href, BASEPATH)), []);
   const dismissAuthNotice = useCallback(() => setAuthNotice(null), []);
   const changePassword = useCallback(async (password: string) => { await engine().changePassword(password); setRecovering(false); }, []);
   const signOutOthers = useCallback(() => engine().signOutOthers(), []);

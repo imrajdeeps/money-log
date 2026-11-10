@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import { useMatch, useNavigate, useSearch } from '@tanstack/react-router';
 import { AppProvider, useApp } from './context.tsx';
+import type { SettingsSection } from './settingsSections.ts';
 import { BentoSkeleton } from './components/Bento.tsx';
 import { DetailDrawer } from './components/DetailDrawer.tsx';
 import type { DrawerHandle } from './components/DetailDrawer.tsx';
@@ -20,7 +22,8 @@ import { PlanScreen } from './screens/PlanScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
 
 // Two pages (the dashboard and Settings) and, over them, the sheets that hold everything else. The sheets stay mounted
-// while closed, so a half-typed payment or a half-filled group form survives a look elsewhere.
+// while closed, so a half-typed payment or a half-filled group form survives a look elsewhere. Which page shows is the
+// address (/ or /settings, see src/routes), so a refresh stays where it was.
 type Page = 'home' | 'settings';
 type Sheet = Section | 'add';
 
@@ -33,7 +36,9 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
 
 function Shell() {
   const app = useApp();
-  const [page, setPage] = useState<Page>('home');
+  const navigate = useNavigate();
+  const page: Page = useMatch({ from: '/settings', shouldThrow: false }) ? 'settings' : 'home';
+  const section = useSearch({ from: '/settings', shouldThrow: false })?.s;
   const [sheet, setSheet] = useState<Sheet | null>(null); // the sheet that is open, if any
   const [monthKey, setMonthKey] = useState(0);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -53,11 +58,15 @@ function Shell() {
   const openSheet = useCallback((id: Section, anchor?: string) => refsRef.current[id].current?.open(anchor), []);
   // Straight from the tap, so the amount field gets the focus (and a phone its keyboard) at once.
   const openAdd = useCallback(() => refsRef.current.add.current?.open(), []);
-  const goPage = useCallback((p: Page) => { closeSheets(); setPage(p); window.scrollTo(0, 0); }, [closeSheets]);
-  const goSettings = useCallback(() => goPage('settings'), [goPage]);
+  const goHome = useCallback(() => { closeSheets(); void navigate({ to: '/' }); }, [closeSheets, navigate]);
+  const goSettings = useCallback((to?: SettingsSection) => { closeSheets(); void navigate({ to: '/settings', search: to ? { s: to } : {} }); }, [closeSheets, navigate]);
+  // Whichever way the address changed (a tap, the back button, a link), the sheets close and the page starts at the top.
+  useEffect(() => { closeSheets(); window.scrollTo(0, 0); }, [page, section, closeSheets]);
 
-  // A reset link (or a link that failed) was opened: Settings is where the new password is chosen, or where a new link is asked for.
-  useEffect(() => { if (app.ready && (app.recovering || app.authNotice) && !app.locked) goSettings(); }, [app.ready, app.recovering, app.authNotice, app.locked, goSettings]);
+  // A reset link was opened: the new password is chosen in Settings. A link that failed: a new one is asked for there.
+  useEffect(() => {
+    if (app.ready && !app.locked && (app.recovering || app.authNotice)) goSettings(app.recovering ? 'password' : 'account');
+  }, [app.ready, app.recovering, app.authNotice, app.locked, goSettings]);
   // A join link was opened: show where it can be used, once the PIN screen (if any) is out of the way.
   useEffect(() => { if (app.ready && app.joinCode && !app.locked) openSheet('groups'); }, [app.ready, app.joinCode, app.locked, openSheet]);
   // The PIN screen must not sit under an open sheet or dialog (they are drawn above the page): close them all before it
@@ -85,15 +94,15 @@ function Shell() {
       <header className="top">
         <div className="brand"><h1>Money Log</h1></div>
         <nav className="topnav" aria-label="Sections">
-          <button type="button" aria-current={page === 'home' ? 'page' : undefined} onClick={() => goPage('home')}>Overview</button>
+          <button type="button" aria-current={page === 'home' ? 'page' : undefined} onClick={goHome}>Overview</button>
           {NAV.map((n) => <button key={n.id} type="button" aria-haspopup="dialog" onClick={() => openSheet(n.id)}>{n.label}</button>)}
-          <button type="button" aria-current={page === 'settings' ? 'page' : undefined} onClick={goSettings}>Settings</button>
+          <button type="button" aria-current={page === 'settings' ? 'page' : undefined} onClick={() => goSettings()}>Settings</button>
         </nav>
         <div className="top-actions">
-          <SyncPill onOpenSettings={goSettings} />
+          <SyncPill onOpenSettings={() => goSettings('account')} />
           <ThemeToggle />
           <button type="button" className="btn addbtn" aria-haspopup="dialog" onClick={openAdd}><Icon name="plus" size={20} />Add expense</button>
-          <button type="button" className="iconbtn gear" aria-label="Settings" aria-current={page === 'settings' ? 'page' : undefined} onClick={goSettings}>
+          <button type="button" className="iconbtn gear" aria-label="Settings" aria-current={page === 'settings' ? 'page' : undefined} onClick={() => goSettings()}>
             <Icon name="settings" />
           </button>
         </div>
@@ -104,10 +113,9 @@ function Shell() {
         </p>
       )}
       <main>
-        <div hidden={page !== 'home'}><HomeScreen open={openSheet} openAdd={openAdd} goSettings={goSettings} /></div>
+        <div hidden={page !== 'home'}><HomeScreen open={openSheet} openAdd={openAdd} goSettings={() => goSettings()} /></div>
         <div hidden={page !== 'settings'} className="narrow">
-          <div className="pagehead"><h2>Settings</h2></div>
-          <SettingsScreen />
+          <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
       </main>
 
@@ -125,11 +133,11 @@ function Shell() {
         {here('month')}
       </DetailDrawer>
       <DetailDrawer ref={refs.plan} title="Plan" onOpenChange={tracked('plan')}>
-        <PlanScreen openSettings={goSettings} />
+        <PlanScreen openSettings={() => goSettings('plan')} />
         {here('plan')}
       </DetailDrawer>
       <DetailDrawer ref={refs.groups} title="Groups" onOpenChange={tracked('groups')}>
-        <GroupsScreen openSettings={goSettings} />
+        <GroupsScreen openSettings={() => goSettings('account')} />
         {here('groups')}
       </DetailDrawer>
       <DetailDrawer ref={refs.export} title="Export to the spreadsheet" onOpenChange={tracked('export')}>
@@ -138,7 +146,7 @@ function Shell() {
       </DetailDrawer>
 
       <nav className="tabs" aria-label="Sections">
-        <button type="button" aria-current={page === 'home' ? 'page' : undefined} onClick={() => goPage('home')}>
+        <button type="button" aria-current={page === 'home' ? 'page' : undefined} onClick={goHome}>
           <Icon name="home" />Home
         </button>
         <button type="button" aria-haspopup="dialog" onClick={() => openSheet('month')}><Icon name="month" />Month</button>

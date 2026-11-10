@@ -7,6 +7,7 @@ import { copyText } from '../files.ts';
 import { shortDate } from '../format.ts';
 import { activeMembers, codeLooksValid, formatCode, fromPaise, groupBalances, inviteLink, ledger, memberName, normalizeCode, simplifyDebts } from '../groups.ts';
 import type { Group, Settlement } from '../groups.ts';
+import { BASEPATH, appRootUrl } from '../paths.ts';
 import { fmtINR, isValidDate, isoDate, myShare, parseAmount } from '../logic.ts';
 import type { Entry } from '../logic.ts';
 
@@ -259,7 +260,7 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
               <p className="codebox" aria-label="Join code">{formatCode(invite.code)}</p>
               <p className="muted small">Valid until {shortDate(invite.expires_at.slice(0, 10))}. Anyone with the code can join, so send it only to people you mean to add.</p>
               <div className="btnrow">
-                <button type="button" className="btn" onClick={() => { void copy(inviteLink(window.location.href, invite.code), 'Link'); }}>Copy link</button>
+                <button type="button" className="btn" onClick={() => { void copy(inviteLink(appRootUrl(window.location.href, BASEPATH), invite.code), 'Link'); }}>Copy link</button>
                 <button type="button" className="btn ghost" onClick={() => { void copy(formatCode(invite.code), 'Code'); }}>Copy code</button>
               </div>
             </>
