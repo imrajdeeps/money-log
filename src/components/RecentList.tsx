@@ -6,29 +6,33 @@ import { shortDate } from '../format.ts';
 import { byRecent, fmtINR, myShare } from '../logic.ts';
 import type { Entry } from '../logic.ts';
 
+// One payment as a tappable row: category, the day, method, note, your share.
+export function PaymentRow({ entry: e, onOpen }: { entry: Entry; onOpen: (e: Entry) => void }) {
+  const app = useApp();
+  const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
+  return (
+    <button type="button" className="row" onClick={() => onOpen(e)}>
+      <span className="row-main">
+        <b>{e.category}</b>
+        <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? `shared with ${groupName(e.group_id)}, total ${fmtINR(e.amount)}` : ''].filter(Boolean).join(' · ')}</small>
+      </span>
+      <span className="amt">{fmtINR(myShare(e, app.me))}</span>
+      {app.syncEnabled && e.dirty ? <span className="dot" role="img" aria-label="Waiting to sync" /> : null}
+    </button>
+  );
+}
+
 // The latest payments, newest first; tapping one opens it to edit or delete. The Home tile shows a few without a frame
 // (plain), the Recent sheet shows the last 20 in a framed list.
 export function RecentList({ limit, plain = false, empty }: { limit: number; plain?: boolean; empty: ReactNode }) {
   const app = useApp();
   const [editing, setEditing] = useState<Entry | null>(null);
   const recent = useMemo(() => app.entries.slice().sort(byRecent).slice(0, limit), [app.entries, limit]);
-  const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
   return (
     <>
       {recent.length === 0 ? empty : (
         <ul className={plain ? 'list plainlist recent' : 'list'}>
-          {recent.map((e) => (
-            <li key={e.id}>
-              <button type="button" className="row" onClick={() => setEditing(e)}>
-                <span className="row-main">
-                  <b>{e.category}</b>
-                  <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? `shared with ${groupName(e.group_id)}, total ${fmtINR(e.amount)}` : ''].filter(Boolean).join(' · ')}</small>
-                </span>
-                <span className="amt">{fmtINR(myShare(e, app.me))}</span>
-                {app.syncEnabled && e.dirty ? <span className="dot" role="img" aria-label="Waiting to sync" /> : null}
-              </button>
-            </li>
-          ))}
+          {recent.map((e) => <li key={e.id}><PaymentRow entry={e} onOpen={setEditing} /></li>)}
         </ul>
       )}
       {/* outside the list: deleting the last payment empties the list before the dialog has reported that it closed */}

@@ -117,6 +117,12 @@ TanStack Router (files in `src/routes`; `src/routeTree.gen.ts` is generated from
 and is committed). GitHub Pages has no file for `/settings`, so the build also writes `404.html` as a copy of the app,
 which Pages serves for such addresses; an unknown address goes to the Overview.
 
+**All payments** (the Recent payments tile's *See all*) lists every payment on the phone, newest day first, with a search
+(words in any order, matched against the category, note, method and amount; `4500` finds ₹4,500) and filters for month,
+category and method. It shows the count and your total for what is listed. Only the rows near the screen are drawn
+(TanStack Virtual), so thousands of payments scroll as smoothly as a few. A budget turns amber, with the words "nearly
+used", from 80% of it, and red once it is over.
+
 ## Light and dark, colours and type
 
 - **Light or dark:** the sun or moon button at the top switches between them. *Settings, Appearance* also has **Match my

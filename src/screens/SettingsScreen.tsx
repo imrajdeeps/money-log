@@ -556,7 +556,7 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
   return (
     <section aria-label="Settings">
       {open ? (
-        <button type="button" className="backbtn" onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
+        <button type="button" className="settings-back" onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
       ) : (
         <div className="pagehead"><h2>Settings</h2></div>
       )}
