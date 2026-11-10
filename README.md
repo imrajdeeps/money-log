@@ -25,7 +25,8 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
    Release 1, 2 or 3 version, run this one on top of it**: it adds what is new and keeps your data. It also creates the
    private Storage bucket `receipts` for photos (free plan: 1 GB of file storage, 50 MB largest upload; the bucket is
    limited to 1 MB JPEG files).
-3. Paste and run `supabase/rls_tests.sql`. The last message must be `ALL ACCESS TESTS PASSED`. It uses fake users,
+3. Paste and run `supabase/rls_tests.sql`. It must finish with no error and show a result table that says
+   `ALL ACCESS TESTS PASSED` (the SQL Editor does not display the script's progress notices). It uses fake users,
    groups and rows inside a transaction that is rolled back, so nothing is kept. Run it again after every change to
    `schema.sql`. (Supabase's Storage refuses plain SQL deletes on its file tables, error 42501 "Use the Storage API instead".
    The test removes its fake files the way Storage itself does, by setting `storage.allow_delete_query` around that one

@@ -3,7 +3,8 @@
 -- HOW TO RUN: after schema.sql, paste this whole file into the Supabase SQL Editor and Run.
 -- It creates throw-away users, groups and rows INSIDE a transaction and ends with ROLLBACK,
 -- so nothing is kept. Every check prints a NOTICE: PASS ...; the first failure stops the run
--- with an error that starts with FAIL. The last line printed must be: ALL ACCESS TESTS PASSED.
+-- with an error that starts with FAIL. A pass shows no error and ends with a result table holding the single word
+-- "ALL ACCESS TESTS PASSED" (Supabase's SQL Editor does not display NOTICE messages; psql prints them as well).
 --
 -- Two kinds of checks:
 --   1. Structure: the exact policies, grants and triggers exist (so a weakened rule is caught even where another
@@ -1145,3 +1146,6 @@ begin
 end $$;
 
 rollback;
+
+-- Reached only when every check above passed: any failed check raises an error and stops the run before this line.
+select 'ALL ACCESS TESTS PASSED' as result;
