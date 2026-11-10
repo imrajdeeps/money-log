@@ -14,11 +14,14 @@
   const go = async (to) => { history.pushState({}, '', to); window.dispatchEvent(new PopStateEvent('popstate')); await wait(450); };
 
   function capture(styles) {
+    // animations and transitions would be caught half way: cancel them (the animations only fill backwards, so the plain style shows)
+    document.getAnimations().forEach((a) => a.cancel());
     const out = {};
     const walk = (el, path) => {
       if (!el.getClientRects().length) return;
       const cs = getComputedStyle(el);
-      const s = PROPS.map((p) => cs[p]).join('|');
+      // long decimals (a meter's scaleX depends on how far into the month it is) are rounded, so the clock does not show as a change
+      const s = PROPS.map((p) => cs[p]).join('|').replace(/-?\d+\.\d{3,}/g, (m) => (+m).toFixed(2));
       let id = styles.indexOf(s);
       if (id < 0) { id = styles.length; styles.push(s); }
       // keyed by position, tag and label only (not by class name: class names are what a conversion changes)
