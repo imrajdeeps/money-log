@@ -169,6 +169,8 @@ everything else in one go, and is safe to repeat.)
 - **Type:** Outfit, a free font (SIL Open Font License, `src/assets/fonts/OFL.txt`) kept inside the app, about 47 KB in two
   files, so nothing is fetched from the internet and it works offline. It has the ₹ sign, and amounts use its even-width digits.
 - To change the look, edit the colour values at the top of `src/styles/tokens.css` (one block for light, one for dark).
+- Styling is moving from hand-written CSS to **Tailwind CSS** (version 1.11), one feature at a time: the Goals screens are done, the rest
+  still use the old CSS files in `src/styles`. How the two live together is in `docs/structure.md`, Styling.
 
 ## Categories and budgets
 

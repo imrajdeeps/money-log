@@ -16,7 +16,8 @@ src/
       index.ts    the only file other code may import from this folder
   app/        starts the app: main.tsx, the page frame (App.tsx), the router.
   routes/     one small file per address (TanStack Router reads this folder). routeTree.gen.ts is generated.
-  styles/     the stylesheet, one file per area, imported in order by index.css (later files may override).
+  styles/     tokens.css (the colours for the light and dark themes, kept for good), the Tailwind theme in index.css, and
+              the old hand-written CSS, one file per area, shrinking as features move to Tailwind classes (see Styling).
   assets/     fonts.
 tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds the stand-in Supabase server and fixtures.
 ```
@@ -30,14 +31,26 @@ tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds
 3. **`core` is plain TypeScript.** No React, no router. That is why the Node test runner can load it without a browser.
 4. **Imports are relative** (`../../core/logic.ts`) and keep their `.ts` / `.tsx` extension.
 
+## Styling (Tailwind, from version 1.11)
+
+Components are styled with Tailwind utility classes. The colours live in `src/styles/tokens.css` as CSS variables, one set for
+light and one for dark (`<html data-theme>`); `src/styles/index.css` gives them Tailwind names (`bg-card`, `text-muted`,
+`border-line`, `text-good`, `bg-primary` ...) with `@theme inline`, so the two themes work with no `dark:` classes. Use those
+names, not Tailwind's default palette (it is switched off).
+
+During the move there are three CSS layers, lowest first: Tailwind's theme, `legacy` (the old CSS files) and utilities. A utility
+therefore wins over a legacy rule where both apply, and a feature is converted by replacing its class names with utilities and
+deleting its rules from the legacy file. There is no Tailwind preflight yet: the legacy base still does the resetting; it goes
+last, when the last legacy file is gone. Plain CSS still belongs in `tokens.css` and in `index.css` (keyframes, `@font-face`).
+
 ## Adding things
 
 - **A feature:** make `src/features/<name>/` with its screen, add `index.ts` exporting the screen, add one file in
   `src/routes/` for its address, and draw it in `src/app/App.tsx`. Tests go in `tests/features/<name>/`.
 - **A shared rule or model** that sync or backup also needs: `core/`. If only one screen needs it, keep it in that feature.
 - **A piece two features need:** `ui/`. If it needs the app state, it can read it from `data/context.tsx`.
-- **Styles:** add a `.css` file in `src/styles/` and one `@import` line in `src/styles/index.css`, in the position where its
-  rules should win or lose against the others.
+- **Styles:** use Tailwind classes in the component. Only a new colour needs CSS: add it to both themes in `tokens.css` and give
+  it a name in the `@theme inline` block of `index.css`.
 - **A new address:** a file in `src/routes/`; `npm run dev` or `npm run build` regenerates `src/routeTree.gen.ts`.
 
 ## Big files, and how they are split
