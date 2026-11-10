@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { daysInMonth, dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, spentByDay, topCategories } from '../src/dashboard.ts';
+import { daysInMonth, dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, spentByDay, topCategories } from '../src/dashboard.ts';
 import { dueKey } from '../src/blocks.ts';
 import type { DueBlock } from '../src/blocks.ts';
 import { planForMonth, setBudget, categoryList } from '../src/categories.ts';
@@ -153,4 +153,11 @@ test('exportOverview counts what the Export screen offers', () => {
   const owedNothing = mk(300, 'Rent', '2026-11-03', { group_id: U(9), paid_by: OTHER, shares: { [OTHER]: 300 } });
   assert.deepEqual(exportOverview([a, b, owedNothing], [a, b, owedNothing], ME), { waiting: 1, changed: 0 });
   assert.deepEqual(exportOverview([a, changed], [a, changed], ME), { waiting: 1, changed: 1 });
+});
+
+test('the overview shows all four groups until a budget is set, then only the groups that have one', () => {
+  const none = monthOverview([], ME, planForMonth(null, {}, '2026-11'), planForMonth(null, {}, '2026-10'), '2026-11-10');
+  assert.deepEqual(overviewGroups(none.summary.groups), ['Spending', 'EMI', 'Family', 'Saving']);
+  const some = monthOverview([], ME, planForMonth(null, mineWithBudgets(), '2026-11'), planForMonth(null, mineWithBudgets(), '2026-10'), '2026-11-10');
+  assert.deepEqual(overviewGroups(some.summary.groups), ['Spending', 'EMI', 'Saving'], 'Family has no budget, so no tile');
 });

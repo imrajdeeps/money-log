@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode } from 'react';
+import { Icon } from '../components/Icon.tsx';
 import { useApp } from '../context.tsx';
 import { makeBackup, parseBackup } from '../backup.ts';
 import { parseBlockText } from '../blocks.ts';
@@ -8,6 +9,8 @@ import { clockLabel, monthLabel, shortDate, stamp } from '../format.ts';
 import { GROUPS } from '../logic.ts';
 import { LOCK_TIMEOUTS, validPin } from '../lock.ts';
 import { MIN_PASSWORD } from '../password.ts';
+import { SETTINGS_SECTIONS } from '../settingsSections.ts';
+import type { SettingsSection } from '../settingsSections.ts';
 import { useTheme } from '../theme.ts';
 import type { ThemeChoice } from '../theme.ts';
 import { quota, sizeText, usedBytes } from '../receipts.ts';
@@ -528,18 +531,46 @@ function AboutCard() {
   );
 }
 
-export function SettingsScreen() {
+// A list of headings; tapping one opens just that part. Every part stays mounted (only hidden), so a half-typed
+// password or a half-pasted plan is still there after a look at another part.
+export function SettingsScreen({ section, onSection }: { section?: SettingsSection; onSection: (s?: SettingsSection) => void }) {
+  const app = useApp();
+  const signedIn = app.syncEnabled && app.sync.mode !== 'signedout' && app.sync.mode !== 'local';
+  const sections = SETTINGS_SECTIONS.filter((s) => s.id !== 'password' || signedIn);
+  const open = sections.find((s) => s.id === section)?.id;
+  const blurb = (id: SettingsSection, fallback: string) => {
+    if (id !== 'account') return fallback;
+    return signedIn ? `Signed in as ${app.sync.email ?? ''}` : app.syncEnabled ? 'Not signed in' : 'This phone only';
+  };
+  const parts: Record<SettingsSection, ReactNode> = {
+    account: <AccountCard />,
+    password: <PasswordCard />,
+    appearance: <AppearanceCard />,
+    plan: <PlanCard />,
+    receipts: <ReceiptsCard />,
+    lock: <AppLockCard />,
+    backup: <BackupCard />,
+    erase: <DangerCard />,
+    about: <AboutCard />,
+  };
   return (
     <section aria-label="Settings">
-      <AccountCard />
-      <PasswordCard />
-      <AppearanceCard />
-      <PlanCard />
-      <ReceiptsCard />
-      <AppLockCard />
-      <BackupCard />
-      <DangerCard />
-      <AboutCard />
+      {open ? (
+        <button type="button" className="backbtn" onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
+      ) : (
+        <div className="pagehead"><h2>Settings</h2></div>
+      )}
+      <ul className="list" hidden={open !== undefined}>
+        {sections.map((s) => (
+          <li key={s.id}>
+            <button type="button" className="row" onClick={() => onSection(s.id)}>
+              <span className="row-main"><b>{s.title}</b><small>{blurb(s.id, s.blurb)}</small></span>
+              <Icon name="chevron" size={20} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {sections.map((s) => <div key={s.id} hidden={open !== s.id}>{parts[s.id]}</div>)}
     </section>
   );
 }

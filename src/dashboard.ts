@@ -4,8 +4,14 @@ import { classifyDue } from './blocks.ts';
 import type { DoneMap, DueBlock, DueView, NetItem } from './blocks.ts';
 import { fromPaise, groupBalances } from './groups.ts';
 import type { Group as SharedGroup, Settlement } from './groups.ts';
-import { budgetEntries, catKey, changedAfterExport, exportRows, monthOf, normName, round2, shiftMonth, summarizeMonth } from './logic.ts';
+import { GROUPS, budgetEntries, catKey, changedAfterExport, exportRows, monthOf, normName, round2, shiftMonth, summarizeMonth } from './logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from './logic.ts';
+
+// Which of the four groups get a tile on the Overview: once any group has a budget, only those; with none set, all four.
+export function overviewGroups(groups: MonthSummary['groups']): Group[] {
+  const set = GROUPS.filter((g) => groups[g].budgeted);
+  return set.length > 0 ? [...set] : [...GROUPS];
+}
 
 export function daysInMonth(month: string): number {
   const [y = 1970, m = 1] = month.split('-').map(Number);

@@ -110,6 +110,13 @@ Month, Plan and Groups; Settings is the gear at the top right, and Export is its
 links at the top. The app shows no income, cash flow or net worth history, because it does not record them; tiles without
 data say where the data comes from instead.
 
+**Settings** is a short list of headings (Cloud sync, Password and sessions, Appearance, and so on); tapping one opens
+just that part, and the back arrow returns to the list. The page and the part are in the address
+(`/settings?s=password`), so a refresh, the back button or a bookmark lands in the same place. The pages are routed with
+TanStack Router (files in `src/routes`; `src/routeTree.gen.ts` is generated from them by `npm run dev` or `npm run build`,
+and is committed). GitHub Pages has no file for `/settings`, so the build also writes `404.html` as a copy of the app,
+which Pages serves for such addresses; an unknown address goes to the Overview.
+
 ## Light and dark, colours and type
 
 - **Light or dark:** the sun or moon button at the top switches between them. *Settings, Appearance* also has **Match my

@@ -247,6 +247,9 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     const root = normalize(opts.staticDir).replace(/[\\/]+$/, '');
     const file = normalize(join(root, rel));
     if (!file.startsWith(root + sep) || !existsSync(file) || !statSync(file).isFile()) {
+      // Like GitHub Pages: an address with no file gets 404.html (a copy of the app) with a 404 status.
+      const page = join(root, '404.html');
+      if (existsSync(page)) { res.writeHead(404, { 'Content-Type': 'text/html' }); res.end(readFileSync(page)); return; }
       res.writeHead(404); res.end('not found'); return;
     }
     res.writeHead(200, { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream' });
