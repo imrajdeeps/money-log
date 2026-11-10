@@ -14,6 +14,7 @@ import { SyncPill } from '../ui/SyncPill.tsx';
 import { ThemeToggle } from '../features/settings/index.ts';
 import { ExportScreen } from '../features/export/index.ts';
 import { GoalsScreen } from '../features/goals/index.ts';
+import { AnalyticsScreen } from '../features/analytics/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
 import type { Section } from '../features/home/index.ts';
@@ -35,9 +36,9 @@ import { tr } from '../core/i18n.ts';
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', export: '/export', payments: '/payments', goals: '/goals' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', export: '/export', payments: '/payments', goals: '/goals', analytics: '/analytics' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', export: 'Export to the spreadsheet', payments: 'All payments', goals: 'Goals' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', export: 'Export to the spreadsheet', payments: 'All payments', goals: 'Goals', analytics: 'Insights' };
 
 const SPLASH_MS = 900; // how long the start screen stays, at least
 
@@ -45,6 +46,7 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'month', label: 'Month', icon: 'month' },
   { id: 'plan', label: 'Plan', icon: 'plan' },
   { id: 'groups', label: 'Groups', icon: 'groups' },
+  { id: 'analytics', label: 'Insights', icon: 'month' },
   { id: 'export', label: 'Export', icon: 'export' },
 ];
 
@@ -160,10 +162,11 @@ function Shell() {
         <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
           <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} /></PageBody>
         </div>
-        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} /></PageBody>}
+        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
         {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} openGoals={() => goPage('goals')} /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
         {page === 'goals' && <PageBody title={TITLES.goals} back backLabel={tr('Plan')} onBack={() => goPage('plan')}><GoalsScreen /></PageBody>}
+        {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
         {page === 'export' && <PageBody title={TITLES.export}><ExportScreen /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}
       </main>

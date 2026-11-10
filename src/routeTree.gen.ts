@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as AddRouteImport } from './routes/add'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ExportRouteImport } from './routes/export'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as MonthRouteImport } from './routes/month'
@@ -35,6 +36,11 @@ const SplatRoute = SplatRouteImport.update({
 const AddRoute = AddRouteImport.update({
   id: '/add',
   path: '/add',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExportRoute = ExportRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/add': typeof AddRoute
+  '/analytics': typeof AnalyticsRoute
   '/export': typeof ExportRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/add': typeof AddRoute
+  '/analytics': typeof AnalyticsRoute
   '/export': typeof ExportRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/add': typeof AddRoute
+  '/analytics': typeof AnalyticsRoute
   '/export': typeof ExportRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/add'
+    | '/analytics'
     | '/export'
     | '/goals'
     | '/month'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/add'
+    | '/analytics'
     | '/export'
     | '/goals'
     | '/month'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/add'
+    | '/analytics'
     | '/export'
     | '/goals'
     | '/month'
@@ -175,6 +187,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   AddRoute: typeof AddRoute
+  AnalyticsRoute: typeof AnalyticsRoute
   ExportRoute: typeof ExportRoute
   GoalsRoute: typeof GoalsRoute
   MonthRoute: typeof MonthRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/add'
       fullPath: '/add'
       preLoaderRoute: typeof AddRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/export': {
@@ -279,6 +299,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   AddRoute: AddRoute,
+  AnalyticsRoute: AnalyticsRoute,
   ExportRoute: ExportRoute,
   GoalsRoute: GoalsRoute,
   MonthRoute: MonthRoute,

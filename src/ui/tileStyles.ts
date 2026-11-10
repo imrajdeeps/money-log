@@ -24,6 +24,7 @@ export const key = {
   now: `${KEY} [border-top:2px_solid_var(--accent)]`,
   last: `${KEY} [border-top:2px_solid_var(--chart-ref)]`,
   budget: `${KEY} [border-top:2px_dashed_var(--muted)]`,
+  proj: `${KEY} [border-top:2px_dashed_var(--accent)]`,
 };
 export const shares = 'list-none flex flex-col gap-2.5 mt-0.5 mx-0 mb-0 p-0';
 export const shareLine = 'flex items-baseline gap-2 text-[14px]';
