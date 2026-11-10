@@ -5,83 +5,26 @@
 //             each signed-in user may read or write; this code never relies on filtering rows client-side for safety.
 //
 // Entries are written to the phone first. Each carries dirty = 1 until a push succeeds, so nothing is lost offline.
-import { cleanDoneMap, cleanDue, cleanNet, mergeDone, sameDone } from '../core/blocks.ts';
-import { cleanMine, mergeMine, sameMine } from '../core/categories.ts';
-import { cleanRecurring, mergeRecurring, sameRecurring } from '../core/recurring.ts';
-import type { Recurring } from '../core/recurring.ts';
 import { authMessage, checkPassword } from './password.ts';
-import type { Mine } from '../core/categories.ts';
-import type { DoneMap } from '../core/blocks.ts';
 import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from '../core/groups.ts';
 import type { Group, Invite, Member, Settlement } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import { cleanHistory } from '../core/history.ts';
 import type { HistoryRow } from '../core/history.ts';
-import { cleanEntry, cleanPlan, isMine, mergeRemote, newId, parseTs } from '../core/logic.ts';
+import { cleanEntry, mergeRemote, newId, parseTs } from '../core/logic.ts';
 import type { Entry } from '../core/logic.ts';
 import { cleanReceipt, markDeleted, markPurged, markUploaded, mergeRemoteReceipt, needsPurge, needsUpload } from '../core/receipts.ts';
 import type { Receipt } from '../core/receipts.ts';
-import type { Store } from './store.ts';
+import { PAGE, PUSH_CHUNK, OVERLAP_MS, SyncError } from './syncTypes.ts';
+import type { Session, SyncOptions, SyncState } from './syncTypes.ts';
+import { BLOCKS, BLOCK_NAMES, MERGED, isBlock } from './syncBlocks.ts';
+import type { Items, StoredBlock } from './syncBlocks.ts';
+import { isRefusal, pushable, toReceiptRow, toRow, toSettlementRow } from './syncRows.ts';
 
-export interface SyncConfig { supabaseUrl: string; supabaseKey: string }
-export type SyncMode = 'local' | 'signedout' | 'idle' | 'syncing' | 'offline' | 'error';
-export interface SyncState {
-  mode: SyncMode;
-  pending: number; // changes on this phone not yet in the cloud
-  lastSync: number | null;
-  error: string | null;
-  email: string | null;
-}
-
-export class SyncError extends Error {
-  kind: 'offline' | 'signed-out' | 'http' | 'owner-mismatch';
-  status: number;
-  constructor(kind: SyncError['kind'], message: string, status = 0) {
-    super(message);
-    this.kind = kind;
-    this.status = status;
-  }
-}
-
-interface Session { access_token: string; refresh_token: string; expires_at: number; user_id: string; email: string }
-
-export interface SyncOptions {
-  store: Store;
-  config: SyncConfig;
-  fetchFn?: typeof fetch;
-  now?: () => number;
-  onDataChanged?: () => void;
-}
-
-const PAGE = 1000;
-const PUSH_CHUNK = 200;
-const OVERLAP_MS = 5 * 60 * 1000; // re-read a little before the last cursor so a late-committing write is never missed
-
-// The plan blocks imported from the spreadsheet. Each is kept whole on the phone as { ...data, importedAt, dirty } and
-// replaced as a unit; the latest import wins. 'budget' keeps its Release 1 storage key.
-type BlockName = 'budget' | 'due' | 'networth';
-const BLOCKS: Record<BlockName, { meta: string; clean: (p: unknown) => object | null }> = {
-  budget: { meta: 'plan', clean: cleanPlan },
-  due: { meta: 'block:due', clean: cleanDue },
-  networth: { meta: 'block:networth', clean: cleanNet },
-};
-const BLOCK_NAMES = Object.keys(BLOCKS) as BlockName[];
-const isBlock = (n: unknown): n is BlockName => typeof n === 'string' && Object.hasOwn(BLOCKS, n);
-interface StoredBlock { importedAt: string; dirty: 0 | 1 }
-// Two more blocks are made in the app instead of imported, merged per item (the latest change to each item wins) and
-// synced as one row each: the Done marks on the due list, the categories and budgets the person set, and the payments
-// that repeat every month.
-export interface DueDone { items: DoneMap; dirty: 0 | 1 }
-export interface MineBlock { items: Mine; dirty: 0 | 1 }
-export interface RecurBlock { items: Recurring; dirty: 0 | 1 }
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type Items = Record<string, any>;
-const MERGED: { block: string; meta: string; clean: (p: unknown) => Items; merge: (a: Items, b: Items) => Items; same: (a: Items, b: Items) => boolean }[] = [
-  { block: 'due_done', meta: 'dueDone', clean: cleanDoneMap, merge: mergeDone, same: sameDone },
-  { block: 'categories', meta: 'mine', clean: cleanMine, merge: mergeMine, same: sameMine },
-  { block: 'recurring', meta: 'recurring', clean: cleanRecurring, merge: mergeRecurring, same: sameRecurring },
-];
-/* eslint-enable @typescript-eslint/no-explicit-any */
+// Everything other files used to import from here still comes from here.
+export type { SyncConfig, SyncMode, SyncOptions, SyncState } from './syncTypes.ts';
+export { SyncError } from './syncTypes.ts';
+export type { DueDone, MineBlock, RecurBlock } from './syncBlocks.ts';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function createSync(opts: SyncOptions) {
@@ -330,11 +273,6 @@ export function createSync(opts: SyncOptions) {
     return g ? new Set(g.map((x) => x.id)) : null;
   }
 
-  // What this phone may send: its own rows, and shared rows only for groups the account is still in (the database would
-  // refuse the rest, and refused rows would be retried for ever).
-  const pushable = (e: { owner_id?: string | null; group_id: string | null }, uid: string | null, active: Set<string> | null): boolean =>
-    isMine({ owner_id: e.owner_id ?? null }, uid) && (!e.group_id || active === null || active.has(e.group_id));
-
   async function refreshPending(): Promise<void> {
     const uid = (await store.getMeta<string>('localOwner')) ?? null;
     const active = await activeGroups();
@@ -346,53 +284,6 @@ export function createSync(opts: SyncOptions) {
     for (const m of MERGED) if ((await store.getMeta<{ dirty: 0 | 1 }>(m.meta))?.dirty) pending++;
     set({ pending });
   }
-
-  const toRow = (e: Entry, uid: string) => ({
-    id: e.id,
-    owner_id: uid,
-    entry_date: e.entry_date,
-    category: e.category,
-    amount: e.amount,
-    note: e.note,
-    method: e.method,
-    created_at: e.created_at,
-    updated_at: e.updated_at,
-    deleted_at: e.deleted_at,
-    exported_at: e.exported_at,
-    group_id: e.group_id,
-    paid_by: e.paid_by,
-    shares: e.shares,
-    share_of: e.share_of,
-  });
-
-  const toSettlementRow = (x: Settlement, uid: string) => ({
-    id: x.id,
-    group_id: x.group_id,
-    from_user: x.from_user,
-    to_user: x.to_user,
-    amount: x.amount,
-    settle_date: x.settle_date,
-    created_by: uid,
-    created_at: x.created_at,
-    updated_at: x.updated_at,
-    deleted_at: x.deleted_at,
-  });
-
-  const toReceiptRow = (r: Receipt, uid: string) => ({
-    id: r.id,
-    entry_id: r.entry_id,
-    owner_id: uid,
-    path: r.path,
-    bytes: r.bytes,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-    uploaded_at: r.uploaded_at,
-    deleted_at: r.deleted_at,
-    purged_at: r.purged_at,
-  });
-
-  // Statuses that mean "this data was refused", as opposed to "the server is having a bad moment".
-  const isRefusal = (e: unknown): e is SyncError => e instanceof SyncError && e.kind === 'http' && [400, 403, 409, 413, 422].includes(e.status);
 
   // Entries that came from another account (a backup restored here) could clash with that account's rows, whose ids
   // they share, and the database would refuse them. Give those entries fresh ids so they upload as new, private copies
