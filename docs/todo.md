@@ -18,7 +18,7 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 - [x] **Better icons for the whole app** — the owner's words: "the app icons in not looking good, if possible can se enhance the icons of the complete app". Two things to look at: the app icon on the home screen and in the browser tab (`public/icons`), and the small icons inside the app (`src/ui/Icon.tsx`). Do both unless the owner says which.
 - [x] **A splash screen when the app opens** — "also add a splash sceen in the app when open". The manifest's background colour and icon give the installed app a start screen; add an in-app screen with the logo until the data is loaded. Done: a green screen with the logo shows from the first paint (static markup in `index.html`) until the data is ready, at least 0.9 s, then fades; no wait under reduced motion.
 
-## Version 1.12: finish the move to Tailwind (in progress, `version/1.12`)
+## Version 1.12: finish the move to Tailwind (done: version/1.12, released as 1.12.0)
 - [x] **Tailwind, the rest** (the owner's words: "add some animations, remove the css use tailwind css"): every feature now uses utility classes and the nine hand-written CSS files are gone. What stays in `src/styles/index.css`: the theme, the plain element rules, the hero tile that re-points the colour tokens, and the chart's SVG strokes. Checked with `tests/support/style-snapshot.js` at phone, tablet and desktop width, light and dark, plus the group pages and the dialogs.
 
 ## Asked for while 1.12 was running (not scheduled; the owner picks the order)
