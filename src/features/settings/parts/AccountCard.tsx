@@ -4,6 +4,7 @@ import { useApp } from '../../../data/context.tsx';
 import { clockLabel } from '../../../core/format.ts';
 import { MIN_PASSWORD } from '../../../data/password.ts';
 import { errText } from './shared.ts';
+import { SignOutPanel } from './SignOutPanel.tsx';
 import * as ui from '../../../ui/styles.ts';
 
 export function AccountCard() {
@@ -144,29 +145,7 @@ export function AccountCard() {
         <button type="button" className={ui.btn()} onClick={app.syncNow} disabled={s.mode === 'syncing'}>Sync now</button>
         <button type="button" className={ui.btn('ghost')} aria-expanded={leaving} onClick={() => setLeaving(!leaving)}>Sign out</button>
       </div>
-      {leaving && (
-        <div className={ui.newCat} role="group" aria-label="Sign out">
-          <p><b>Also erase this phone's copy of your data?</b></p>
-          <p className="text-muted text-[13px]">
-            Erase it before someone else uses this phone or you sign in with another account. Everything already in the cloud stays there
-            and comes back when you sign in again. Keep it if this is still your phone and you will sign back in.
-          </p>
-          {s.pending > 0 && (
-            <p className={ui.msg('bad')} role="alert">
-              {s.pending} change{s.pending === 1 ? ' has' : 's have'} not reached the cloud. Erasing loses {s.pending === 1 ? 'it' : 'them'}; signing out and keeping the data does not.
-            </p>
-          )}
-          <div className={ui.btnRow}>
-            <button type="button" className={ui.btn()} onClick={() => { void app.signOut(); }}>Sign out, keep the data</button>
-          </div>
-          <div className={ui.btnRow}>
-            <button type="button" className={ui.btn('danger')} onClick={async () => { await app.eraseAll(); app.toast('Signed out and erased this phone.'); }}>Sign out and erase this phone</button>
-          </div>
-          <div className={ui.btnRow}>
-            <button type="button" className={ui.btn('ghost')} onClick={() => setLeaving(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
+      {leaving && <SignOutPanel kind="out" onCancel={() => setLeaving(false)} />}
     </div>
   );
 }
