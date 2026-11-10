@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
+import * as ui from '../../ui/styles.ts';
 
 // The "Take photo" button. A phone or tablet hands the job to its own camera app (the back camera, via capture="environment").
 // A computer ignores that hint and shows a file chooser instead, so there the picture is taken in the app, from the webcam.
@@ -53,10 +54,10 @@ function Camera({ onShot, onClose }: { onShot: (photo: Blob) => void; onClose: (
 
   return (
     <dialog ref={dlg} className="viewer camera" aria-label="Take a receipt photo" onClose={onClose}>
-      {error ? <p className="msg bad" role="alert">{error}</p> : <video ref={video} playsInline muted aria-label="Camera view" />}
-      <div className="btnrow">
-        {!error && <button type="button" className="btn" disabled={!ready} onClick={snap}>Take photo</button>}
-        <button type="button" className="btn ghost" onClick={() => dlg.current?.close()}>{error ? 'Close' : 'Cancel'}</button>
+      {error ? <p className={ui.msg('bad')} role="alert">{error}</p> : <video ref={video} playsInline muted aria-label="Camera view" />}
+      <div className={ui.btnRow}>
+        {!error && <button type="button" className={ui.btn()} disabled={!ready} onClick={snap}>Take photo</button>}
+        <button type="button" className={ui.btn('ghost')} onClick={() => dlg.current?.close()}>{error ? 'Close' : 'Cancel'}</button>
       </div>
     </dialog>
   );

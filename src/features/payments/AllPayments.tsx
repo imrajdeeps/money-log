@@ -45,7 +45,7 @@ export function AllPayments() {
     return () => ro.disconnect();
   }, [hasAny, rows.length === 0]);
 
-  if (app.entries.length === 0) return <p className="muted">No payments yet. They all appear here, with search and filters.</p>;
+  if (app.entries.length === 0) return <p className="text-muted">No payments yet. They all appear here, with search and filters.</p>;
 
   return (
     <>
@@ -65,12 +65,12 @@ export function AllPayments() {
             {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
-        <p className="muted small" role="status">
+        <p className="text-muted text-[13px]" role="status">
           {rows.length} {rows.length === 1 ? 'payment' : 'payments'} · {fmtINR(total)}
           {isFiltered(f) && <> · <button type="button" className="linkbtn" onClick={() => setF(NO_FILTER)}>Clear filters</button></>}
         </p>
       </div>
-      {rows.length === 0 && <p className="muted">Nothing matches. Try fewer words or clear the filters.</p>}
+      {rows.length === 0 && <p className="text-muted">Nothing matches. Try fewer words or clear the filters.</p>}
       <ul ref={listRef} className="list virtual" style={{ height: rows.length === 0 ? 0 : virt.getTotalSize(), display: rows.length === 0 ? 'none' : undefined }}>
         {virt.getVirtualItems().map((v) => (
           <li key={v.key} data-index={v.index} ref={virt.measureElement} style={{ transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}>

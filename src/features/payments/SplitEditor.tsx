@@ -2,6 +2,7 @@ import { computeShares, equalShares, fromPaise, sharesPaise, toPaise, usualSplit
 import type { Member, SplitMode, UsualSplit } from '../../core/groups.ts';
 import { fmtINR } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 // Everything the person has chosen about who paid and how the expense is divided.
 export interface SplitState { paidBy: string; mode: SplitMode; included: string[]; values: Record<string, string> }
@@ -41,17 +42,17 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
 
   return (
     <div className="split">
-      <label className="field">
+      <label className={ui.field}>
         <span>Who paid</span>
         <select value={value.paidBy} onChange={(e) => set({ paidBy: e.target.value })}>
           {people.map((m) => <option key={m.user_id} value={m.user_id}>{name(m)}</option>)}
         </select>
       </label>
 
-      <fieldset className="chips">
+      <fieldset className={ui.chips}>
         <legend>Split</legend>
         {MODES.map((m) => (
-          <button key={m.id} type="button" className="chip" aria-pressed={value.mode === m.id} onClick={() => set({ mode: m.id })}>{m.label}</button>
+          <button key={m.id} type="button" className={ui.chip} aria-pressed={value.mode === m.id} onClick={() => set({ mode: m.id })}>{m.label}</button>
         ))}
       </fieldset>
 
@@ -82,13 +83,13 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
                   />
                 </>
               )}
-              <span className="amt">{share !== undefined ? fmtINR(share) : '–'}</span>
+              <span className="font-bold tabular-nums">{share !== undefined ? fmtINR(share) : '–'}</span>
             </li>
           );
         })}
       </ul>
-      {total > 0 && result.problem && <p className="msg bad" role="status">{result.problem}</p>}
-      {total > 0 && result.shares && <p className="muted small">Adds up to {fmtINR(fromPaise(sharesPaise(result.shares)))}.</p>}
+      {total > 0 && result.problem && <p className={ui.msg('bad')} role="status">{result.problem}</p>}
+      {total > 0 && result.shares && <p className="text-muted text-[13px]">Adds up to {fmtINR(fromPaise(sharesPaise(result.shares)))}.</p>}
     </div>
   );
 }

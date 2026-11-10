@@ -19,6 +19,7 @@ import { FamilyMonth } from './FamilyMonth.tsx';
 import { UsualSplitCard } from './UsualSplitCard.tsx';
 import { tripDatesLabel } from '../../core/groupSummary.ts';
 import { useAction } from './useAction.ts';
+import * as ui from '../../ui/styles.ts';
 
 const owes = (paise: number): string => (paise === 0 ? 'All settled' : paise > 0 ? `is owed ${fmtINR(fromPaise(paise))}` : `owes ${fmtINR(fromPaise(-paise))}`);
 
@@ -83,63 +84,63 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
   return (
     <section aria-label={`Group ${group.name}`}>
       <button type="button" className="btn ghost backbtn" onClick={onBack}><span className="inline-flex rotate-180"><Icon name="chevron" size={18} /></span> All groups</button>
-      <h2>{group.name} <span className="tag">{kindLabel(group.kind)}</span>{closed && <> <span className="tag">Closed</span></>}</h2>
-      {dates && <p className="muted small">{dates}</p>}
-      <p className="muted small">
+      <h2>{group.name} <span className={ui.tag}>{kindLabel(group.kind)}</span>{closed && <> <span className={ui.tag}>Closed</span></>}</h2>
+      {dates && <p className="text-muted text-[13px]">{dates}</p>}
+      <p className="text-muted text-[13px]">
         {people.length} {people.length === 1 ? 'person' : 'people'}.
         {closed ? ' This trip is closed: it takes no new expenses.' : ' Add a shared expense with + Add expense by choosing this group under "Share with".'}
       </p>
 
-      <div className="card">
+      <div className={ui.card()}>
         {partner && group.kind === 'couple' ? (
           <p className={`coupleline ${line.tone}`}>{line.text}</p>
         ) : (
           <>
             <h3>Balances</h3>
-            <ul className="list plainlist">
+            <ul className={ui.list(true)}>
               {[...people.map((m) => ({ id: m.user_id, label: nameOf(m.user_id), left: false })), ...former.filter((m) => (bal[m.user_id] ?? 0) !== 0).map((m) => ({ id: m.user_id, label: `${m.display_name} (left)`, left: true }))].map((p) => {
                 const b = bal[p.id] ?? 0;
-                return <li key={p.id} className="catline plain"><span>{p.label}</span><b className={b > 0 ? 'owed' : b < 0 ? 'late' : 'muted'}>{p.id === me ? (b === 0 ? 'All settled' : b > 0 ? `You are owed ${fmtINR(fromPaise(b))}` : `You owe ${fmtINR(fromPaise(-b))}`) : owes(b)}</b></li>;
+                return <li key={p.id} className={ui.catLineFlush}><span>{p.label}</span><b className={b > 0 ? ui.owed : b < 0 ? ui.late : 'text-muted'}>{p.id === me ? (b === 0 ? 'All settled' : b > 0 ? `You are owed ${fmtINR(fromPaise(b))}` : `You owe ${fmtINR(fromPaise(-b))}`) : owes(b)}</b></li>;
               })}
             </ul>
           </>
         )}
         {debts.length > 0 ? (
           <>
-            <h3 className="h2">To settle up</h3>
-            <ul className="list plainlist">
+            <h3 className="text-[16px] mt-5 mb-2">To settle up</h3>
+            <ul className={ui.list(true)}>
               {debts.map((d) => (
-                <li key={`${d.from}>${d.to}`} className="duerow">
-                  <span className="row-main"><b>{nameOf(d.from)} {d.from === me ? 'pay' : 'pays'} {nameOf(d.to)}</b></span>
-                  <span className="amt">{fmtINR(d.amount)}</span>
-                  {(d.from === me || d.to === me) && <button type="button" className="btn ghost small" onClick={() => startSettle(d)}>Record</button>}
+                <li key={`${d.from}>${d.to}`} className={ui.dueRow()}>
+                  <span className={ui.rowMain(true)}><b>{nameOf(d.from)} {d.from === me ? 'pay' : 'pays'} {nameOf(d.to)}</b></span>
+                  <span className="font-bold tabular-nums">{fmtINR(d.amount)}</span>
+                  {(d.from === me || d.to === me) && <button type="button" className={ui.btn('ghost', 'small')} onClick={() => startSettle(d)}>Record</button>}
                 </li>
               ))}
             </ul>
           </>
-        ) : <p className="muted small">Nobody owes anybody anything.</p>}
-        {!settle && <button type="button" className="btn ghost" onClick={() => setSettle({ dir: 'paid', other: people.find((m) => m.user_id !== me)?.user_id ?? '', amount: '', date: isoDate() })}>Record a payment</button>}
+        ) : <p className="text-muted text-[13px]">Nobody owes anybody anything.</p>}
+        {!settle && <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => setSettle({ dir: 'paid', other: people.find((m) => m.user_id !== me)?.user_id ?? '', amount: '', date: isoDate() })}>Record a payment</button>}
         {settle && (
           <form onSubmit={record} noValidate className="settleform">
             <h3>Record a payment</h3>
-            <p className="muted small">Money never moves through this app: this only notes that it happened, outside it.</p>
-            <fieldset className="chips">
+            <p className="text-muted text-[13px]">Money never moves through this app: this only notes that it happened, outside it.</p>
+            <fieldset className={ui.chips}>
               <legend>Who paid</legend>
-              <button type="button" className="chip" aria-pressed={settle.dir === 'paid'} onClick={() => setSettle({ ...settle, dir: 'paid' })}>I paid</button>
-              <button type="button" className="chip" aria-pressed={settle.dir === 'received'} onClick={() => setSettle({ ...settle, dir: 'received' })}>I received</button>
+              <button type="button" className={ui.chip} aria-pressed={settle.dir === 'paid'} onClick={() => setSettle({ ...settle, dir: 'paid' })}>I paid</button>
+              <button type="button" className={ui.chip} aria-pressed={settle.dir === 'received'} onClick={() => setSettle({ ...settle, dir: 'received' })}>I received</button>
             </fieldset>
-            <label className="field">
+            <label className={ui.field}>
               <span>{settle.dir === 'paid' ? 'Paid to' : 'Received from'}</span>
               <select value={settle.other} onChange={(e) => setSettle({ ...settle, other: e.target.value })}>
                 {people.filter((m) => m.user_id !== me).map((m) => <option key={m.user_id} value={m.user_id}>{m.display_name}</option>)}
               </select>
             </label>
-            <label className="field"><span>Amount (₹)</span><input inputMode="decimal" value={settle.amount} onChange={(e) => { setSettle({ ...settle, amount: e.target.value }); setSettleError(''); }} /></label>
-            <label className="field"><span>Date</span><input type="date" value={settle.date} max={isoDate()} onChange={(e) => setSettle({ ...settle, date: e.target.value })} /></label>
-            {settleError && <p className="msg bad" role="alert">{settleError}</p>}
-            <div className="btnrow">
-              <button type="submit" className="btn">Save payment</button>
-              <button type="button" className="btn ghost" onClick={() => { setSettle(null); setSettleError(''); }}>Cancel</button>
+            <label className={ui.field}><span>Amount (₹)</span><input inputMode="decimal" value={settle.amount} onChange={(e) => { setSettle({ ...settle, amount: e.target.value }); setSettleError(''); }} /></label>
+            <label className={ui.field}><span>Date</span><input type="date" value={settle.date} max={isoDate()} onChange={(e) => setSettle({ ...settle, date: e.target.value })} /></label>
+            {settleError && <p className={ui.msg('bad')} role="alert">{settleError}</p>}
+            <div className={ui.btnRow}>
+              <button type="submit" className={ui.btn()}>Save payment</button>
+              <button type="button" className={ui.btn('ghost')} onClick={() => { setSettle(null); setSettleError(''); }}>Cancel</button>
             </div>
           </form>
         )}
@@ -149,18 +150,18 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
       {group.kind === 'family' && <FamilyMonth group={group} />}
       {group.kind === 'flatmates' && <UsualSplitCard group={group} people={people} isAdmin={isAdmin} />}
 
-      <h3 className="h2">Expenses and payments</h3>
-      {items.length === 0 ? <p className="muted">Nothing yet.</p> : (
-        <ul className="list">
+      <h3 className="text-[16px] mt-5 mb-2">Expenses and payments</h3>
+      {items.length === 0 ? <p className="text-muted">Nothing yet.</p> : (
+        <ul className={ui.list()}>
           {items.map((it) => {
             if (it.kind === 'settle') {
               const s = it.s;
               const canRemove = s.created_by === me && [s.from_user, s.to_user].every((u) => people.some((m) => m.user_id === u));
               return (
-                <li key={s.id} className="duerow">
-                  <span className="row-main"><b>{nameOf(s.from_user)} paid {nameOf(s.to_user)}</b><small>{shortDate(s.settle_date)} · payment recorded</small></span>
-                  <span className="amt">{fmtINR(s.amount)}</span>
-                  {canRemove && <button type="button" className="icobtn" aria-label="Remove this payment" onClick={() => { if (window.confirm('Remove this recorded payment? The balances change back.')) void app.removeSettlement(s.id); }}><Icon name="close" size={18} /></button>}
+                <li key={s.id} className={ui.dueRow()}>
+                  <span className={ui.rowMain(true)}><b>{nameOf(s.from_user)} paid {nameOf(s.to_user)}</b><small>{shortDate(s.settle_date)} · payment recorded</small></span>
+                  <span className="font-bold tabular-nums">{fmtINR(s.amount)}</span>
+                  {canRemove && <button type="button" className={ui.icoBtn} aria-label="Remove this payment" onClick={() => { if (window.confirm('Remove this recorded payment? The balances change back.')) void app.removeSettlement(s.id); }}><Icon name="close" size={18} /></button>}
                 </li>
               );
             }
@@ -168,14 +169,14 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
             const share = myShare(e, me);
             const body = (
               <>
-                <span className="row-main">
+                <span className={ui.rowMain()}>
                   <b>{e.category}{e.note ? ` · ${e.note}` : ''}</b>
                   <small>{shortDate(e.entry_date)} · {nameOf(e.paid_by ?? '')} paid{share > 0 ? ` · your share ${fmtINR(share)}` : ''}</small>
                 </span>
-                <span className="amt">{fmtINR(e.amount)}</span>
+                <span className="font-bold tabular-nums">{fmtINR(e.amount)}</span>
               </>
             );
-            return <li key={e.id}><button type="button" className="row" onClick={() => (e.owner_id === me ? setEditing(e) : setViewing(e))}>{body}</button></li>;
+            return <li key={e.id}><button type="button" className={ui.row} onClick={() => (e.owner_id === me ? setEditing(e) : setViewing(e))}>{body}</button></li>;
           })}
         </ul>
       )}
@@ -183,55 +184,55 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
       {group.kind === 'trip' && <TripSettings group={group} isAdmin={isAdmin} />}
 
       {isAdmin && (
-        <div className="card">
+        <div className={ui.card()}>
           <h3>Invite people</h3>
           {closed ? (
-            <p className="muted small">This trip is closed, so nobody can join it. Reopen it to invite someone.</p>
+            <p className="text-muted text-[13px]">This trip is closed, so nobody can join it. Reopen it to invite someone.</p>
           ) : !hasRoom(group.kind, people.length) ? (
-            <p className="muted small">A {kindLabel(group.kind).toLowerCase()} group holds at most {kindMax(group.kind)} people and this one is full. If someone leaves, a new code can be made here.</p>
+            <p className="text-muted text-[13px]">A {kindLabel(group.kind).toLowerCase()} group holds at most {kindMax(group.kind)} people and this one is full. If someone leaves, a new code can be made here.</p>
           ) : invite && Date.parse(invite.expires_at) > Date.now() ? (
             <>
               <p className="codebox" aria-label="Join code">{formatCode(invite.code)}</p>
-              <p className="muted small">Valid until {shortDate(invite.expires_at.slice(0, 10))}. Anyone with the code can join, so send it only to people you mean to add.</p>
-              <div className="btnrow">
-                <button type="button" className="btn" onClick={() => { void copy(inviteLink(appRootUrl(window.location.href, BASEPATH), invite.code), 'Link'); }}>Copy link</button>
-                <button type="button" className="btn ghost" onClick={() => { void copy(formatCode(invite.code), 'Code'); }}>Copy code</button>
+              <p className="text-muted text-[13px]">Valid until {shortDate(invite.expires_at.slice(0, 10))}. Anyone with the code can join, so send it only to people you mean to add.</p>
+              <div className={ui.btnRow}>
+                <button type="button" className={ui.btn()} onClick={() => { void copy(inviteLink(appRootUrl(window.location.href, BASEPATH), invite.code), 'Link'); }}>Copy link</button>
+                <button type="button" className={ui.btn('ghost')} onClick={() => { void copy(formatCode(invite.code), 'Code'); }}>Copy code</button>
               </div>
             </>
-          ) : <p className="muted small">The code has expired. Make a new one to invite someone.</p>}
-          {!closed && hasRoom(group.kind, people.length) && <button type="button" className="btn ghost" disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>Make a new code</button>}
-          {act.error && <p className="msg bad" role="alert">{act.error}</p>}
+          ) : <p className="text-muted text-[13px]">The code has expired. Make a new one to invite someone.</p>}
+          {!closed && hasRoom(group.kind, people.length) && <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>Make a new code</button>}
+          {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
         </div>
       )}
 
-      <div className="card">
+      <div className={ui.card()}>
         <h3>People</h3>
-        <ul className="list plainlist">
+        <ul className={ui.list(true)}>
           {people.map((m) => {
             const b = bal[m.user_id] ?? 0;
             return (
-              <li key={m.user_id} className="duerow">
-                <span className="row-main"><b>{m.display_name}{m.user_id === me ? ' (you)' : ''}</b><small>{m.role === 'admin' ? 'Admin' : 'Member'}</small></span>
-                {m.user_id === me && <button type="button" className="btn ghost small" onClick={() => setRenaming(m.display_name)}>Rename</button>}
-                {isAdmin && m.user_id !== me && m.role === 'member' && <button type="button" className="btn ghost small" disabled={act.busy} onClick={() => { if (window.confirm(`Make ${m.display_name} an admin? Admins can invite and remove people.`)) void act.run(() => app.makeAdmin(group.id, m.user_id), 'Done'); }}>Make admin</button>}
-                {isAdmin && m.user_id !== me && <button type="button" className="btn danger small" disabled={act.busy || b !== 0} title={b !== 0 ? 'They must settle up first' : undefined} onClick={() => { if (window.confirm(`Remove ${m.display_name} from ${group.name}? The invite code changes too.`)) void act.run(() => app.removeMember(group.id, m.user_id), 'Removed'); }}>Remove</button>}
+              <li key={m.user_id} className={ui.dueRow()}>
+                <span className={ui.rowMain(true)}><b>{m.display_name}{m.user_id === me ? ' (you)' : ''}</b><small>{m.role === 'admin' ? 'Admin' : 'Member'}</small></span>
+                {m.user_id === me && <button type="button" className={ui.btn('ghost', 'small')} onClick={() => setRenaming(m.display_name)}>Rename</button>}
+                {isAdmin && m.user_id !== me && m.role === 'member' && <button type="button" className={ui.btn('ghost', 'small')} disabled={act.busy} onClick={() => { if (window.confirm(`Make ${m.display_name} an admin? Admins can invite and remove people.`)) void act.run(() => app.makeAdmin(group.id, m.user_id), 'Done'); }}>Make admin</button>}
+                {isAdmin && m.user_id !== me && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy || b !== 0} title={b !== 0 ? 'They must settle up first' : undefined} onClick={() => { if (window.confirm(`Remove ${m.display_name} from ${group.name}? The invite code changes too.`)) void act.run(() => app.removeMember(group.id, m.user_id), 'Removed'); }}>Remove</button>}
               </li>
             );
           })}
         </ul>
         {renaming !== null && (
           <form className="settleform" onSubmit={(ev) => { ev.preventDefault(); if (renaming.trim()) void act.run(() => app.setDisplayName(group.id, renaming.trim()), 'Name changed').then((ok) => { if (ok) setRenaming(null); }); }}>
-            <label className="field"><span>Your name in this group</span><input value={renaming} maxLength={40} onChange={(e) => setRenaming(e.target.value)} /></label>
-            <div className="btnrow"><button type="submit" className="btn" disabled={act.busy}>Save name</button><button type="button" className="btn ghost" onClick={() => setRenaming(null)}>Cancel</button></div>
+            <label className={ui.field}><span>Your name in this group</span><input value={renaming} maxLength={40} onChange={(e) => setRenaming(e.target.value)} /></label>
+            <div className={ui.btnRow}><button type="submit" className={ui.btn()} disabled={act.busy}>Save name</button><button type="button" className={ui.btn('ghost')} onClick={() => setRenaming(null)}>Cancel</button></div>
           </form>
         )}
-        {former.length > 0 && <p className="muted small">Left the group: {former.map((m) => m.display_name).join(', ')}. Their earlier expenses stay in the list.</p>}
-        {act.error && <p className="msg bad" role="alert">{act.error}</p>}
-        <button type="button" className="btn danger" disabled={act.busy || myBalance !== 0}
+        {former.length > 0 && <p className="text-muted text-[13px]">Left the group: {former.map((m) => m.display_name).join(', ')}. Their earlier expenses stay in the list.</p>}
+        {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
+        <button type="button" className={ui.btn('danger', 'md', ui.inCard)} disabled={act.busy || myBalance !== 0}
           onClick={() => { if (window.confirm(`Leave ${group.name}? You will stop seeing it. Expenses you added stay in the group for the others.`)) void act.run(() => app.leaveGroup(group.id), 'You left the group').then((ok) => { if (ok) onBack(); }); }}>
           Leave this group
         </button>
-        {myBalance !== 0 && <p className="muted small">You can leave once you have settled up: your balance here is {myBalance > 0 ? `${fmtINR(fromPaise(myBalance))} owed to you` : `${fmtINR(fromPaise(-myBalance))} that you owe`}.</p>}
+        {myBalance !== 0 && <p className="text-muted text-[13px]">You can leave once you have settled up: your balance here is {myBalance > 0 ? `${fmtINR(fromPaise(myBalance))} owed to you` : `${fmtINR(fromPaise(-myBalance))} that you owe`}.</p>}
       </div>
       {editing && <EditDialog key={editing.id} entry={editing} onClose={() => setEditing(null)} />}
       {viewing && <ExpenseDialog key={viewing.id} entry={viewing} group={group} onClose={() => setViewing(null)} />}

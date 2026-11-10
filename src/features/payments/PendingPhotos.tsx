@@ -4,6 +4,7 @@ import type { ChangeEvent } from 'react';
 import { shrinkImage } from './photo.ts';
 import { TakePhoto } from './TakePhoto.tsx';
 import { MAX_PHOTOS, sizeText } from '../../core/receipts.ts';
+import * as ui from '../../ui/styles.ts';
 
 // Photos chosen while a payment is being logged, before it is saved (they are attached to it when it is).
 export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: (next: Blob[]) => void }) {
@@ -55,7 +56,7 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
           </>
         )}
       </div>
-      {error && <p className="msg bad" role="alert">{error}</p>}
+      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
     </div>
   );
 }

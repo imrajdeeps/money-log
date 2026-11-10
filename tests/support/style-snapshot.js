@@ -21,7 +21,12 @@
       if (!el.getClientRects().length) return;
       const cs = getComputedStyle(el);
       // long decimals (a meter's scaleX depends on how far into the month it is) are rounded, so the clock does not show as a change
-      const s = PROPS.map((p) => cs[p]).join('|').replace(/-?\d+\.\d{3,}/g, (m) => (+m).toFixed(2));
+      const vals = PROPS.map((p) => cs[p]);
+      // a border of width 0 has no style or colour to see; a pill's radius is "999px" or "infinity", which draw the same
+      if (cs.borderTopWidth === '0px') { vals[PROPS.indexOf('borderTopStyle')] = 'none'; vals[PROPS.indexOf('borderTopColor')] = ''; }
+      const radius = PROPS.indexOf('borderTopLeftRadius');
+      if (parseFloat(vals[radius]) > 5000) vals[radius] = '999px';
+      const s = vals.join('|').replace(/-?\d+\.\d{3,}/g, (m) => (+m).toFixed(2));
       let id = styles.indexOf(s);
       if (id < 0) { id = styles.length; styles.push(s); }
       // keyed by position, tag and label only (not by class name: class names are what a conversion changes)
@@ -60,12 +65,26 @@
         const a = was[k] === undefined ? null : base.styles[was[k]];
         const b = els[k] === undefined ? null : now.styles[els[k]];
         if (a === b) continue;
-        if (a === null || b === null) { diffs.push(`${page} ${k}: ${a === null ? 'appeared' : 'disappeared'}`); continue; }
+        if (a === null || b === null) { diffs.push({ page, k, what: a === null ? 'appeared' : 'disappeared', props: [] }); continue; }
         const x = a.split('|'); const y = b.split('|');
-        diffs.push(`${page} ${k}: ` + names.filter((_, i) => x[i] !== y[i]).map((p) => `${p} ${x[names.indexOf(p)]} -> ${y[names.indexOf(p)]}`).join('; '));
+        diffs.push({ page, k, what: '', props: names.map((p, i) => [p, x[i], y[i]]).filter(([, u, v]) => u !== v) });
       }
     }
-    return { compared: name, differences: diffs.length, sample: diffs.slice(0, 25) };
+    // A change of height or width usually just ripples down from a change elsewhere: group the real changes by what changed
+    const RIPPLE = new Set(['height', 'width', 'top']);
+    const CONTROLS = new Set(['<BUTTON>', '<INPUT>', '<SELECT>', '<TEXTAREA>', '<LABEL>', '<A>', '<SPAN>', '<B>', '<SMALL>']);
+    const groups = new Map();
+    for (const d of diffs) {
+      const tag = d.k.replace(/^.*</, '<').replace(/>.*$/, '>');
+      // a control that changes size on its own is a real change, a container that does is usually a ripple
+      const real = d.props.filter(([p]) => !RIPPLE.has(p) || (CONTROLS.has(tag) && p !== 'top'));
+      if (!real.length && d.what === '') continue;
+      const sig = d.what || `${tag} ` + real.map(([p, u, v]) => `${p} ${u} -> ${v}`).join('; ');
+      const g = groups.get(sig) ?? { count: 0, example: `${d.page} ${d.k}` };
+      g.count++; groups.set(sig, g);
+    }
+    const list = [...groups].map(([sig, g]) => `${g.count}x ${sig.slice(0, 260)}  @ ${g.example.slice(0, 90)}`);
+    return { compared: name, differences: diffs.length, changes: list.length, groups: list.slice(0, 40) };
   };
   return 'snapshot tool ready';
 })();

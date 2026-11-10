@@ -5,6 +5,7 @@ import type { Group } from '../../core/groups.ts';
 import { GROUP_KINDS } from '../../core/groupKinds.ts';
 import type { GroupKind } from '../../core/groupKinds.ts';
 import { rememberedName, rememberName, useAction } from './useAction.ts';
+import * as ui from '../../ui/styles.ts';
 
 export function CreateCard() {
   const app = useApp();
@@ -29,11 +30,11 @@ export function CreateCard() {
     if (made) { setTitle(''); setStarts(''); setEnds(''); setOpen(false); }
   }
 
-  if (!open) return <button type="button" className="btn" onClick={() => setOpen(true)}>Create a group</button>;
+  if (!open) return <button type="button" className={ui.btn()} onClick={() => setOpen(true)}>Create a group</button>;
   return (
-    <form className="card" onSubmit={create} noValidate>
+    <form className={ui.card()} onSubmit={create} noValidate>
       <h2>New group</h2>
-      <label className="field"><span>Group name</span><input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="Home, or Goa trip" /></label>
+      <label className={ui.field}><span>Group name</span><input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="Home, or Goa trip" /></label>
       <fieldset className="kinds">
         <legend>Kind</legend>
         {GROUP_KINDS.map((k) => (
@@ -44,16 +45,16 @@ export function CreateCard() {
         ))}
       </fieldset>
       {kind === 'trip' && (
-        <div className="btnrow">
-          <label className="field half"><span>First day (optional)</span><input type="date" value={starts} onChange={(e) => { setStarts(e.target.value); setError(''); }} /></label>
-          <label className="field half"><span>Last day (optional)</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { setEnds(e.target.value); setError(''); }} /></label>
+        <div className={ui.btnRow}>
+          <label className={ui.fieldHalf}><span>First day (optional)</span><input type="date" value={starts} onChange={(e) => { setStarts(e.target.value); setError(''); }} /></label>
+          <label className={ui.fieldHalf}><span>Last day (optional)</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { setEnds(e.target.value); setError(''); }} /></label>
         </div>
       )}
-      <label className="field"><span>Your name in this group</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
-      {error && <p className="msg bad" role="alert">{error}</p>}
-      <div className="btnrow">
-        <button type="submit" className="btn" disabled={busy}>Create</button>
-        <button type="button" className="btn ghost" disabled={busy} onClick={() => { setOpen(false); setError(''); }}>Cancel</button>
+      <label className={ui.field}><span>Your name in this group</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
+      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      <div className={ui.btnRow}>
+        <button type="submit" className={ui.btn()} disabled={busy}>Create</button>
+        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => { setOpen(false); setError(''); }}>Cancel</button>
       </div>
     </form>
   );

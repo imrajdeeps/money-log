@@ -11,6 +11,7 @@ import { activeMembers, computeShares } from '../../core/groups.ts';
 import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse.ts';
 import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, parseAmount } from '../../core/logic.ts';
 import type { Method, NewEntryInput } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 const METHOD_KEY = 'money-log.method';
 
@@ -124,7 +125,7 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
     <form onSubmit={save} noValidate autoComplete="off" className="quicklog" aria-label="Log a payment">
       <details className="pastebox" open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
         <summary>Paste a payment message</summary>
-        <p className="muted small">Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.</p>
+        <p className="text-muted text-[13px]">Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.</p>
         <textarea
           rows={3}
           value={message}
@@ -133,11 +134,11 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
           aria-label="Payment message"
           spellCheck={false}
         />
-        <div className="btnrow">
-          <button type="button" className="btn ghost" onClick={() => { void pasteAndRead(); }}>Paste and read</button>
-          <button type="button" className="btn" disabled={message.trim() === ''} onClick={() => readMessage(message)}>Read message</button>
+        <div className={ui.btnRowOf('mt-2.5 mb-1')}>
+          <button type="button" className={ui.btn('ghost')} onClick={() => { void pasteAndRead(); }}>Paste and read</button>
+          <button type="button" className={ui.btn()} disabled={message.trim() === ''} onClick={() => readMessage(message)}>Read message</button>
         </div>
-        {readNote && <p className={`msg${readNote.bad ? ' bad' : ''}`} role="status">{readNote.text}</p>}
+        {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
       </details>
 
       <label className="amount">
@@ -154,26 +155,26 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
       </label>
 
       {frequent.length > 0 && (
-        <div className="chips quick" role="group" aria-label="Frequent categories">
+        <div className={ui.chips} role="group" aria-label="Frequent categories">
           {frequent.map((c) => (
-            <button key={c} type="button" className="chip" aria-pressed={category === c} onClick={() => { setCategory(c); setError(''); }}>
+            <button key={c} type="button" className={ui.chip} aria-pressed={category === c} onClick={() => { setCategory(c); setError(''); }}>
               {c}
             </button>
           ))}
         </div>
       )}
 
-      <label className="field" htmlFor="log-cat"><span>Category</span></label>
+      <label className={ui.field} htmlFor="log-cat"><span>Category</span></label>
       <CategorySelect id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
 
       <MethodChips value={method} onChange={pickMethod} options={METHODS} />
 
-      <label className="field">
+      <label className={ui.field}>
         <span>Note (optional)</span>
         <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. lunch with team" />
       </label>
 
-      <label className="field">
+      <label className={ui.field}>
         <span>Date</span>
         <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
       </label>
@@ -181,7 +182,7 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
       {app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
 
       {app.groups.some((g) => !g.closed_at) && (
-        <label className="field">
+        <label className={ui.field}>
           <span>Share with</span>
           <select
             value={groupId}
@@ -202,12 +203,12 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
           {app.groups.find((g) => g.id === groupId)?.kind === 'couple' && people.length === 2
             ? <CoupleSplit people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
             : <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />}
-          <p className="muted small">Everyone in {groupName(groupId)} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.</p>
+          <p className="text-muted text-[13px]">Everyone in {groupName(groupId)} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.</p>
         </>
       )}
 
-      <p className="msg bad" role="alert" hidden={!error}>{error}</p>
-      <button type="submit" className="btn big">{groupId ? 'Save shared expense' : 'Save payment'}</button>
+      <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
+      <button type="submit" className={ui.btn('solid', 'big')}>{groupId ? 'Save shared expense' : 'Save payment'}</button>
     </form>
   );
 }

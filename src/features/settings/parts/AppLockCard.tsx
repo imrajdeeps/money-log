@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { LOCK_TIMEOUTS, validPin } from '../../../data/lock.ts';
+import * as ui from '../../../ui/styles.ts';
 
 export function AppLockCard() {
   const app = useApp();
@@ -40,7 +41,7 @@ export function AppLockCard() {
   }
 
   const timeouts = (
-    <label className="field">
+    <label className={ui.field}>
       <span>Ask for the PIN</span>
       <select value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))}>
         {LOCK_TIMEOUTS.map((t) => <option key={t.sec} value={t.sec}>{t.label}</option>)}
@@ -49,15 +50,15 @@ export function AppLockCard() {
   );
   const pinFields = (label: string) => (
     <>
-      <label className="field"><span>{label}</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={8} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} /></label>
-      <label className="field"><span>Same PIN again</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={8} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} /></label>
+      <label className={ui.field}><span>{label}</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={8} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} /></label>
+      <label className={ui.field}><span>Same PIN again</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={8} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} /></label>
     </>
   );
 
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h2>App lock</h2>
-      <p className="muted small">
+      <p className="text-muted text-[13px]">
         A PIN screen that covers the app when it opens and when you come back after a while. It stops someone glancing at your
         unlocked phone. It does <b>not</b> encrypt the data stored on the phone, so your phone's own lock is still what protects it.
         If you forget the PIN, the only way back in is to erase this phone's copy and sign in again.
@@ -66,19 +67,19 @@ export function AppLockCard() {
         <>
           {pinFields('New PIN (4 to 8 digits)')}
           {timeouts}
-          {msg && <p className={`msg ${msg.bad ? 'bad' : 'good'}`} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
-          <button type="button" className="btn" disabled={!pin} onClick={() => { void turnOn(); }}>Turn on PIN lock</button>
+          {msg && <p className={ui.msg(msg.bad ? 'bad' : 'good')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
+          <button type="button" className={ui.btn('solid', 'md', ui.inCard)} disabled={!pin} onClick={() => { void turnOn(); }}>Turn on PIN lock</button>
         </>
       ) : (
         <>
           <p><b>On.</b> {LOCK_TIMEOUTS.find((t) => t.sec === on.timeoutSec)?.label ?? ''}.</p>
-          <label className="field"><span>Current PIN (needed to change anything)</span><input type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={cur} onChange={(e) => setCur(e.target.value.replace(/\D/g, ''))} /></label>
+          <label className={ui.field}><span>Current PIN (needed to change anything)</span><input type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={cur} onChange={(e) => setCur(e.target.value.replace(/\D/g, ''))} /></label>
           {timeouts}
           {pinFields('New PIN (leave empty to keep the current one)')}
-          {msg && <p className={`msg ${msg.bad ? 'bad' : 'good'}`} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
-          <div className="btnrow">
-            <button type="button" className="btn" disabled={!cur} onClick={() => { void save(); }}>Save changes</button>
-            <button type="button" className="btn danger" disabled={!cur} onClick={() => { void turnOff(); }}>Turn off</button>
+          {msg && <p className={ui.msg(msg.bad ? 'bad' : 'good')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
+          <div className={ui.btnRow}>
+            <button type="button" className={ui.btn()} disabled={!cur} onClick={() => { void save(); }}>Save changes</button>
+            <button type="button" className={ui.btn('danger')} disabled={!cur} onClick={() => { void turnOff(); }}>Turn off</button>
           </div>
         </>
       )}

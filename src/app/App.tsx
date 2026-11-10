@@ -21,6 +21,7 @@ import type { Group } from '../core/logic.ts';
 import { MonthScreen } from '../features/month/index.ts';
 import { PlanScreen } from '../features/plan/index.ts';
 import { SettingsScreen } from '../features/settings/index.ts';
+import * as ui from '../ui/styles.ts';
 
 // Everything is a page with its own address, so a refresh and the back button stay where they were:
 //   /  /month  /plan  /export  /payments  /add  /groups  /groups/<id>  /settings  /settings/<part>
@@ -131,7 +132,7 @@ function Shell() {
         </div>
       </header>
       {app.storageKind === 'memory' && (
-        <p className="banner" role="alert">
+        <p className={ui.banner} role="alert">
           This browser would not let Money Log keep data, so payments will be lost when you close it. Open it in a normal (not private) window.
         </p>
       )}

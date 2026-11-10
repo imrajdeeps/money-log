@@ -4,6 +4,7 @@ import { useApp } from '../../data/context.tsx';
 import type { Group } from '../../core/groups.ts';
 import { shortDate } from '../../core/format.ts';
 import { useAction } from './useAction.ts';
+import * as ui from '../../ui/styles.ts';
 
 // The trip's own settings: its dates, and closing it once everything is settled. Admins change them; everyone sees them.
 export function TripSettings({ group, isAdmin }: { group: Group; isAdmin: boolean }) {
@@ -21,22 +22,22 @@ export function TripSettings({ group, isAdmin }: { group: Group; isAdmin: boolea
 
   if (!isAdmin && !closed) return null;
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h3>Trip</h3>
       {closed && <p className="closedbanner">Closed on {shortDate(group.closed_at!.slice(0, 10))}. No new expenses or people; settling up still works.</p>}
       {isAdmin && (
         <form onSubmit={saveDates} noValidate>
-          <div className="btnrow">
-            <label className="field half"><span>First day</span><input type="date" value={starts} onChange={(e) => { setStarts(e.target.value); act.setError(''); }} /></label>
-            <label className="field half"><span>Last day</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { setEnds(e.target.value); act.setError(''); }} /></label>
+          <div className={ui.btnRow}>
+            <label className={ui.fieldHalf}><span>First day</span><input type="date" value={starts} onChange={(e) => { setStarts(e.target.value); act.setError(''); }} /></label>
+            <label className={ui.fieldHalf}><span>Last day</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { setEnds(e.target.value); act.setError(''); }} /></label>
           </div>
-          <button type="submit" className="btn ghost" disabled={act.busy}>Save dates</button>
+          <button type="submit" className={ui.btn('ghost')} disabled={act.busy}>Save dates</button>
         </form>
       )}
       {isAdmin && (
         <button
           type="button"
-          className={closed ? 'btn ghost' : 'btn'}
+          className={ui.btn(closed ? 'ghost' : 'solid')}
           disabled={act.busy}
           onClick={() => {
             const question = closed ? 'Reopen this trip? People can add expenses and join with the code again.' : 'Close this trip? Nobody can add expenses or join. Settling up still works, and you can reopen it.';
@@ -46,7 +47,7 @@ export function TripSettings({ group, isAdmin }: { group: Group; isAdmin: boolea
           {closed ? 'Reopen trip' : 'Close trip'}
         </button>
       )}
-      {act.error && <p className="msg bad" role="alert">{act.error}</p>}
+      {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
     </div>
   );
 }

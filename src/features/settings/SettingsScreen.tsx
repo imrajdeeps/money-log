@@ -13,6 +13,7 @@ import { AccountCard } from './parts/AccountCard.tsx';
 import { ReceiptsCard } from './parts/ReceiptsCard.tsx';
 import { AboutCard } from './parts/AboutCard.tsx';
 import { AppLockCard } from './parts/AppLockCard.tsx';
+import * as ui from '../../ui/styles.ts';
 
 // A list of headings; tapping one opens just that part. Every part stays mounted (only hidden), so a half-typed
 // password or a half-pasted plan is still there after a look at another part.
@@ -44,11 +45,11 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
       ) : (
         <div className="pagehead"><h2>Settings</h2></div>
       )}
-      <ul className="list" hidden={open !== undefined}>
+      <ul className={ui.list()} hidden={open !== undefined}>
         {sections.map((s) => (
           <li key={s.id}>
-            <button type="button" className="row" onClick={() => onSection(s.id)}>
-              <span className="row-main"><b>{s.title}</b><small>{blurb(s.id, s.blurb)}</small></span>
+            <button type="button" className={ui.row} onClick={() => onSection(s.id)}>
+              <span className={ui.rowMain()}><b>{s.title}</b><small>{blurb(s.id, s.blurb)}</small></span>
               <Icon name="chevron" size={20} />
             </button>
           </li>

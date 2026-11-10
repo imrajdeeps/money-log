@@ -5,6 +5,7 @@ import { shrinkImage } from './photo.ts';
 import { TakePhoto } from './TakePhoto.tsx';
 import { MAX_PHOTOS, liveFor, sizeText } from '../../core/receipts.ts';
 import type { Receipt } from '../../core/receipts.ts';
+import * as ui from '../../ui/styles.ts';
 
 // The picture of one photo, loaded when it appears (from this phone, or fetched from the cloud) and released when it goes.
 function usePicture(r: Receipt): { url: string | null; error: string } {
@@ -32,7 +33,7 @@ function Thumb({ r, mine, onOpen }: { r: Receipt; mine: boolean; onOpen: () => v
   const waiting = mine && !r.uploaded_at;
   return (
     <button type="button" className="thumb" onClick={onOpen} aria-label={`Receipt photo, ${sizeText(r.bytes)}${waiting ? ', waiting to upload' : ''}`}>
-      {url ? <img src={url} alt="" /> : <span className="muted small">{error || '…'}</span>}
+      {url ? <img src={url} alt="" /> : <span className="text-muted text-[13px]">{error || '…'}</span>}
       {waiting && <span className="thumbtag">Waiting to upload</span>}
     </button>
   );
@@ -46,14 +47,14 @@ function Viewer({ r, mine, onClose }: { r: Receipt; mine: boolean; onClose: () =
   useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
   return (
     <dialog ref={ref} className="viewer" onClose={onClose} onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }} aria-label="Receipt photo">
-      {url ? <img src={url} alt="Receipt" /> : <p className="muted">{error || 'Loading…'}</p>}
-      <div className="btnrow">
+      {url ? <img src={url} alt="Receipt" /> : <p className="text-muted">{error || 'Loading…'}</p>}
+      <div className={ui.btnRow}>
         {mine && (
-          <button type="button" className="btn danger" onClick={() => { if (!confirm) { setConfirm(true); return; } void app.removeReceipt(r.id).then(() => ref.current?.close()); }}>
+          <button type="button" className={ui.btn('danger')} onClick={() => { if (!confirm) { setConfirm(true); return; } void app.removeReceipt(r.id).then(() => ref.current?.close()); }}>
             {confirm ? 'Tap again to delete' : 'Delete photo'}
           </button>
         )}
-        <button type="button" className="btn ghost" onClick={() => ref.current?.close()}>Close</button>
+        <button type="button" className={ui.btn('ghost')} onClick={() => ref.current?.close()}>Close</button>
       </div>
     </dialog>
   );
@@ -105,8 +106,8 @@ export function PhotoStrip({ entryId, canEdit }: { entryId: string; canEdit: boo
           </>
         )}
       </div>
-      {error && <p className="msg bad" role="alert">{error}</p>}
-      {canEdit && !app.me && <p className="muted small">Sign in to attach photos.</p>}
+      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      {canEdit && !app.me && <p className="text-muted text-[13px]">Sign in to attach photos.</p>}
       {shown && <Viewer r={shown} mine={shown.owner_id === app.me && canEdit} onClose={() => setOpen(null)} />}
     </div>
   );

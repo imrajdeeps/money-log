@@ -5,6 +5,7 @@ import { missingFromPlan } from '../../core/categories.ts';
 import { shortDate, stamp } from '../../core/format.ts';
 import { changedAfterExport, exportRows, fmtINR, isoDate, monthOf, myShare, toCSV, toTSV } from '../../core/logic.ts';
 import type { LogLayout } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 type Scope = 'new' | 'month' | 'all';
 const LAYOUT_KEY = 'money-log.logLayout';
@@ -74,26 +75,26 @@ export function ExportScreen() {
   return (
     <section aria-label="Export to the spreadsheet">
       {changed.length > 0 && (
-        <div className="card notice">
+        <div className={ui.card('notice')}>
           <h2>Changed after export</h2>
-          <p className="small">
+          <p className="text-[13px]">
             {plural(changed.length)} edited or deleted after being exported, so the matching rows in the spreadsheet's Log tab are out of date.
             Fix or remove them there by hand (the rows hold the earlier values), then tap Done.
           </p>
-          <ul className="list">
+          <ul className={ui.list()}>
             {changed.map(({ entry: e, kind }) => (
-              <li key={e.id} className="catline plain">
+              <li key={e.id} className={ui.catLineBox}>
                 <span>{shortDate(e.entry_date)} · {e.category} · {fmtINR(myShare(e, app.me))}</span>
                 <b>{kind}</b>
               </li>
             ))}
           </ul>
-          <button type="button" className="btn" onClick={acknowledgeChanged}>Done, the spreadsheet is updated</button>
+          <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={acknowledgeChanged}>Done, the spreadsheet is updated</button>
         </div>
       )}
 
-      <div className="card">
-        <label className="field">
+      <div className={ui.card()}>
+        <label className={ui.field}>
           <span>Which payments</span>
           <select value={scope} onChange={(e) => { setScope(e.target.value as Scope); setBatch([]); }}>
             <option value="new">Not yet exported</option>
@@ -105,30 +106,30 @@ export function ExportScreen() {
           <input type="checkbox" checked={layout === 'column'} onChange={(e) => pickLayout(e.target.checked ? 'column' : 'note')} />
           <span>My spreadsheet's Log tab has a Method column</span>
         </label>
-        <p className="muted small">{layout === 'column' ? 'Five columns, for the Log tab with a Method column.' : 'Four columns: the method is written at the start of the note, like [UPI] lunch.'}</p>
-        <p className="muted small">{n === 0 ? 'Nothing to export here.' : `${plural(n)}, oldest first. Columns: ${layout === 'column' ? 'Date, Category, Amount, Method, Note' : 'Date, Category, Amount, Note'}.`}</p>
+        <p className="text-muted text-[13px]">{layout === 'column' ? 'Five columns, for the Log tab with a Method column.' : 'Four columns: the method is written at the start of the note, like [UPI] lunch.'}</p>
+        <p className="text-muted text-[13px]">{n === 0 ? 'Nothing to export here.' : `${plural(n)}, oldest first. Columns: ${layout === 'column' ? 'Date, Category, Amount, Method, Note' : 'Date, Category, Amount, Note'}.`}</p>
         {unknown.length > 0 && (
-          <p className="msg bad" role="alert">
+          <p className={ui.msg('bad')} role="alert">
             The spreadsheet does not have {unknown.length === 1 ? 'this category' : 'these categories'}: <b>{unknown.join(', ')}</b>.
             Its Log will show NOT IN LIST and the Budget and Tracker tabs will not count {unknown.length === 1 ? 'it' : 'them'} until you add
             {unknown.length === 1 ? ' it' : ' them'} to the spreadsheet's category list (Inputs tab), or change the category of {unknown.length === 1 ? 'that payment' : 'those payments'} here.
           </p>
         )}
         {!app.plan && n > 0 && (
-          <p className="muted small">
+          <p className="text-muted text-[13px]">
             The spreadsheet only counts the categories on its Budget tab. If your list differs, import your plan in Settings and this screen will name the categories it is missing.
           </p>
         )}
         <textarea className="preview" readOnly rows={8} value={tsv} aria-label="Rows to paste into the Log tab" placeholder="Nothing to export." />
-        <div className="btnrow">
-          <button type="button" className="btn" disabled={n === 0} onClick={copy}>Copy for Excel</button>
-          <button type="button" className="btn ghost" disabled={n === 0} onClick={share}>Share CSV</button>
+        <div className={ui.btnRow}>
+          <button type="button" className={ui.btn()} disabled={n === 0} onClick={copy}>Copy for Excel</button>
+          <button type="button" className={ui.btn('ghost')} disabled={n === 0} onClick={share}>Share CSV</button>
         </div>
-        <button type="button" className="btn ghost" disabled={pending.length === 0} onClick={mark}>
+        <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} disabled={pending.length === 0} onClick={mark}>
           Mark {pending.length} copied as exported
         </button>
       </div>
-      <ol className="steps muted small">
+      <ol className={ui.steps + ' text-muted text-[13px]'}>
         <li>Tap <b>Copy for Excel</b> (or open the CSV on your Mac).</li>
         <li>In the spreadsheet's <b>Log</b> tab, click column A of the first empty row and paste.</li>
         <li>Come back and tap <b>Mark as exported</b>. It marks the payments you just copied, so the next copy holds only new ones.</li>

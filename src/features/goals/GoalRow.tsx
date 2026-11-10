@@ -3,6 +3,7 @@ import type { Goal, GoalLine, GoalProgress, TopUp } from '../../core/goals.ts';
 import { TopUps } from './TopUps.tsx';
 import { shortDate } from '../../core/format.ts';
 import { fmtINR } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 function lineText(line: GoalLine): string {
   if (line.state === 'reached') return 'Reached';
@@ -22,8 +23,8 @@ export function GoalRow({ goal, progress, line, topUps, onEdit, onRemove }: { go
     <li>
     <SwipeRow as="div" className="px-3.5 py-3" label={goal.n} onDelete={onRemove}>
       <button type="button" className="flex w-full cursor-pointer items-start justify-between gap-3 border-0 bg-transparent p-0 text-left text-inherit [font:inherit]" onClick={onEdit} aria-label={`Change goal: ${goal.n}`}>
-        <span className="row-main"><b>{goal.n}</b><small>by {shortDate(goal.d)}</small></span>
-        <span className="amt">{fmtINR(progress.saved)} <small className="muted">of {fmtINR(goal.a)}</small></span>
+        <span className={ui.rowMain()}><b>{goal.n}</b><small>by {shortDate(goal.d)}</small></span>
+        <span className="font-bold tabular-nums">{fmtINR(progress.saved)} <small className="text-muted">of {fmtINR(goal.a)}</small></span>
       </button>
       <div className={`bar meter-${tone} mt-2.5 mb-1.5`} role="img" aria-label={`${Math.round(progress.fraction * 100)} percent of the target`}><i style={{ width: `${Math.round(progress.fraction * 100)}%` }} /></div>
       <p className={`m-0 text-sm ${line.state === 'reached' ? 'font-semibold text-good' : line.state === 'passed' ? 'text-bad' : ''}`}>{lineText(line)}</p>

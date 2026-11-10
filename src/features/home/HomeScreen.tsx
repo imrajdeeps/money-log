@@ -11,6 +11,7 @@ import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, 
 import { monthLabel, shortDate } from '../../core/format.ts';
 import type { Group } from '../../core/logic.ts';
 import { budgetEntries, fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
 export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export' | 'goals';
@@ -60,19 +61,19 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
     <section aria-labelledby="home-title">
       <div className="pagehead">
         <h2 id="home-title">Overview</h2>
-        <p className="muted">{monthLabel(month)}</p>
+        <p className="text-muted">{monthLabel(month)}</p>
       </div>
       <BentoGrid>
         <BentoCard title="This month" span={8} className="hero" onOpen={() => open('month')} openLabel={`Open ${monthLabel(month)}: groups, categories and budgets`}>
           <div className="hero-top">
             <div>
               <p className="hero-num">{fmtINR(ov.spent)}</p>
-              <p className="muted small">spent{ov.budgeted ? ` of ${fmtINR(ov.budget)} budget` : ''} · savings not counted</p>
+              <p className="text-muted text-[13px]">spent{ov.budgeted ? ` of ${fmtINR(ov.budget)} budget` : ''} · savings not counted</p>
             </div>
             {ov.change !== null && (
               <span className={`delta ${ov.change > 0 ? 'bad' : ov.change < 0 ? 'good' : ''}`}>
                 <span aria-hidden="true">{ov.change > 0 ? '▲ ' : ov.change < 0 ? '▼ ' : ''}</span>
-                {ov.change === 0 ? 'Same as' : <>{pct(ov.change)}<span className="sr">{ov.change > 0 ? ' more than' : ' less than'}</span></>} last month
+                {ov.change === 0 ? 'Same as' : <>{pct(ov.change)}<span className="sr-only">{ov.change > 0 ? ' more than' : ' less than'}</span></>} last month
               </span>
             )}
           </div>
@@ -98,7 +99,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
         {app.net ? (
           <BentoCard title="Net worth" span={4} onOpen={() => open('plan', 'networth')} openLabel="Open net worth and goals">
             <p className="stat-num">{net?.main ? fmtNet(net.main) : app.net.items[0] ? fmtNet(app.net.items[0]) : ''}</p>
-            <p className="muted small">{net?.main?.label ?? app.net.items[0]?.label}</p>
+            <p className="text-muted text-[13px]">{net?.main?.label ?? app.net.items[0]?.label}</p>
             {net?.goal && (
               <div className="goal">
                 <div className="bar meter-good" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, net.goal.value))}%` }} /></div>
@@ -125,7 +126,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
           return (
             <BentoCard key={g} title={g} span={tileSpan} compact className={tiles.length % 2 === 1 && i === tiles.length - 1 ? 'fill' : undefined} onOpen={() => openMonth(g)} openLabel={`Open ${g} for the month`}>
               <p className="stat-num">{fmtINR(t.spent)}</p>
-              <p className="muted small">{t.budgeted ? `of ${fmtINR(t.planned)}` : ' '}</p>
+              <p className="text-muted text-[13px]">{t.budgeted ? `of ${fmtINR(t.planned)}` : ' '}</p>
               <BudgetLine group={g} spent={t.spent} planned={t.planned} over={false} budgeted={t.budgeted} />
             </BentoCard>
           );
@@ -143,17 +144,17 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
 
         {due ? (
           <BentoCard title="Due soon" span={4} onOpen={() => open('plan')} openLabel="Open the due list">
-            <p className="stat-num">{due.open === 0 ? 'All done' : due.overdue > 0 ? <span className="late">{due.overdue} overdue</span> : `${due.open} open`}</p>
-            {due.open > 0 && due.overdue > 0 && <p className="muted small">{due.open} open in all</p>}
+            <p className="stat-num">{due.open === 0 ? 'All done' : due.overdue > 0 ? <span className={ui.late}>{due.overdue} overdue</span> : `${due.open} open`}</p>
+            {due.open > 0 && due.overdue > 0 && <p className="text-muted text-[13px]">{due.open} open in all</p>}
             {due.next.length > 0 && (
               <ul className="mini">
                 {due.next.map((v) => (
                   <li key={v.k}>
-                    <span className="row-main">
+                    <span className={ui.rowMain()}>
                       <b>{v.title}</b>
-                      <small className={v.state === 'overdue' ? 'late' : undefined}>{v.due ? `${shortDate(v.due)} · ${dueRelative(v.days)}` : 'No date'}</small>
+                      <small className={v.state === 'overdue' ? ui.late : undefined}>{v.due ? `${shortDate(v.due)} · ${dueRelative(v.days)}` : 'No date'}</small>
                     </span>
-                    {v.amount ? <span className="amt">{fmtINR(v.amount)}</span> : null}
+                    {v.amount ? <span className="font-bold tabular-nums">{fmtINR(v.amount)}</span> : null}
                   </li>
                 ))}
               </ul>
@@ -174,11 +175,11 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
             <ul className="shares">
               {cats.top.map((c) => (
                 <li key={c.category}>
-                  <span className="share-line"><span className="share-name">{c.category}</span><span className="muted">{whole(c.share)}</span><b>{fmtINR(c.spent)}</b></span>
+                  <span className="share-line"><span className="share-name">{c.category}</span><span className="text-muted">{whole(c.share)}</span><b>{fmtINR(c.spent)}</b></span>
                   <span className="share-bar" aria-hidden="true"><i style={{ width: `${Math.max(1, c.share * 100)}%` }} /></span>
                 </li>
               ))}
-              {cats.rest.count > 0 && <li className="muted small">{cats.rest.count} more {cats.rest.count === 1 ? 'category' : 'categories'} · {fmtINR(cats.rest.spent)} ({whole(cats.rest.share)})</li>}
+              {cats.rest.count > 0 && <li className="text-muted text-[13px]">{cats.rest.count} more {cats.rest.count === 1 ? 'category' : 'categories'} · {fmtINR(cats.rest.spent)} ({whole(cats.rest.share)})</li>}
             </ul>
           )}
         </BentoCard>
@@ -186,7 +187,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
         {couples.map((c) => (
           <BentoCard key={c.id} title={`You and ${c.partner}`} span={4} onOpen={() => openGroup(c.id)} openLabel={`Open your couple group with ${c.partner}`}>
             <p className={`stat-num ${c.tone}`}>{c.text}</p>
-            <p className="muted small">{c.tone === 'muted' ? 'Nothing to settle' : 'Open to settle up'}</p>
+            <p className="text-muted text-[13px]">{c.tone === 'muted' ? 'Nothing to settle' : 'Open to settle up'}</p>
           </BentoCard>
         ))}
 
@@ -207,9 +208,9 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
             ) : shared.owed > shared.owe ? (
               <p className="stat-num"><span className="owed">{fmtINR(shared.owed - shared.owe)}</span> <span className="stat-unit">owed to you</span></p>
             ) : (
-              <p className="stat-num"><span className="late">{fmtINR(shared.owe - shared.owed)}</span> <span className="stat-unit">you owe</span></p>
+              <p className="stat-num"><span className={ui.late}>{fmtINR(shared.owe - shared.owed)}</span> <span className="stat-unit">you owe</span></p>
             )}
-            <p className="muted small">
+            <p className="text-muted text-[13px]">
               {app.groups.length} {app.groups.length === 1 ? 'group' : 'groups'}
               {shared.owed > 0 && shared.owe > 0 ? ` · ${fmtINR(shared.owed)} owed to you, ${fmtINR(shared.owe)} you owe` : ''}
             </p>
@@ -219,9 +220,9 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
         {goalTile ? (
           <BentoCard title="Goals" span={4} onOpen={() => open('goals')} openLabel="Open your goals and the plan">
             <p className="stat-num">{fmtINR(goalTile.progress.saved)} <span className="stat-unit">of {fmtINR(goalTile.goal.a)}</span></p>
-            <p className="muted small">{goalTile.goal.n} · {goalTile.term === 'short' ? 'short term' : 'long term'}{goalTile.count > 1 ? ` · ${goalTile.count} goals` : ''}</p>
+            <p className="text-muted text-[13px]">{goalTile.goal.n} · {goalTile.term === 'short' ? 'short term' : 'long term'}{goalTile.count > 1 ? ` · ${goalTile.count} goals` : ''}</p>
             <div className={`bar meter-${goalTile.line.state === 'reached' ? 'good' : goalTile.line.state === 'passed' ? 'bad' : 'accent'}`} aria-hidden="true"><i style={{ width: `${Math.round(goalTile.progress.fraction * 100)}%` }} /></div>
-            <p className="muted small">{goalTile.line.state === 'reached' ? 'Reached' : goalTile.line.state === 'passed' ? 'The date has passed' : `Needs ${fmtINR(goalTile.line.monthly)} a month`}</p>
+            <p className="text-muted text-[13px]">{goalTile.line.state === 'reached' ? 'Reached' : goalTile.line.state === 'passed' ? 'The date has passed' : `Needs ${fmtINR(goalTile.line.monthly)} a month`}</p>
           </BentoCard>
         ) : (
           <BentoCard title="Goals" span={4}>
@@ -234,7 +235,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
           {ex.changed > 0 ? (
             <p className="small warn-text">{ex.changed} changed after export: fix {ex.changed === 1 ? 'that row' : 'those rows'} in the spreadsheet</p>
           ) : (
-            <p className="muted small">
+            <p className="text-muted text-[13px]">
               {app.entries.length === 0 ? "Payments you log can be copied into the spreadsheet's Log tab" : ex.waiting > 0 ? "Copy them into the spreadsheet's Log tab" : 'Nothing new since the last copy'}
             </p>
           )}

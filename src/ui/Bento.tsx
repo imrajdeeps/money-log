@@ -1,6 +1,7 @@
 import { Children, useId } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from './Icon.tsx';
+import * as ui from './styles.ts';
 
 // The dashboard's layout. A wide screen gets 12 columns and each tile spans some of them; narrower screens fold the spans
 // (styles.css, "Bento dashboard"): half or full width on a tablet, one column on a phone with small stat tiles two to a row.
@@ -50,8 +51,8 @@ export function BentoCard({ title, span = 4, compact = false, onOpen, openLabel,
 export function BentoEmpty({ children, cta, onCta }: { children: ReactNode; cta?: string; onCta?: () => void }) {
   return (
     <div className="bento-empty">
-      <p className="muted">{children}</p>
-      {cta && onCta && <button type="button" className="btn ghost small" onClick={onCta}>{cta}</button>}
+      <p className="text-muted">{children}</p>
+      {cta && onCta && <button type="button" className={ui.btn('ghost', 'small')} onClick={onCta}>{cta}</button>}
     </div>
   );
 }

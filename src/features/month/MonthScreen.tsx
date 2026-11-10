@@ -7,6 +7,7 @@ import { BudgetsDialog } from './BudgetsDialog.tsx';
 import { planCovers, planForMonth } from '../../core/categories.ts';
 import type { Group } from '../../core/logic.ts';
 import { GROUPS, budgetEntries, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 // group: show only that group's categories (a tile on the Overview was tapped); onGroup() shows them all again.
 export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: Group) => void }) {
@@ -27,18 +28,18 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
   return (
     <section aria-label="Month against plan">
       <div className="monthbar">
-        <button type="button" className="btn ghost sq" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><span className="inline-flex rotate-180"><Icon name="chevron" size={22} /></span></button>
+        <button type="button" className={ui.btn('ghost', 'sq')} aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><span className="inline-flex rotate-180"><Icon name="chevron" size={22} /></span></button>
         <h2 aria-live="polite">{monthLabel(month)}</h2>
-        <button type="button" className="btn ghost sq" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={22} /></button>
+        <button type="button" className={ui.btn('ghost', 'sq')} aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={22} /></button>
       </div>
 
       {noBudgets && (
-        <div className="card notice">
+        <div className={ui.card('notice')}>
           <p>No budgets yet, so there is nothing to compare against. Give each category a monthly amount to see what is left.</p>
-          <button type="button" className="btn" onClick={() => setEditing(true)}>Set budgets</button>
+          <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => setEditing(true)}>Set budgets</button>
         </div>
       )}
-      {app.plan && !planCovers(app.plan, month) && <p className="muted">Your spreadsheet plan covers {monthLabel(app.plan.months[0] ?? month)} to {monthLabel(app.plan.months[app.plan.months.length - 1] ?? month)}. This month uses the budgets set in the app.</p>}
+      {app.plan && !planCovers(app.plan, month) && <p className="text-muted">Your spreadsheet plan covers {monthLabel(app.plan.months[0] ?? month)} to {monthLabel(app.plan.months[app.plan.months.length - 1] ?? month)}. This month uses the budgets set in the app.</p>}
 
       <div className="groups">
         {GROUPS.map((g) => {
@@ -47,7 +48,7 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
             <div key={g} className={`card group${g === group ? ' picked' : ''}`}>
               <h3>{g}</h3>
               <p className="big-num">{fmtINR(t.spent)}</p>
-              <p className="muted small">{t.budgeted ? `of ${fmtINR(t.planned)}` : '\u00a0'}</p>
+              <p className="text-muted text-[13px]">{t.budgeted ? `of ${fmtINR(t.planned)}` : '\u00a0'}</p>
               <Line group={g} spent={t.spent} planned={t.planned} over={monthIsOver} budgeted={t.budgeted} />
             </div>
           );
@@ -55,18 +56,18 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
       </div>
 
       {group && (
-        <p className="muted small" role="status">
+        <p className="text-muted text-[13px]" role="status">
           Showing {group} only. <button type="button" className="linkbtn" onClick={() => onGroup(undefined)}>Show all categories</button>
         </p>
       )}
-      {group && shown.length === 0 && <p className="muted">No {group} categories have a budget or a payment this month.</p>}
+      {group && shown.length === 0 && <p className="text-muted">No {group} categories have a budget or a payment this month.</p>}
       {shown.length > 0 && (
-        <ul className="list cats">
+        <ul className={ui.list(false, 'mt-0 mx-0 mb-3.5')}>
           {shown.map((r) => (
-            <li key={r.category} className="catrow">
-              <div className="catline">
+            <li key={r.category} className="px-3.5 py-3">
+              <div className={ui.catLine}>
                 <b>{r.category}</b>
-                <span>{fmtINR(r.spent)}{r.planned > 0 ? <small className="muted"> / {fmtINR(r.planned)}</small> : null}</span>
+                <span>{fmtINR(r.spent)}{r.planned > 0 ? <small className="text-muted"> / {fmtINR(r.planned)}</small> : null}</span>
               </div>
               <Line group={r.group} spent={r.spent} planned={r.planned} over={monthIsOver} budgeted={r.budgeted} />
             </li>
@@ -76,17 +77,17 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
 
       {!group && s.extra.length > 0 && (
         <>
-          <h3 className="h2">Not in your categories</h3>
-          <ul className="list">
+          <h3 className="text-[16px] mt-5 mb-2">Not in your categories</h3>
+          <ul className={ui.list()}>
             {s.extra.map((x) => (
-              <li key={x.category} className="catline plain"><b>{x.category}</b><span>{fmtINR(x.spent)}</span></li>
+              <li key={x.category} className={ui.catLineBox}><b>{x.category}</b><span>{fmtINR(x.spent)}</span></li>
             ))}
           </ul>
         </>
       )}
 
-      <p className="muted small">{s.count} payment{s.count === 1 ? '' : 's'} this month · {fmtINR(s.totalSpent)} in total</p>
-      <button type="button" className="btn ghost" onClick={() => setEditing(true)}>Categories and budgets</button>
+      <p className="text-muted text-[13px]">{s.count} payment{s.count === 1 ? '' : 's'} this month · {fmtINR(s.totalSpent)} in total</p>
+      <button type="button" className={ui.btn('ghost')} onClick={() => setEditing(true)}>Categories and budgets</button>
       {editing && <BudgetsDialog onClose={() => setEditing(false)} />}
     </section>
   );
