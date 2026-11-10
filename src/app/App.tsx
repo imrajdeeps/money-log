@@ -144,15 +144,15 @@ function Shell() {
 
       <nav className="tabs" aria-label="Sections">
         <button type="button" aria-current={current('home')} onClick={goHome}>
-          <Icon name="home" />Home
+          <Icon name="home" size={24} duotone={page === 'home'} />Home
         </button>
-        <button type="button" aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" />Month</button>
+        <button type="button" aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" size={24} duotone={page === 'month'} />Month</button>
         <button type="button" className="fab" aria-label="Add expense" aria-current={current('add')} onClick={goAdd}>
           <span className="fab-circle"><Icon name="plus" size={26} /></span>
           <span aria-hidden="true">Add</span>
         </button>
-        <button type="button" aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" />Plan</button>
-        <button type="button" aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" />Groups</button>
+        <button type="button" aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" size={24} />Plan</button>
+        <button type="button" aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" size={24} duotone={page === 'groups'} />Groups</button>
       </nav>
       {toast}
       </div>

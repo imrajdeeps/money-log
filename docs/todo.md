@@ -24,6 +24,8 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 ## Asked for while 1.11 was running (not scheduled; the owner picks the order)
 - [ ] **Language: English, Hindi and Hinglish** — the owner's words: "add language change option default english add hindi and hinglish (whatsapp language)". A language choice in Settings (default English); Hindi in Devanagari; Hinglish is Hindi written in English letters, as people type it on WhatsApp. Needs: every screen's text moved out of the components into per-language lists, a Settings part (`/settings/language`) that remembers the choice on the phone, the long messages and validation errors included, and amounts and dates kept in the Indian format. To ask when it is picked up: who checks the Hindi and Hinglish wording (it must read naturally, not like machine output), and whether category names the person made stay as typed.
 
+- [ ] **Question to answer: can AI be used in the app, and how, or why not?** (the owner's words: "after finishing this work can we use AI in this web-app if yes how, if no then why"). Answered in the report after version 1.11; if the owner wants it, it starts with a question round and a PRD.
+
 ## Last (the owner will pick this up at the end)
 - [ ] **Analytics** — charts and insights inside the app (spending over time, category trends, month against month, goal progress), **and updated charts** (the owner's words: "update the charts and the deep analytics page or section"): refresh the charts the app already has (the month's pace line, where the money went) and add a deep analytics page or section. Needs a question round on which figures matter. In-app only: no tracking and nothing sent anywhere.
 

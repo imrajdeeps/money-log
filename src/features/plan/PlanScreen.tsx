@@ -1,3 +1,4 @@
+import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { DEFAULT_ALERT, buildIcs, classifyDue, cleanAlert, dueRelative, fmtNet } from '../../core/blocks.ts';
@@ -21,14 +22,14 @@ function DueRow({ v, onToggle, onCalendar, onDelete }: { v: DueView; onToggle: (
   return (
     <SwipeRow className={`duerow${v.isDone ? ' done' : ''}`} label={v.title} onDelete={onDelete}>
       <button type="button" className="tick" aria-pressed={v.isDone} aria-label={`${v.isDone ? 'Mark not done' : 'Mark done'}: ${v.title}`} onClick={onToggle}>
-        {v.isDone ? '✓' : ''}
+        {v.isDone ? <Icon name="check" size={22} /> : null}
       </button>
       <span className="row-main">
         <b>{v.title}</b>
         <small className={v.state === 'overdue' ? 'late' : undefined}>{when} · {what}</small>
       </span>
       {v.amount ? <span className="amt">{fmtINR(v.amount)}</span> : null}
-      {onCalendar && <button type="button" className="icobtn" aria-label={`Add to calendar: ${v.title}`} onClick={onCalendar}>📅</button>}
+      {onCalendar && <button type="button" className="icobtn" aria-label={`Add to calendar: ${v.title}`} onClick={onCalendar}><Icon name="calendar" size={22} /></button>}
     </SwipeRow>
   );
 }

@@ -1,3 +1,4 @@
+import { Icon } from '../../ui/Icon.tsx';
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { shrinkImage } from './photo.ts';
@@ -39,7 +40,9 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
         {photos.map((p, i) => (
           <span key={urls[i]} className="thumb">
             <img src={urls[i]} alt={`Photo ${i + 1}, ${sizeText(p.size)}`} />
-            <button type="button" className="thumbx" aria-label={`Remove photo ${i + 1}`} onClick={() => onChange(photos.filter((_, j) => j !== i))}>✕</button>
+            <button type="button" className="thumbx" aria-label={`Remove photo ${i + 1}`} onClick={() => onChange(photos.filter((_, j) => j !== i))}>
+              <Icon name="close" size={14} />
+            </button>
           </span>
         ))}
         {room > 0 && (
