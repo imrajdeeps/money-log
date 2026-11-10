@@ -156,13 +156,16 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Insights (version 1.16)
+The Insights page (Overview tile, the top menu on a wide screen, and a button on the Month page): your spending over the last 3, 6 or 12 months as bars, the categories that took the most with a small trend line and how this month compares with the same days of last month, this month by group, which days of the week cost most (last 90 days), your biggest payments this month, and how each goal is going. It also says where this month will probably end: it follows last month's shape (rent and EMIs come early), or the plain pace when there is no last month. Shared expenses count at your own share; what you put in a Saving category is not counted as spending. Everything is worked out on the phone from your payments: nothing is sent anywhere. The Overview's month chart got gridlines, a top-of-scale label and a dashed line for the likely month end.
+
 ## Language (version 1.15)
 Settings, Language: English, Hindi (हिन्दी) or Hinglish (Hindi in Roman letters, the way people write it on WhatsApp). The whole app
 changes at once, dates included. What you typed (category names, notes, group names) stays as you wrote it. A text that has no
 translation yet shows in English. How texts are added is in `docs/structure.md`, Language.
 
 ## The tour (version 1.14)
-A new person (no payments or groups yet) sees a nine-step tour of the whole app the first time it opens; someone who already uses the
+A new person (no payments or groups yet) sees a ten-step tour of the whole app the first time it opens; someone who already uses the
 app sees only what is new since they last saw a tour. Either can be skipped at any step (Escape too), and Settings, About has
 "Take the tour" and "What is new" to see them again. Which version's tour was seen is remembered on the phone only.
 

@@ -1,7 +1,7 @@
 // The guided tour: what it says, and who gets which one. Pure rules; the screen is features/tour, where "seen" is kept is data/tour.ts.
 //   first  a new person (no data yet): a walk through the whole app
 //   news   someone who already uses it: only what is new since the version they last saw
-export type TourPage = 'home' | 'month' | 'plan' | 'groups' | 'settings' | 'about';
+export type TourPage = 'home' | 'month' | 'plan' | 'groups' | 'analytics' | 'settings' | 'about';
 export type TourKind = 'first' | 'news';
 
 export interface TourStep {
@@ -18,11 +18,12 @@ export interface TourStep {
 
 // The walk through the whole app, in order.
 export const FIRST_STEPS: readonly TourStep[] = [
-  { id: 'welcome', go: 'home', title: 'Welcome to Money Log', text: 'A quick look round, nine short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.' },
+  { id: 'welcome', go: 'home', title: 'Welcome to Money Log', text: 'A quick look round, ten short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.' },
   { id: 'home', go: 'home', target: 'home', title: 'Overview', text: 'The first page: this month at a glance. What you spent against your budgets, your goals, what is due, and who owes whom. Tap a tile to open it.' },
   { id: 'add', go: 'home', target: 'add', title: 'Log a payment', text: 'Tap Add to log a payment in a few seconds: the amount, a category, done. You can also paste a bank message and let the form fill itself, and attach a receipt photo.' },
   { id: 'month', go: 'month', target: 'month', title: 'Month', text: 'Every category against its budget. Tap the three dots on a category to set its budget, or to add an expense that already has the category.' },
   { id: 'plan', go: 'plan', target: 'plan', title: 'Plan', text: 'What is due soon (swipe a row to delete it), your net worth, and goals with a monthly plan that says how much to put aside for each.' },
+  { id: 'insights', go: 'analytics', target: 'analytics', title: 'Insights', text: 'Your spending in charts: month by month, by category and by day of the week, and where this month is likely to end. It is all worked out on this phone, and nothing is sent anywhere.' },
   { id: 'groups', go: 'groups', target: 'groups', title: 'Groups', text: 'Share expenses with family, on a trip, with flatmates or a partner, and see who should pay whom. Groups need you to sign in.' },
   { id: 'export', go: 'home', target: 'export', title: 'Export', text: 'Send your payments to a spreadsheet when you want them there. The Export page keeps track of what is already exported.' },
   { id: 'settings', go: 'settings', target: 'settings', title: 'Settings', text: 'Your profile, cloud sync, recurring payments like rent, a backup, a PIN for this phone, and the look of the app.' },
@@ -35,6 +36,7 @@ export const NEWS_STEPS: readonly TourStep[] = [
   { id: 'news-settings', since: '1.13.0', go: 'settings', target: 'settings-profile', title: 'New: Settings in groups, and your Profile', text: 'Settings is now in groups. Profile holds your name and an optional WhatsApp number, and when you are signed in, Sign out and Switch account are at the top.' },
   { id: 'news-tour', since: '1.14.0', go: 'about', target: 'about-tour', title: 'New: this tour', text: 'You can take the full tour, or just see what is new, whenever you like from here.' },
   { id: 'news-language', since: '1.15.0', go: 'settings', target: 'settings-language', title: 'New: your language', text: 'The whole app can now be in English, Hindi or Hinglish. Choose it under Settings, Language, and it changes at once.' },
+  { id: 'news-insights', since: '1.16.0', go: 'analytics', target: 'analytics', title: 'New: Insights', text: 'A new page with your spending in charts: month by month, by category, by day of the week, and where this month is likely to end. The Overview also has a smoother chart with a dashed line for the likely month end.' },
 ];
 
 /** a is later than b: positive; earlier: negative; same: 0. Versions are "1.13.0" (missing parts count as 0). */

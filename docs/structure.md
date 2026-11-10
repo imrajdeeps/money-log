@@ -12,7 +12,7 @@ src/
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
               the sync pill, file helpers.
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
-    home/  payments/  recurring/  month/  plan/  goals/  export/  groups/  settings/  tour/
+    home/  payments/  recurring/  month/  plan/  goals/  export/  groups/  settings/  tour/  analytics/
       index.ts    the only file other code may import from this folder
   app/        starts the app: main.tsx, the page frame (App.tsx), the router.
   routes/     one small file per address (TanStack Router reads this folder). routeTree.gen.ts is generated.
@@ -68,6 +68,12 @@ grouped (a changed height that only ripples down from another change is left out
 `window.__snapExtra = ['/groups/<id>']` adds pages that exist only in one browser; a third argument, `'scenes'`, records the
 dialogs that need a click (budgets, an expense). Animations are cancelled while recording. Record the baseline from the build
 **before** the change: keep that build's folder so it can be served again.
+
+## Insights
+
+`core/analytics.ts` holds the arithmetic (monthly totals, category trends, weekday spending, biggest payments, the month-end projection, group shares)
+as pure functions over the budget entries (`budgetEntries`: a shared expense at the account's own share); `features/analytics/` draws it, with
+small hand-written charts (`charts.tsx`: bars and a sparkline; no chart library). A new figure goes in `core/analytics.ts` with a test first.
 
 ## Language
 
