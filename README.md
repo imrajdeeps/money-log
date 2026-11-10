@@ -6,7 +6,8 @@ spreadsheet's Log tab. Release 2 adds shared groups (a family group, trip groups
 with a calendar file, and a net worth and goals snapshot. Release 3 adds receipt photos, the edit history of shared
 expenses, a one-tap "add my share to my budget", an optional PIN lock, and a Method column for the spreadsheet's Log tab.
 Release 4 gives the app its own categories and budgets, so importing the spreadsheet is optional. Release 5 adds email and
-password sign-in, account creation and session controls (the email code stays as a fallback).
+password sign-in, account creation and session controls (the email code stays as a fallback). The home screen is a
+dashboard of tiles, each opening its details in a sheet, with a **+ Add expense** button always one tap away.
 It works on iPhone and Android, and offline.
 
 The repository holds code only. Your plan numbers, balances and payments never go in it; they live on your phone and
@@ -76,8 +77,32 @@ GitHub account, or give this app its own account, organisation, or custom domain
    Install app.
 2. **Settings:** *Create account* with your email and a password (at least 10 characters; a few words in a row work well), or
    sign in. An account you made earlier with an email code can set a password under *Password and sessions*.
-3. Start logging. Nothing has to be imported: the app has its own categories (see the next section). If you also keep the
-   spreadsheet, **Settings, Spreadsheet plan:** paste its blocks (the section after that).
+3. Start logging. Nothing has to be imported: the app has its own categories (see below). If you also keep the
+   spreadsheet, **Settings, Spreadsheet plan:** paste its blocks (see "Getting the plan from the spreadsheet").
+
+## Finding your way around
+
+The app opens on **Overview**, a dashboard of tiles. Each tile shows one figure; tap it and its details open in a sheet
+that rises from the bottom on a phone and slides in from the right on a wider screen. Close a sheet with its ✕, by tapping
+the dimmed page, with Escape, or with Android's back gesture. Sheets keep what you typed, so a half-typed payment is still
+there when you open it again.
+
+| Tile | Shows | Opens |
+| --- | --- | --- |
+| This month | What you spent this month (savings not counted) against the budget for Spending, EMI and Family, the change from last month by the same day, and the month's spending by day | **Month**: the groups, every category against its budget, other months, *Categories and budgets* |
+| Spending, EMI, Family, Saving | Each group's total, its budget and what is left | Month |
+| Net worth | The net worth line from the imported snapshot, the first goal and two more figures | **Plan**, at *Net worth and goals* |
+| Recent payments | The last 5 payments; tap one to edit or delete it | *See all*: the last 20 |
+| Due soon | How many items are overdue or open, and the next two | Plan: the due list and the calendar file |
+| Where it went | This month's biggest categories (savings not counted) and their share | Month |
+| Groups | What you are owed or owe across your groups | **Groups** |
+| Export | How many payments wait to go to the spreadsheet, and any that changed after export | **Export** |
+
+**+ Add expense** (the round button in the middle of the bottom bar on a phone, the button at the top right on a wider
+screen) opens the payment form with the amount ready to type; saving closes it. The bottom bar on a phone also has Home,
+Month, Plan and Groups; Settings is the gear at the top right, and Export is its tile. On a wider screen all of them are
+links at the top. The app shows no income, cash flow or net worth history, because it does not record them; tiles without
+data say where the data comes from instead.
 
 ## Categories and budgets
 
@@ -85,8 +110,8 @@ The app starts with a short list, grouped as the spreadsheet groups them: **Spen
 Transport & fuel, Bills, Shopping, Health, Other), **EMI** (Loan EMI), **Family** (Family support) and **Saving**
 (Savings).
 
-- **Add your own** with *＋ New category…* at the end of the category list on the Log tab (or in the edit dialogs), or in
-  *Categories and budgets* on the Month tab. Pick the group it belongs to. A name that only differs in capitals or spaces
+- **Add your own** with *＋ New category…* at the end of the category list in *Add expense* (or in the edit dialogs), or in
+  *Categories and budgets* under Month. Pick the group it belongs to. A name that only differs in capitals or spaces
   from an existing one counts as the same category.
 - **Remove** any category you do not use (the ✕ in *Categories and budgets*). It only leaves the pick list; payments already
   logged keep it and show under "Not in your categories". Add the same name again to bring it back.
@@ -109,28 +134,28 @@ spreadsheet lacks stay as they are, with their app budgets, so a built-in such a
 
 | Block | Copy | What it gives the app |
 | --- | --- | --- |
-| Budget | `A5` to `AL34` | The spreadsheet's categories, groups and planned amount per month (Month tab). |
-| Due list | `A38` to `E66` | One-off payments (Inputs section 6, Active = Yes) and to-dos, with dates. |
-| Net worth and goals | `A70` to `C79` | The snapshot on the Plan tab, labelled with the plan month. |
+| Budget | `A5` to `AL34` | The spreadsheet's categories, groups and planned amount per month (Month). |
+| Due list | `A38` to `E66` | One-off payments (Inputs section 6, Active = Yes) and to-dos, with dates (Plan, and the Due soon tile). |
+| Net worth and goals | `A70` to `C79` | The snapshot under Plan and on the Net worth tile, labelled with the plan month. |
 
 Keep such files out of this repository (`.gitignore` already skips `*.tsv`, `*.csv`, `*.xlsx` and backup files).
 
 **Names must match for Export.** The spreadsheet adds payments up by the categories on its Budget tab (its Inputs tab
 holds the list); its Log shows NOT IN LIST for any other name and Budget and Tracker leave that payment out. After you
-import the budget block, the Export tab names the categories in the rows it is about to copy that the spreadsheet does not
+import the budget block, Export names the categories in the rows it is about to copy that the spreadsheet does not
 have, so you can add them there or change the payment's category. Without an imported plan the app cannot know what the
 spreadsheet holds and only reminds you of this.
 
 ## Sending payments to the spreadsheet
 
-Export tab, **Copy for Excel**, then in the spreadsheet's **Log** tab click column A of the first empty row and paste.
-Then tap **Mark as exported**: it marks exactly the payments you just copied, so the next copy holds only new ones.
-If you later edit or delete a payment that was already exported, the Export tab lists it under **Changed after export**,
+Open **Export** (its tile on Overview), **Copy for Excel**, then in the spreadsheet's **Log** tab click column A of the
+first empty row and paste. Then tap **Mark as exported**: it marks exactly the payments you just copied, so the next copy
+holds only new ones. If you later edit or delete a payment that was already exported, Export lists it under **Changed after export**,
 because its spreadsheet row is now out of date and has to be fixed by hand.
 
 The payment method is written at the start of the note, for example `[UPI] lunch`, unless your Log tab has a **Method
 column**: the current `Rajdeep - Money Plan v2.xlsx` does (Date, Category, Amount, Method, Note, then the Month and Group
-formulas). Tick *My spreadsheet's Log tab has a Method column* on the Export tab and the copy becomes five columns, with
+formulas). Tick *My spreadsheet's Log tab has a Method column* under Export and the copy becomes five columns, with
 the note free of the prefix. It is off by default, so an older Log tab with four input columns keeps working; paste only
 into a Log tab whose columns match the box. Text that Excel might misread (it starts with `=`, `+`, `-`, `@` or a quote, or
 looks like a date or number) gets a leading space so it stays plain text.
@@ -140,13 +165,13 @@ A **shared expense** is exported at **your share**, with the full amount kept in
 
 ## Groups, splits and settling up
 
-*Groups* tab. A group is a family or a trip, up to 20 people, and one person can be in several.
+*Groups* (bottom bar, or the Groups tile). A group is a family or a trip, up to 20 people, and one person can be in several.
 
 - **Make a group:** name it and say what others should call you. You become its admin.
 - **Invite:** the group page shows a code (and a link that carries it). Send it only to people you mean to add. The code
   works for 7 days; *Make a new code* replaces it. The link keeps the code after the `#`, which browsers never send to
   any server. The person opens it, signs in (Settings) and confirms the join. This is where sign-ups must be on.
-- **Share an expense:** on the Log tab pick the group under *Share with*, then who paid and how it is split:
+- **Share an expense:** in *Add expense* pick the group under *Share with*, then who paid and how it is split:
   **Equal**, exact **Amounts**, or **Percent**. It is stored as exact rupee shares that add up to the amount. Everyone in
   the group sees the amount, category, note and date, and who paid. Only the person who made an expense can edit or
   delete it, and only while they are in the group. Your own budget counts only your share.
@@ -169,7 +194,7 @@ like any other.
 
 ## Due list and calendar
 
-*Plan* tab. **Due soon** lists the imported one-off payments and to-dos: overdue first, then by date, with a tick to mark
+*Plan* (bottom bar, or the Due soon and Net worth tiles). **Due soon** lists the imported one-off payments and to-dos: overdue first, then by date, with a tick to mark
 one done (marks sync between your phones and survive re-importing the same list; the spreadsheet stays the plan, so
 tick items off there too). **Add to calendar** makes a calendar (`.ics`) file with an all-day event and an alert for each
 dated item that is not done; by default the alert is 2 days before at 9:00, and you can change both. Opening the file
@@ -178,7 +203,7 @@ figures. They are the spreadsheet's numbers at the plan month shown; they do not
 
 ## Receipt photos
 
-On the Log tab, **Take photo** or **Choose photo** before saving, or add and remove them later when you edit a payment (up
+In *Add expense*, **Take photo** or **Choose photo** before saving, or add and remove them later when you edit a payment (up
 to 3 photos per payment). Each photo is drawn again at most 1,600 pixels on its longest side and saved as JPEG under 1 MB,
 which also removes its location, camera and time. It is saved on the phone first, shows *Waiting to upload* until it has
 reached your private Supabase Storage, and works offline. Photos of a **private** payment are visible only to you; photos of
@@ -225,7 +250,7 @@ it, sync stops but logging on the phone keeps working and catches up afterwards.
 ```bash
 npm ci           # install exactly the versions in package-lock.json
 npm run dev      # local dev server (local-only mode unless you create .env.local, see .env.example)
-npm test         # tests: logic, blocks, groups and splits, and sync against a stand-in for Supabase
+npm test         # tests: logic, blocks, groups and splits, dashboard figures, and sync against a stand-in for Supabase
 npm run check    # type check
 npm run build    # production build into dist/
 ```
