@@ -41,22 +41,41 @@
     return out;
   }
 
-  async function all() {
+  // pages that need a click to appear (dialogs): `await window.__snap('save', 'name', 'scenes')` records only these
+  const clickText = (sel, text) => [...document.querySelectorAll(sel)].find((e) => e.textContent.includes(text))?.click();
+  const SCENES = {
+    'budgets dialog': async () => { await go('/month'); clickText('button', 'Categories and budgets'); await wait(450); },
+    'edit dialog': async () => { await go('/payments'); document.querySelector('main ul button')?.click(); await wait(450); },
+    'add category': async () => {
+      await go('/add');
+      const sel = [...document.querySelectorAll('select')].find((x) => [...x.options].some((o) => o.textContent.includes('New category')));
+      const opt = sel && [...sel.options].find((o) => o.textContent.includes('New category'));
+      if (sel && opt) { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, opt.value); sel.dispatchEvent(new Event('change', { bubbles: true })); }
+      await wait(450);
+    },
+  };
+  const closeDialogs = () => document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+
+  async function all(only) {
     const styles = [];
     const pages = {};
     const startTheme = document.documentElement.dataset.theme;
     const startPath = location.pathname;
     for (const theme of ['light', 'dark']) {
       document.documentElement.dataset.theme = theme;
-      for (const route of routes()) { await go(route); window.scrollTo(0, 0); pages[`${theme} ${route}`] = capture(styles); }
+      if (only !== 'scenes') for (const route of routes()) { await go(route); window.scrollTo(0, 0); pages[`${theme} ${route}`] = capture(styles); }
+      for (const [name, open] of Object.entries(SCENES)) {
+        if (only !== 'scenes' && !window.__snapScenes) break; // the full run records scenes only when asked to
+        await open(); pages[`${theme} scene ${name}`] = capture(styles); closeDialogs();
+      }
     }
     document.documentElement.dataset.theme = startTheme;
     await go(startPath);
     return { styles, pages };
   }
 
-  window.__snap = async (mode, name) => {
-    const now = await all();
+  window.__snap = async (mode, name, only) => {
+    const now = await all(only);
     const key = `snap:${name}`;
     if (mode === 'save') { localStorage.setItem(key, JSON.stringify(now)); return { saved: name, pages: Object.keys(now.pages).length, elements: Object.values(now.pages).reduce((n, p) => n + Object.keys(p).length, 0), styles: now.styles.length }; }
     const base = JSON.parse(localStorage.getItem(key) ?? 'null');
