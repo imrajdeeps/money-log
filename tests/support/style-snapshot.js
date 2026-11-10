@@ -20,8 +20,10 @@
     document.getAnimations().forEach((a) => a.cancel());
     const out = {};
     const walk = (el, path) => {
-      if (!el.getClientRects().length) return;
       const cs = getComputedStyle(el);
+      // an element with display: contents has no box of its own, but its children do
+      if (cs.display === 'contents') { [...el.children].forEach((c, i) => walk(c, `${path}/${i}`)); return; }
+      if (!el.getClientRects().length) return;
       // long decimals (a meter's scaleX depends on how far into the month it is) are rounded, so the clock does not show as a change
       const vals = PROPS.map((p) => cs[p]);
       // a border of width 0 has no style or colour to see; a pill's radius is "999px" or "infinity", which draw the same
