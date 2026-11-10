@@ -242,6 +242,32 @@ export function createSync(opts: SyncOptions) {
     await finishSignIn(res);
   }
 
+  // "Forgot password": Supabase emails a link that comes back to this page (redirectTo) with a short-lived session in its
+  // address (src/authlink.ts reads it). It answers the same whether or not the address has an account, so nothing is
+  // revealed about who has one. With Supabase's free built-in email it only reaches your own team's addresses.
+  async function requestPasswordReset(email: string, redirectTo: string): Promise<void> {
+    validEmail(email);
+    await authRequest(`/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, { method: 'POST', auth: false, body: { email } });
+  }
+
+  // A reset link carries a session of its own. Ask who it belongs to, then keep it like any other sign-in (including the
+  // refusal when this phone still holds another account's data); the person is then signed in and chooses a new password.
+  async function signInWithRecovery(link: { accessToken: string; refreshToken: string; expiresIn: number }): Promise<void> {
+    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
+    let res: Response;
+    try {
+      res = await fetchFn(`${base}/auth/v1/user`, { headers: { apikey: config.supabaseKey, Authorization: `Bearer ${link.accessToken}` } });
+    } catch {
+      throw new SyncError('offline', 'No connection');
+    }
+    if (!res.ok) {
+      const expired = res.status === 401 || res.status === 403;
+      throw new SyncError('http', expired ? 'That link has expired or was already used. Ask for a new one.' : authMessage(res.status, await errorText(res)), res.status);
+    }
+    const user: any = await res.json();
+    await finishSignIn({ access_token: link.accessToken, refresh_token: link.refreshToken, expires_in: link.expiresIn, user: { id: user?.id, email: user?.email } });
+  }
+
   // Sets the first password of an account that signed in with a code, or changes the current one.
   async function changePassword(password: string): Promise<void> {
     const bad = checkPassword(password, state.email ?? '');
@@ -741,6 +767,8 @@ export function createSync(opts: SyncOptions) {
     verifyCode,
     signUp,
     signInWithPassword,
+    requestPasswordReset,
+    signInWithRecovery,
     changePassword,
     signOutOthers,
     signOutEverywhere,

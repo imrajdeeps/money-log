@@ -24,6 +24,7 @@ export interface MockState {
   confirmSignups: boolean; // Supabase's "Confirm email": a new account cannot sign in until its email is confirmed
   unconfirmed: Set<string>;
   signupsOpen: boolean;
+  recoveries: { email: string; redirectTo: string | null; hash: string }[]; // the reset emails "sent", with the link's address fragment
   access: Map<string, { uid: string; exp: number; sid: string }>; // sid = the session (one per sign-in on a device)
   refresh: Map<string, { uid: string; email: string; sid: string }>;
   entries: Map<string, any>;
@@ -42,7 +43,7 @@ export interface MockState {
 export async function startMock(opts: { staticDir?: string; port?: number } = {}) {
   const state: MockState = {
     otp: '123456', accessTtlSec: 3600,
-    users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true,
+    users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true, recoveries: [],
     access: new Map(), refresh: new Map(),
     entries: new Map(), plans: new Map(), groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
     receipts: new Map(), objects: new Map(), history: [],
@@ -258,7 +259,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       const path = url.pathname;
       const isApi = path.startsWith('/auth/v1/') || path.startsWith('/rest/v1/') || path.startsWith('/storage/v1/') || path === '/__state';
       if (!isApi) return serveStatic(url, res);
-      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], receipts: [...state.receipts.values()], objects: [...state.objects.entries()].map(([path, o]) => ({ path, bytes: o.bytes, owner: o.owner })), history: state.history, requests: state.requests.length });
+      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], receipts: [...state.receipts.values()], objects: [...state.objects.entries()].map(([path, o]) => ({ path, bytes: o.bytes, owner: o.owner })), history: state.history, recoveries: state.recoveries, requests: state.requests.length });
       state.requests.push(`${req.method} ${path}${url.search}`);
       if (req.headers.apikey !== API_KEY) return send(res, 401, { message: 'No API key found in request' });
       if (state.failNext) { const f = state.failNext; state.failNext = null; return send(res, f.status, f.body); }
@@ -301,6 +302,22 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
         if (state.passwords.get(b.email) !== b.password || b.password === undefined) return send(res, 400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
         if (state.unconfirmed.has(b.email)) return send(res, 400, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' });
         return send(res, 200, newSession(state.users.get(b.email)!, b.email));
+      }
+      if (path === '/auth/v1/recover' && req.method === 'POST') {
+        // The same answer for a known and an unknown address. For a known one the link's session is made here (the real service
+        // makes it when the link is opened) and recorded as the fragment the page would be opened with.
+        const b = await body(req);
+        if (state.users.has(b.email) && !state.unconfirmed.has(b.email)) {
+          const s = newSession(state.users.get(b.email)!, b.email);
+          state.recoveries.push({ email: b.email, redirectTo: url.searchParams.get('redirect_to'),
+            hash: `#access_token=${s.access_token}&expires_in=${s.expires_in}&refresh_token=${s.refresh_token}&token_type=bearer&type=recovery` });
+        }
+        return send(res, 200, {});
+      }
+      if (path === '/auth/v1/user' && req.method === 'GET') {
+        const uid = uidOf(req);
+        if (!uid) return send(res, 401, { code: 401, msg: 'invalid JWT' });
+        return send(res, 200, { id: uid, email: [...state.users].find(([, id]) => id === uid)?.[0] });
       }
       if (path === '/auth/v1/user' && req.method === 'PUT') {
         const uid = uidOf(req);

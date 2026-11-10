@@ -56,6 +56,8 @@ function Shell() {
   const goPage = useCallback((p: Page) => { closeSheets(); setPage(p); window.scrollTo(0, 0); }, [closeSheets]);
   const goSettings = useCallback(() => goPage('settings'), [goPage]);
 
+  // A reset link (or a link that failed) was opened: Settings is where the new password is chosen, or where a new link is asked for.
+  useEffect(() => { if (app.ready && (app.recovering || app.authNotice) && !app.locked) goSettings(); }, [app.ready, app.recovering, app.authNotice, app.locked, goSettings]);
   // A join link was opened: show where it can be used, once the PIN screen (if any) is out of the way.
   useEffect(() => { if (app.ready && app.joinCode && !app.locked) openSheet('groups'); }, [app.ready, app.joinCode, app.locked, openSheet]);
   // The PIN screen must not sit under an open sheet or dialog (they are drawn above the page): close them all before it
