@@ -427,6 +427,12 @@ export function budgetState(group: Group, spent: number, planned: number, monthI
   return spent > planned ? 'over' : 'ok';
 }
 
+// From this share of a budget used, the meter and the words turn amber ("nearly used"); past 100% they turn red.
+export const NEAR_BUDGET = 0.8;
+export function nearBudget(spent: number, planned: number): boolean {
+  return planned > 0 && spent <= planned && spent >= planned * NEAR_BUDGET;
+}
+
 // ---------------------------------------------------------------- export to the spreadsheet's Log tab
 // Excel runs a pasted cell as a formula if it starts with = + - @, and treats a leading double quote as a text
 // qualifier (stripping it and then evaluating what follows). It also turns things like 1/2 or 00123 into a date or

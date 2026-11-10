@@ -8,7 +8,7 @@ import { dueRelative, fmtNet } from '../blocks.ts';
 import { planForMonth } from '../categories.ts';
 import { dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from '../dashboard.ts';
 import { monthLabel, shortDate } from '../format.ts';
-import { fmtINR, isoDate, monthOf, shiftMonth } from '../logic.ts';
+import { fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../logic.ts';
 
 // The sheets a tile can open (App.tsx owns them).
 export type Section = 'recent' | 'month' | 'plan' | 'groups' | 'export';
@@ -69,8 +69,8 @@ export function HomeScreen({ open, openAdd, goSettings }: Props) {
               </span>
             )}
           </div>
-          <p className={`status ${ov.budgeted && left < 0 ? 'bad' : ''}`}>
-            {!ov.budgeted ? 'No budgets yet: open to set them.' : left >= 0 ? `${fmtINR(left)} left this month` : `${fmtINR(-left)} over budget`}
+          <p className={`status ${ov.budgeted && left < 0 ? 'bad' : ov.budgeted && nearBudget(ov.spent, ov.budget) ? 'warn' : ''}`}>
+            {!ov.budgeted ? 'No budgets yet: open to set them.' : left >= 0 ? `${fmtINR(left)} left this month${nearBudget(ov.spent, ov.budget) ? ', budget nearly used' : ''}` : `${fmtINR(-left)} over budget`}
           </p>
           {toDate === 0 && (ov.lastDaily[ov.lastDaily.length - 1] ?? 0) === 0 ? (
             // nothing to draw yet: a flat line at zero would say less than these words
