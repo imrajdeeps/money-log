@@ -8,7 +8,8 @@ import { RecentList } from '../payments/index.ts';
 import { dueRelative, fmtNet } from '../../core/blocks.ts';
 import { planForMonth } from '../../core/categories.ts';
 import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
-import { monthLabel, shortDate } from '../../core/format.ts';
+import { monthLabel, monthShort, shortDate } from '../../core/format.ts';
+import { averageOf, groupLookup, monthlyTotals, monthsEnding, projectedMonthEnd } from '../../core/analytics.ts';
 import type { Group } from '../../core/logic.ts';
 import { budgetEntries, fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
@@ -16,7 +17,7 @@ import * as hs from '../../ui/tileStyles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
-export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export' | 'goals';
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export' | 'goals' | 'analytics';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;
@@ -52,8 +53,14 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
   const tiles = overviewGroups(ov.summary.groups);
   const tileSpan = (12 / tiles.length) as 3 | 4 | 6 | 12;
 
-  const mon = new Intl.DateTimeFormat('en-IN', { month: 'short' }).format(new Date(`${month}-15T12:00:00`));
-  const lastMon = new Intl.DateTimeFormat('en-IN', { month: 'short' }).format(new Date(`${shiftMonth(month, -1)}-15T12:00:00`));
+  const mon = monthShort(month);
+  const lastMon = monthShort(shiftMonth(month, -1));
+  const projected = projectedMonthEnd(ov.daily, month, ov.lastDaily); // where the month ends at this pace, once there are days enough to say
+  // a usual month: the average of the three months before this one that had any spending
+  const usual = useMemo(() => {
+    const prev = monthlyTotals(budgetEntries(app.entries, app.me), groupLookup(app.categories), monthsEnding(shiftMonth(month, -1), 3));
+    return averageOf(prev.filter((t) => t.spent > 0).map((t) => t.spent));
+  }, [app.entries, app.me, app.categories, month]);
   const toDate = ov.daily[ov.daily.length - 1] ?? 0;
   const left = ov.budget - ov.spent;
   const paceLabel = tr('Spending this month by day: {0} by {1} {2}; last month {3} by the same day', fmtINR(toDate), ov.day, mon, fmtINR(ov.lastToDate))
@@ -87,11 +94,12 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
             <BentoEmpty cta={tr('Add expense')} onCta={openAdd}>{tr('No spending logged this month or last (savings are not counted here). Your spending by day shows here once you log a payment.')}</BentoEmpty>
           ) : (
             <>
-              <PaceChart daily={ov.daily} lastDaily={ov.lastDaily} days={ov.days} budget={ov.budgeted ? ov.budget : 0} label={paceLabel} />
+              <PaceChart daily={ov.daily} lastDaily={ov.lastDaily} days={ov.days} budget={ov.budgeted ? ov.budget : 0} projected={ov.day < ov.days ? projected : null} label={paceLabel} />
               <div className={hs.paceAxis} aria-hidden="true"><span>1 {mon}</span><span>{ov.days} {mon}</span></div>
               <ul className={hs.legend}>
                 <li><i className={hs.key.now} aria-hidden="true" />{tr('This month')}{' '}<b>{fmtINR(toDate)}</b></li>
                 <li><i className={hs.key.last} aria-hidden="true" />{tr('{0}, by day {1}', lastMon, Math.min(ov.day, ov.lastDaily.length))}{' '}<b>{fmtINR(ov.lastToDate)}</b></li>
+                {projected !== null && ov.day < ov.days && <li><i className={hs.key.proj} aria-hidden="true" />{tr('Likely by month end')} <b>{fmtINR(Math.round(projected))}</b></li>}
                 {ov.budgeted && <li><i className={hs.key.budget} aria-hidden="true" />{tr('Budget')}{' '}<b>{fmtINR(ov.budget)}</b></li>}
               </ul>
             </>
@@ -169,6 +177,18 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
             </BentoEmpty>
           </BentoCard>
         )}
+
+        <BentoCard title={tr('Insights')} span={4} onOpen={() => open('analytics')} openLabel={tr('Open insights')}>
+          {usual > 0 ? (
+            <>
+              <p className={hs.statNum()}>{fmtINR(usual)} <span className={hs.statUnit}>{tr('a usual month')}</span></p>
+              <p className={hs.note}>{projected !== null && ov.day < ov.days ? tr('This month will likely end near {0}.', fmtINR(Math.round(projected))) : tr('{0} so far this month.', fmtINR(toDate))}</p>
+              <p className={hs.noteFoot}>{tr('Months, categories, days of the week and goals, added up.')}</p>
+            </>
+          ) : (
+            <BentoEmpty>{tr('Insights fill in once you have logged a month or two of payments.')}</BentoEmpty>
+          )}
+        </BentoCard>
 
         <BentoCard title={tr('Where it went')} span={4} onOpen={cats.total > 0 ? () => open('month') : undefined} openLabel={tr('Open this month\'s categories')}>
           {cats.total === 0 ? (

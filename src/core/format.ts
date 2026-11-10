@@ -39,3 +39,22 @@ export function stamp(d = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+/** 1,23,456 as "₹1.2L", 4,50,00,000 as "₹4.5Cr", 12,300 as "₹12k": for places too small for the whole number. */
+export function compactINR(n: number): string {
+  const v = Math.abs(n);
+  const trim = (x: number) => String(Math.round(x * 10) / 10).replace(/\.0$/, '');
+  const body = v >= 1e7 ? `${trim(v / 1e7)}Cr` : v >= 1e5 ? `${trim(v / 1e5)}L` : v >= 1e3 ? `${trim(v / 1e3)}k` : String(Math.round(v));
+  return `${n < 0 ? '-' : ''}₹${body}`;
+}
+
+/** "Nov", from a month key like 2026-11, in the chosen language. */
+export function monthShort(key: string): string {
+  const [y, m] = parts(`${key}-01`);
+  return fmt('ms', { month: 'short' }).format(new Date(y, m - 1, 1));
+}
+
+/** "Mon" ... "Sun" in the chosen language; 0 is Monday. */
+export function weekdayShort(i: number): string {
+  return fmt('wd', { weekday: 'short' }).format(new Date(2024, 0, 1 + i)); // 1 January 2024 was a Monday
+}

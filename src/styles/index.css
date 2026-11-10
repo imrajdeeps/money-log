@@ -110,6 +110,8 @@
   .pace .pace-budget { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; stroke-linecap: butt; }
   .pace .pace-last { stroke: var(--chart-ref); stroke-width: 2; }
   .pace .pace-area { fill: var(--accent); fill-opacity: 0.1; stroke: none; }
+  .pace .pace-grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.7; }
+  .pace .pace-proj { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 5; stroke-linecap: butt; opacity: 0.8; }
   .pace .pace-now { stroke: var(--accent); stroke-width: 2; }
   .pace .pace-ring { stroke: var(--card); stroke-width: 12; }
   .pace .pace-dot { stroke: var(--accent); stroke-width: 8; }
