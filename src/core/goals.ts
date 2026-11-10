@@ -188,3 +188,32 @@ export function goalLine(goal: Goal, progress: GoalProgress, todayIso: string): 
   const months = monthsLeft(goal.d, todayIso);
   return { state: 'needs', monthly: Math.ceil(progress.remaining / months), months };
 }
+
+// ---------------------------------------------------------------- the plan
+export interface PlanRow { goal: Goal; monthly: number; months: number }
+export interface GoalPlan {
+  rows: PlanRow[]; // the goals that still need money and have a date to come, nearest date first
+  total: number; // what to set aside each month for all of them
+  budget: number | null; // this month's Saving budget, or null when none is set
+  gap: number | null; // total - budget: above zero the budget is short by this much, below zero it has this much to spare
+  covers: boolean | null; // null when there is no budget to compare with
+  reached: number; // goals with nothing left to save
+  passed: number; // goals whose date has gone by with money still to go (not in the monthly total until the date changes)
+}
+
+// What to set aside each month for every goal that still needs money, and whether the Saving budget covers the total. Plain
+// division of what remains by the months left (no interest, no returns).
+export function goalPlan(goals: { goal: Goal; line: GoalLine }[], savingBudget: number | null): GoalPlan {
+  const rows: PlanRow[] = [];
+  let reached = 0;
+  let passed = 0;
+  for (const { goal, line } of goals) {
+    if (line.state === 'reached') reached++;
+    else if (line.state === 'passed') passed++;
+    else rows.push({ goal, monthly: line.monthly, months: line.months });
+  }
+  rows.sort((a, b) => (a.goal.d < b.goal.d ? -1 : a.goal.d > b.goal.d ? 1 : a.goal.n.localeCompare(b.goal.n)));
+  const total = rows.reduce((n, r) => n + r.monthly, 0);
+  const gap = savingBudget === null ? null : total - savingBudget;
+  return { rows, total, budget: savingBudget, gap, covers: gap === null ? null : gap <= 0, reached, passed };
+}

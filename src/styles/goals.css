@@ -15,3 +15,9 @@
 .topupform { margin-top: 4px; }
 .topups .finished { margin: 8px 0 0; }
 .topuprow { display: flex; align-items: center; padding: 8px 12px; }
+
+/* The plan card. */
+.plancard .big-num { margin: 0 0 6px; }
+.planverdict { margin: 10px 0 6px; font-weight: 600; }
+.planverdict.ok { color: var(--good); }
+.planverdict.short { color: var(--bad); }
