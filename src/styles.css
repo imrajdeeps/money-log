@@ -221,6 +221,7 @@ input[type='file'] { display: none; }
 .btnrow .btn { flex: 1; }
 .card > .btn:not(.big) { margin-top: 6px; width: 100%; }
 .filebtn { margin-top: 10px; }
+.btnrow .filebtn { margin-top: 0; } /* inside a row of buttons it lines up with its neighbour */
 
 .msg { margin: 10px 0 0; padding: 0; font-size: 14px; }
 .msg.bad { color: var(--bad); }
