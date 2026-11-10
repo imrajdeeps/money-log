@@ -106,3 +106,23 @@ export const steps = 'pl-5 my-2.5 mx-0 [&>li]:mb-1';
 export function dueRow(done?: boolean) {
   return cx('flex items-center gap-2.5 px-3 py-2 [&_b]:[overflow-wrap:anywhere]', done && '[&_b]:line-through [&_b]:text-muted');
 }
+
+// ---- the page frame ---------------------------------------------------------------------------------------------------
+/** a square icon button in the header (44px) */
+export const iconBtn =
+  'inline-flex w-11 h-11 items-center justify-center border border-line rounded-xl bg-card text-ink cursor-pointer hover:bg-bg hover:text-ink aria-[current=page]:text-accent aria-[current=page]:border-accent';
+const PILL =
+  'relative rounded-full px-3 py-1.5 min-h-[34px] text-[13px] font-semibold cursor-pointer border ' +
+  "after:content-[''] after:absolute after:-inset-x-0.5 after:-inset-y-[5px] " + // a 44px target without a taller pill
+  'transition-[transform,background-color,border-color] duration-[120ms] active:scale-[0.97]';
+const PILL_TONE = {
+  idle: 'border-line bg-card text-ink',
+  good: 'border-line bg-card text-good',
+  warn: 'border-transparent bg-warn-bg text-warn',
+  bad: 'border-transparent bg-bad-bg text-bad',
+  busy: 'border-line bg-card text-accent',
+  muted: 'border-line bg-card text-muted',
+} as const;
+/** the sync pill in the header */
+export const pill = (tone: keyof typeof PILL_TONE) => cx(PILL, PILL_TONE[tone]);
+export type PillTone = keyof typeof PILL_TONE;

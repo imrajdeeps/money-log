@@ -53,10 +53,11 @@ export function SwipeRow({ children, onDelete, label, className, as = 'li' }: { 
   }
 
   return (
-    <Root ref={root as RefObject<HTMLLIElement>} className="swiperow">
+    <Root ref={root as RefObject<HTMLLIElement>} className="relative overflow-hidden">
       <button
         type="button"
-        className="swipe-del"
+        // hidden until the row moves: at a fractional position its red edge would show round the row's border
+        className={`absolute top-0 right-0 bottom-0 w-[92px] flex items-center justify-center border-0 bg-bad text-bad-ink cursor-pointer transition-opacity ${shift === 0 ? 'opacity-0' : 'opacity-100'}`}
         tabIndex={open ? 0 : -1}
         aria-label={`Delete: ${label}`}
         onClick={() => { setShift(0); onDelete(); }}
@@ -65,7 +66,7 @@ export function SwipeRow({ children, onDelete, label, className, as = 'li' }: { 
         <Icon name="trash" size={26} />
       </button>
       <div
-        className={`swipe-front${className ? ` ${className}` : ''}${dragging ? ' dragging' : ''}`}
+        className={`relative bg-card [touch-action:pan-y]${dragging ? '' : ' transition-transform duration-200 ease-[ease]'}${className ? ` ${className}` : ''}`}
         style={{ transform: `translateX(${shift}px)` }}
         onPointerDown={down}
         onPointerMove={move}
