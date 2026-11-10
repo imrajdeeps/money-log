@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { cleanDoneMap, mergeDone, pruneDone, setDone } from '../core/blocks.ts';
+import { cleanDoneMap, mergeDone, pruneDone, removeDue as removeDueMark, setDone } from '../core/blocks.ts';
 import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from '../core/blocks.ts';
 import { parseAuthHash } from './authlink.ts';
 import type { AuthLink } from './authlink.ts';
@@ -403,6 +403,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await afterChange();
   }, [afterChange]);
 
+  // Takes an item off the due list (the swipe-to-delete). It stays in the imported data, marked removed like a Done mark.
+  const removeDue = useCallback(async (key: string) => {
+    const e = engRef.current;
+    if (!e) return;
+    const nowIso = new Date().toISOString();
+    await e.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: removeDueMark(cur?.items ?? {}, key, nowIso), dirty: 1 }));
+    await afterChange();
+  }, [afterChange]);
+
   // Changes to the categories and budgets are read-modify-write on the stored map, so two quick taps never lose one.
   const changeMine = useCallback(async (f: (m: Mine, list: CategoryInfo[], nowIso: string) => Mine) => {
     const e = engRef.current;
@@ -580,10 +589,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     syncEnabled,
     toastMsg,
     toast,
-    addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets,
+    addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

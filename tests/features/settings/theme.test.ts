@@ -85,7 +85,7 @@ const TEXT: [string, string][] = [
   ['--ink', '--card'], ['--ink', '--bg'], ['--muted', '--card'], ['--muted', '--bg'], ['--accent', '--card'], ['--accent', '--bg'],
   ['--brand-ink', '--brand'], ['--primary-ink', '--primary'],
   ['--good', '--card'], ['--good', '--good-bg'], ['--bad', '--card'], ['--bad', '--bad-bg'], ['--warn', '--card'], ['--warn', '--warn-bg'],
-  ['--brand', '--card'], ['--good-ink', '--good'],
+  ['--brand', '--card'], ['--good-ink', '--good'], ['--bad-ink', '--bad'],
 ];
 
 for (const [name, tokens] of [['light', light], ['dark', dark]] as const) {
