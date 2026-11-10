@@ -19,18 +19,16 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 function AccountCard() {
   const app = useApp();
   const s = app.sync;
-  const [how, setHow] = useState<'signin' | 'signup' | 'code'>('signin');
+  const [how, setHow] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
-  const [code, setCode] = useState('');
-  const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [leaving, setLeaving] = useState(false); // the sign-out choice is showing
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
 
-  function choose(next: 'signin' | 'signup' | 'code') {
-    setHow(next); setMsg(null); setSent(false); setCode(''); setPassword2('');
+  function choose(next: 'signin' | 'signup') {
+    setHow(next); setMsg(null); setPassword2('');
   }
 
   async function signIn(ev: FormEvent) {
@@ -51,25 +49,7 @@ function AccountCard() {
       const r = await app.signUp(email.trim(), password);
       setPassword(''); setPassword2('');
       if (r === 'signed-in') app.toast('Account created');
-      else setMsg({ text: `Almost there: open the confirmation link we emailed to ${email.trim()}, then come back and sign in. If you already have an account with this address, just sign in.`, bad: false });
-    } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
-  }
-
-  async function sendCode() {
-    setBusy(true); setMsg(null);
-    try {
-      await app.requestCode(email.trim());
-      setSent(true);
-      setMsg({ text: `We emailed a 6-digit code to ${email.trim()}. It can take a minute.`, bad: false });
-    } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
-  }
-
-  async function verify() {
-    setBusy(true); setMsg(null);
-    try {
-      await app.verifyCode(email.trim(), code);
-      setCode(''); setSent(false); setMsg(null);
-      app.toast('Signed in');
+      else setMsg({ text: `Almost there: open the confirmation link we emailed to ${email.trim()}, then come back and sign in. If you already have an account with this address, just sign in. No email after a few minutes? This project's email may be limited: see the README (email setup).`, bad: false });
     } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
   }
 
@@ -91,7 +71,6 @@ function AccountCard() {
         <div className="chips" role="group" aria-label="How to sign in">
           <button type="button" className="chip" aria-pressed={how === 'signin'} onClick={() => choose('signin')}>Sign in</button>
           <button type="button" className="chip" aria-pressed={how === 'signup'} onClick={() => choose('signup')}>Create account</button>
-          <button type="button" className="chip" aria-pressed={how === 'code'} onClick={() => choose('code')}>Email code</button>
         </div>
         {how === 'signin' && (
           <form onSubmit={signIn} noValidate>
@@ -107,7 +86,7 @@ function AccountCard() {
             <div className="btnrow">
               <button type="submit" className="btn" disabled={busy || !email.trim() || !password}>Sign in</button>
             </div>
-            <p className="muted small">Forgot your password? <button type="button" className="linkbtn" onClick={() => choose('code')}>Get an email code</button>, sign in with it, then set a new password under Password and sessions.</p>
+            <p className="muted small">Forgot your password? This app cannot email you a new one. Ask whoever runs the project to reset it (README, "If someone forgets their password").</p>
           </form>
         )}
         {how === 'signup' && (
@@ -128,34 +107,8 @@ function AccountCard() {
             <div className="btnrow">
               <button type="submit" className="btn" disabled={busy || !email.trim() || !password || !password2}>Create account</button>
             </div>
-            <p className="muted small">A few words in a row make a strong password. There is no way to recover it from the app: if you forget it, use an email code.</p>
+            <p className="muted small">A few words in a row make a strong password. It cannot be emailed to you if you forget it: whoever runs the project can reset it (README).</p>
           </form>
-        )}
-        {how === 'code' && (
-          <>
-            <p className="muted small">No password: we email you a 6-digit code.</p>
-            <label className="field">
-              <span>Email</span>
-              <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} />
-            </label>
-            {sent && (
-              <label className="field">
-                <span>6-digit code</span>
-                <input inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={code} onChange={(e) => setCode(e.target.value)} disabled={busy} />
-              </label>
-            )}
-            {note}
-            <div className="btnrow">
-              {!sent ? (
-                <button type="button" className="btn" disabled={busy || !email.trim()} onClick={sendCode}>Send code</button>
-              ) : (
-                <>
-                  <button type="button" className="btn" disabled={busy || !code.trim()} onClick={verify}>Sign in</button>
-                  <button type="button" className="btn ghost" disabled={busy} onClick={sendCode}>Send again</button>
-                </>
-              )}
-            </div>
-          </>
         )}
       </div>
     );
@@ -264,7 +217,7 @@ function PasswordCard() {
     <div className="card">
       <h2>Password and sessions</h2>
       <form onSubmit={save} noValidate>
-        <p className="muted small">Set a password to sign in without an email code, or change it. Others cannot see it and it is not kept on this phone.</p>
+        <p className="muted small">Choose a new password. Others cannot see it and it is not kept on this phone.</p>
         <label className="field">
           <span>New password (at least {MIN_PASSWORD} characters)</span>
           <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} disabled={busy} />
