@@ -15,6 +15,9 @@ import { syncEnabled } from './context.tsx';
 
 export interface Engine { store: Store; sync: Sync }
 
+/** A button that comes with a message: what it says and what it does. */
+export interface ToastAction { label: string; run: () => void | Promise<void> }
+
 export interface AppApi {
   ready: boolean;
   storageKind: Store['kind'];
@@ -59,10 +62,12 @@ export interface AppApi {
   sync: SyncState;
   syncEnabled: boolean;
   toastMsg: string | null;
-  toast: (msg: string) => void;
+  toastAction: ToastAction | null; // a button in the message (Undo)
+  toast: (msg: string, action?: ToastAction) => void;
   addEntry: (input: NewEntryInput) => Promise<string>; // the new payment's id
   updateEntry: (id: string, changes: Partial<NewEntryInput>) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
+  undoEntry: (before: Entry) => Promise<void>; // puts a payment back as it was before an edit or a delete
   markExported: (ids: string[]) => Promise<void>;
   applyPlan: (data: PlanData) => Promise<void>;
   applyDue: (data: DueData) => Promise<void>;

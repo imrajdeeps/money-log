@@ -37,5 +37,7 @@ export const fabCircle =
   '[box-shadow:0_0_0_4px_var(--card),inset_0_0_0_1px_var(--primary-ring),0_8px_18px_-6px_rgba(16,40,28,0.55)] ' +
   'transition-transform duration-150 group-active/fab:[transform:scale(0.94)] motion-reduce:group-active/fab:[transform:none] ' +
   'group-focus-visible/fab:[outline:3px_solid_var(--accent)] group-focus-visible/fab:outline-offset-[3px]';
+/** the button in a message (Undo): the message itself ignores taps, the button does not */
+export const toastButton = 'pointer-events-auto ml-3 px-2.5 py-1 min-h-9 rounded-lg border-0 bg-[color-mix(in_srgb,var(--bg)_16%,transparent)] text-inherit [font-family:inherit] text-[14px] font-bold cursor-pointer';
 export const toast =
   'fixed inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] max-w-[528px] mx-auto px-4 py-3 rounded-xl bg-ink text-bg text-[14px] text-center z-10 pointer-events-none empty:hidden lg:bottom-6';
