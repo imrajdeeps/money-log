@@ -13,7 +13,7 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 - [x] **Goals and a plan**: the data, the Goals page, top-ups, the plan, and the Overview tile (see `docs/prd-goals.md`).
 
 ## Version 1.11 (decided; was 1.10 until goals took that number)
-- [ ] **Tailwind CSS** instead of the hand-written CSS (the owner's words: "add some animations, remove the css use tailwind css") (utility classes in the components, the CSS files deleted; colours and fonts in Tailwind's theme, light and dark kept). Approved to install `tailwindcss` 4.3.5 and `@tailwindcss/vite` 4.3.5 when it starts.
+- [ ] **Tailwind CSS** instead of the hand-written CSS (step 1, the setup, is in and proven on the Goals screens; the other features move over one at a time) (the owner's words: "add some animations, remove the css use tailwind css") (utility classes in the components, the CSS files deleted; colours and fonts in Tailwind's theme, light and dark kept). Approved to install `tailwindcss` 4.3.5 and `@tailwindcss/vite` 4.3.5 when it starts.
 - [ ] **Animations** — page and tile transitions, list changes, swipe and sheet motion; always respecting reduced motion.
 
 ## Design, to go with Tailwind and animations in 1.11 (asked for while 1.9 was running)

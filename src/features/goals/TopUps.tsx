@@ -33,7 +33,7 @@ export function TopUps({ goal, topUps }: { goal: Goal; topUps: TopUp[] }) {
   return (
     <div className="topups">
       {open ? (
-        <form onSubmit={add} noValidate className="topupform">
+        <form onSubmit={add} noValidate className="mt-1">
           <div className="btnrow">
             <label className="field half"><span>Amount (₹)</span><input inputMode="decimal" value={amount} placeholder="5000" aria-label={`Amount to add to ${goal.n}`} onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
             <label className="field half"><span>Day</span><input type="date" value={date} max={today} onChange={(e) => { setDate(e.target.value || today); setError(''); }} /></label>
@@ -45,14 +45,14 @@ export function TopUps({ goal, topUps }: { goal: Goal; topUps: TopUp[] }) {
           </div>
         </form>
       ) : (
-        <button type="button" className="btn ghost topupadd" onClick={() => setOpen(true)}>Add to this goal</button>
+        <button type="button" className="btn ghost min-h-10 px-3.5" onClick={() => setOpen(true)}>Add to this goal</button>
       )}
       {topUps.length > 0 && (
-        <details className="finished">
+        <details className="finished mt-2 mb-0">
           <summary>Top-ups ({topUps.length}) · {fmtINR(total)}</summary>
           <ul className="list">
             {topUps.map((t) => (
-              <SwipeRow key={t.id} className="topuprow" label={`${fmtINR(t.a)} on ${shortDate(t.d)}`} onDelete={() => { void app.removeTopUp(t.id).then(() => app.toast(`Removed ${fmtINR(t.a)} from ${goal.n}`)); }}>
+              <SwipeRow key={t.id} className="flex items-center px-3 py-2" label={`${fmtINR(t.a)} on ${shortDate(t.d)}`} onDelete={() => { void app.removeTopUp(t.id).then(() => app.toast(`Removed ${fmtINR(t.a)} from ${goal.n}`)); }}>
                 <span className="row-main"><b>{fmtINR(t.a)}</b><small>{shortDate(t.d)}</small></span>
               </SwipeRow>
             ))}

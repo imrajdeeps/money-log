@@ -20,16 +20,16 @@ export function GoalRow({ goal, progress, line, topUps, onEdit, onRemove }: { go
   const tone = line.state === 'reached' ? 'good' : line.state === 'passed' ? 'bad' : 'accent';
   return (
     <li>
-    <SwipeRow as="div" className="goalrow" label={goal.n} onDelete={onRemove}>
-      <button type="button" className="goalhead" onClick={onEdit} aria-label={`Change goal: ${goal.n}`}>
+    <SwipeRow as="div" className="px-3.5 py-3" label={goal.n} onDelete={onRemove}>
+      <button type="button" className="flex w-full cursor-pointer items-start justify-between gap-3 border-0 bg-transparent p-0 text-left text-inherit [font:inherit]" onClick={onEdit} aria-label={`Change goal: ${goal.n}`}>
         <span className="row-main"><b>{goal.n}</b><small>by {shortDate(goal.d)}</small></span>
         <span className="amt">{fmtINR(progress.saved)} <small className="muted">of {fmtINR(goal.a)}</small></span>
       </button>
-      <div className={`bar meter-${tone}`} role="img" aria-label={`${Math.round(progress.fraction * 100)} percent of the target`}><i style={{ width: `${Math.round(progress.fraction * 100)}%` }} /></div>
-      <p className={`goalstate ${line.state}`}>{lineText(line)}</p>
-      {parts.length > 0 && <p className="muted small goalparts">{parts.join(' · ')}</p>}
+      <div className={`bar meter-${tone} mt-2.5 mb-1.5`} role="img" aria-label={`${Math.round(progress.fraction * 100)} percent of the target`}><i style={{ width: `${Math.round(progress.fraction * 100)}%` }} /></div>
+      <p className={`m-0 text-sm ${line.state === 'reached' ? 'font-semibold text-good' : line.state === 'passed' ? 'text-bad' : ''}`}>{lineText(line)}</p>
+      {parts.length > 0 && <p className="mt-1 mb-0 text-[13px] text-muted">{parts.join(' · ')}</p>}
     </SwipeRow>
-    <div className="goaltopups"><TopUps goal={goal} topUps={topUps} /></div>
+    <div className="px-3.5 pb-3"><TopUps goal={goal} topUps={topUps} /></div>
     </li>
   );
 }
