@@ -28,6 +28,9 @@ export interface MockState {
   members: Map<string, any>; // `${group}|${user}`
   invites: Map<string, any>; // by group
   settlements: Map<string, any>;
+  receipts: Map<string, any>;
+  objects: Map<string, { bytes: number; owner: string; type: string; data: Buffer }>; // Storage: path -> file
+  history: any[];
   requests: string[];
   failNext: { status: number; body: unknown } | null;
 }
@@ -37,6 +40,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     otp: '123456', accessTtlSec: 3600,
     users: new Map(), codes: new Map(), access: new Map(), refresh: new Map(),
     entries: new Map(), plans: new Map(), groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
+    receipts: new Map(), objects: new Map(), history: [],
     requests: [], failNext: null,
   };
   let tick = 0;
@@ -199,6 +203,37 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     return rows.slice(offset, offset + limit);
   };
 
+  // ---------- receipt photos (outline of the receipts rules in supabase/schema.sql)
+  const entryVisible = (eid: string, uid: string): boolean => {
+    const e = state.entries.get(eid);
+    return Boolean(e && (e.owner_id === uid || (e.group_id && active(e.group_id, uid))));
+  };
+  const receiptProblem = (r: any, old: any, uid: string): { status: number; body: unknown } | null => {
+    if (r.owner_id !== uid || (old && old.owner_id !== uid)) return denied('receipts');
+    if (r.path !== `${r.owner_id}/${r.id}.jpg`) return refuse('The photo path must be <owner>/<id>.jpg');
+    if (!Number.isInteger(r.bytes) || r.bytes < 1 || r.bytes > 1048576) return refuse('A photo is 1 byte to 1 MB');
+    if (old) {
+      if (old.entry_id !== r.entry_id || old.path !== r.path || old.bytes !== r.bytes) return refuse('A receipt can only be marked uploaded, deleted or purged');
+      if (r.purged_at && !old.purged_at && state.objects.has(r.path)) return refuse('The file is still in storage: remove it before marking the photo purged');
+      return null;
+    }
+    const e = state.entries.get(r.entry_id);
+    if (!e || e.owner_id !== uid || e.deleted_at || (e.group_id && !active(e.group_id, uid))) return denied('receipts');
+    if ([...state.receipts.values()].filter((x) => x.entry_id === r.entry_id && !x.deleted_at && x.id !== r.id).length >= 3) return err(400, '53400', 'A payment can carry at most 3 receipt photos');
+    return null;
+  };
+  const storageError = (status: number, message: string) => err(status, String(status), message);
+  const rawBody = async (req: IncomingMessage): Promise<Buffer> => {
+    const chunks: Buffer[] = [];
+    for await (const c of req) chunks.push(c as Buffer);
+    return Buffer.concat(chunks);
+  };
+  const canReadObject = (path: string, uid: string): boolean => {
+    if (path.split('/')[0] === uid) return true;
+    const r = [...state.receipts.values()].find((x) => x.path === path);
+    return Boolean(r && !r.deleted_at && (r.owner_id === uid || entryVisible(r.entry_id, uid)));
+  };
+
   function serveStatic(url: URL, res: ServerResponse) {
     if (!opts.staticDir) return send(res, 404, { message: 'not found' });
     let rel = decodeURIComponent(url.pathname);
@@ -216,9 +251,9 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     try {
       const url = new URL(req.url ?? '/', 'http://x');
       const path = url.pathname;
-      const isApi = path.startsWith('/auth/v1/') || path.startsWith('/rest/v1/') || path === '/__state';
+      const isApi = path.startsWith('/auth/v1/') || path.startsWith('/rest/v1/') || path.startsWith('/storage/v1/') || path === '/__state';
       if (!isApi) return serveStatic(url, res);
-      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], requests: state.requests.length });
+      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], receipts: [...state.receipts.values()], objects: [...state.objects.entries()].map(([path, o]) => ({ path, bytes: o.bytes, owner: o.owner })), history: state.history, requests: state.requests.length });
       state.requests.push(`${req.method} ${path}${url.search}`);
       if (req.headers.apikey !== API_KEY) return send(res, 401, { message: 'No API key found in request' });
       if (state.failNext) { const f = state.failNext; state.failNext = null; return send(res, f.status, f.body); }
@@ -273,7 +308,22 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
           for (const r of rows) {
             const existing = state.entries.get(r.id);
             if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
-            state.entries.set(r.id, { group_id: null, paid_by: null, shares: null, ...r, note: r.note ?? '', synced_at: stamp() });
+            const next = { group_id: null, paid_by: null, shares: null, share_of: null, ...r, note: r.note ?? '', synced_at: stamp() };
+            state.entries.set(r.id, next);
+            // mirrors the entries_delete_receipts trigger: deleting a payment deletes its photos
+            if (next.deleted_at && !(existing && existing.deleted_at)) {
+              for (const rc of state.receipts.values()) if (rc.entry_id === next.id && !rc.deleted_at) { rc.deleted_at = stamp(); rc.updated_at = new Date(Math.max(Date.now(), parseTs(rc.updated_at) + 1)).toISOString(); rc.synced_at = stamp(); }
+            }
+            // mirrors the entries_history trigger for shared expenses (created / edited / deleted)
+            if (next.group_id) {
+              const changes: any = {};
+              if (!existing || existing.group_id !== next.group_id) state.history.push({ id: randomUUID(), entry_id: next.id, group_id: next.group_id, changed_by: uid, changed_at: stamp(), kind: 'created', changes: { amount: next.amount, category: next.category, note: next.note, entry_date: next.entry_date, paid_by: next.paid_by, shares: next.shares } });
+              else {
+                for (const k of ['amount', 'category', 'note', 'entry_date', 'paid_by', 'shares']) if (JSON.stringify(existing[k]) !== JSON.stringify(next[k])) changes[k] = { from: existing[k], to: next[k] };
+                const del = next.deleted_at && !existing.deleted_at;
+                if (Object.keys(changes).length || del) state.history.push({ id: randomUUID(), entry_id: next.id, group_id: next.group_id, changed_by: uid, changed_at: stamp(), kind: del ? 'deleted' : 'edited', changes });
+              }
+            }
           }
           return send(res, 201);
         }
@@ -304,6 +354,57 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
             state.settlements.set(r.id, { ...r, synced_at: stamp() });
           }
           return send(res, 201);
+        }
+      }
+
+      if (path === '/rest/v1/receipts') {
+        if (req.method === 'GET') return send(res, 200, page([...state.receipts.values()].filter((r) => r.owner_id === uid || entryVisible(r.entry_id, uid)), url));
+        if (req.method === 'POST') {
+          const rows: any[] = await body(req);
+          for (const r of rows) {
+            const existing = state.receipts.get(r.id);
+            if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
+            const problem = receiptProblem(r, existing, uid);
+            if (problem) return send(res, problem.status, problem.body);
+          }
+          for (const r of rows) {
+            const existing = state.receipts.get(r.id);
+            if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
+            state.receipts.set(r.id, { ...r, synced_at: stamp() });
+          }
+          return send(res, 201);
+        }
+      }
+      if (path === '/rest/v1/entry_history' && req.method === 'GET') {
+        const eid = /^eq\.(.+)$/.exec(url.searchParams.get('entry_id') ?? '')?.[1];
+        const rows = state.history.filter((h) => (!eid || h.entry_id === eid) && active(h.group_id, uid)).sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
+        return send(res, 200, rows);
+      }
+
+      // ---------- Storage (private bucket "receipts"), outline of its policies
+      const obj = /^\/storage\/v1\/object\/(authenticated\/)?receipts\/(.+)$/.exec(path);
+      if (obj) {
+        const objPath = decodeURIComponent(obj[2]!);
+        if (req.method === 'POST' && !obj[1]) {
+          const data = await rawBody(req);
+          const row = [...state.receipts.values()].find((x) => x.path === objPath);
+          if (objPath.split('/')[0] !== uid || !row || row.owner_id !== uid || row.deleted_at || row.purged_at) return send(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
+          if (String(req.headers['content-type'] ?? '') !== 'image/jpeg') return send(res, 415, { statusCode: '415', error: 'invalid_mime_type', message: 'mime type is not supported' });
+          if (data.length > 1048576) return send(res, 413, { statusCode: '413', error: 'Payload too large', message: 'The object exceeded the maximum allowed size' });
+          if (state.objects.has(objPath)) return send(res, 400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });
+          state.objects.set(objPath, { bytes: data.length, owner: uid, type: 'image/jpeg', data });
+          return send(res, 200, { Key: `receipts/${objPath}` });
+        }
+        if (req.method === 'GET' && obj[1]) {
+          const o = state.objects.get(objPath);
+          if (!o || !canReadObject(objPath, uid)) return send(res, 404, { statusCode: '404', error: 'not_found', message: 'Object not found' });
+          res.writeHead(200, { 'Content-Type': o.type, 'Cache-Control': 'no-store' });
+          return void res.end(o.data);
+        }
+        if (req.method === 'DELETE' && !obj[1]) {
+          if (objPath.split('/')[0] !== uid || !state.objects.has(objPath)) return send(res, 404, { statusCode: '404', error: 'not_found', message: 'Object not found' });
+          state.objects.delete(objPath);
+          return send(res, 200, { message: 'Successfully deleted' });
         }
       }
 

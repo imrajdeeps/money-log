@@ -313,3 +313,36 @@ test('the spreadsheet App export block imports cleanly', { skip: !REAL || !exist
   assert.ok(r.plan.rows.every((row) => row.p.length === 36));
   console.log(`  real block: ${r.summary.categories} categories x ${r.summary.months} months (${r.summary.first} to ${r.summary.last})`);
 });
+
+// ---------------------------------------------------------------- Log layout with a Method column, and the my-share link
+test('with a Method column the export has five input columns and the note carries no [UPI] prefix', () => {
+  const upi = mk({ entry_date: '2026-11-03', category: 'Groceries', amount: 500, method: 'UPI', note: 'weekly shop' });
+  const none = mk({ entry_date: '2026-11-04', category: 'Rent', amount: 9000, method: null, note: '' });
+  const eq = mk({ entry_date: '2026-11-05', category: 'Misc', amount: 10, method: 'Cash', note: '=1+1' });
+  const rows = exportRows([upi, none, eq], null, 'column');
+  assert.equal(toTSV(rows, 'column'), ['2026-11-03\tGroceries\t500\tUPI\tweekly shop', '2026-11-04\tRent\t9000\t\t', '2026-11-05\tMisc\t10\tCash\t =1+1'].join('\n'));
+  assert.equal(toTSV(exportRows([upi, none, eq]), 'note').split('\n')[0], '2026-11-03\tGroceries\t500\t[UPI] weekly shop', 'the default layout is unchanged');
+  assert.equal(toTSV(exportRows([upi])), '2026-11-03\tGroceries\t500\t[UPI] weekly shop', 'toTSV without a layout is the original four columns');
+  assert.ok(toCSV(rows, 'column').startsWith('﻿Date,Category,Amount,Method,Note\r\n'));
+  assert.ok(toCSV(rows).startsWith('﻿Date,Category,Amount,Note\r\n'));
+  assert.equal(exportNote({ note: 'x', method: 'UPI' }, undefined, 'column'), 'x');
+  assert.equal(exportNote({ note: 'x', method: 'UPI' }), '[UPI] x');
+});
+
+test('a shared expense keeps its "my share of" note in the Method-column layout too', () => {
+  const me = '00000000-0000-4000-8000-0000000000aa';
+  const other = '00000000-0000-4000-8000-0000000000bb';
+  const e: Entry = { ...mk({ amount: 1800, method: 'UPI', note: 'dinner', category: 'Eating out' }), owner_id: me, group_id: '10000000-0000-4000-8000-000000000001', paid_by: me, shares: { [me]: 600, [other]: 1200 } };
+  assert.equal(toTSV(exportRows([e], me, 'column'), 'column'), '2026-11-09\tEating out\t600\tUPI\tdinner, my share of 1,800');
+});
+
+test('the link from a private payment to the shared expense it records is kept and checked', () => {
+  const src = '10000000-0000-4000-8000-0000000000aa';
+  const e = makeEntry({ amount: 450, category: 'Eating out', method: null, note: 'my share', date: '2026-11-09', shareOf: src }, T0);
+  assert.equal(e.share_of, src);
+  assert.equal(makeEntry({ amount: 5, category: 'x', method: null, note: '', date: '2026-11-09' }, T0).share_of, null);
+  assert.equal(cleanEntry({ ...e, share_of: src.toUpperCase() })!.share_of, src);
+  assert.equal(cleanEntry({ ...e, share_of: 'nope' }), null);
+  assert.equal(cleanEntry({ ...e, share_of: undefined })!.share_of, null, 'older rows have none');
+  assert.equal(editEntry(e, { note: 'x' }, '2026-11-10T00:00:00.000Z').share_of, src, 'edits keep the link');
+});

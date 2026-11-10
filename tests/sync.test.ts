@@ -40,7 +40,7 @@ function device(email = 'me@example.com', cfg?: { supabaseUrl: string; supabaseK
 const iso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
 const entry = (over: Partial<Parameters<typeof makeEntry>[0]> = {}): Entry =>
   makeEntry({ amount: 100, category: 'Rent', method: 'UPI', note: 'n', date: '2026-11-09', ...over }, iso());
-const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.users.clear(); mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
+const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
 
 test('without a Supabase URL and key the app stays local and never touches the network', async () => {
   reset();
@@ -813,4 +813,207 @@ test("someone else's settlement on this phone is never sent, even if it were mar
   await b.sync.sync();
   assert.equal(b.sync.getState().mode, 'idle', b.sync.getState().error ?? '');
   assert.equal(mock.state.settlements.get(theirs.id).amount, 10);
+});
+
+// ------------------------------------------------------------------ Release 3: receipt photos, history, my-share link
+import { makeReceipt, markDeleted, needsPurge } from '../src/receipts.ts';
+import type { Receipt } from '../src/receipts.ts';
+
+const jpeg = (bytes: number) => new Blob([new Uint8Array(bytes).fill(255)], { type: 'image/jpeg' });
+const receiptsOf = (d: Dev) => d.store.allReceipts();
+const photo = async (d: Dev, entryId: string, bytes = 4000, withBlob = true): Promise<Receipt> => {
+  const r = makeReceipt(entryId, await uidOf(d), bytes, iso());
+  await d.store.putReceipts([r]);
+  if (withBlob) await d.store.putBlob(r.id, jpeg(bytes));
+  return r;
+};
+
+test('a photo goes up (row, then file, then marked uploaded) and a group member can fetch it, a stranger cannot', async () => {
+  const { a, b, gid, A, B } = await twoInAGroup();
+  const c = device('c@example.com'); await c.signIn();
+  const e = shared(gid, A, { [A]: 50, [B]: 50 });
+  await a.store.putEntries([e]);
+  const r = await photo(a, e.id, 4321);
+  await a.sync.refreshPending();
+  assert.equal(a.sync.getState().pending, 2, 'the payment and its photo wait');
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.equal(a.sync.getState().pending, 0);
+  assert.equal(mock.state.objects.get(r.path)!.bytes, 4321, 'the file is in storage');
+  const server = mock.state.receipts.get(r.id);
+  assert.ok(server.uploaded_at, 'the cloud knows it is uploaded');
+  const mine = (await receiptsOf(a))[0]!;
+  assert.deepEqual([mine.dirty, !!mine.uploaded_at], [0, true]);
+
+  await b.sync.sync();
+  const seen = (await receiptsOf(b))[0]!;
+  assert.equal(seen.owner_id, A);
+  assert.equal(await b.store.getBlob(r.id), undefined, 'not downloaded until it is looked at');
+  const blob = await b.sync.receiptBlob(seen);
+  assert.equal(blob.size, 4321);
+  assert.ok(await b.store.getBlob(r.id), 'kept for next time');
+
+  await c.sync.sync();
+  assert.equal((await receiptsOf(c)).length, 0, 'a stranger sees no photo rows');
+  await assert.rejects(c.sync.receiptBlob({ ...seen, uploaded_at: iso() }), /not available/);
+});
+
+test('the photo of a private payment is not shown to the group', async () => {
+  const { a, b } = await twoInAGroup();
+  const priv = entry({ category: 'Rent' });
+  await a.store.putEntries([priv]);
+  await photo(a, priv.id);
+  await a.sync.sync(); await b.sync.sync();
+  assert.equal(mock.state.receipts.size, 1);
+  assert.equal((await receiptsOf(b)).length, 0);
+});
+
+test('offline, a photo waits and is counted; when the connection returns the payment, its row and its file all go up', async () => {
+  reset();
+  const a = device(); await a.signIn();
+  a.net.offline = true;
+  const e = entry();
+  await a.store.putEntries([e]);
+  const r = await photo(a, e.id);
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'offline');
+  await a.sync.refreshPending();
+  assert.equal(a.sync.getState().pending, 2);
+  a.net.offline = false;
+  await a.sync.sync();
+  assert.equal(a.sync.getState().pending, 0);
+  assert.ok(mock.state.objects.has(r.path) && mock.state.receipts.get(r.id).uploaded_at);
+});
+
+test('deleting a photo removes its file, and the other member drops it and its cached picture', async () => {
+  const { a, b, gid, A, B } = await twoInAGroup();
+  const e = shared(gid, A, { [A]: 10, [B]: 10 });
+  await a.store.putEntries([e]);
+  const r = await photo(a, e.id);
+  await a.sync.sync(); await b.sync.sync();
+  await b.sync.receiptBlob((await receiptsOf(b))[0]!);
+  assert.ok(await b.store.getBlob(r.id));
+
+  await a.store.mutateReceipts([r.id], (cur) => markDeleted(cur!, iso()));
+  await a.sync.sync();
+  assert.equal(mock.state.objects.has(r.path), false, 'the file was removed through the Storage API');
+  const server = mock.state.receipts.get(r.id);
+  assert.ok(server.deleted_at && server.purged_at);
+  assert.equal(await a.store.getBlob(r.id), undefined);
+  assert.equal(a.sync.getState().pending, 0);
+
+  await b.sync.sync();
+  assert.ok((await receiptsOf(b))[0]!.deleted_at);
+  assert.equal(await b.store.getBlob(r.id), undefined);
+});
+
+test("deleting the payment deletes its photos in the cloud, and the owner's phone then removes the files", async () => {
+  const { a, gid, A, B } = await twoInAGroup();
+  const e = shared(gid, A, { [A]: 10, [B]: 10 });
+  await a.store.putEntries([e]);
+  const r = await photo(a, e.id);
+  await a.sync.sync();
+  assert.ok(mock.state.objects.has(r.path));
+  await a.store.mutateEntries([e.id], (cur) => softDelete(cur!, iso(5000)));
+  await a.sync.sync();                                   // pushes the delete; the server marks the photo deleted
+  assert.ok(mock.state.receipts.get(r.id).deleted_at);
+  await a.sync.sync();                                   // pulls that, then removes the file
+  assert.equal(mock.state.objects.has(r.path), false);
+  assert.ok(mock.state.receipts.get(r.id).purged_at);
+  assert.ok(!needsPurge((await receiptsOf(a))[0]!, A));
+});
+
+test('a picture that is no longer on the phone and never went up is dropped, not retried for ever', async () => {
+  reset();
+  const a = device(); await a.signIn();
+  const e = entry();
+  await a.store.putEntries([e]);
+  const r = await photo(a, e.id, 1000, false);
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  const row = (await receiptsOf(a))[0]!;
+  assert.ok(row.deleted_at && row.purged_at);
+  assert.equal(mock.state.objects.has(r.path), false);
+  assert.equal(a.sync.getState().pending, 0);
+});
+
+test('a refused upload is reported and does not stop the other photo', async () => {
+  reset();
+  const a = device(); await a.signIn();
+  const e = entry();
+  await a.store.putEntries([e]);
+  const big = makeReceipt(e.id, await uidOf(a), 1000, iso());          // declared small, but the file is over 1 MB
+  await a.store.putReceipts([big]);                                      // first in line, so the photo after it must still go up
+  await a.store.putBlob(big.id, jpeg(1_048_577));
+  const fine = await photo(a, e.id, 2000);
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'error');
+  assert.match(a.sync.getState().error ?? '', /maximum allowed size/);
+  assert.ok(mock.state.objects.has(fine.path), 'the other photo went up');
+  assert.ok(!mock.state.objects.has(big.path));
+});
+
+test('an upload that finds the file already there counts as done', async () => {
+  reset();
+  const a = device(); await a.signIn();
+  const e = entry();
+  await a.store.putEntries([e]);
+  const r = await photo(a, e.id, 1500);
+  mock.state.objects.set(r.path, { bytes: 1500, owner: await uidOf(a), type: 'image/jpeg', data: Buffer.alloc(1500) });
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.ok((await receiptsOf(a))[0]!.uploaded_at);
+});
+
+test('photo rows from the server that fail validation are ignored', async () => {
+  const { a, b, gid, A, B } = await twoInAGroup();
+  const e = shared(gid, A, { [A]: 5, [B]: 5 });
+  await a.store.putEntries([e]); await a.sync.sync();
+  const now = iso();
+  mock.state.receipts.set('00000000-0000-4000-8000-0000000000e1', { id: '00000000-0000-4000-8000-0000000000e1', entry_id: e.id, owner_id: A, path: `${A}/other.jpg`, bytes: 10, created_at: now, updated_at: now, uploaded_at: null, deleted_at: null, purged_at: null, synced_at: now });
+  mock.state.receipts.set('00000000-0000-4000-8000-0000000000e2', { id: '00000000-0000-4000-8000-0000000000e2', entry_id: e.id, owner_id: A, path: `${A}/00000000-0000-4000-8000-0000000000e2.jpg`, bytes: 99999999, created_at: now, updated_at: now, uploaded_at: null, deleted_at: null, purged_at: null, synced_at: now });
+  await b.sync.sync();
+  assert.equal(b.sync.getState().mode, 'idle', b.sync.getState().error ?? '');
+  assert.equal((await receiptsOf(b)).length, 0);
+});
+
+test("leaving a group forgets the other people's photos and the pictures cached for them", async () => {
+  const { a, b, gid, A, B } = await twoInAGroup();
+  const e = shared(gid, A, { [A]: 10 });
+  await a.store.putEntries([e]);
+  const r = await photo(a, e.id);
+  await a.sync.sync(); await b.sync.sync();
+  await b.sync.receiptBlob((await receiptsOf(b))[0]!);
+  assert.ok(await b.store.getBlob(r.id));
+  await a.sync.removeMember(gid, B);
+  await b.sync.sync();
+  assert.equal((await receiptsOf(b)).length, 0);
+  assert.equal(await b.store.getBlob(r.id), undefined);
+});
+
+test('the history of a shared expense is fetched for members only', async () => {
+  const { a, b, gid, A, B } = await twoInAGroup();
+  const c = device('c@example.com'); await c.signIn();
+  const e = shared(gid, A, { [A]: 50, [B]: 50 });
+  await a.store.putEntries([e]);
+  await a.sync.sync();
+  await a.store.mutateEntries([e.id], (cur) => editEntry(cur!, { note: 'with tip' }, iso(5000)));
+  await a.sync.sync();
+  const rows = await b.sync.fetchHistory(e.id);
+  assert.deepEqual(rows.map((r) => r.kind), ['edited', 'created'], 'newest first');
+  assert.equal(rows[0]!.changes.note.to, 'with tip');
+  assert.equal(rows[0]!.changed_by, A);
+  assert.deepEqual(await c.sync.fetchHistory(e.id), [], 'a stranger gets nothing');
+});
+
+test('the my-share link travels with the payment to the other phone', async () => {
+  reset();
+  const a = device(); const a2 = device();
+  await a.signIn(); await a2.signIn();
+  const src = '10000000-0000-4000-8000-0000000000aa';
+  const e = entry({ shareOf: src });
+  await a.store.putEntries([e]);
+  await a.sync.sync(); await a2.sync.sync();
+  assert.equal(mock.state.entries.get(e.id).share_of, src);
+  assert.equal((await a2.store.getEntry(e.id))!.share_of, src);
 });

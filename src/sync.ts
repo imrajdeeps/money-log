@@ -8,8 +8,12 @@ import { cleanDoneMap, cleanDue, cleanNet, mergeDone, sameDone } from './blocks.
 import type { DoneMap } from './blocks.ts';
 import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from './groups.ts';
 import type { Group, Invite, Member, Settlement } from './groups.ts';
+import { cleanHistory } from './history.ts';
+import type { HistoryRow } from './history.ts';
 import { cleanEntry, cleanPlan, isMine, mergeRemote, newId, parseTs } from './logic.ts';
 import type { Entry } from './logic.ts';
+import { cleanReceipt, markDeleted, markPurged, markUploaded, mergeRemoteReceipt, needsPurge, needsUpload } from './receipts.ts';
+import type { Receipt } from './receipts.ts';
 import type { Store } from './store.ts';
 
 export interface SyncConfig { supabaseUrl: string; supabaseKey: string }
@@ -228,6 +232,7 @@ export function createSync(opts: SyncOptions) {
     const entries = await store.allEntries();
     let pending = entries.filter((e) => e.dirty && pushable(e, uid, active)).length;
     pending += (await store.allSettlements()).filter((x) => x.dirty && pushable({ owner_id: x.created_by, group_id: x.group_id }, uid, active)).length;
+    pending += (await store.allReceipts()).filter((r) => r.owner_id === uid && (r.dirty || needsUpload(r, uid) || needsPurge(r, uid))).length;
     for (const n of BLOCK_NAMES) if ((await store.getMeta<StoredBlock>(BLOCKS[n].meta))?.dirty) pending++;
     if ((await store.getMeta<DueDone>('dueDone'))?.dirty) pending++;
     set({ pending });
@@ -248,6 +253,7 @@ export function createSync(opts: SyncOptions) {
     group_id: e.group_id,
     paid_by: e.paid_by,
     shares: e.shares,
+    share_of: e.share_of,
   });
 
   const toSettlementRow = (x: Settlement, uid: string) => ({
@@ -261,6 +267,19 @@ export function createSync(opts: SyncOptions) {
     created_at: x.created_at,
     updated_at: x.updated_at,
     deleted_at: x.deleted_at,
+  });
+
+  const toReceiptRow = (r: Receipt, uid: string) => ({
+    id: r.id,
+    entry_id: r.entry_id,
+    owner_id: uid,
+    path: r.path,
+    bytes: r.bytes,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    uploaded_at: r.uploaded_at,
+    deleted_at: r.deleted_at,
+    purged_at: r.purged_at,
   });
 
   // Statuses that mean "this data was refused", as opposed to "the server is having a bad moment".
@@ -345,6 +364,108 @@ export function createSync(opts: SyncOptions) {
     }
   }
 
+  // ------------------------------------------------------------ receipt photos (rows in the database, pictures in Storage)
+  // Storage is plain HTTP too: POST uploads a file, GET reads one from a private bucket, DELETE removes one.
+  async function storageFetch(path: string, o: { method?: string; body?: Blob; headers?: Record<string, string>; retry?: boolean } = {}): Promise<Response> {
+    const { method = 'GET', body, headers = {}, retry = true } = o;
+    const token = await accessToken();
+    if (!token) throw new SyncError('signed-out', 'Signed out');
+    let res: Response;
+    try {
+      res = await fetchFn(base + path, { method, headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, ...headers }, body });
+    } catch {
+      throw new SyncError('offline', 'No connection');
+    }
+    if (res.status === 401 && retry) {
+      await refresh();
+      return storageFetch(path, { ...o, retry: false });
+    }
+    return res;
+  }
+
+  async function uploadObject(path: string, blob: Blob): Promise<void> {
+    const res = await storageFetch(`/storage/v1/object/receipts/${path}`, { method: 'POST', body: blob, headers: { 'Content-Type': 'image/jpeg' } });
+    if (res.ok) return;
+    const msg = await errorText(res);
+    if (res.status === 409 || /already exists|duplicate/i.test(msg)) return; // an earlier attempt got through
+    throw new SyncError('http', msg, res.status);
+  }
+
+  async function deleteObject(path: string): Promise<void> {
+    const res = await storageFetch(`/storage/v1/object/receipts/${path}`, { method: 'DELETE' });
+    if (res.ok || res.status === 404) return; // already gone is fine
+    throw new SyncError('http', await errorText(res), res.status);
+  }
+
+  // The picture of a photo: this phone's copy if it has one, else fetched from the cloud (and kept).
+  async function receiptBlob(r: Receipt): Promise<Blob> {
+    const have = await store.getBlob(r.id);
+    if (have) return have;
+    if (!r.uploaded_at) throw new SyncError('http', 'This photo has not been uploaded yet.');
+    const res = await storageFetch(`/storage/v1/object/authenticated/receipts/${r.path}`);
+    if (!res.ok) throw new SyncError('http', res.status === 404 ? 'This photo is not available.' : await errorText(res), res.status);
+    const blob = await res.blob();
+    if (blob.size > 2_097_152) throw new SyncError('http', 'This photo is larger than expected.');
+    const jpeg = blob.type === 'image/jpeg' ? blob : new Blob([blob], { type: 'image/jpeg' });
+    if (!(await store.getBlob(r.id))) await store.putBlob(r.id, jpeg);
+    return jpeg;
+  }
+
+  async function fetchHistory(entryId: string): Promise<HistoryRow[]> {
+    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
+    const rows: any[] = (await request(`/rest/v1/entry_history?select=*&entry_id=eq.${encodeURIComponent(entryId)}&order=changed_at.desc&limit=100`)) ?? [];
+    return rows.map(cleanHistory).filter((x): x is HistoryRow => x !== null);
+  }
+
+  // Rows first (the database must know a photo before its file may be uploaded), then the files, then the removals, then
+  // the rows again so "uploaded" and "purged" reach the cloud in the same run. A payment that is itself still waiting to
+  // be sent holds its photos back.
+  async function pushReceiptRows(uid: string): Promise<void> {
+    const entries = await store.allEntries();
+    const waiting = new Set(entries.filter((e) => e.dirty).map((e) => e.id));
+    const known = new Set(entries.map((e) => e.id));
+    const dirty = (await store.allReceipts()).filter((r) => r.dirty && r.owner_id === uid && known.has(r.entry_id) && !waiting.has(r.entry_id));
+    await pushDirty('/rest/v1/receipts?on_conflict=id', dirty, (r) => toReceiptRow(r, uid), async (chunk) => {
+      const sent = new Map(chunk.map((r) => [r.id, r.updated_at]));
+      await store.mutateReceipts([...sent.keys()], (cur, id) => (cur && cur.updated_at === sent.get(id) ? { ...cur, dirty: 0 } : undefined));
+    });
+  }
+
+  async function pushReceipts(uid: string): Promise<void> {
+    const nowIso = () => new Date(now()).toISOString();
+    let firstRefusal: SyncError | null = null;
+    await pushReceiptRows(uid);
+    // upload the pictures of photos the database already knows
+    for (const r of (await store.allReceipts()).filter((x) => needsUpload(x, uid) && !x.dirty)) {
+      const blob = await store.getBlob(r.id);
+      if (!blob) { // the picture is no longer on this phone and never reached the cloud: the photo is lost, so drop it
+        await store.mutateReceipts([r.id], (cur) => (cur ? markPurged(markDeleted(cur, nowIso()), nowIso()) : undefined));
+        continue;
+      }
+      try {
+        await uploadObject(r.path, blob);
+        await store.mutateReceipts([r.id], (cur) => (cur && !cur.uploaded_at ? markUploaded(cur, nowIso()) : undefined));
+      } catch (e) {
+        if (!isRefusal(e)) throw e;
+        firstRefusal ??= e;
+      }
+    }
+    // remove the files of deleted photos (the database allows "purged" only once the file is really gone)
+    for (const r of (await store.allReceipts()).filter((x) => needsPurge(x, uid) && !x.dirty)) {
+      try {
+        await deleteObject(r.path);
+        await store.mutateReceipts([r.id], (cur) => (cur ? markPurged(cur, nowIso()) : undefined));
+      } catch (e) {
+        if (!isRefusal(e)) throw e;
+        firstRefusal ??= e;
+      }
+    }
+    await pushReceiptRows(uid);
+    const stale = (await store.allReceipts()).filter((r) => r.deleted_at).map((r) => r.id);
+    await store.deleteBlobs(stale);
+    if (firstRefusal) throw firstRefusal;
+  }
+
   // ------------------------------------------------------------ pull
   // Reads one table in the order the server wrote it, newest changes last. Page by position (the last timestamp seen), not
   // by offset: rows edited on another phone while we page move to the end of the order and are picked up there, instead of
@@ -391,6 +512,18 @@ export function createSync(opts: SyncOptions) {
       return merged === cur ? undefined : merged;
     }));
 
+  const pullReceipts = async () => {
+    await pullKeyset<Receipt>('receipts', 'receiptCursor', cleanReceipt, (remote) =>
+      store.mutateReceipts([...remote.keys()], (cur, id) => {
+        const merged = mergeRemoteReceipt(cur, remote.get(id)!);
+        return merged === cur ? undefined : merged;
+      }));
+    // a picture whose photo was deleted (here or on another phone) is not kept
+    const all = await store.allReceipts();
+    const have = new Set(await store.allBlobIds());
+    await store.deleteBlobs(all.filter((r) => r.deleted_at && have.has(r.id)).map((r) => r.id));
+  };
+
   // The groups this account is in (the database only shows those), their members, and the invite codes of the ones this
   // account administers. When the list of groups changes, everything the new groups hold is older than our cursors, so the
   // cursors are dropped and the next reads start from the beginning; rows of groups we left are forgotten.
@@ -409,11 +542,17 @@ export function createSync(opts: SyncOptions) {
     if ((await store.getMeta<string>('groupsKey')) !== key) {
       await store.delMeta('pullCursor');
       await store.delMeta('settleCursor');
+      await store.delMeta('receiptCursor');
       await store.setMeta('groupsKey', key);
     }
     const active = new Set(groups.map((g) => g.id));
     await store.deleteEntries((await store.allEntries()).filter((e) => e.group_id && !active.has(e.group_id) && e.owner_id && e.owner_id !== uid && !e.dirty).map((e) => e.id));
     await store.deleteSettlements((await store.allSettlements()).filter((x) => !active.has(x.group_id)).map((x) => x.id));
+    // photos of expenses this phone no longer holds (we left the group) go too, with their cached pictures
+    const held = new Set((await store.allEntries()).map((e) => e.id));
+    const gone = (await store.allReceipts()).filter((r) => r.owner_id !== uid && !held.has(r.entry_id)).map((r) => r.id);
+    await store.deleteReceipts(gone);
+    await store.deleteBlobs(gone);
   }
 
   async function pullBlocks(): Promise<void> {
@@ -453,9 +592,11 @@ export function createSync(opts: SyncOptions) {
       await pullGroups(s.user_id);
       await pullEntries();
       await pullSettlements();
+      await pullReceipts();
       await pushBlocks(s.user_id);
       await pushEntries(s.user_id);
       await pushSettlements(s.user_id);
+      await pushReceipts(s.user_id);
       const t = now();
       await store.setMeta('lastSync', t);
       await refreshPending();
@@ -523,6 +664,7 @@ export function createSync(opts: SyncOptions) {
     sync,
     refreshPending,
     createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName,
+    receiptBlob, fetchHistory,
   };
 }
 

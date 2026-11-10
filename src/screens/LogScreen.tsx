@@ -4,6 +4,7 @@ import { useApp } from '../context.tsx';
 import { CategorySelect } from '../components/CategorySelect.tsx';
 import { EditDialog } from '../components/EditDialog.tsx';
 import { MethodChips } from '../components/MethodChips.tsx';
+import { PendingPhotos } from '../components/PendingPhotos.tsx';
 import { SplitEditor, freshSplit } from '../components/SplitEditor.tsx';
 import type { SplitState } from '../components/SplitEditor.tsx';
 import { shortDate } from '../format.ts';
@@ -32,6 +33,7 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
   const [date, setDate] = useState<string | null>(null); // null = today
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [photos, setPhotos] = useState<Blob[]>([]);
   const [groupId, setGroupId] = useState(''); // '' = private
   const [split, setSplit] = useState<SplitState | null>(null);
   const today = isoDate();
@@ -69,8 +71,13 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
       if (split.paidBy !== app.me && !(app.me in r.shares)) return fail('You can only record an expense that you paid or share in.');
       group = { group_id: groupId, paid_by: split.paidBy, shares: r.shares };
     }
-    await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group });
-    app.toast(`Saved ${fmtINR(amt)} · ${category}`);
+    const id = await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group });
+    let toast = `Saved ${fmtINR(amt)} · ${category}`;
+    if (photos.length) {
+      try { await app.addReceipts(id, photos); } catch (e) { toast += `. The photo could not be attached: ${e instanceof Error ? e.message : String(e)}`; }
+    }
+    app.toast(toast);
+    setPhotos([]);
     setAmount('');
     setNote('');
     setCategory('');
@@ -129,6 +136,8 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
           <span>Date</span>
           <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
         </label>
+
+        {app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
 
         {app.groups.length > 0 && (
           <label className="field">

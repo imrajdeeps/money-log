@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../context.tsx';
 import { EditDialog } from '../components/EditDialog.tsx';
+import { ExpenseDialog } from '../components/ExpenseDialog.tsx';
 import { copyText } from '../files.ts';
 import { shortDate } from '../format.ts';
 import { activeMembers, codeLooksValid, formatCode, fromPaise, groupBalances, inviteLink, ledger, memberName, normalizeCode, simplifyDebts } from '../groups.ts';
@@ -44,6 +45,8 @@ function JoinCard() {
   const [code, setCode] = useState(invited ? formatCode(invited) : '');
   const [name, setName] = useState(rememberedName());
   const [open, setOpen] = useState(Boolean(invited));
+  // A link opened while the app is already running: show the form with its code.
+  useEffect(() => { if (invited) { setCode(formatCode(invited)); setOpen(true); } }, [invited]);
 
   async function join(ev: FormEvent) {
     ev.preventDefault();
@@ -115,6 +118,7 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
   const me = app.me ?? '';
   const act = useAction();
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [viewing, setViewing] = useState<Entry | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [settle, setSettle] = useState<{ dir: 'paid' | 'received'; other: string; amount: string; date: string } | null>(null);
   const [settleError, setSettleError] = useState('');
@@ -242,7 +246,7 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
                 <span className="amt">{fmtINR(e.amount)}</span>
               </>
             );
-            return <li key={e.id}>{e.owner_id === me ? <button type="button" className="row" onClick={() => setEditing(e)}>{body}</button> : <div className="row static">{body}</div>}</li>;
+            return <li key={e.id}><button type="button" className="row" onClick={() => (e.owner_id === me ? setEditing(e) : setViewing(e))}>{body}</button></li>;
           })}
         </ul>
       )}
@@ -295,6 +299,7 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
         {myBalance !== 0 && <p className="muted small">You can leave once you have settled up: your balance here is {myBalance > 0 ? `${fmtINR(fromPaise(myBalance))} owed to you` : `${fmtINR(fromPaise(-myBalance))} that you owe`}.</p>}
       </div>
       {editing && <EditDialog key={editing.id} entry={editing} onClose={() => setEditing(null)} />}
+      {viewing && <ExpenseDialog key={viewing.id} entry={viewing} group={group} onClose={() => setViewing(null)} />}
     </section>
   );
 }

@@ -24,6 +24,7 @@ export interface Entry {
   group_id: string | null; // set = a shared expense of that group; null = private to its owner
   paid_by: string | null; // user id of whoever paid (shared expenses only)
   shares: Shares | null; // each person's share (shared expenses only)
+  share_of: string | null; // private payments only: the shared expense this records the account's share of
   dirty: 0 | 1; // 1 = changed on this phone and not yet pushed to the cloud
 }
 
@@ -72,7 +73,7 @@ export function shiftMonth(key: string, delta: number): string {
 
 // Postgres returns microseconds ("...12.123456+00:00"); not every JS engine parses more than 3 digits.
 export function parseTs(s: unknown): number {
-  if (typeof s !== 'string') return NaN;
+  if (typeof s !== 'string') return Number.NaN;
   return Date.parse(s.replace(/(\.\d{3})\d+/, '$1'));
 }
 
@@ -80,7 +81,7 @@ export function parseTs(s: unknown): number {
 export function parseAmount(text: unknown): number | null {
   const s = String(text ?? '').replace(/[₹\s,]/g, '');
   if (s === '' || s === '.' || !/^\d*\.?\d{0,2}$/.test(s)) return null;
-  const n = round2(parseFloat(s));
+  const n = round2(Number.parseFloat(s));
   return n > 0 && n < MAX_AMOUNT ? n : null;
 }
 
@@ -99,6 +100,7 @@ export interface NewEntryInput {
   note: string;
   date: string;
   group?: { group_id: string; paid_by: string; shares: Shares } | null; // null or absent = private
+  shareOf?: string | null; // a private payment that records this account's share of that shared expense
 }
 
 export function makeEntry(input: NewEntryInput, nowIso: string): Entry {
@@ -117,6 +119,7 @@ export function makeEntry(input: NewEntryInput, nowIso: string): Entry {
     group_id: input.group?.group_id ?? null,
     paid_by: input.group?.paid_by ?? null,
     shares: input.group ? { ...input.group.shares } : null,
+    share_of: input.shareOf ?? null,
     dirty: 1,
   };
 }
@@ -195,6 +198,8 @@ export function cleanEntry(e: any): Entry | null {
     if (sum !== amount) return null;
   }
   if (groupId === null ? paidBy !== null || shares !== null : paidBy === null || shares === null) return null;
+  const shareOf = e.share_of ?? null;
+  if (shareOf !== null && (typeof shareOf !== 'string' || !UUID_RE.test(shareOf))) return null;
   return {
     id: e.id.toLowerCase(),
     owner_id: typeof e.owner_id === 'string' && UUID_RE.test(e.owner_id) ? e.owner_id.toLowerCase() : null,
@@ -210,6 +215,7 @@ export function cleanEntry(e: any): Entry | null {
     group_id: groupId === null ? null : groupId.toLowerCase(),
     paid_by: paidBy === null ? null : paidBy.toLowerCase(),
     shares,
+    share_of: shareOf === null ? null : shareOf.toLowerCase(),
     dirty: e.dirty ? 1 : 0,
   };
 }
@@ -417,10 +423,15 @@ export function safeCell(s: unknown): string {
   return /^[=+\-@"]/.test(t) || /^\d[\d\s./:,%-]*$/.test(t) ? ` ${t}` : t;
 }
 
+// Where the payment method goes in the spreadsheet's Log tab: 'note' = at the start of the note ("[UPI] lunch", the
+// original Log with four input columns), 'column' = a Method column of its own (five input columns).
+export type LogLayout = 'note' | 'column';
+
 // totalOfShared: for a shared expense, the full amount, so the note keeps it ("lunch, my share of 2,400").
-export function exportNote(e: Pick<Entry, 'note' | 'method'>, totalOfShared?: number): string {
+export function exportNote(e: Pick<Entry, 'note' | 'method'>, totalOfShared?: number, layout: LogLayout = 'note'): string {
   const text = String(e.note || '').replace(/[\t\r\n]+/g, ' ').trim();
   const note = totalOfShared === undefined ? text : [text, `my share of ${fmtINR(totalOfShared).replace(/[₹\s\u00a0]/g, '')}`].filter(Boolean).join(', ');
+  if (layout === 'column') return safeCell(note);
   const m = e.method ? `[${e.method}]` : '';
   return safeCell(m && note ? `${m} ${note}` : m || note);
 }
@@ -429,11 +440,11 @@ export function amountText(n: number): string {
   return round2(n).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
 }
 
-export interface ExportRow { id: string; date: string; category: string; amount: string; note: string }
+export interface ExportRow { id: string; date: string; category: string; amount: string; method: string; note: string }
 
 // Our own payments only; a shared expense is written at our share, with the full amount kept in the note, and one we
 // owe nothing on has nothing to put in the Log.
-export function exportRows(entries: Entry[], me: string | null = null): ExportRow[] {
+export function exportRows(entries: Entry[], me: string | null = null, layout: LogLayout = 'note'): ExportRow[] {
   return entries
     .filter((e) => !e.deleted_at && isMine(e, me) && myShare(e, me) > 0)
     .sort(byDate)
@@ -444,18 +455,22 @@ export function exportRows(entries: Entry[], me: string | null = null): ExportRo
         date: e.entry_date,
         category: safeCell(e.category),
         amount: amountText(share),
-        note: exportNote(e, e.group_id && share !== e.amount ? e.amount : undefined),
+        method: layout === 'column' ? e.method ?? '' : '',
+        note: exportNote(e, e.group_id && share !== e.amount ? e.amount : undefined, layout),
       };
     });
 }
 
-// Date, Category, Amount, Note: the Log tab's four input columns (E and F are formulas and are never overwritten).
-export const toTSV = (rows: ExportRow[]): string => rows.map((r) => [r.date, r.category, r.amount, r.note].join('\t')).join('\n');
+// The Log tab's input columns: Date, Category, Amount, Note, or with a Method column Date, Category, Amount, Method, Note.
+// (The columns after them are formulas and are never overwritten.)
+const cells = (r: ExportRow, layout: LogLayout): string[] => (layout === 'column' ? [r.date, r.category, r.amount, r.method, r.note] : [r.date, r.category, r.amount, r.note]);
+export const toTSV = (rows: ExportRow[], layout: LogLayout = 'note'): string => rows.map((r) => cells(r, layout).join('\t')).join('\n');
 
 function csvCell(s: string): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
-export function toCSV(rows: ExportRow[]): string {
-  const lines = [['Date', 'Category', 'Amount', 'Note'], ...rows.map((r) => [r.date, r.category, r.amount, r.note])];
+export function toCSV(rows: ExportRow[], layout: LogLayout = 'note'): string {
+  const head = layout === 'column' ? ['Date', 'Category', 'Amount', 'Method', 'Note'] : ['Date', 'Category', 'Amount', 'Note'];
+  const lines = [head, ...rows.map((r) => cells(r, layout))];
   return '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }
