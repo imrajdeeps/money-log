@@ -180,7 +180,7 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
 
       {app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
 
-      {app.groups.length > 0 && (
+      {app.groups.some((g) => !g.closed_at) && (
         <label className="field">
           <span>Share with</span>
           <select
@@ -193,7 +193,7 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
             }}
           >
             <option value="">Nobody (private)</option>
-            {app.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            {app.groups.filter((g) => !g.closed_at).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         </label>
       )}
