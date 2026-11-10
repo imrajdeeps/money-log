@@ -1,4 +1,5 @@
 // Local storage on the phone: IndexedDB, with an in-memory fallback (also used by the tests).
+import type { Settlement } from './groups.ts';
 import type { Entry } from './logic.ts';
 
 export interface Store {
@@ -10,14 +11,22 @@ export interface Store {
   // stale copy. fn returns the entry to store, or undefined to leave that entry alone.
   mutateEntries(ids: string[], fn: (current: Entry | undefined, id: string) => Entry | undefined): Promise<void>;
   deleteEntries(ids: string[]): Promise<void>;
+  // Settlements (payments between group members) are kept the same way as entries.
+  allSettlements(): Promise<Settlement[]>;
+  putSettlements(list: Settlement[]): Promise<void>;
+  mutateSettlements(ids: string[], fn: (current: Settlement | undefined, id: string) => Settlement | undefined): Promise<void>;
+  deleteSettlements(ids: string[]): Promise<void>;
   getMeta<T = unknown>(key: string): Promise<T | undefined>;
   setMeta(key: string, value: unknown): Promise<void>;
   delMeta(key: string): Promise<void>;
+  // Read, change and write one meta value in ONE transaction. fn returns the value to store, or undefined to leave it.
+  mutateMeta<T>(key: string, fn: (current: T | undefined) => T | undefined): Promise<void>;
   wipe(): Promise<void>;
 }
 
 export function memoryStore(): Store {
   const entries = new Map<string, Entry>();
+  const settlements = new Map<string, Settlement>();
   const meta = new Map<string, unknown>();
   return {
     kind: 'memory',
@@ -32,15 +41,29 @@ export function memoryStore(): Store {
       }
     },
     async deleteEntries(ids) { for (const id of ids) entries.delete(id); },
+    async allSettlements() { return [...settlements.values()].map((x) => structuredClone(x)); },
+    async putSettlements(list) { for (const x of list) settlements.set(x.id, structuredClone(x)); },
+    async mutateSettlements(ids, fn) {
+      for (const id of ids) {
+        const cur = settlements.get(id);
+        const next = fn(cur ? structuredClone(cur) : undefined, id);
+        if (next) settlements.set(id, structuredClone(next));
+      }
+    },
+    async deleteSettlements(ids) { for (const id of ids) settlements.delete(id); },
     async getMeta<T>(key: string) { return meta.has(key) ? (structuredClone(meta.get(key)) as T) : undefined; },
     async setMeta(key, value) { meta.set(key, structuredClone(value)); },
     async delMeta(key) { meta.delete(key); },
-    async wipe() { entries.clear(); meta.clear(); },
+    async mutateMeta<T>(key: string, fn: (current: T | undefined) => T | undefined) {
+      const next = fn(meta.has(key) ? (structuredClone(meta.get(key)) as T) : undefined);
+      if (next !== undefined) meta.set(key, structuredClone(next));
+    },
+    async wipe() { entries.clear(); settlements.clear(); meta.clear(); },
   };
 }
 
 const DB_NAME = 'money-log';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function wrap<T>(r: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -92,6 +115,35 @@ function idbStore(db: IDBDatabase): Store {
       for (const id of ids) tx.objectStore('entries').delete(id);
       await done(tx);
     },
+    async allSettlements() {
+      return wrap(db.transaction('settlements', 'readonly').objectStore('settlements').getAll() as IDBRequest<Settlement[]>);
+    },
+    async putSettlements(list) {
+      if (!list.length) return;
+      const tx = db.transaction('settlements', 'readwrite');
+      const os = tx.objectStore('settlements');
+      for (const x of list) os.put(x);
+      await done(tx);
+    },
+    async mutateSettlements(ids, fn) {
+      if (!ids.length) return;
+      const tx = db.transaction('settlements', 'readwrite');
+      const os = tx.objectStore('settlements');
+      for (const id of ids) {
+        const get = os.get(id) as IDBRequest<Settlement | undefined>;
+        get.onsuccess = () => {
+          const next = fn(get.result, id);
+          if (next) os.put(next);
+        };
+      }
+      await done(tx);
+    },
+    async deleteSettlements(ids) {
+      if (!ids.length) return;
+      const tx = db.transaction('settlements', 'readwrite');
+      for (const id of ids) tx.objectStore('settlements').delete(id);
+      await done(tx);
+    },
     async getMeta<T>(key: string) {
       const row = (await wrap(db.transaction('meta', 'readonly').objectStore('meta').get(key))) as { key: string; value: T } | undefined;
       return row?.value;
@@ -106,9 +158,20 @@ function idbStore(db: IDBDatabase): Store {
       tx.objectStore('meta').delete(key);
       await done(tx);
     },
+    async mutateMeta<T>(key: string, fn: (current: T | undefined) => T | undefined) {
+      const tx = db.transaction('meta', 'readwrite');
+      const os = tx.objectStore('meta');
+      const get = os.get(key) as IDBRequest<{ key: string; value: T } | undefined>;
+      get.onsuccess = () => {
+        const next = fn(get.result?.value);
+        if (next !== undefined) os.put({ key, value: next });
+      };
+      await done(tx);
+    },
     async wipe() {
-      const tx = db.transaction(['entries', 'meta'], 'readwrite');
+      const tx = db.transaction(['entries', 'settlements', 'meta'], 'readwrite');
       tx.objectStore('entries').clear();
+      tx.objectStore('settlements').clear();
       tx.objectStore('meta').clear();
       await done(tx);
     },
@@ -121,8 +184,11 @@ export async function openStore(): Promise<Store> {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
-        req.result.createObjectStore('entries', { keyPath: 'id' });
-        req.result.createObjectStore('meta', { keyPath: 'key' });
+        // Version 1 had entries and meta; version 2 adds settlements. A fresh install runs both steps.
+        const names = req.result.objectStoreNames;
+        if (!names.contains('entries')) req.result.createObjectStore('entries', { keyPath: 'id' });
+        if (!names.contains('meta')) req.result.createObjectStore('meta', { keyPath: 'key' });
+        if (!names.contains('settlements')) req.result.createObjectStore('settlements', { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);

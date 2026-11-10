@@ -6,6 +6,9 @@ export const METHODS = ['UPI', 'Card', 'Cash', 'Other'] as const;
 export type Group = (typeof GROUPS)[number];
 export type Method = (typeof METHODS)[number];
 
+// What each person owes for one shared expense: user id -> rupees. The shares add up to the expense's amount.
+export type Shares = Record<string, number>;
+
 export interface Entry {
   id: string;
   owner_id: string | null;
@@ -18,6 +21,9 @@ export interface Entry {
   updated_at: string;
   deleted_at: string | null;
   exported_at: string | null;
+  group_id: string | null; // set = a shared expense of that group; null = private to its owner
+  paid_by: string | null; // user id of whoever paid (shared expenses only)
+  shares: Shares | null; // each person's share (shared expenses only)
   dirty: 0 | 1; // 1 = changed on this phone and not yet pushed to the cloud
 }
 
@@ -92,6 +98,7 @@ export interface NewEntryInput {
   method: Method | null;
   note: string;
   date: string;
+  group?: { group_id: string; paid_by: string; shares: Shares } | null; // null or absent = private
 }
 
 export function makeEntry(input: NewEntryInput, nowIso: string): Entry {
@@ -107,19 +114,29 @@ export function makeEntry(input: NewEntryInput, nowIso: string): Entry {
     updated_at: nowIso,
     deleted_at: null,
     exported_at: null,
+    group_id: input.group?.group_id ?? null,
+    paid_by: input.group?.paid_by ?? null,
+    shares: input.group ? { ...input.group.shares } : null,
     dirty: 1,
   };
 }
 
 // An edit must sort after the version it was based on, even when this phone's clock is behind the phone that wrote
 // that version; otherwise "latest edit wins" would throw the new edit away.
-function laterThan(prev: string, nowIso: string): string {
+export function laterThan(prev: string, nowIso: string): string {
   return new Date(Math.max(parseTs(nowIso), parseTs(prev) + 1)).toISOString();
 }
 
 export function editEntry(old: Entry, changes: Partial<NewEntryInput>, nowIso: string): Entry {
-  const { date, ...rest } = changes;
-  return { ...old, ...rest, ...(date !== undefined ? { entry_date: date } : {}), updated_at: laterThan(old.updated_at, nowIso), dirty: 1 };
+  const { date, group, ...rest } = changes;
+  return {
+    ...old,
+    ...rest,
+    ...(date !== undefined ? { entry_date: date } : {}),
+    ...(group !== undefined ? { group_id: group?.group_id ?? null, paid_by: group?.paid_by ?? null, shares: group ? { ...group.shares } : null } : {}),
+    updated_at: laterThan(old.updated_at, nowIso),
+    dirty: 1,
+  };
 }
 
 export function softDelete(old: Entry, nowIso: string): Entry {
@@ -158,6 +175,26 @@ export function cleanEntry(e: any): Entry | null {
   if (e.method != null && !(METHODS as readonly string[]).includes(e.method)) return null;
   for (const k of ['created_at', 'updated_at']) if (!Number.isFinite(parseTs(e[k]))) return null;
   for (const k of ['deleted_at', 'exported_at']) if (e[k] != null && !Number.isFinite(parseTs(e[k]))) return null;
+  // A private payment carries no group, payer or shares; a shared one carries all three, and the shares add up.
+  const groupId = e.group_id ?? null;
+  const paidBy = e.paid_by ?? null;
+  if (groupId !== null && (typeof groupId !== 'string' || !UUID_RE.test(groupId))) return null;
+  if (paidBy !== null && (typeof paidBy !== 'string' || !UUID_RE.test(paidBy))) return null;
+  let shares: Shares | null = null;
+  if (e.shares != null) {
+    if (typeof e.shares !== 'object' || Array.isArray(e.shares)) return null;
+    const entries = Object.entries(e.shares as Record<string, unknown>);
+    if (entries.length > 30) return null;
+    shares = {};
+    let sum = 0;
+    for (const [uid, v] of entries) {
+      if (!UUID_RE.test(uid) || typeof v !== 'number' || !Number.isFinite(v) || v < 0 || round2(v) !== v) return null;
+      shares[uid.toLowerCase()] = v;
+      sum = round2(sum + v);
+    }
+    if (sum !== amount) return null;
+  }
+  if (groupId === null ? paidBy !== null || shares !== null : paidBy === null || shares === null) return null;
   return {
     id: e.id.toLowerCase(),
     owner_id: typeof e.owner_id === 'string' && UUID_RE.test(e.owner_id) ? e.owner_id.toLowerCase() : null,
@@ -170,6 +207,9 @@ export function cleanEntry(e: any): Entry | null {
     updated_at: e.updated_at,
     deleted_at: e.deleted_at ?? null,
     exported_at: e.exported_at ?? null,
+    group_id: groupId === null ? null : groupId.toLowerCase(),
+    paid_by: paidBy === null ? null : paidBy.toLowerCase(),
+    shares,
     dirty: e.dirty ? 1 : 0,
   };
 }
@@ -179,6 +219,27 @@ export function cleanEntry(e: any): Entry | null {
 export function mergeRemote(local: Entry | undefined, remote: Entry): Entry {
   if (!local) return { ...remote, dirty: 0 };
   return parseTs(remote.updated_at) > parseTs(local.updated_at) ? { ...remote, dirty: 0 } : local;
+}
+
+// Whether this phone's account made the entry. Entries that arrive from other people's groups are not ours: they never
+// count toward our budget or export, and are never pushed.
+export const isMine = (e: Pick<Entry, 'owner_id'>, me: string | null): boolean => e.owner_id === null || e.owner_id === me;
+
+// What the entry costs this account: the full amount of a private payment, our share of a shared one.
+export function myShare(e: Entry, me: string | null): number {
+  if (!e.group_id) return e.amount;
+  return (me && e.shares?.[me]) || 0;
+}
+
+// Our live entries as the budget sees them: shared expenses count at our share, and ones we owe nothing on are left out.
+export function budgetEntries(entries: Entry[], me: string | null): Entry[] {
+  const out: Entry[] = [];
+  for (const e of entries) {
+    if (e.deleted_at || !isMine(e, me)) continue;
+    const a = myShare(e, me);
+    if (a > 0) out.push(a === e.amount ? e : { ...e, amount: a });
+  }
+  return out;
 }
 
 export const byRecent = (a: Entry, b: Entry): number => parseTs(b.created_at) - parseTs(a.created_at);
@@ -196,7 +257,7 @@ export function frequentCategories(entries: Entry[], nowMs: number, n = 6, days 
 }
 
 // ---------------------------------------------------------------- plan import (the spreadsheet's "App export" block)
-function splitCsvLine(line: string): string[] {
+export function splitCsvLine(line: string): string[] {
   const out: string[] = [];
   let cur = '';
   let q = false;
@@ -356,8 +417,10 @@ export function safeCell(s: unknown): string {
   return /^[=+\-@"]/.test(t) || /^\d[\d\s./:,%-]*$/.test(t) ? ` ${t}` : t;
 }
 
-export function exportNote(e: Pick<Entry, 'note' | 'method'>): string {
-  const note = String(e.note || '').replace(/[\t\r\n]+/g, ' ').trim();
+// totalOfShared: for a shared expense, the full amount, so the note keeps it ("lunch, my share of 2,400").
+export function exportNote(e: Pick<Entry, 'note' | 'method'>, totalOfShared?: number): string {
+  const text = String(e.note || '').replace(/[\t\r\n]+/g, ' ').trim();
+  const note = totalOfShared === undefined ? text : [text, `my share of ${fmtINR(totalOfShared).replace(/[₹\s\u00a0]/g, '')}`].filter(Boolean).join(', ');
   const m = e.method ? `[${e.method}]` : '';
   return safeCell(m && note ? `${m} ${note}` : m || note);
 }
@@ -368,11 +431,22 @@ export function amountText(n: number): string {
 
 export interface ExportRow { id: string; date: string; category: string; amount: string; note: string }
 
-export function exportRows(entries: Entry[]): ExportRow[] {
+// Our own payments only; a shared expense is written at our share, with the full amount kept in the note, and one we
+// owe nothing on has nothing to put in the Log.
+export function exportRows(entries: Entry[], me: string | null = null): ExportRow[] {
   return entries
-    .filter((e) => !e.deleted_at)
+    .filter((e) => !e.deleted_at && isMine(e, me) && myShare(e, me) > 0)
     .sort(byDate)
-    .map((e) => ({ id: e.id, date: e.entry_date, category: safeCell(e.category), amount: amountText(e.amount), note: exportNote(e) }));
+    .map((e) => {
+      const share = myShare(e, me);
+      return {
+        id: e.id,
+        date: e.entry_date,
+        category: safeCell(e.category),
+        amount: amountText(share),
+        note: exportNote(e, e.group_id && share !== e.amount ? e.amount : undefined),
+      };
+    });
 }
 
 // Date, Category, Amount, Note: the Log tab's four input columns (E and F are formulas and are never overwritten).
@@ -384,43 +458,4 @@ function csvCell(s: string): string {
 export function toCSV(rows: ExportRow[]): string {
   const lines = [['Date', 'Category', 'Amount', 'Note'], ...rows.map((r) => [r.date, r.category, r.amount, r.note])];
   return '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n';
-}
-
-// ---------------------------------------------------------------- backup file
-export interface Backup {
-  app: 'money-log';
-  v: 1;
-  exportedAt: string;
-  entries: Omit<Entry, 'dirty'>[];
-  plan: (PlanData & { importedAt: string }) | null;
-}
-
-export function makeBackup(entries: Entry[], plan: Plan | null, nowIso: string): Backup {
-  return {
-    app: 'money-log',
-    v: 1,
-    exportedAt: nowIso,
-    entries: entries.map(({ dirty: _dirty, ...e }) => e),
-    plan: plan ? { v: plan.v, months: plan.months, rows: plan.rows, importedAt: plan.importedAt } : null,
-  };
-}
-
-export type BackupParse = { ok: true; entries: Entry[]; plan: (PlanData & { importedAt: string }) | null; skipped: number } | { ok: false; error: string };
-
-export function parseBackup(text: string): BackupParse {
-  let j: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  try { j = JSON.parse(text); } catch { return { ok: false, error: 'This is not a Money Log backup (not valid JSON).' }; }
-  if (!j || j.app !== 'money-log' || j.v !== 1 || !Array.isArray(j.entries)) return { ok: false, error: 'This is not a Money Log backup file.' };
-  const entries: Entry[] = [];
-  let skipped = 0;
-  for (const e of j.entries) {
-    const c = cleanEntry({ ...e, dirty: 1 });
-    if (c) entries.push(c); else skipped++;
-  }
-  let plan: (PlanData & { importedAt: string }) | null = null;
-  if (j.plan) {
-    const c = cleanPlan(j.plan);
-    if (c && Number.isFinite(parseTs(j.plan.importedAt))) plan = { ...c, importedAt: j.plan.importedAt as string };
-  }
-  return { ok: true, entries, plan, skipped };
 }

@@ -1,4 +1,5 @@
-// A small stand-in for the parts of Supabase that Money Log uses (sign-in by emailed code, and two PostgREST tables).
+// A small stand-in for the parts of Supabase that Money Log uses (sign-in by emailed code, the PostgREST tables and the
+// group functions). The group rules mirror supabase/schema.sql in outline; the real rules are tested in supabase/rls_tests.sql.
 // It encodes how I understand those APIs behave. It is NOT the real service: passing these tests shows the app's own
 // logic is sound, not that real Supabase accepts every request. Use it for tests and for browser checks only.
 import { createServer } from 'node:http';
@@ -23,6 +24,10 @@ export interface MockState {
   refresh: Map<string, { uid: string; email: string }>;
   entries: Map<string, any>;
   plans: Map<string, any>;
+  groups: Map<string, any>;
+  members: Map<string, any>; // `${group}|${user}`
+  invites: Map<string, any>; // by group
+  settlements: Map<string, any>;
   requests: string[];
   failNext: { status: number; body: unknown } | null;
 }
@@ -31,7 +36,8 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
   const state: MockState = {
     otp: '123456', accessTtlSec: 3600,
     users: new Map(), codes: new Map(), access: new Map(), refresh: new Map(),
-    entries: new Map(), plans: new Map(), requests: [], failNext: null,
+    entries: new Map(), plans: new Map(), groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
+    requests: [], failNext: null,
   };
   let tick = 0;
   const stamp = () => new Date().toISOString().replace('Z', String(tick++ % 1000).padStart(3, '0') + '+00:00');
@@ -66,6 +72,133 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     return text ? JSON.parse(text) : undefined;
   }
 
+  // ---------- the group rules (outline of supabase/schema.sql)
+  const err = (status: number, code: string, message: string) => ({ status, body: { code, details: null, hint: null, message } });
+  const refuse = (message: string) => err(400, '23514', message);
+  const denied = (table: string) => err(403, '42501', `new row violates row-level security policy for table "${table}"`);
+  const member = (gid: string, uid: string) => state.members.get(`${gid}|${uid}`);
+  const active = (gid: string, uid: string) => { const m = member(gid, uid); return Boolean(m && !m.left_at); };
+  const activeIn = (gid: string) => [...state.members.values()].filter((m) => m.group_id === gid && !m.left_at);
+  const money = (n: number) => Math.round(n * 100);
+  const balance = (gid: string, uid: string): number => {
+    let b = 0;
+    for (const e of state.entries.values()) {
+      if (e.group_id !== gid || e.deleted_at) continue;
+      if (e.paid_by === uid) b += money(e.amount);
+      if (e.shares && uid in e.shares) b -= money(e.shares[uid]);
+    }
+    for (const x of state.settlements.values()) {
+      if (x.group_id !== gid || x.deleted_at) continue;
+      if (x.from_user === uid) b += money(x.amount);
+      if (x.to_user === uid) b -= money(x.amount);
+    }
+    return b;
+  };
+  const code12 = () => randomUUID().replace(/-/g, '').slice(0, 12);
+  const names = (e: any): string[] => (e && e.group_id ? [e.paid_by, ...Object.keys(e.shares ?? {})] : []);
+  const entryProblem = (r: any, old: any, uid: string): { status: number; body: unknown } | null => {
+    if (!r.group_id) return r.paid_by || r.shares ? refuse('A private payment cannot carry paid_by or shares') : null;
+    if (!active(r.group_id, uid)) return denied('entries');
+    if (!r.paid_by || !r.shares || typeof r.shares !== 'object' || Array.isArray(r.shares)) return refuse('A shared expense needs paid_by and shares');
+    if (r.owner_id !== r.paid_by && !(r.owner_id in r.shares)) return refuse('You can only record an expense that you paid or share in');
+    const total = Object.values<number>(r.shares).reduce((a, v) => a + money(v), 0);
+    if (total !== money(r.amount)) return refuse(`The shares add up to ${total / 100} but the expense is ${r.amount}`);
+    const changedPeople = !old || old.group_id !== r.group_id || old.paid_by !== r.paid_by || JSON.stringify(old.shares) !== JSON.stringify(r.shares);
+    if (changedPeople) for (const u of names(r)) if (!active(r.group_id, u)) return refuse('The payer or a share names someone who is not a current member of this group');
+    if (old && old.group_id && (changedPeople || old.amount !== r.amount || old.deleted_at !== r.deleted_at) && names(old).some((u) => !active(old.group_id, u))) {
+      return refuse('This expense names someone who has left the group, so its amount, people and deletion are frozen');
+    }
+    return null;
+  };
+  const settlementProblem = (r: any, old: any, uid: string): { status: number; body: unknown } | null => {
+    if (r.created_by !== uid || (old && old.created_by !== uid)) return denied('settlements');
+    if (!active(r.group_id, uid) || (r.from_user !== uid && r.to_user !== uid)) return denied('settlements');
+    if (r.from_user === r.to_user || !(r.amount > 0)) return refuse('A settlement is between two different people for more than zero');
+    const changed = !old || old.from_user !== r.from_user || old.to_user !== r.to_user || old.amount !== r.amount;
+    if (changed && (!active(r.group_id, r.from_user) || !active(r.group_id, r.to_user))) return refuse('Both people in a settlement must be current members of the group');
+    if (old && (changed || old.deleted_at !== r.deleted_at) && [old.from_user, old.to_user].some((u) => !active(old.group_id, u))) return refuse('This settlement involves someone who has left the group, so it is frozen');
+    return null;
+  };
+
+  function rpc(name: string, a: any, uid: string): { status: number; body: unknown } {
+    const ok = (body: unknown = null) => ({ status: 200, body });
+    const adminOf = (gid: string) => Boolean(member(gid, uid) && !member(gid, uid).left_at && member(gid, uid).role === 'admin');
+    const lockedOut = err(403, '42501', 'Only a group admin can do this');
+    if (name === 'create_group') {
+      const nm = String(a.p_name ?? '').trim(); const dn = String(a.p_display_name ?? '').trim();
+      if (nm.length < 1 || nm.length > 60 || !['family', 'trip'].includes(a.p_kind) || dn.length < 1 || dn.length > 40) return err(400, '22023', 'Check the group name, kind and your name');
+      if ([...state.groups.values()].filter((g) => g.created_by === uid).length >= 10) return err(400, '53400', 'You can create at most 10 groups');
+      const id = randomUUID();
+      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, created_at: new Date().toISOString() });
+      state.members.set(`${id}|${uid}`, { group_id: id, user_id: uid, display_name: dn, role: 'admin', joined_at: new Date().toISOString(), left_at: null });
+      state.invites.set(id, { group_id: id, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
+      return ok(id);
+    }
+    if (name === 'join_group') {
+      const norm = String(a.p_code ?? '').toLowerCase().replace(/[^0-9a-f]/g, '');
+      const dn = String(a.p_display_name ?? '').trim();
+      if (dn.length < 1 || dn.length > 40) return err(400, '22023', 'Enter the name others will see you as (1 to 40 characters)');
+      const inv = [...state.invites.values()].find((i) => i.code === norm && Date.parse(i.expires_at) > Date.now());
+      if (!inv) return err(400, '22023', 'That code is not valid or has expired');
+      if (active(inv.group_id, uid)) return ok(inv.group_id);
+      if (activeIn(inv.group_id).length >= 20) return err(400, '53400', 'This group is full (20 people)');
+      state.members.set(`${inv.group_id}|${uid}`, { group_id: inv.group_id, user_id: uid, display_name: dn, role: 'member', joined_at: new Date().toISOString(), left_at: null });
+      if (!activeIn(inv.group_id).some((m) => m.role === 'admin')) member(inv.group_id, uid).role = 'admin';
+      return ok(inv.group_id);
+    }
+    if (name === 'reset_invite') {
+      if (!adminOf(a.p_group)) return lockedOut;
+      const inv = { group_id: a.p_group, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() };
+      state.invites.set(a.p_group, inv);
+      return ok(inv.code);
+    }
+    if (name === 'leave_group') {
+      const me = member(a.p_group, uid);
+      if (!me || me.left_at) return err(403, '42501', 'You are not in this group');
+      if (balance(a.p_group, uid) !== 0) return refuse('Settle up first: your balance in this group is not zero');
+      const others = activeIn(a.p_group).filter((m) => m.user_id !== uid);
+      if (me.role === 'admin' && others.length && !others.some((m) => m.role === 'admin')) return refuse('Make someone else an admin before you leave');
+      me.left_at = new Date().toISOString();
+      return ok();
+    }
+    if (name === 'remove_member') {
+      if (!adminOf(a.p_group)) return lockedOut;
+      if (a.p_user === uid) return err(400, '22023', 'Use Leave group to remove yourself');
+      const m = member(a.p_group, a.p_user);
+      if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
+      if (balance(a.p_group, a.p_user) !== 0) return refuse('They must settle up first: their balance in this group is not zero');
+      m.left_at = new Date().toISOString();
+      state.invites.set(a.p_group, { group_id: a.p_group, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
+      return ok();
+    }
+    if (name === 'make_admin') {
+      if (!adminOf(a.p_group)) return lockedOut;
+      const m = member(a.p_group, a.p_user);
+      if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
+      m.role = 'admin';
+      return ok();
+    }
+    if (name === 'set_display_name') {
+      const m = member(a.p_group, uid);
+      const dn = String(a.p_name ?? '').trim();
+      if (!m || m.left_at) return err(403, '42501', 'You are not in this group');
+      if (dn.length < 1 || dn.length > 40) return err(400, '22023', 'Enter a name of 1 to 40 characters');
+      m.display_name = dn;
+      return ok();
+    }
+    return err(404, '42883', `function ${name} does not exist`);
+  }
+
+  // keyset paging like PostgREST's order=synced_at.asc,id.asc&synced_at=gte.<since>
+  const page = (rows: any[], url: URL) => {
+    const since = /^gte\.(.+)$/.exec(url.searchParams.get('synced_at') ?? '')?.[1];
+    rows = rows.filter((r) => !since || parseTs(r.synced_at) >= parseTs(since));
+    rows.sort((a, b) => (a.synced_at < b.synced_at ? -1 : a.synced_at > b.synced_at ? 1 : a.id < b.id ? -1 : 1));
+    const offset = Number(url.searchParams.get('offset') ?? 0);
+    const limit = Number(url.searchParams.get('limit') ?? 1000);
+    return rows.slice(offset, offset + limit);
+  };
+
   function serveStatic(url: URL, res: ServerResponse) {
     if (!opts.staticDir) return send(res, 404, { message: 'not found' });
     let rel = decodeURIComponent(url.pathname);
@@ -85,7 +218,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       const path = url.pathname;
       const isApi = path.startsWith('/auth/v1/') || path.startsWith('/rest/v1/') || path === '/__state';
       if (!isApi) return serveStatic(url, res);
-      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], requests: state.requests.length });
+      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], requests: state.requests.length });
       state.requests.push(`${req.method} ${path}${url.search}`);
       if (req.headers.apikey !== API_KEY) return send(res, 401, { message: 'No API key found in request' });
       if (state.failNext) { const f = state.failNext; state.failNext = null; return send(res, f.status, f.body); }
@@ -122,26 +255,53 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
 
       if (path === '/rest/v1/entries') {
         if (req.method === 'GET') {
-          const since = /^gte\.(.+)$/.exec(url.searchParams.get('synced_at') ?? '')?.[1];
-          let rows = [...state.entries.values()].filter((r) => r.owner_id === uid && (!since || parseTs(r.synced_at) >= parseTs(since)));
-          rows.sort((a, b) => (a.synced_at < b.synced_at ? -1 : a.synced_at > b.synced_at ? 1 : a.id < b.id ? -1 : 1));
-          const offset = Number(url.searchParams.get('offset') ?? 0);
-          const limit = Number(url.searchParams.get('limit') ?? 1000);
-          return send(res, 200, rows.slice(offset, offset + limit));
+          return send(res, 200, page([...state.entries.values()].filter((r) => r.owner_id === uid || (r.group_id && active(r.group_id, uid))), url));
         }
         if (req.method === 'POST') {
           const rows: any[] = await body(req);
           for (const r of rows) {
             const existing = state.entries.get(r.id);
             if (r.owner_id !== uid || (existing && existing.owner_id !== uid)) return send(res, 403, rls('entries'));
+            if (existing && existing.group_id && !active(existing.group_id, uid)) return send(res, 403, rls('entries'));
             const bad = !(r.amount > 0 && r.amount < 1e9) || !r.category || String(r.note ?? '').length > 500 || (r.method != null && !METHODS.includes(r.method));
             if (bad) return send(res, 400, { code: '23514', details: null, hint: null, message: 'new row for relation "entries" violates check constraint' });
+            // Mirrors the keep_latest_edit trigger: a stale write is skipped before anything else is checked.
+            if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
+            const problem = entryProblem({ group_id: null, paid_by: null, shares: null, ...r }, existing, uid);
+            if (problem) return send(res, problem.status, problem.body);
           }
           for (const r of rows) {
             const existing = state.entries.get(r.id);
-            // Mirrors the keep_latest_edit trigger in supabase/schema.sql: a write older than the stored row is skipped.
             if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
-            state.entries.set(r.id, { ...r, note: r.note ?? '', synced_at: stamp() });
+            state.entries.set(r.id, { group_id: null, paid_by: null, shares: null, ...r, note: r.note ?? '', synced_at: stamp() });
+          }
+          return send(res, 201);
+        }
+      }
+
+      if (path === '/rest/v1/groups' && req.method === 'GET') return send(res, 200, [...state.groups.values()].filter((g) => active(g.id, uid)));
+      if (path === '/rest/v1/group_members' && req.method === 'GET') return send(res, 200, [...state.members.values()].filter((m) => active(m.group_id, uid)));
+      if (path === '/rest/v1/group_invites' && req.method === 'GET') {
+        return send(res, 200, [...state.invites.values()].filter((i) => active(i.group_id, uid) && member(i.group_id, uid).role === 'admin'));
+      }
+      if (path.startsWith('/rest/v1/rpc/') && req.method === 'POST') {
+        const out = rpc(path.slice('/rest/v1/rpc/'.length), (await body(req)) ?? {}, uid);
+        return send(res, out.status, out.body === null ? undefined : out.body);
+      }
+      if (path === '/rest/v1/settlements') {
+        if (req.method === 'GET') return send(res, 200, page([...state.settlements.values()].filter((r) => active(r.group_id, uid)), url));
+        if (req.method === 'POST') {
+          const rows: any[] = await body(req);
+          for (const r of rows) {
+            const existing = state.settlements.get(r.id);
+            if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
+            const problem = settlementProblem(r, existing, uid);
+            if (problem) return send(res, problem.status, problem.body);
+          }
+          for (const r of rows) {
+            const existing = state.settlements.get(r.id);
+            if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
+            state.settlements.set(r.id, { ...r, synced_at: stamp() });
           }
           return send(res, 201);
         }

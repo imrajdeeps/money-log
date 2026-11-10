@@ -4,9 +4,12 @@ import { useApp } from '../context.tsx';
 import { CategorySelect } from '../components/CategorySelect.tsx';
 import { EditDialog } from '../components/EditDialog.tsx';
 import { MethodChips } from '../components/MethodChips.tsx';
+import { SplitEditor, freshSplit } from '../components/SplitEditor.tsx';
+import type { SplitState } from '../components/SplitEditor.tsx';
 import { shortDate } from '../format.ts';
-import { METHODS, byRecent, fmtINR, frequentCategories, isValidDate, isoDate, parseAmount } from '../logic.ts';
-import type { Entry, Method } from '../logic.ts';
+import { activeMembers, computeShares } from '../groups.ts';
+import { METHODS, byRecent, fmtINR, frequentCategories, isValidDate, isoDate, myShare, parseAmount } from '../logic.ts';
+import type { Entry, Method, NewEntryInput } from '../logic.ts';
 
 const METHOD_KEY = 'money-log.method';
 
@@ -29,7 +32,11 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
   const [date, setDate] = useState<string | null>(null); // null = today
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [groupId, setGroupId] = useState(''); // '' = private
+  const [split, setSplit] = useState<SplitState | null>(null);
   const today = isoDate();
+  const people = useMemo(() => (groupId ? activeMembers(app.members, groupId) : []), [app.members, groupId]);
+  const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
 
   useEffect(() => { if (active) amountRef.current?.focus(); }, [active]);
 
@@ -54,12 +61,22 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
     const d = date ?? today;
     if (!isValidDate(d)) return fail('Pick a valid date.');
     if (d > today) return fail('The date cannot be in the future.');
-    await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d });
+    let group: NewEntryInput['group'] = null;
+    if (groupId) {
+      if (!app.me || !split) return fail('Sign in to share an expense with a group.');
+      const r = computeShares(split.mode, amt, people.map((m) => m.user_id), new Set(split.included), split.values);
+      if (!r.shares) return fail(r.problem);
+      if (split.paidBy !== app.me && !(app.me in r.shares)) return fail('You can only record an expense that you paid or share in.');
+      group = { group_id: groupId, paid_by: split.paidBy, shares: r.shares };
+    }
+    await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group });
     app.toast(`Saved ${fmtINR(amt)} · ${category}`);
     setAmount('');
     setNote('');
     setCategory('');
     setDate(null);
+    setGroupId(''); // the next payment is private unless chosen otherwise
+    setSplit(null);
     setError('');
     amountRef.current?.focus();
   }
@@ -113,8 +130,32 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
           <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
         </label>
 
+        {app.groups.length > 0 && (
+          <label className="field">
+            <span>Share with</span>
+            <select
+              value={groupId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setGroupId(id);
+                setSplit(id && app.me ? freshSplit(app.me, activeMembers(app.members, id)) : null);
+                setError('');
+              }}
+            >
+              <option value="">Nobody (private)</option>
+              {app.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </label>
+        )}
+        {groupId && split && app.me && (
+          <>
+            <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
+            <p className="muted small">Everyone in {groupName(groupId)} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.</p>
+          </>
+        )}
+
         <p className="msg bad" role="alert" hidden={!error}>{error}</p>
-        <button type="submit" className="btn big">Save payment</button>
+        <button type="submit" className="btn big">{groupId ? 'Save shared expense' : 'Save payment'}</button>
       </form>
 
       <h2 className="h2">Recent</h2>
@@ -127,9 +168,9 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
               <button type="button" className="row" onClick={() => setEditing(e)}>
                 <span className="row-main">
                   <b>{e.category}</b>
-                  <small>{[shortDate(e.entry_date), e.method, e.note].filter(Boolean).join(' · ')}</small>
+                  <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? `shared with ${groupName(e.group_id)}, total ${fmtINR(e.amount)}` : ''].filter(Boolean).join(' · ')}</small>
                 </span>
-                <span className="amt">{fmtINR(e.amount)}</span>
+                <span className="amt">{fmtINR(myShare(e, app.me))}</span>
                 {app.syncEnabled && e.dirty ? <span className="dot" role="img" aria-label="Waiting to sync" /> : null}
               </button>
             </li>

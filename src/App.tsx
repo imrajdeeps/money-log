@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context.tsx';
 import { SyncPill } from './components/SyncPill.tsx';
 import { ExportScreen } from './screens/ExportScreen.tsx';
+import { GroupsScreen } from './screens/GroupsScreen.tsx';
 import { LogScreen } from './screens/LogScreen.tsx';
 import { MonthScreen } from './screens/MonthScreen.tsx';
+import { PlanScreen } from './screens/PlanScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
 
-type Tab = 'log' | 'month' | 'export' | 'settings';
+type Tab = 'log' | 'month' | 'plan' | 'groups' | 'export' | 'settings';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'log', label: 'Log', icon: '＋' },
   { id: 'month', label: 'Month', icon: '▤' },
+  { id: 'plan', label: 'Plan', icon: '☰' },
+  { id: 'groups', label: 'Groups', icon: '👥' },
   { id: 'export', label: 'Export', icon: '⇪' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
@@ -17,6 +21,8 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 function Shell() {
   const app = useApp();
   const [tab, setTab] = useState<Tab>('log');
+  // A join link was opened: show where it can be used.
+  useEffect(() => { if (app.joinCode) setTab('groups'); }, [app.joinCode]);
   if (!app.ready) return <p className="boot" role="status">Opening your payments…</p>;
   const goSettings = () => setTab('settings');
   return (
@@ -31,9 +37,11 @@ function Shell() {
         </p>
       )}
       <main>
-        {/* All four stay mounted so a half-typed payment survives a look at another tab. */}
+        {/* All of them stay mounted so a half-typed payment survives a look at another tab. */}
         <div hidden={tab !== 'log'}><LogScreen active={tab === 'log'} openSettings={goSettings} /></div>
         <div hidden={tab !== 'month'}><MonthScreen openSettings={goSettings} /></div>
+        <div hidden={tab !== 'plan'}><PlanScreen openSettings={goSettings} /></div>
+        <div hidden={tab !== 'groups'}><GroupsScreen openSettings={goSettings} /></div>
         <div hidden={tab !== 'export'}><ExportScreen /></div>
         <div hidden={tab !== 'settings'}><SettingsScreen /></div>
       </main>

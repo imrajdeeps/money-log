@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useApp } from '../context.tsx';
+import { makeBackup, parseBackup } from '../backup.ts';
+import { parseBlockText } from '../blocks.ts';
 import { readTextFile, saveFile } from '../files.ts';
-import { clockLabel, monthLabel, stamp } from '../format.ts';
-import { GROUPS, makeBackup, parseBackup, parsePlanText } from '../logic.ts';
+import { clockLabel, monthLabel, shortDate, stamp } from '../format.ts';
+import { GROUPS } from '../logic.ts';
 
-export const VERSION = '1.0.0';
+export const VERSION = '2.0.0';
+const importedOn = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 function AccountCard() {
@@ -96,8 +99,8 @@ function PlanCard() {
   const app = useApp();
   const [text, setText] = useState('');
   const [fileErr, setFileErr] = useState('');
-  const parsed = useMemo(() => (text.trim() ? parsePlanText(text) : null), [text]);
-  const p = app.plan;
+  const parsed = useMemo(() => (text.trim() ? parseBlockText(text) : null), [text]);
+  const { plan: p, due, net } = app;
 
   async function pickFile(ev: ChangeEvent<HTMLInputElement>) {
     const f = ev.target.files?.[0];
@@ -108,37 +111,52 @@ function PlanCard() {
 
   async function apply() {
     if (!parsed?.ok) return;
-    await app.applyPlan(parsed.plan);
-    app.toast('Plan imported');
+    if (parsed.kind === 'budget') await app.applyPlan(parsed.plan);
+    else if (parsed.kind === 'due') await app.applyDue(parsed.data);
+    else await app.applyNet(parsed.data);
+    app.toast(parsed.kind === 'budget' ? 'Plan imported' : parsed.kind === 'due' ? 'Due list imported' : 'Net worth and goals imported');
     setText('');
   }
 
+  const replacing = parsed?.ok && ((parsed.kind === 'budget' && p) || (parsed.kind === 'due' && due) || (parsed.kind === 'networth' && net));
+
   return (
     <div className="card">
-      <h2>Plan</h2>
-      <p className="muted small">
-        {p
-          ? `${p.rows.length} categories, ${monthLabel(p.months[0] ?? '')} to ${monthLabel(p.months[p.months.length - 1] ?? '')}. Imported ${new Date(p.importedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.`
-          : 'No plan yet. The category list and the monthly budgets come from the spreadsheet.'}
-      </p>
+      <h2>Plan data</h2>
+      <ul className="facts small">
+        <li><b>Budget</b>: {p ? `${p.rows.length} categories, ${monthLabel(p.months[0] ?? '')} to ${monthLabel(p.months[p.months.length - 1] ?? '')}. Imported ${importedOn(p.importedAt)}.` : 'not imported (needed for the category list and monthly budgets).'}</li>
+        <li><b>Due list</b>: {due ? `${due.items.length} items. Imported ${importedOn(due.importedAt)}.` : 'not imported.'}</li>
+        <li><b>Net worth and goals</b>: {net ? `${net.items.length} figures${net.asOf ? ` for ${monthLabel(net.asOf.slice(0, 7))}` : ''}. Imported ${importedOn(net.importedAt)}.` : 'not imported.'}</li>
+      </ul>
       <ol className="steps muted small">
-        <li>In the spreadsheet, open the <b>App export</b> tab and copy <b>A5 to AL34</b>.</li>
-        <li>Paste it below, or choose a .tsv/.csv file. Importing replaces the previous plan and never touches your payments.</li>
+        <li>In the spreadsheet's <b>App export</b> tab, copy one block: the budget <b>A5 to AL34</b>, the due list <b>A38 to E66</b>, or net worth and goals <b>A70 to C79</b>.</li>
+        <li>Paste it below, or choose a .tsv/.csv file. The app recognises which block it is. Importing replaces that block only and never touches your payments.</li>
       </ol>
-      <textarea className="preview" rows={5} value={text} onChange={(e) => setText(e.target.value)} aria-label="Plan block pasted from the spreadsheet" placeholder="Paste the block here" spellCheck={false} />
+      <textarea className="preview" rows={5} value={text} onChange={(e) => setText(e.target.value)} aria-label="Block pasted from the spreadsheet" placeholder="Paste the block here" spellCheck={false} />
       <label className="btn ghost filebtn">
         Choose a file
         <input type="file" accept=".tsv,.csv,.txt,text/plain,text/csv,text/tab-separated-values" onChange={pickFile} />
       </label>
       {fileErr && <p className="msg bad" role="alert">{fileErr}</p>}
       {parsed && !parsed.ok && <p className="msg bad" role="alert">{parsed.error}</p>}
-      {parsed?.ok && (
+      {parsed?.ok && parsed.kind === 'budget' && (
         <div className="msg good" role="status">
-          <p>Ready to import: <b>{parsed.summary.categories}</b> categories for <b>{parsed.summary.months}</b> months ({monthLabel(parsed.summary.first)} to {monthLabel(parsed.summary.last)}).</p>
+          <p>Budget block: <b>{parsed.summary.categories}</b> categories for <b>{parsed.summary.months}</b> months ({monthLabel(parsed.summary.first)} to {monthLabel(parsed.summary.last)}).</p>
           <p className="small">{GROUPS.map((g) => `${g}: ${parsed.summary.byGroup[g]}`).join(' · ')}</p>
         </div>
       )}
-      <button type="button" className="btn" disabled={!parsed?.ok} onClick={apply}>{p ? 'Replace plan' : 'Import plan'}</button>
+      {parsed?.ok && parsed.kind === 'due' && (
+        <div className="msg good" role="status">
+          <p>Due list: <b>{parsed.summary.oneoffs}</b> one-off payment{parsed.summary.oneoffs === 1 ? '' : 's'} and <b>{parsed.summary.todos}</b> to-do{parsed.summary.todos === 1 ? '' : 's'}{parsed.summary.undated ? `, ${parsed.summary.undated} without a date` : ''}.</p>
+          <p className="small">Next: {parsed.data.items.filter((i) => i.due && !i.done).sort((a, b) => (a.due ?? '').localeCompare(b.due ?? '')).slice(0, 1).map((i) => `${i.title} (${shortDate(i.due!)})`).join('') || 'nothing dated'}. Done marks you made in the app are kept for items that are still on the list.</p>
+        </div>
+      )}
+      {parsed?.ok && parsed.kind === 'networth' && (
+        <div className="msg good" role="status">
+          <p>Net worth and goals: <b>{parsed.summary.items}</b> figures{parsed.summary.asOf ? ` for ${monthLabel(parsed.summary.asOf.slice(0, 7))}` : ''}.</p>
+        </div>
+      )}
+      <button type="button" className="btn" disabled={!parsed?.ok} onClick={apply}>{replacing ? 'Replace this block' : 'Import this block'}</button>
     </div>
   );
 }
@@ -148,7 +166,7 @@ function BackupCard() {
   const [msg, setMsg] = useState('');
 
   async function download() {
-    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString()), null, 2);
+    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, networth: app.net, dueDone: app.doneMap }), null, 2);
     const r = await saveFile(`money-log-backup-${stamp()}.json`, body, 'application/json');
     if (r !== 'cancelled') app.toast(r === 'shared' ? 'Backup shared.' : 'Backup downloaded.');
   }
@@ -161,8 +179,8 @@ function BackupCard() {
       const r = parseBackup(await readTextFile(f, 20_000_000));
       if (!r.ok) { setMsg(r.error); return; }
       if (!window.confirm(`Restore from this backup? It holds ${r.entries.length} payment${r.entries.length === 1 ? '' : 's'}${r.skipped ? ` (${r.skipped} that can't be read will be skipped)` : ''}. Payments already here stay unless the backup copy is newer.`)) return;
-      const res = await app.restoreBackup(r.entries, r.plan);
-      setMsg(`Restored: ${res.added} added, ${res.updated} updated${res.planReplaced ? ', plan replaced' : ''}.`);
+      const res = await app.restoreBackup(r);
+      setMsg(`Restored: ${res.added} added, ${res.updated} updated${res.blocksReplaced ? `, ${res.blocksReplaced} plan block${res.blocksReplaced === 1 ? '' : 's'} replaced` : ''}.`);
     } catch (e) { setMsg(errText(e)); }
   }
 
@@ -205,7 +223,7 @@ function AboutCard() {
   return (
     <div className="card">
       <h2>About</h2>
-      <p className="muted small">Money Log {VERSION} · Release 1. Amounts are in rupees.</p>
+      <p className="muted small">Money Log {VERSION} · Release 2. Amounts are in rupees.</p>
       {app.storageKind === 'memory' && (
         <p className="msg bad" role="alert">This browser would not let the app store data, so payments will be lost when you close it. Open it in a normal (not private) window.</p>
       )}

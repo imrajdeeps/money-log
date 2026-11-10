@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../context.tsx';
 import { monthLabel } from '../format.ts';
-import { GROUPS, budgetState, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../logic.ts';
+import { GROUPS, budgetEntries, budgetState, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../logic.ts';
 import type { BudgetState, Group } from '../logic.ts';
 
 const stateClass: Record<BudgetState, string> = { over: 'bad', ok: 'good', short: 'bad', idle: 'idle' };
@@ -26,7 +26,8 @@ export function MonthScreen({ openSettings }: { openSettings: () => void }) {
   const app = useApp();
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);
-  const s = useMemo(() => summarizeMonth(app.entries, app.plan, month), [app.entries, app.plan, month]);
+  // Shared expenses count at this account's own share; other people's expenses never count.
+  const s = useMemo(() => summarizeMonth(budgetEntries(app.entries, app.me), app.plan, month), [app.entries, app.me, app.plan, month]);
   const monthIsOver = month < current;
   const shown = s.rows.filter((r) => r.planned > 0 || r.spent > 0);
 

@@ -10,7 +10,7 @@ interface Props {
 export function MethodChips({ value, onChange, options }: Props) {
   return (
     <fieldset className="chips">
-      <legend>Paid by</legend>
+      <legend>Payment method</legend>
       {options.map((m) => (
         <button key={m} type="button" className="chip" aria-pressed={value === m} onClick={() => onChange(value === m ? null : m)}>
           {m}

@@ -1,13 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   parseAmount, fmtINR, isValidDate, shiftMonth, parseTs, isoDate, monthOf,
   parsePlanText, cleanPlan, summarizeMonth, budgetState,
   safeCell, exportNote, amountText, exportRows, toTSV, toCSV,
   cleanEntry, mergeRemote, frequentCategories, makeEntry, editEntry, softDelete,
-  makeBackup, parseBackup, newId, markExportedEntry, changedAfterExport,
+  newId, markExportedEntry, changedAfterExport,
 } from '../src/logic.ts';
+import { makeBackup, parseBackup } from '../src/backup.ts';
 import type { Entry, PlanData } from '../src/logic.ts';
 
 const T0 = '2026-11-09T10:00:00.000Z';
@@ -299,9 +301,10 @@ test('plan import accepts dashes where an accounting format shows zero, but not 
   assert.ok(!parsePlanText('Category\tGroup\t2026-11\nRent\tSpending\t-5').ok);
 });
 
-// Contract check against the real spreadsheet export, when it is present next to the project (never in the repo).
-const REAL = new URL('../../Money Log - plan block (Base).tsv', import.meta.url);
-test('the spreadsheet App export block imports cleanly', { skip: !existsSync(REAL) }, () => {
+// Contract check against the real spreadsheet export. The exported blocks are never in the repo: set MONEY_LOG_REAL_DIR to
+// the folder that holds them (for example your Finance folder); without it these tests are skipped.
+const REAL = process.env.MONEY_LOG_REAL_DIR ? join(process.env.MONEY_LOG_REAL_DIR, 'Money Log - plan block (Base).tsv') : '';
+test('the spreadsheet App export block imports cleanly', { skip: !REAL || !existsSync(REAL) }, () => {
   const r = parsePlanText(readFileSync(REAL, 'utf8'));
   assert.ok(r.ok, r.ok ? '' : r.error);
   if (!r.ok) return;

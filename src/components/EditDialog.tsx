@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../context.tsx';
+import { activeMembers, computeShares } from '../groups.ts';
 import { METHODS, fmtINR, isValidDate, isoDate, parseAmount } from '../logic.ts';
-import type { Entry, Method } from '../logic.ts';
+import type { Entry, Method, NewEntryInput } from '../logic.ts';
 import { CategorySelect } from './CategorySelect.tsx';
 import { MethodChips } from './MethodChips.tsx';
+import { SplitEditor, splitFromEntry } from './SplitEditor.tsx';
+import type { SplitState } from './SplitEditor.tsx';
 
 export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => void }) {
   const app = useApp();
@@ -16,6 +19,16 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
   const [date, setDate] = useState(entry.entry_date);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
+
+  // A shared expense: editable only while this account is in the group, and not once someone it names has left, because
+  // changing its amount, people or existence would silently change that person's balance.
+  const shared = Boolean(entry.group_id);
+  const inGroup = shared && app.groups.some((g) => g.id === entry.group_id);
+  const people = activeMembers(app.members, entry.group_id ?? '');
+  const named = [entry.paid_by, ...Object.keys(entry.shares ?? {})];
+  const frozen = shared && named.some((u) => !people.some((m) => m.user_id === u));
+  const readOnly = shared && !inGroup;
+  const [split, setSplit] = useState<SplitState>(() => splitFromEntry(entry, people));
 
   useEffect(() => {
     const d = ref.current;
@@ -31,7 +44,16 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
     if (!category) return setError('Pick a category.');
     if (!isValidDate(date)) return setError('Pick a valid date.');
     if (date > isoDate()) return setError('The date cannot be in the future.');
-    await app.updateEntry(entry.id, { amount: amt, category, method, note: note.trim(), date });
+    const changes: Partial<NewEntryInput> = { category, method, note: note.trim(), date };
+    if (!shared) changes.amount = amt;
+    else if (!frozen) {
+      const r = computeShares(split.mode, amt, people.map((m) => m.user_id), new Set(split.included), split.values);
+      if (!r.shares) return setError(r.problem);
+      if (split.paidBy !== app.me && !(app.me && app.me in r.shares)) return setError('You can only record an expense that you paid or share in.');
+      changes.amount = amt;
+      changes.group = { group_id: entry.group_id!, paid_by: split.paidBy, shares: r.shares };
+    }
+    await app.updateEntry(entry.id, changes);
     app.toast(`Updated ${fmtINR(amt)} · ${category}`);
     close();
   }
@@ -51,11 +73,16 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
       aria-labelledby="edit-title"
     >
       <form onSubmit={save} noValidate>
-        <h2 id="edit-title">Edit payment</h2>
+        <h2 id="edit-title">{shared ? 'Edit shared expense' : 'Edit payment'}</h2>
+        {readOnly && <p className="msg bad" role="status">You are no longer in this group, so this expense can no longer be changed.</p>}
+        {frozen && inGroup && <p className="msg" role="status">Someone this expense names has left the group, so its amount, split and deletion are locked. You can still change the category, method, note and date.</p>}
         <label className="field">
           <span>Amount (₹)</span>
-          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={readOnly || frozen} />
         </label>
+        {shared && inGroup && !frozen && app.me && (
+          <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
+        )}
         <label className="field" htmlFor="edit-cat"><span>Category</span></label>
         <CategorySelect id="edit-cat" value={category} onChange={setCategory} plan={app.plan} />
         <MethodChips value={method} onChange={setMethod} options={METHODS} />
@@ -69,12 +96,14 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
         </label>
         {error && <p className="msg bad" role="alert">{error}</p>}
         <div className="btnrow">
-          <button type="submit" className="btn">Save</button>
-          <button type="button" className="btn ghost" onClick={close}>Cancel</button>
+          <button type="submit" className="btn" disabled={readOnly}>Save</button>
+          <button type="button" className="btn ghost" onClick={close}>{readOnly ? 'Close' : 'Cancel'}</button>
         </div>
-        <button type="button" className="btn danger" onClick={remove}>
-          {confirmDelete ? 'Tap again to delete' : 'Delete payment'}
-        </button>
+        {!readOnly && !frozen && (
+          <button type="button" className="btn danger" onClick={remove}>
+            {confirmDelete ? 'Tap again to delete' : shared ? 'Delete shared expense' : 'Delete payment'}
+          </button>
+        )}
       </form>
     </dialog>
   );

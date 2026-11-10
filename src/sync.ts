@@ -4,8 +4,12 @@
 //             each signed-in user may read or write; this code never relies on filtering rows client-side for safety.
 //
 // Entries are written to the phone first. Each carries dirty = 1 until a push succeeds, so nothing is lost offline.
-import { cleanEntry, cleanPlan, mergeRemote, newId, parseTs } from './logic.ts';
-import type { Entry, Plan } from './logic.ts';
+import { cleanDoneMap, cleanDue, cleanNet, mergeDone, sameDone } from './blocks.ts';
+import type { DoneMap } from './blocks.ts';
+import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from './groups.ts';
+import type { Group, Invite, Member, Settlement } from './groups.ts';
+import { cleanEntry, cleanPlan, isMine, mergeRemote, newId, parseTs } from './logic.ts';
+import type { Entry } from './logic.ts';
 import type { Store } from './store.ts';
 
 export interface SyncConfig { supabaseUrl: string; supabaseKey: string }
@@ -41,6 +45,21 @@ export interface SyncOptions {
 const PAGE = 1000;
 const PUSH_CHUNK = 200;
 const OVERLAP_MS = 5 * 60 * 1000; // re-read a little before the last cursor so a late-committing write is never missed
+
+// The plan blocks imported from the spreadsheet. Each is kept whole on the phone as { ...data, importedAt, dirty } and
+// replaced as a unit; the latest import wins. 'budget' keeps its Release 1 storage key.
+type BlockName = 'budget' | 'due' | 'networth';
+const BLOCKS: Record<BlockName, { meta: string; clean: (p: unknown) => object | null }> = {
+  budget: { meta: 'plan', clean: cleanPlan },
+  due: { meta: 'block:due', clean: cleanDue },
+  networth: { meta: 'block:networth', clean: cleanNet },
+};
+const BLOCK_NAMES = Object.keys(BLOCKS) as BlockName[];
+const isBlock = (n: unknown): n is BlockName => typeof n === 'string' && Object.hasOwn(BLOCKS, n);
+interface StoredBlock { importedAt: string; dirty: 0 | 1 }
+// The Done marks on the due list are not imported: they are made in the app, merged per item, and synced as one more block.
+export interface DueDone { items: DoneMap; dirty: 0 | 1 }
+const DONE_BLOCK = 'due_done';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function createSync(opts: SyncOptions) {
@@ -192,10 +211,26 @@ export function createSync(opts: SyncOptions) {
   }
 
   // ------------------------------------------------------------ push
+  // The groups this phone's account is in right now, or null before the first pull has told us.
+  async function activeGroups(): Promise<Set<string> | null> {
+    const g = await store.getMeta<Group[]>('groups');
+    return g ? new Set(g.map((x) => x.id)) : null;
+  }
+
+  // What this phone may send: its own rows, and shared rows only for groups the account is still in (the database would
+  // refuse the rest, and refused rows would be retried for ever).
+  const pushable = (e: { owner_id?: string | null; group_id: string | null }, uid: string | null, active: Set<string> | null): boolean =>
+    isMine({ owner_id: e.owner_id ?? null }, uid) && (!e.group_id || active === null || active.has(e.group_id));
+
   async function refreshPending(): Promise<void> {
+    const uid = (await store.getMeta<string>('localOwner')) ?? null;
+    const active = await activeGroups();
     const entries = await store.allEntries();
-    const plan = await store.getMeta<Plan>('plan');
-    set({ pending: entries.filter((e) => e.dirty).length + (plan?.dirty ? 1 : 0) });
+    let pending = entries.filter((e) => e.dirty && pushable(e, uid, active)).length;
+    pending += (await store.allSettlements()).filter((x) => x.dirty && pushable({ owner_id: x.created_by, group_id: x.group_id }, uid, active)).length;
+    for (const n of BLOCK_NAMES) if ((await store.getMeta<StoredBlock>(BLOCKS[n].meta))?.dirty) pending++;
+    if ((await store.getMeta<DueDone>('dueDone'))?.dirty) pending++;
+    set({ pending });
   }
 
   const toRow = (e: Entry, uid: string) => ({
@@ -210,38 +245,46 @@ export function createSync(opts: SyncOptions) {
     updated_at: e.updated_at,
     deleted_at: e.deleted_at,
     exported_at: e.exported_at,
+    group_id: e.group_id,
+    paid_by: e.paid_by,
+    shares: e.shares,
+  });
+
+  const toSettlementRow = (x: Settlement, uid: string) => ({
+    id: x.id,
+    group_id: x.group_id,
+    from_user: x.from_user,
+    to_user: x.to_user,
+    amount: x.amount,
+    settle_date: x.settle_date,
+    created_by: uid,
+    created_at: x.created_at,
+    updated_at: x.updated_at,
+    deleted_at: x.deleted_at,
   });
 
   // Statuses that mean "this data was refused", as opposed to "the server is having a bad moment".
   const isRefusal = (e: unknown): e is SyncError => e instanceof SyncError && e.kind === 'http' && [400, 403, 409, 413, 422].includes(e.status);
 
   // Entries that came from another account (a backup restored here) could clash with that account's rows, whose ids
-  // they share, and the database would refuse them. Give those entries fresh ids so they upload as new copies.
+  // they share, and the database would refuse them. Give those entries fresh ids so they upload as new, private copies
+  // (a group they belonged to is not ours). Rows other people shared with us are clean, never touched here.
   async function reown(uid: string): Promise<void> {
-    const foreign = (await store.allEntries()).filter((e) => e.owner_id && e.owner_id !== uid);
+    const foreign = (await store.allEntries()).filter((e) => e.dirty && e.owner_id && e.owner_id !== uid);
     if (!foreign.length) return;
-    await store.putEntries(foreign.map((e) => ({ ...e, id: newId(), owner_id: null, dirty: 1 as const })));
+    await store.putEntries(foreign.map((e) => ({ ...e, id: newId(), owner_id: null, group_id: null, paid_by: null, shares: null, dirty: 1 as const })));
     await store.deleteEntries(foreign.map((e) => e.id));
   }
 
-  async function pushEntries(uid: string): Promise<void> {
-    await reown(uid);
-    const dirty = (await store.allEntries()).filter((e) => e.dirty);
+  // Sends dirty rows in chunks. One bad row must not block the others: when a chunk is refused, its rows go one at a time.
+  async function pushDirty<T extends { id: string }>(path: string, list: T[], row: (x: T) => object, markClean: (chunk: T[]) => Promise<void>): Promise<void> {
     let firstRefusal: SyncError | null = null;
-
-    const send = async (chunk: Entry[]) => {
-      await request('/rest/v1/entries?on_conflict=id', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: chunk.map((e) => toRow(e, uid)),
-      });
-      // Mark clean only if the entry was not edited again while the request was in flight (checked in one transaction).
-      const sent = new Map(chunk.map((e) => [e.id, e.updated_at]));
-      await store.mutateEntries([...sent.keys()], (cur, id) => (cur && cur.updated_at === sent.get(id) ? { ...cur, owner_id: uid, dirty: 0 } : undefined));
+    const send = async (chunk: T[]) => {
+      await request(path, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: chunk.map(row) });
+      await markClean(chunk);
     };
-
-    for (let i = 0; i < dirty.length; i += PUSH_CHUNK) {
-      const chunk = dirty.slice(i, i + PUSH_CHUNK);
+    for (let i = 0; i < list.length; i += PUSH_CHUNK) {
+      const chunk = list.slice(i, i + PUSH_CHUNK);
       try {
         await send(chunk);
         continue;
@@ -249,7 +292,6 @@ export function createSync(opts: SyncOptions) {
         if (!isRefusal(e)) throw e;
         if (chunk.length === 1) { firstRefusal ??= e; continue; }
       }
-      // The server refused the batch. One bad row must not block the others: retry them one at a time and keep going.
       for (const one of chunk) {
         try { await send([one]); } catch (e) { if (!isRefusal(e)) throw e; firstRefusal ??= e; }
       }
@@ -257,30 +299,67 @@ export function createSync(opts: SyncOptions) {
     if (firstRefusal) throw firstRefusal;
   }
 
-  async function pushPlan(uid: string): Promise<void> {
-    const plan = await store.getMeta<Plan>('plan');
-    if (!plan || !plan.dirty) return;
-    await request('/rest/v1/plan_blocks?on_conflict=owner_id,block', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: [{ owner_id: uid, block: 'budget', imported_at: plan.importedAt, payload: { v: plan.v, months: plan.months, rows: plan.rows } }],
+  async function pushEntries(uid: string): Promise<void> {
+    await reown(uid);
+    const active = await activeGroups();
+    const dirty = (await store.allEntries()).filter((e) => e.dirty && pushable(e, uid, active));
+    await pushDirty('/rest/v1/entries?on_conflict=id', dirty, (e) => toRow(e, uid), async (chunk) => {
+      // Mark clean only if the entry was not edited again while the request was in flight (checked in one transaction).
+      const sent = new Map(chunk.map((e) => [e.id, e.updated_at]));
+      await store.mutateEntries([...sent.keys()], (cur, id) => (cur && cur.updated_at === sent.get(id) ? { ...cur, owner_id: uid, dirty: 0 } : undefined));
     });
-    const again = await store.getMeta<Plan>('plan');
-    if (again && again.importedAt === plan.importedAt) await store.setMeta('plan', { ...again, dirty: 0 });
+  }
+
+  async function pushSettlements(uid: string): Promise<void> {
+    const active = await activeGroups();
+    const dirty = (await store.allSettlements()).filter((x) => x.dirty && pushable({ owner_id: x.created_by, group_id: x.group_id }, uid, active));
+    await pushDirty('/rest/v1/settlements?on_conflict=id', dirty, (x) => toSettlementRow(x, uid), async (chunk) => {
+      const sent = new Map(chunk.map((x) => [x.id, x.updated_at]));
+      await store.mutateSettlements([...sent.keys()], (cur, id) => (cur && cur.updated_at === sent.get(id) ? { ...cur, created_by: uid, dirty: 0 } : undefined));
+    });
+  }
+
+  async function pushBlocks(uid: string): Promise<void> {
+    for (const name of BLOCK_NAMES) {
+      const key = BLOCKS[name].meta;
+      const stored = await store.getMeta<StoredBlock & Record<string, unknown>>(key);
+      if (!stored || !stored.dirty) continue;
+      const { importedAt, dirty: _dirty, ...payload } = stored;
+      await request('/rest/v1/plan_blocks?on_conflict=owner_id,block', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: [{ owner_id: uid, block: name, imported_at: importedAt, payload }],
+      });
+      // Clear the flag only if a newer import did not arrive while the request was in flight.
+      await store.mutateMeta<StoredBlock>(key, (cur) => (cur && cur.importedAt === importedAt ? { ...cur, dirty: 0 } : undefined));
+    }
+    const done = await store.getMeta<DueDone>('dueDone');
+    if (done?.dirty) {
+      const sent = done.items;
+      await request('/rest/v1/plan_blocks?on_conflict=owner_id,block', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: [{ owner_id: uid, block: DONE_BLOCK, imported_at: new Date(now()).toISOString(), payload: { v: 1, items: sent } }],
+      });
+      await store.mutateMeta<DueDone>('dueDone', (cur) => (cur && sameDone(cur.items, sent) ? { ...cur, dirty: 0 } : undefined));
+    }
   }
 
   // ------------------------------------------------------------ pull
-  async function pullEntries(): Promise<void> {
-    const cursor = await store.getMeta<string>('pullCursor');
+  // Reads one table in the order the server wrote it, newest changes last. Page by position (the last timestamp seen), not
+  // by offset: rows edited on another phone while we page move to the end of the order and are picked up there, instead of
+  // shifting everything and making us skip rows.
+  async function pullKeyset<T extends { id: string }>(
+    table: string, cursorKey: string, clean: (row: any) => T | null, merge: (rows: Map<string, T>) => Promise<void>,
+  ): Promise<void> {
+    const cursor = await store.getMeta<string>(cursorKey);
     let since: string | null = cursor && Number.isFinite(parseTs(cursor)) ? new Date(parseTs(cursor) - OVERLAP_MS).toISOString() : null;
     let max = cursor ?? null;
     const seen = new Set<string>();
     for (;;) {
-      // Page by position (the last timestamp seen), not by offset: rows edited on another phone while we page move to
-      // the end of the order and are picked up there, instead of shifting everything and making us skip rows.
-      const q = `/rest/v1/entries?select=*&order=synced_at.asc,id.asc&limit=${PAGE}` + (since ? `&synced_at=gte.${encodeURIComponent(since)}` : '');
+      const q = `/rest/v1/${table}?select=*&order=synced_at.asc,id.asc&limit=${PAGE}` + (since ? `&synced_at=gte.${encodeURIComponent(since)}` : '');
       const rows: any[] = (await request(q)) ?? [];
-      const remote = new Map<string, Entry>();
+      const remote = new Map<string, T>();
       let fresh = 0;
       for (const r of rows) {
         if (typeof r.synced_at === 'string' && (!max || parseTs(r.synced_at) > parseTs(max))) max = r.synced_at;
@@ -288,30 +367,76 @@ export function createSync(opts: SyncOptions) {
         if (seen.has(key)) continue; // the boundary row comes back at the start of the next page
         seen.add(key);
         fresh++;
-        const e = cleanEntry({ ...r, dirty: 0 });
+        const e = clean({ ...r, dirty: 0 });
         if (e) remote.set(e.id, e);
       }
-      // Merge inside one transaction so a local edit made at this moment cannot be overwritten by a stale read.
-      await store.mutateEntries([...remote.keys()], (cur, id) => {
-        const merged = mergeRemote(cur, remote.get(id)!);
-        return merged === cur ? undefined : merged;
-      });
+      await merge(remote);
       const last = rows[rows.length - 1]?.synced_at;
       if (rows.length < PAGE || fresh === 0 || typeof last !== 'string') break;
       since = last;
     }
-    if (max) await store.setMeta('pullCursor', max);
+    if (max) await store.setMeta(cursorKey, max);
   }
 
-  async function pullPlan(): Promise<void> {
-    const rows: any[] = (await request('/rest/v1/plan_blocks?select=block,imported_at,payload&block=eq.budget')) ?? [];
-    const row = rows[0];
-    if (!row) return;
-    const data = cleanPlan(row.payload);
-    if (!data || !Number.isFinite(parseTs(row.imported_at))) return;
-    const local = await store.getMeta<Plan>('plan');
-    if (local && parseTs(row.imported_at) <= parseTs(local.importedAt)) return; // latest import wins; a newer local one is pushed next
-    await store.setMeta('plan', { ...data, importedAt: row.imported_at as string, dirty: 0 } satisfies Plan);
+  // Merge inside one transaction so a local edit made at this moment cannot be overwritten by a stale read.
+  const pullEntries = () => pullKeyset<Entry>('entries', 'pullCursor', cleanEntry, (remote) =>
+    store.mutateEntries([...remote.keys()], (cur, id) => {
+      const merged = mergeRemote(cur, remote.get(id)!);
+      return merged === cur ? undefined : merged;
+    }));
+
+  const pullSettlements = () => pullKeyset<Settlement>('settlements', 'settleCursor', cleanSettlement, (remote) =>
+    store.mutateSettlements([...remote.keys()], (cur, id) => {
+      const merged = mergeRemoteSettlement(cur, remote.get(id)!);
+      return merged === cur ? undefined : merged;
+    }));
+
+  // The groups this account is in (the database only shows those), their members, and the invite codes of the ones this
+  // account administers. When the list of groups changes, everything the new groups hold is older than our cursors, so the
+  // cursors are dropped and the next reads start from the beginning; rows of groups we left are forgotten.
+  async function pullGroups(uid: string): Promise<void> {
+    const list = async <T>(path: string, clean: (r: any) => T | null): Promise<T[]> => {
+      const rows: any[] = (await request(path)) ?? [];
+      return rows.map(clean).filter((x): x is T => x !== null);
+    };
+    const groups = await list<Group>('/rest/v1/groups?select=*&order=created_at.asc', cleanGroup);
+    const members = await list<Member>('/rest/v1/group_members?select=*', cleanMember);
+    const invites = await list<Invite>('/rest/v1/group_invites?select=*', cleanInvite);
+    await store.setMeta('groups', groups);
+    await store.setMeta('members', members);
+    await store.setMeta('invites', invites);
+    const key = groups.map((g) => g.id).sort().join(',');
+    if ((await store.getMeta<string>('groupsKey')) !== key) {
+      await store.delMeta('pullCursor');
+      await store.delMeta('settleCursor');
+      await store.setMeta('groupsKey', key);
+    }
+    const active = new Set(groups.map((g) => g.id));
+    await store.deleteEntries((await store.allEntries()).filter((e) => e.group_id && !active.has(e.group_id) && e.owner_id && e.owner_id !== uid && !e.dirty).map((e) => e.id));
+    await store.deleteSettlements((await store.allSettlements()).filter((x) => !active.has(x.group_id)).map((x) => x.id));
+  }
+
+  async function pullBlocks(): Promise<void> {
+    const rows: any[] = (await request('/rest/v1/plan_blocks?select=block,imported_at,payload')) ?? [];
+    for (const row of rows) {
+      if (row.block === DONE_BLOCK) {
+        // Merge per item; if this phone knows something the cloud does not, mark it to be pushed.
+        const remote = cleanDoneMap(row.payload?.items);
+        await store.mutateMeta<DueDone>('dueDone', (cur) => {
+          const merged = mergeDone(cur?.items ?? {}, remote);
+          const dirty: 0 | 1 = cur?.dirty || !sameDone(merged, remote) ? 1 : 0;
+          return cur && sameDone(cur.items, merged) && cur.dirty === dirty ? undefined : { items: merged, dirty };
+        });
+        continue;
+      }
+      const name: unknown = row.block;
+      if (!isBlock(name)) continue;
+      const data = BLOCKS[name].clean(row.payload);
+      if (!data || !Number.isFinite(parseTs(row.imported_at))) continue;
+      // Latest import wins; a newer local one is pushed next.
+      await store.mutateMeta<StoredBlock>(BLOCKS[name].meta, (cur) =>
+        cur && parseTs(row.imported_at) <= parseTs(cur.importedAt) ? undefined : ({ ...data, importedAt: row.imported_at as string, dirty: 0 } as StoredBlock));
+    }
   }
 
   // ------------------------------------------------------------ one sync run (never two at once)
@@ -324,10 +449,13 @@ export function createSync(opts: SyncOptions) {
     set({ mode: 'syncing', email: s.email, error: null });
     try {
       // Pull first so that the latest edit wins, then push whatever is still newer on this phone.
-      await pullPlan();
+      await pullBlocks();
+      await pullGroups(s.user_id);
       await pullEntries();
-      await pushPlan(s.user_id);
+      await pullSettlements();
+      await pushBlocks(s.user_id);
       await pushEntries(s.user_id);
+      await pushSettlements(s.user_id);
       const t = now();
       await store.setMeta('lastSync', t);
       await refreshPending();
@@ -359,6 +487,23 @@ export function createSync(opts: SyncOptions) {
     return running;
   }
 
+  // ------------------------------------------------------------ group management (needs a connection)
+  // These are the database functions in schema.sql; each one checks the rules itself. Afterwards we sync, so the new
+  // group, member list or code shows up straight away.
+  async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
+    const out = await request(`/rest/v1/rpc/${name}`, { method: 'POST', body: args });
+    await sync();
+    return out as T;
+  }
+  const createGroup = (name: string, kind: 'family' | 'trip', displayName: string) => rpc<string>('create_group', { p_name: name, p_kind: kind, p_display_name: displayName });
+  const joinGroup = (code: string, displayName: string) => rpc<string>('join_group', { p_code: code, p_display_name: displayName });
+  const resetInvite = (groupId: string) => rpc<string>('reset_invite', { p_group: groupId });
+  const leaveGroup = (groupId: string) => rpc<null>('leave_group', { p_group: groupId });
+  const removeMember = (groupId: string, userId: string) => rpc<null>('remove_member', { p_group: groupId, p_user: userId });
+  const makeAdmin = (groupId: string, userId: string) => rpc<null>('make_admin', { p_group: groupId, p_user: userId });
+  const setDisplayName = (groupId: string, name: string) => rpc<null>('set_display_name', { p_group: groupId, p_name: name });
+
   async function init(): Promise<void> {
     const s = await getSession();
     const last = await store.getMeta<number>('lastSync');
@@ -377,6 +522,7 @@ export function createSync(opts: SyncOptions) {
     eraseAll,
     sync,
     refreshPending,
+    createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName,
   };
 }
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../context.tsx';
 import { copyText, saveFile } from '../files.ts';
 import { shortDate, stamp } from '../format.ts';
-import { changedAfterExport, exportRows, fmtINR, isoDate, monthOf, toCSV, toTSV } from '../logic.ts';
+import { changedAfterExport, exportRows, fmtINR, isoDate, monthOf, myShare, toCSV, toTSV } from '../logic.ts';
 
 type Scope = 'new' | 'month' | 'all';
 
@@ -16,8 +16,8 @@ export function ExportScreen() {
   const rows = useMemo(() => {
     const cur = monthOf(isoDate());
     const list = app.entries.filter((e) => (scope === 'all' ? true : scope === 'month' ? monthOf(e.entry_date) === cur : !e.exported_at));
-    return exportRows(list);
-  }, [app.entries, scope]);
+    return exportRows(list, app.me);
+  }, [app.entries, app.me, scope]);
 
   const markIds = useMemo(() => {
     const byId = new Map(app.entries.map((e) => [e.id, e]));
@@ -69,7 +69,7 @@ export function ExportScreen() {
           <ul className="list">
             {changed.map(({ entry: e, kind }) => (
               <li key={e.id} className="catline plain">
-                <span>{shortDate(e.entry_date)} · {e.category} · {fmtINR(e.amount)}</span>
+                <span>{shortDate(e.entry_date)} · {e.category} · {fmtINR(myShare(e, app.me))}</span>
                 <b>{kind}</b>
               </li>
             ))}
