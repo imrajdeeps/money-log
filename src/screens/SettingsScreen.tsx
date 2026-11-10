@@ -9,7 +9,7 @@ import { GROUPS } from '../logic.ts';
 import { LOCK_TIMEOUTS, validPin } from '../lock.ts';
 import { quota, sizeText, usedBytes } from '../receipts.ts';
 
-export const VERSION = '2.0.0';
+export const VERSION = '4.0.0';
 const importedOn = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -20,6 +20,7 @@ function AccountCard() {
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [leaving, setLeaving] = useState(false); // the sign-out choice is showing
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
 
   async function sendCode() {
@@ -91,8 +92,31 @@ function AccountCard() {
       {s.error && <p className="msg bad" role="alert">{s.error}</p>}
       <div className="btnrow">
         <button type="button" className="btn" onClick={app.syncNow} disabled={s.mode === 'syncing'}>Sync now</button>
-        <button type="button" className="btn ghost" onClick={() => { void app.signOut(); }}>Sign out</button>
+        <button type="button" className="btn ghost" aria-expanded={leaving} onClick={() => setLeaving(!leaving)}>Sign out</button>
       </div>
+      {leaving && (
+        <div className="newcat" role="group" aria-label="Sign out">
+          <p><b>Also erase this phone's copy of your data?</b></p>
+          <p className="muted small">
+            Erase it before someone else uses this phone or you sign in with another account. Everything already in the cloud stays there
+            and comes back when you sign in again. Keep it if this is still your phone and you will sign back in.
+          </p>
+          {s.pending > 0 && (
+            <p className="msg bad" role="alert">
+              {s.pending} change{s.pending === 1 ? ' has' : 's have'} not reached the cloud. Erasing loses {s.pending === 1 ? 'it' : 'them'}; signing out and keeping the data does not.
+            </p>
+          )}
+          <div className="btnrow">
+            <button type="button" className="btn" onClick={() => { void app.signOut(); }}>Sign out, keep the data</button>
+          </div>
+          <div className="btnrow">
+            <button type="button" className="btn danger" onClick={async () => { await app.eraseAll(); app.toast('Signed out and erased this phone.'); }}>Sign out and erase this phone</button>
+          </div>
+          <div className="btnrow">
+            <button type="button" className="btn ghost" onClick={() => setLeaving(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -337,7 +361,7 @@ function AboutCard() {
   return (
     <div className="card">
       <h2>About</h2>
-      <p className="muted small">Money Log {VERSION} · Release 2. Amounts are in rupees.</p>
+      <p className="muted small">Money Log {VERSION} · Release 4. Amounts are in rupees.</p>
       {app.storageKind === 'memory' && (
         <p className="msg bad" role="alert">This browser would not let the app store data, so payments will be lost when you close it. Open it in a normal (not private) window.</p>
       )}
