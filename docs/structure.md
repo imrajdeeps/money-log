@@ -40,8 +40,16 @@ tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds
   rules should win or lose against the others.
 - **A new address:** a file in `src/routes/`; `npm run dev` or `npm run build` regenerates `src/routeTree.gen.ts`.
 
-## Later, if a file grows too big
+## Big files, and how they are split
 
-`data/sync.ts` (about 800 lines), `data/context.tsx` (about 660), `features/settings/SettingsScreen.tsx` (about 580) and
-`features/groups/GroupsScreen.tsx` (about 380) are the large ones. Split them along the seams they already have (for
-Settings, one file per part, matching `/settings/<part>`), as their own step, never mixed with moving files.
+- `features/settings/SettingsScreen.tsx` is only the list; each part is a file in `features/settings/parts/` (one per
+  `/settings/<part>` page, plus `shared.ts` for the version number and two small helpers).
+- `features/groups/GroupsScreen.tsx` is the list; `GroupDetail.tsx`, `JoinCard.tsx`, `CreateCard.tsx` and `useAction.ts`
+  hold the rest.
+- `data/sync.ts` is the sync engine: one closure over the store, the session and the state, so it stays in one file. What
+  does not touch that state is beside it: `syncTypes.ts` (state, error, options), `syncBlocks.ts` (the table of blocks) and
+  `syncRows.ts` (the shape of each row sent). `sync.ts` still exports everything it always did.
+- `data/context.tsx` is the provider (one set of callbacks sharing refs and state); the `AppApi` interface it offers is in
+  `data/appApi.ts`.
+
+A file that is one closure should be split only when a seam appears that does not need that closure's variables.
