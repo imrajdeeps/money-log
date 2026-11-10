@@ -7,7 +7,7 @@
 // Entries are written to the phone first. Each carries dirty = 1 until a push succeeds, so nothing is lost offline.
 import { authMessage, checkPassword } from './password.ts';
 import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from '../core/groups.ts';
-import type { Group, Invite, Member, Settlement } from '../core/groups.ts';
+import type { Group, Invite, Member, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import { cleanHistory } from '../core/history.ts';
 import type { HistoryRow } from '../core/history.ts';
@@ -647,6 +647,9 @@ export function createSync(opts: SyncOptions) {
   const removeMember = (groupId: string, userId: string) => rpc<null>('remove_member', { p_group: groupId, p_user: userId });
   const makeAdmin = (groupId: string, userId: string) => rpc<null>('make_admin', { p_group: groupId, p_user: userId });
   const setDisplayName = (groupId: string, name: string) => rpc<null>('set_display_name', { p_group: groupId, p_name: name });
+  const setTripDates = (groupId: string, starts: string | null, ends: string | null) => rpc<null>('set_trip_dates', { p_group: groupId, p_starts: starts, p_ends: ends });
+  const setGroupClosed = (groupId: string, closed: boolean) => rpc<null>('set_group_closed', { p_group: groupId, p_closed: closed });
+  const setUsualSplit = (groupId: string, split: UsualSplit | null) => rpc<null>('set_usual_split', { p_group: groupId, p_split: split });
 
   async function init(): Promise<void> {
     const s = await getSession();
@@ -673,7 +676,7 @@ export function createSync(opts: SyncOptions) {
     eraseAll,
     sync,
     refreshPending,
-    createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName,
+    createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     receiptBlob, fetchHistory,
   };
 }

@@ -65,13 +65,30 @@ create table if not exists public.groups (
   name        text not null check (char_length(name) between 1 and 60),
   kind        text not null check (kind in ('family', 'trip', 'flatmates', 'couple')),
   created_by  uuid references auth.users (id) on delete set null,
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  starts_on   date,         -- a trip's first day (optional)
+  ends_on     date,         -- a trip's last day (optional)
+  closed_at   timestamptz,  -- a trip that is over: it takes no new expenses and no new people (an admin can reopen it)
+  usual_split jsonb         -- flatmates: how a new expense is split by default, {"mode":"equal"} or {"mode":"percent","percent":{<user id>: 60, ...}}
 );
 
 -- The kinds a group can have. Family and trip came first; flatmates and couple were added later, so a database made
 -- before then has the old, shorter list and this replaces it (safe to run again).
 alter table public.groups drop constraint if exists groups_kind_check;
 alter table public.groups add constraint groups_kind_check check (kind in ('family', 'trip', 'flatmates', 'couple'));
+
+-- Version 1.9 added the trip dates, the closed date and the flatmates' usual split. A database made before then gets the
+-- columns here (safe to run again). Each belongs to one kind only, and the table says so as well as the functions.
+alter table public.groups add column if not exists starts_on date;
+alter table public.groups add column if not exists ends_on date;
+alter table public.groups add column if not exists closed_at timestamptz;
+alter table public.groups add column if not exists usual_split jsonb;
+alter table public.groups drop constraint if exists groups_trip_only;
+alter table public.groups add constraint groups_trip_only check (kind = 'trip' or (starts_on is null and ends_on is null and closed_at is null));
+alter table public.groups drop constraint if exists groups_flatmates_only;
+alter table public.groups add constraint groups_flatmates_only check (kind = 'flatmates' or usual_split is null);
+alter table public.groups drop constraint if exists groups_trip_dates_order;
+alter table public.groups add constraint groups_trip_dates_order check (ends_on is null or starts_on is null or ends_on >= starts_on);
 
 -- A row stays after someone leaves (left_at set): the group's old expenses still name that person.
 create table if not exists public.group_members (
@@ -299,6 +316,12 @@ begin
   if new.paid_by is null or new.shares is null or jsonb_typeof(new.shares) <> 'object' then
     raise exception 'A shared expense needs paid_by and shares' using errcode = '23514';
   end if;
+  -- A closed trip takes no new expense and none moved into it. What is already there can still be edited, and settling up
+  -- still works; an admin can reopen the trip.
+  if uid is not null and (tg_op = 'INSERT' or new.group_id is distinct from old.group_id)
+     and exists (select 1 from public.groups g where g.id = new.group_id and g.closed_at is not null) then
+    raise exception 'This trip is closed' using errcode = '23514';
+  end if;
   -- You record only what you paid or share in (settlements have the same rule), so nobody can write debts between others.
   if new.owner_id is distinct from new.paid_by and not (new.shares ? new.owner_id::text) then
     raise exception 'You can only record an expense that you paid or share in' using errcode = '23514';
@@ -502,6 +525,9 @@ begin
   if exists (select 1 from public.group_members m where m.group_id = gid and m.user_id = uid and m.left_at is null) then
     return gid; -- already in
   end if;
+  if exists (select 1 from public.groups g where g.id = gid and g.closed_at is not null) then
+    raise exception 'This trip is closed' using errcode = '53400';
+  end if;
   if (select count(*) from public.group_members m where m.group_id = gid and m.left_at is null) >= 20 then
     raise exception 'This group is full (20 people)' using errcode = '53400';
   end if;
@@ -615,6 +641,90 @@ begin
 end;
 $$;
 
+-- A trip's optional dates. Admins only, trips only.
+create or replace function public.set_trip_dates(p_group uuid, p_starts date, p_ends date)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_group_admin(p_group) then raise exception 'Only a group admin can do this' using errcode = '42501'; end if;
+  if p_starts is not null and p_ends is not null and p_ends < p_starts then
+    raise exception 'The trip cannot end before it starts' using errcode = '22023';
+  end if;
+  update public.groups set starts_on = p_starts, ends_on = p_ends where id = p_group and kind = 'trip';
+  if not found then raise exception 'Only a trip has dates' using errcode = '22023'; end if;
+end;
+$$;
+
+-- Close a trip (it takes no new expenses and no new people; settling up still works) or reopen it. Admins only, trips only.
+create or replace function public.set_group_closed(p_group uuid, p_closed boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_group_admin(p_group) then raise exception 'Only a group admin can do this' using errcode = '42501'; end if;
+  if p_closed is null then raise exception 'Say whether the trip is closed' using errcode = '22023'; end if;
+  update public.groups set closed_at = case when p_closed then coalesce(closed_at, now()) else null end
+   where id = p_group and kind = 'trip';
+  if not found then raise exception 'Only a trip can be closed' using errcode = '22023'; end if;
+end;
+$$;
+
+-- Flatmates: how a new expense is split by default. {"mode":"equal"}, or {"mode":"percent","percent":{<user id>: 60, ...}}
+-- naming current members only, adding up to 100. Null clears it. Admins only, flatmates only.
+create or replace function public.set_usual_split(p_group uuid, p_split jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  k text;
+  v jsonb;
+  pct numeric;
+  total numeric := 0;
+  n int := 0;
+begin
+  if not public.is_group_admin(p_group) then raise exception 'Only a group admin can do this' using errcode = '42501'; end if;
+  perform 1 from public.groups g where g.id = p_group and g.kind = 'flatmates' for update;
+  if not found then raise exception 'Only flatmates have a usual split' using errcode = '22023'; end if;
+
+  if p_split is null or p_split = 'null'::jsonb then
+    update public.groups set usual_split = null where id = p_group;
+    return;
+  end if;
+  if jsonb_typeof(p_split) <> 'object' then raise exception 'The usual split must be an object' using errcode = '22023'; end if;
+  if p_split ->> 'mode' = 'equal' then
+    if p_split <> jsonb_build_object('mode', 'equal') then raise exception 'An equal split has nothing else in it' using errcode = '22023'; end if;
+  elsif p_split ->> 'mode' = 'percent' then
+    if (select count(*) from jsonb_object_keys(p_split)) <> 2 or jsonb_typeof(p_split -> 'percent') is distinct from 'object' then
+      raise exception 'A percent split is a mode and a percent for each person' using errcode = '22023';
+    end if;
+    for k, v in select key, value from jsonb_each(p_split -> 'percent') loop
+      n := n + 1;
+      if n > 20 then raise exception 'Too many people in the split' using errcode = '22023'; end if;
+      if k !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+        raise exception 'A percent is not keyed by a user id' using errcode = '22023';
+      end if;
+      if jsonb_typeof(v) <> 'number' then raise exception 'A percent must be a number' using errcode = '22023'; end if;
+      pct := (v #>> '{}')::numeric;
+      if pct < 0 or pct > 100 or scale(pct) > 2 then raise exception 'A percent is between 0 and 100, with at most 2 decimals' using errcode = '22023'; end if;
+      perform 1 from public.group_members m where m.group_id = p_group and m.user_id = k::uuid and m.left_at is null;
+      if not found then raise exception 'The split names someone who is not in this group' using errcode = '22023'; end if;
+      total := total + pct;
+    end loop;
+    if total <> 100 then raise exception 'The percentages add up to %, not 100', total using errcode = '22023'; end if;
+  else
+    raise exception 'The usual split is equal or percent' using errcode = '22023';
+  end if;
+  update public.groups set usual_split = p_split where id = p_group;
+end;
+$$;
+
 -- ---------------------------------------------------------------------------------
 -- who may run what
 -- Supabase gives anon and authenticated execute rights on new functions by default, so take them back explicitly.
@@ -635,6 +745,9 @@ revoke all on function public.leave_group(uuid)                   from public, a
 revoke all on function public.remove_member(uuid, uuid)           from public, anon, authenticated;
 revoke all on function public.make_admin(uuid, uuid)              from public, anon, authenticated;
 revoke all on function public.set_display_name(uuid, text)        from public, anon, authenticated;
+revoke all on function public.set_trip_dates(uuid, date, date)    from public, anon, authenticated;
+revoke all on function public.set_group_closed(uuid, boolean)     from public, anon, authenticated;
+revoke all on function public.set_usual_split(uuid, jsonb)        from public, anon, authenticated;
 
 -- used inside the access rules, which run as the signed-in user
 grant execute on function public.is_group_member(uuid) to authenticated;
@@ -647,6 +760,9 @@ grant execute on function public.leave_group(uuid)              to authenticated
 grant execute on function public.remove_member(uuid, uuid)      to authenticated;
 grant execute on function public.make_admin(uuid, uuid)         to authenticated;
 grant execute on function public.set_display_name(uuid, text)   to authenticated;
+grant execute on function public.set_trip_dates(uuid, date, date) to authenticated;
+grant execute on function public.set_group_closed(uuid, boolean)  to authenticated;
+grant execute on function public.set_usual_split(uuid, jsonb)     to authenticated;
 
 -- ---------------------------------------------------------------------------------
 -- access rules (row-level security): everything denied unless a policy allows it
