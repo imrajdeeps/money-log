@@ -9,13 +9,15 @@ import { dueRelative, fmtNet } from '../blocks.ts';
 import { planForMonth } from '../categories.ts';
 import { dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from '../dashboard.ts';
 import { monthLabel, shortDate } from '../format.ts';
+import type { Group } from '../logic.ts';
 import { fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../logic.ts';
 
-// The sheets a tile can open (App.tsx owns them).
-export type Section = 'recent' | 'month' | 'plan' | 'groups' | 'export';
+// The pages a tile can open (App.tsx owns them; each has its own address).
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;
+  openMonth: (group?: Group) => void; // the Month page, for one group's categories or for all
   openAdd: () => void;
   goSettings: () => void;
   manageRecurring: () => void;
@@ -26,7 +28,7 @@ const whole = (f: number): string => `${Math.round(f * 100)}%`;
 
 // The surface layer: one figure or picture per tile, every tile a door to its details. Everything shown is worked out from
 // what the app already holds; there is no tile for figures the app does not record (income, net worth over time).
-export function HomeScreen({ open, openAdd, goSettings, manageRecurring }: Props) {
+export function HomeScreen({ open, openMonth, openAdd, goSettings, manageRecurring }: Props) {
   const app = useApp();
   const today = isoDate();
   const month = monthOf(today);
@@ -118,7 +120,7 @@ export function HomeScreen({ open, openAdd, goSettings, manageRecurring }: Props
         {tiles.map((g, i) => {
           const t = ov.summary.groups[g];
           return (
-            <BentoCard key={g} title={g} span={tileSpan} compact className={tiles.length % 2 === 1 && i === tiles.length - 1 ? 'fill' : undefined} onOpen={() => open('month')} openLabel={`Open the month: ${g}`}>
+            <BentoCard key={g} title={g} span={tileSpan} compact className={tiles.length % 2 === 1 && i === tiles.length - 1 ? 'fill' : undefined} onOpen={() => openMonth(g)} openLabel={`Open ${g} for the month`}>
               <p className="stat-num">{fmtINR(t.spent)}</p>
               <p className="muted small">{t.budgeted ? `of ${fmtINR(t.planned)}` : ' '}</p>
               <BudgetLine group={g} spent={t.spent} planned={t.planned} over={false} budgeted={t.budgeted} />
@@ -131,7 +133,7 @@ export function HomeScreen({ open, openAdd, goSettings, manageRecurring }: Props
         <BentoCard
           title="Recent payments"
           span={8}
-          action={app.entries.length > 0 ? <button type="button" className="seeall" aria-haspopup="dialog" onClick={() => open('recent')}>See all</button> : null}
+          action={app.entries.length > 0 ? <button type="button" className="seeall" onClick={() => open('payments')}>See all</button> : null}
         >
           <RecentList limit={5} plain empty={<BentoEmpty cta="Add your first expense" onCta={openAdd}>No payments yet. The latest ones show here.</BentoEmpty>} />
         </BentoCard>
