@@ -7,6 +7,7 @@ import { copyText } from '../files.ts';
 import { shortDate } from '../format.ts';
 import { activeMembers, codeLooksValid, formatCode, fromPaise, groupBalances, inviteLink, ledger, memberName, normalizeCode, simplifyDebts } from '../groups.ts';
 import type { Group, Settlement } from '../groups.ts';
+import { coupleLine } from '../couple.ts';
 import { GROUP_KINDS, hasRoom, kindLabel, kindMax } from '../groupKinds.ts';
 import type { GroupKind } from '../groupKinds.ts';
 import { BASEPATH, appRootUrl } from '../paths.ts';
@@ -138,6 +139,8 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
   const debts = useMemo(() => simplifyDebts(bal), [bal]);
   const nameOf = (uid: string) => (uid === me ? 'You' : memberName(app.members, group.id, uid));
   const invite = app.invites.find((i) => i.group_id === group.id);
+  const partner = group.kind === 'couple' && people.length === 2 ? people.find((m) => m.user_id !== me) : undefined; // the other half of a couple
+  const line = coupleLine(bal[me] ?? 0, partner?.display_name ?? '');
 
   const items = useMemo<LedgerItem[]>(() => [
     ...ledger(app.groupEntries, group.id).map((e): LedgerItem => ({ kind: 'expense', date: e.entry_date, at: e.created_at, e })),
@@ -179,13 +182,19 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
       <p className="muted small">{people.length} {people.length === 1 ? 'person' : 'people'}. Add a shared expense with + Add expense by choosing this group under "Share with".</p>
 
       <div className="card">
-        <h3>Balances</h3>
-        <ul className="list plainlist">
-          {[...people.map((m) => ({ id: m.user_id, label: nameOf(m.user_id), left: false })), ...former.filter((m) => (bal[m.user_id] ?? 0) !== 0).map((m) => ({ id: m.user_id, label: `${m.display_name} (left)`, left: true }))].map((p) => {
-            const b = bal[p.id] ?? 0;
-            return <li key={p.id} className="catline plain"><span>{p.label}</span><b className={b > 0 ? 'owed' : b < 0 ? 'late' : 'muted'}>{p.id === me ? (b === 0 ? 'All settled' : b > 0 ? `You are owed ${fmtINR(fromPaise(b))}` : `You owe ${fmtINR(fromPaise(-b))}`) : owes(b)}</b></li>;
-          })}
-        </ul>
+        {partner && group.kind === 'couple' ? (
+          <p className={`coupleline ${line.tone}`}>{line.text}</p>
+        ) : (
+          <>
+            <h3>Balances</h3>
+            <ul className="list plainlist">
+              {[...people.map((m) => ({ id: m.user_id, label: nameOf(m.user_id), left: false })), ...former.filter((m) => (bal[m.user_id] ?? 0) !== 0).map((m) => ({ id: m.user_id, label: `${m.display_name} (left)`, left: true }))].map((p) => {
+                const b = bal[p.id] ?? 0;
+                return <li key={p.id} className="catline plain"><span>{p.label}</span><b className={b > 0 ? 'owed' : b < 0 ? 'late' : 'muted'}>{p.id === me ? (b === 0 ? 'All settled' : b > 0 ? `You are owed ${fmtINR(fromPaise(b))}` : `You owe ${fmtINR(fromPaise(-b))}`) : owes(b)}</b></li>;
+              })}
+            </ul>
+          </>
+        )}
         {debts.length > 0 ? (
           <>
             <h3 className="h2">To settle up</h3>
@@ -335,7 +344,7 @@ export function GroupsScreen({ openSettings }: { openSettings: () => void }) {
   if (open) return <GroupDetail group={open} onBack={() => setOpenId(null)} />;
 
   return (
-    <section aria-label="Groups">
+    <section aria-label="Groups" className="grouplist">
       <JoinCard />
       {app.groups.length === 0 && !app.joinCode && <p className="muted">No groups yet. Make one for the family or a trip, or join one with a code.</p>}
       {app.groups.length > 0 && (

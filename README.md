@@ -215,7 +215,7 @@ A **shared expense** is exported at **your share**, with the full amount kept in
 
 ## Groups, splits and settling up
 
-*Groups* (bottom bar, or the Groups tile). A group has a kind: **Family**, **Trip**, **Flatmates** or **Couple** (a couple is exactly two people; the others hold up to 20). One person can be in several groups. The kind is chosen when the group is made and shown next to its name. *(Each kind will offer its own extras in later steps; see `docs/prd-group-kinds.md`.)* **After updating the app, run `supabase/schema.sql` once more in the Supabase SQL Editor** (it is safe to run again): it allows the two new kinds and the two-person limit of a couple.
+*Groups* (bottom bar, or the Groups tile). A group has a kind: **Family**, **Trip**, **Flatmates** or **Couple** (a couple is exactly two people; the others hold up to 20). One person can be in several groups. The kind is chosen when the group is made and shown next to its name. **Couple:** the group page is one line ("Priya owes you ₹1,250"), and Add expense replaces the split editor with four choices: *You paid · 50/50*, *You paid · Priya owes all*, *Priya paid · 50/50*, *Priya paid · you owe all*. *(The other kinds get their own extras in later steps; see `docs/prd-group-kinds.md`.)* **After updating the app, run `supabase/schema.sql` once more in the Supabase SQL Editor** (it is safe to run again): it allows the two new kinds and the two-person limit of a couple.
 
 - **Make a group:** name it and say what others should call you. You become its admin.
 - **Invite:** the group page shows a code (and a link that carries it). Send it only to people you mean to add. The code

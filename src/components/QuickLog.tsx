@@ -4,6 +4,7 @@ import { useApp } from '../context.tsx';
 import { CategorySelect } from './CategorySelect.tsx';
 import { MethodChips } from './MethodChips.tsx';
 import { PendingPhotos } from './PendingPhotos.tsx';
+import { CoupleSplit } from './CoupleSplit.tsx';
 import { SplitEditor, freshSplit } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
 import { activeMembers, computeShares } from '../groups.ts';
@@ -198,7 +199,9 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
       )}
       {groupId && split && app.me && (
         <>
-          <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
+          {app.groups.find((g) => g.id === groupId)?.kind === 'couple' && people.length === 2
+            ? <CoupleSplit people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
+            : <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />}
           <p className="muted small">Everyone in {groupName(groupId)} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.</p>
         </>
       )}
