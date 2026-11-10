@@ -1,0 +1,88 @@
+/* Fonts, colours (light and dark) and the page defaults. */
+
+/* Outfit (SIL Open Font License, see src/assets/fonts/OFL.txt), kept inside the app: the page may not load anything from
+   elsewhere. One variable file per script range covers every weight; the ₹ sign is in the latin-ext file. */
+@font-face {
+  font-family: 'Outfit'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url('../assets/fonts/outfit-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Outfit'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url('../assets/fonts/outfit-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Colours. Deep green and lime lead (the "Expense Tracker" look), neutrals carry everything else. Vivid colour is kept for
+   money: emerald or lime for what is fine, red for overspending and debt, amber for close to the limit. The theme is always
+   one of two values on <html data-theme="light|dark">, set before the first paint by public/theme-init.js and changed by
+   src/theme.ts; "match my phone" is resolved there, so the dark values below exist only once. */
+:root {
+  --bg: #f5f6f3;
+  --card: #ffffff;
+  --ink: #1c1c1e;
+  --muted: #5f6770;
+  --line: #e3e6e0;
+  --brand: #104a30;          /* deep green: selected chips, links */
+  --brand-ink: #ffffff;
+  --primary: #c9e96a;        /* lime: the main buttons */
+  --primary-ink: #0b3d28;
+  --primary-ring: rgba(11, 61, 40, 0.28);
+  --accent: #1a6443;         /* focus rings, the open tab, chart lines */
+  --hero: #104a30;           /* the one big green tile */
+  --good: #0f7a45;
+  --bad: #c8283a;
+  --warn: #a35200;
+  --good-ink: #ffffff;
+  --good-bg: #e3f5ea;
+  --bad-bg: #ffe9ec;
+  --warn-bg: #fff1d4;
+  --chart-ref: #9aa39b; /* last month's line: a quiet grey next to the accent colour */
+  --skel: #e8ebe6;
+  --skel-hi: #f4f6f2;
+  --shadow: 0 1px 2px rgba(16, 40, 28, 0.05);
+  --shadow-hover: 0 12px 28px -14px rgba(16, 40, 28, 0.35);
+  --inner: 0 0 0 0 transparent;
+  --radius: 16px;
+  --radius-lg: 20px;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0c110e;
+  --card: #141b17;
+  --ink: #eef3ee;
+  --muted: #9aa79e;
+  --line: #26312b;
+  --brand: #c9e96a;
+  --brand-ink: #0b3d28;
+  --primary-ring: rgba(201, 233, 106, 0.4);
+  --accent: #c9e96a;
+  --good: #5be08d;
+  --bad: #ff7b86;
+  --warn: #ffc24d;
+  --good-ink: #0c110e;
+  --good-bg: #10301f;
+  --bad-bg: #3a1519;
+  --warn-bg: #38290c;
+  --chart-ref: #5d6b62;
+  --skel: #1d2722;
+  --skel-hi: #26332c;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-hover: 0 14px 32px -14px rgba(0, 0, 0, 0.75);
+  --inner: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  /* Every amount, percentage and date lines up digit for digit and does not shift as it changes. */
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+}
+body { overscroll-behavior-y: none; }

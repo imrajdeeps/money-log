@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { GROUPS } from '../logic.ts';
-import type { Group } from '../logic.ts';
+import { GROUPS } from '../core/logic.ts';
+import type { Group } from '../core/logic.ts';
 
 // The Month page: everything, or just one group's categories (?g=Saving). Drawn by the shell; see __root.tsx.
 export const Route = createFileRoute('/month')({

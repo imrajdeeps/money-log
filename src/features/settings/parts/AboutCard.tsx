@@ -1,0 +1,16 @@
+import { useApp } from '../../../data/context.tsx';
+import { VERSION } from './shared.ts';
+
+export function AboutCard() {
+  const app = useApp();
+  return (
+    <div className="card">
+      <h2>About</h2>
+      <p className="muted small">Money Log {VERSION}. Amounts are in rupees.</p>
+      {app.storageKind === 'memory' && (
+        <p className="msg bad" role="alert">This browser would not let the app store data, so payments will be lost when you close it. Open it in a normal (not private) window.</p>
+      )}
+      <p className="muted small"><b>Install:</b> on iPhone, open this page in Safari, tap Share, then Add to Home Screen. On Android, open it in Chrome, tap the menu, then Install app.</p>
+    </div>
+  );
+}
