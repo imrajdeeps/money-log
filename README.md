@@ -228,6 +228,20 @@ dated item that is not done; by default the alert is 2 days before at 9:00, and 
 again later updates the same events instead of adding copies. Below it, **Net worth and goals** shows the imported
 figures. They are the spreadsheet's numbers at the plan month shown; they do not change as you log payments.
 
+## Add a payment from a bank message
+
+A web app cannot read your SMS, so you bring the message to it. In *Add expense*, open **Paste a payment message**, tap
+**Paste and read** (or paste into the box and tap **Read message**). The form is filled in: amount, merchant (in the note),
+date, method and a suggested category, from what you chose for that merchant before or from a few well-known words (Swiggy,
+Uber, electricity ...) and only if that category is in your list. Check it and tap Save; nothing is saved for you.
+
+- The message is read on the phone and goes nowhere. Money coming in, one-time passwords and messages with no amount fill
+  nothing and say so; a balance is never taken as the amount.
+- The bank's reference number is kept at the end of the note, so pasting the same message twice warns you.
+- It is built for the common Indian formats (UPI, card, ATM, bank transfer). A message it cannot read just says so; send an
+  example and the reader can be taught it (`src/smsParse.ts`, tests in `tests/smsParse.test.ts`). The plan is in
+  `docs/prd-paste-message.md`.
+
 ## Receipt photos
 
 In *Add expense*, **Take photo** or **Choose photo** before saving, or add and remove them later when you edit a payment (up

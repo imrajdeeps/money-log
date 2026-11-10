@@ -650,3 +650,9 @@ html:has(dialog.drawer[open]) { overflow: hidden; }
   *, *::before, *::after, ::backdrop { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .bento-card.is-action:hover, .bento-card.is-action:active, .fab:active .fab-circle { transform: none; }
 }
+
+/* Add expense: fill the form from a pasted bank message */
+.pastebox { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.pastebox summary { min-height: 28px; cursor: pointer; font-weight: 600; color: var(--accent); }
+.pastebox textarea { width: 100%; box-sizing: border-box; margin-top: 4px; }
+.pastebox .btnrow { margin: 10px 0 4px; }
