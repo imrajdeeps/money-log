@@ -38,7 +38,7 @@ export function BentoCard({ title, span = 4, compact = false, onOpen, openLabel,
         {onOpen && <span className="bento-chev" aria-hidden="true"><Icon name="chevron" size={18} /></span>}
       </header>
       <div className="bento-body">{children}</div>
-      {onOpen && <button type="button" className="bento-hit" aria-label={openLabel ?? `Open ${title}`} aria-haspopup="dialog" onClick={onOpen} />}
+      {onOpen && <button type="button" className="bento-hit" aria-label={openLabel ?? `Open ${title}`} onClick={onOpen} />}
     </section>
   );
 }

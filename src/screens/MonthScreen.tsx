@@ -4,9 +4,11 @@ import { monthLabel } from '../format.ts';
 import { BudgetLine as Line } from '../components/BudgetLine.tsx';
 import { BudgetsDialog } from '../components/BudgetsDialog.tsx';
 import { planCovers, planForMonth } from '../categories.ts';
+import type { Group } from '../logic.ts';
 import { GROUPS, budgetEntries, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../logic.ts';
 
-export function MonthScreen() {
+// group: show only that group's categories (a tile on the Overview was tapped); onGroup() shows them all again.
+export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: Group) => void }) {
   const app = useApp();
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);
@@ -19,7 +21,7 @@ export function MonthScreen() {
   );
   const noBudgets = !app.plan && app.categories.every((c) => c.budget === 0);
   const monthIsOver = month < current;
-  const shown = s.rows.filter((r) => r.planned > 0 || r.spent > 0);
+  const shown = s.rows.filter((r) => (r.planned > 0 || r.spent > 0) && (!group || r.group === group));
 
   return (
     <section aria-label="Month against plan">
@@ -41,7 +43,7 @@ export function MonthScreen() {
         {GROUPS.map((g) => {
           const t = s.groups[g];
           return (
-            <div key={g} className="card group">
+            <div key={g} className={`card group${g === group ? ' picked' : ''}`}>
               <h3>{g}</h3>
               <p className="big-num">{fmtINR(t.spent)}</p>
               <p className="muted small">{t.budgeted ? `of ${fmtINR(t.planned)}` : '\u00a0'}</p>
@@ -51,6 +53,12 @@ export function MonthScreen() {
         })}
       </div>
 
+      {group && (
+        <p className="muted small" role="status">
+          Showing {group} only. <button type="button" className="linkbtn" onClick={() => onGroup(undefined)}>Show all categories</button>
+        </p>
+      )}
+      {group && shown.length === 0 && <p className="muted">No {group} categories have a budget or a payment this month.</p>}
       {shown.length > 0 && (
         <ul className="list cats">
           {shown.map((r) => (
@@ -65,7 +73,7 @@ export function MonthScreen() {
         </ul>
       )}
 
-      {s.extra.length > 0 && (
+      {!group && s.extra.length > 0 && (
         <>
           <h3 className="h2">Not in your categories</h3>
           <ul className="list">

@@ -7,7 +7,7 @@ with a calendar file, and a net worth and goals snapshot. Release 3 adds receipt
 expenses, a one-tap "add my share to my budget", an optional PIN lock, and a Method column for the spreadsheet's Log tab.
 Release 4 gives the app its own categories and budgets, so importing the spreadsheet is optional. Release 5 adds email and
 password sign-in, account creation and session controls (email and password only, so no email is needed). The home screen is a
-dashboard of tiles, each opening its details in a sheet, with a **+ Add expense** button always one tap away.
+dashboard of tiles, each opening its details on a page of its own, with a **+ Add expense** button always one tap away.
 It works on iPhone and Android, and offline.
 
 The repository holds code only. Your plan numbers, balances and payments never go in it; they live on your phone and
@@ -88,10 +88,12 @@ GitHub account, or give this app its own account, organisation, or custom domain
 
 ## Finding your way around
 
-The app opens on **Overview**, a dashboard of tiles. Each tile shows one figure; tap it and its details open in a sheet
-that rises from the bottom on a phone and slides in from the right on a wider screen. Close a sheet with its ✕, by tapping
-the dimmed page, with Escape, or with Android's back gesture. Sheets keep what you typed, so a half-typed payment is still
-there when you open it again.
+The app opens on **Overview**, a dashboard of tiles. Each tile shows one figure; tap it and its details open on a page of
+its own: **Month**, **Plan**, **Groups**, **Export** and **All payments** each have their own address (`/month`, `/plan`,
+`/groups`, `/export`, `/payments`; a group tile such as Saving opens Month with just that group's categories, `/month?g=Saving`), so a refresh, the back button and a bookmark all land on the same page. The top bar
+(wide screens) and the bottom bar (phones) switch between them. Only **+ Add expense** is still a small sheet, because it
+has to open straight from your tap so a phone shows its keyboard at once; close it with its ✕, by tapping the dimmed page,
+with Escape, or with Android's back gesture.
 
 | Tile | Shows | Opens |
 | --- | --- | --- |

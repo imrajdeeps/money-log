@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { shrinkImage } from '../photo.ts';
+import { TakePhoto } from './TakePhoto.tsx';
 import { MAX_PHOTOS, sizeText } from '../receipts.ts';
 
 // Photos chosen while a payment is being logged, before it is saved (they are attached to it when it is).
@@ -11,9 +12,8 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
   const [error, setError] = useState('');
   const room = MAX_PHOTOS - photos.length;
 
-  async function pick(ev: ChangeEvent<HTMLInputElement>) {
-    const files = [...(ev.target.files ?? [])].slice(0, room);
-    ev.target.value = '';
+  async function add(chosen: Blob[]) {
+    const files = chosen.slice(0, room);
     if (!files.length) return;
     setBusy(true);
     setError('');
@@ -24,6 +24,12 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
     } finally {
       setBusy(false);
     }
+  }
+
+  function pickFiles(ev: ChangeEvent<HTMLInputElement>) {
+    const files = [...(ev.target.files ?? [])];
+    ev.target.value = '';
+    void add(files);
   }
 
   return (
@@ -38,13 +44,10 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
         ))}
         {room > 0 && (
           <>
-            <label className={`btn ghost addphoto${busy ? ' disabled' : ''}`}>
-              {busy ? 'Working…' : 'Take photo'}
-              <input type="file" accept="image/*" capture="environment" onChange={pick} disabled={busy} />
-            </label>
+            <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
             <label className={`btn ghost addphoto${busy ? ' disabled' : ''}`}>
               Choose photo
-              <input type="file" accept="image/*" multiple onChange={pick} disabled={busy} />
+              <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
             </label>
           </>
         )}
