@@ -9,7 +9,9 @@ import { SplitEditor, freshSplit } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
 import { activeMembers, computeShares } from '../../core/groups.ts';
 import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse.ts';
-import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, parseAmount } from '../../core/logic.ts';
+import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
+import { checkRecurInput } from '../../core/recurring.ts';
+import { ordinal } from '../../core/format.ts';
 import type { Method, NewEntryInput } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -41,6 +43,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
   const [message, setMessage] = useState(''); // a bank message pasted to fill the form from
   const [readNote, setReadNote] = useState<{ text: string; bad: boolean } | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [repeat, setRepeat] = useState(false); // also make it a payment that repeats every month
   // Add expense was opened for one category (from the Month page): start with it, if it is one of the person's own
   useEffect(() => {
     const known = preset && app.categories.find((c) => catKey(c.name) === catKey(preset));
@@ -108,8 +111,16 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
       if (split.paidBy !== app.me && !(app.me in r.shares)) return fail(tr('You can only record an expense that you paid or share in.'));
       group = { group_id: groupId, paid_by: split.paidBy, shares: r.shares };
     }
+    // a payment that repeats every month (private payments only): check it first, so nothing is half done
+    const recur = repeat && !groupId ? { category, amount: amt, day: Number(d.slice(8, 10)), method, note: note.trim() } : null;
+    const recurError = recur ? checkRecurInput(recur) : null;
+    if (recurError) return fail(recurError);
     const id = await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group });
     let toast = tr('Saved {0} · {1}', fmtINR(amt), category);
+    if (recur) {
+      const why = await app.addRecurring(recur, monthOf(d)); // done for the month it was logged in
+      toast += why ? tr('. It could not be set to repeat: {0}', why) : tr('. It will come up every month.');
+    }
     if (photos.length) {
       try { await app.addReceipts(id, photos); } catch (e) { toast += tr('. The photo could not be attached: {0}', e instanceof Error ? e.message : String(e)); }
     }
@@ -121,6 +132,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
     setNote('');
     setCategory('');
     setDate(null);
+    setRepeat(false);
     setGroupId(''); // the next payment is private unless chosen otherwise
     setSplit(null);
     setError('');
@@ -210,6 +222,16 @@ export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: 
             ? <CoupleSplit people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
             : <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />}
           <p className="text-muted text-[13px]">{tr('Everyone in {0} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.', groupName(groupId))}</p>
+        </>
+      )}
+
+      {!groupId && (
+        <>
+          <label className={ui.check + ' mt-3'}>
+            <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+            <span>{tr('Repeat every month')}</span>
+          </label>
+          {repeat && <p className="text-muted text-[13px] mt-0">{tr('It is saved now, and comes up on the {0} of each month to log with one tap. Change or remove it under Settings, Recurring payments.', ordinal(Number((date ?? today).slice(8, 10))))}</p>}
         </>
       )}
 
