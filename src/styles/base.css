@@ -4,8 +4,10 @@
   max-width: 1240px;
   margin: 0 auto;
   min-height: 100dvh;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(100px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(100px + env(safe-area-inset-bottom)); /* the top padding is the header's, so it stays with it when it sticks */
 }
+/* a page jump (the net worth part of Plan) must not end up under the sticky header */
+html { scroll-padding-top: 96px; }
 .narrow { max-width: 600px; margin: 0 auto; }
 
 .boot { padding: 48px 16px; text-align: center; color: var(--muted); }
@@ -19,12 +21,18 @@ p { margin: 0 0 10px; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 
+/* The header stays at the top while the page scrolls. It has the page's own background so nothing shows through it. */
 .top {
+  position: sticky;
+  top: 0;
+  z-index: 6;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 0 12px;
+  padding: calc(env(safe-area-inset-top) + 8px) 0 12px;
+  background: var(--bg);
+  box-shadow: 0 1px 0 var(--line);
 }
 
 .pill {
