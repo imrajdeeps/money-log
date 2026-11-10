@@ -1,0 +1,68 @@
+// Paste into the browser console (or run through a browser tool) on a running Money Log: it records the computed styles of
+// every visible element on every page, in light and dark, and either keeps them as the baseline or compares them with it.
+//   await window.__snap('save', 'name')      store this look as the baseline called `name`
+//   await window.__snap('compare', 'name')   report what differs from the baseline (an empty list means the same look)
+// Baselines live in localStorage of the page's origin. Run it at one width at a time (the width is part of the name).
+(() => {
+  const PROPS = ['display', 'position', 'width', 'height', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'paddingTop', 'paddingRight',
+    'paddingBottom', 'paddingLeft', 'fontSize', 'fontWeight', 'fontFamily', 'lineHeight', 'letterSpacing', 'color', 'backgroundColor', 'borderTopWidth',
+    'borderTopColor', 'borderTopStyle', 'borderBottomWidth', 'borderLeftWidth', 'borderTopLeftRadius', 'boxShadow', 'textAlign', 'flexDirection', 'flexWrap',
+    'alignItems', 'justifyContent', 'gap', 'opacity', 'textDecorationLine', 'overflow', 'cursor', 'whiteSpace', 'minHeight', 'maxWidth', 'zIndex', 'top', 'transform'];
+  const ROUTES = ['/', '/month', '/plan', '/goals', '/payments', '/add', '/export', '/settings', '/settings/account', '/settings/recurring', '/settings/appearance',
+    '/settings/plan', '/settings/receipts', '/settings/lock', '/settings/backup', '/settings/erase', '/settings/about', '/groups'];
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const go = async (to) => { history.pushState({}, '', to); window.dispatchEvent(new PopStateEvent('popstate')); await wait(450); };
+
+  function capture(styles) {
+    const out = {};
+    const walk = (el, path) => {
+      if (!el.getClientRects().length) return;
+      const cs = getComputedStyle(el);
+      const s = PROPS.map((p) => cs[p]).join('|');
+      let id = styles.indexOf(s);
+      if (id < 0) { id = styles.length; styles.push(s); }
+      // keyed by position, tag and label only (not by class name: class names are what a conversion changes)
+      out[`${path}<${el.tagName}${el.getAttribute('aria-label') ? ':' + el.getAttribute('aria-label').slice(0, 30) : ''}>`] = id;
+      [...el.children].forEach((c, i) => walk(c, `${path}/${i}`));
+    };
+    walk(document.querySelector('#root'), '');
+    return out;
+  }
+
+  async function all() {
+    const styles = [];
+    const pages = {};
+    const startTheme = document.documentElement.dataset.theme;
+    const startPath = location.pathname;
+    for (const theme of ['light', 'dark']) {
+      document.documentElement.dataset.theme = theme;
+      for (const route of ROUTES) { await go(route); window.scrollTo(0, 0); pages[`${theme} ${route}`] = capture(styles); }
+    }
+    document.documentElement.dataset.theme = startTheme;
+    await go(startPath);
+    return { styles, pages };
+  }
+
+  window.__snap = async (mode, name) => {
+    const now = await all();
+    const key = `snap:${name}`;
+    if (mode === 'save') { localStorage.setItem(key, JSON.stringify(now)); return { saved: name, pages: Object.keys(now.pages).length, elements: Object.values(now.pages).reduce((n, p) => n + Object.keys(p).length, 0), styles: now.styles.length }; }
+    const base = JSON.parse(localStorage.getItem(key) ?? 'null');
+    if (!base) return { error: `no baseline called ${name}` };
+    const diffs = [];
+    const names = PROPS;
+    for (const [page, els] of Object.entries(now.pages)) {
+      const was = base.pages[page] ?? {};
+      for (const k of new Set([...Object.keys(els), ...Object.keys(was)])) {
+        const a = was[k] === undefined ? null : base.styles[was[k]];
+        const b = els[k] === undefined ? null : now.styles[els[k]];
+        if (a === b) continue;
+        if (a === null || b === null) { diffs.push(`${page} ${k}: ${a === null ? 'appeared' : 'disappeared'}`); continue; }
+        const x = a.split('|'); const y = b.split('|');
+        diffs.push(`${page} ${k}: ` + names.filter((_, i) => x[i] !== y[i]).map((p) => `${p} ${x[names.indexOf(p)]} -> ${y[names.indexOf(p)]}`).join('; '));
+      }
+    }
+    return { compared: name, differences: diffs.length, sample: diffs.slice(0, 25) };
+  };
+  return 'snapshot tool ready';
+})();

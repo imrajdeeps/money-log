@@ -41,7 +41,7 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
 
 function PageBody({ title, back, backLabel = 'Overview', onBack, children }: { title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }) {
   return (
-    <section className="page" aria-labelledby="page-title">
+    <section className="page animate-page-in" aria-labelledby="page-title">
       {back && <button type="button" className="settings-back" onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
       <div className="pagehead"><h2 id="page-title">{title}</h2></div>
       {children}
@@ -97,7 +97,7 @@ function Shell() {
     );
   }
 
-  const toast = <div className="toast" role="status" aria-live="polite">{app.toastMsg}</div>;
+  const toast = <div key={app.toastMsg} className="toast animate-toast" role="status" aria-live="polite">{app.toastMsg}</div>; // a new message is a new element, so it slides in again
   const current = (id: Page) => (page === id || (id === 'plan' && page === 'goals') ? 'page' : undefined); // the Goals page belongs to Plan
 
   return (
@@ -126,11 +126,11 @@ function Shell() {
         </p>
       )}
       <main>
-        <div hidden={page !== 'home'}><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
-        <div hidden={page !== 'settings'} className="narrow">
+        <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
+        <div hidden={page !== 'settings'} className="narrow animate-page-in">
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
-        <div hidden={page !== 'add'} className="narrow">
+        <div hidden={page !== 'add'} className="narrow animate-page-in">
           <PageBody title="Add expense" back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} /></PageBody>}

@@ -1,5 +1,5 @@
-import { useId } from 'react';
-import type { ReactNode } from 'react';
+import { Children, useId } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from './Icon.tsx';
 
 // The dashboard's layout. A wide screen gets 12 columns and each tile spans some of them; narrower screens fold the spans
@@ -9,7 +9,10 @@ export type Span = 3 | 4 | 6 | 8 | 12;
 export function BentoGrid({ children, label }: { children: ReactNode; label?: string }) {
   return (
     <div className="bento-wrap">
-      <div className="bento" role={label ? 'group' : undefined} aria-label={label}>{children}</div>
+      <div className="bento" role={label ? 'group' : undefined} aria-label={label}>
+        {/* each tile gets its place in the order (--i), so the tiles rise one after another; the wrapper adds no box */}
+        {Children.toArray(children).map((child, i) => <div key={i} className="contents" style={{ '--i': Math.min(i, 10) } as CSSProperties}>{child}</div>)}
+      </div>
     </div>
   );
 }
@@ -29,7 +32,7 @@ interface CardProps {
 // (an invisible button stretched over it), so its text stays plain text for screen readers and the button says what it opens.
 export function BentoCard({ title, span = 4, compact = false, onOpen, openLabel, action, className, children }: CardProps) {
   const id = useId();
-  const cls = ['bento-card', `span-${span}`, compact ? 'compact' : '', onOpen ? 'is-action' : '', className ?? ''].filter(Boolean).join(' ');
+  const cls = ['bento-card', `span-${span}`, compact ? 'compact' : '', onOpen ? 'is-action' : '', 'animate-rise [animation-delay:calc(var(--i,0)*45ms)]', className ?? ''].filter(Boolean).join(' ');
   return (
     <section className={cls} aria-labelledby={id}>
       <header className="bento-head">
