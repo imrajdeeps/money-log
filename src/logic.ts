@@ -36,8 +36,8 @@ export interface Plan extends PlanData { importedAt: string; dirty: 0 | 1 }
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_AMOUNT = 1e9;
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const MAX_AMOUNT = 1e9;
 
 export const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -425,6 +425,12 @@ export function budgetState(group: Group, spent: number, planned: number, monthI
   }
   if (planned === 0 && spent === 0) return 'idle';
   return spent > planned ? 'over' : 'ok';
+}
+
+// From this share of a budget used, the meter and the words turn amber ("nearly used"); past 100% they turn red.
+export const NEAR_BUDGET = 0.8;
+export function nearBudget(spent: number, planned: number): boolean {
+  return planned > 0 && spent <= planned && spent >= planned * NEAR_BUDGET;
 }
 
 // ---------------------------------------------------------------- export to the spreadsheet's Log tab

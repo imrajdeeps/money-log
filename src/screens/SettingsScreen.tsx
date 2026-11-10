@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { Icon } from '../components/Icon.tsx';
+import { RecurringCard } from '../components/RecurringCard.tsx';
 import { useApp } from '../context.tsx';
 import { makeBackup, parseBackup } from '../backup.ts';
 import { parseBlockText } from '../blocks.ts';
@@ -465,7 +466,7 @@ function BackupCard() {
   const [msg, setMsg] = useState('');
 
   async function download() {
-    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, networth: app.net, dueDone: app.doneMap, categories: app.mine }), null, 2);
+    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, networth: app.net, dueDone: app.doneMap, categories: app.mine, recurring: app.recurring }), null, 2);
     const r = await saveFile(`money-log-backup-${stamp()}.json`, body, 'application/json');
     if (r !== 'cancelled') app.toast(r === 'shared' ? 'Backup shared.' : 'Backup downloaded.');
   }
@@ -545,6 +546,7 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
   const parts: Record<SettingsSection, ReactNode> = {
     account: <AccountCard />,
     password: <PasswordCard />,
+    recurring: <RecurringCard />,
     appearance: <AppearanceCard />,
     plan: <PlanCard />,
     receipts: <ReceiptsCard />,
@@ -556,7 +558,7 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
   return (
     <section aria-label="Settings">
       {open ? (
-        <button type="button" className="backbtn" onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
+        <button type="button" className="settings-back" onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
       ) : (
         <div className="pagehead"><h2>Settings</h2></div>
       )}

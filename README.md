@@ -117,6 +117,27 @@ TanStack Router (files in `src/routes`; `src/routeTree.gen.ts` is generated from
 and is committed). GitHub Pages has no file for `/settings`, so the build also writes `404.html` as a copy of the app,
 which Pages serves for such addresses; an unknown address goes to the Overview.
 
+**All payments** (the Recent payments tile's *See all*) lists every payment on the phone, newest day first, with a search
+(words in any order, matched against the category, note, method and amount; `4500` finds ₹4,500) and filters for month,
+category and method. It shows the count and your total for what is listed. Only the rows near the screen are drawn
+(TanStack Virtual), so thousands of payments scroll as smoothly as a few. A budget turns amber, with the words "nearly
+used", from 80% of it, and red once it is over.
+
+**Recurring payments** (Settings, Recurring payments): set rent, an SIP or a subscription once, with its day of the month
+(31 means the last day in a shorter month). From that day the Overview shows a *Recurring* tile with **Log** (adds the
+payment on its scheduled day; edit it afterwards if the amount differed) and **Skip** (nothing is logged this month).
+Only the current month is offered: a month the app was not opened in is not added later. The list syncs to your other
+phones as one more block, merged per item, and a month logged on one phone is never offered again on another. It needs
+one change to the database, once, run in the Supabase SQL Editor *before* the app version that has this feature is used:
+
+```sql
+alter table public.plan_blocks drop constraint if exists plan_blocks_block_known;
+alter table public.plan_blocks add constraint plan_blocks_block_known
+  check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring'));
+```
+
+(`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
+
 ## Light and dark, colours and type
 
 - **Light or dark:** the sun or moon button at the top switches between them. *Settings, Appearance* also has **Match my
@@ -346,7 +367,7 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
   other's chosen names. They never see your private payments, your plan, or your email address. Recording a payment
   between two people needs no confirmation from the other: this is meant for groups of people who trust each other.
 - Because the key is public and sign-ups are open while you invite people, each account is capped (20,000 payments and
-  2,000 recorded group payments; plan data only under five known names; at most 10 groups made and 20 people per group),
+  2,000 recorded group payments; plan data only under six known names; at most 10 groups made and 20 people per group),
   so a stranger's account cannot fill the free database. For stricter control keep sign-ups off except when inviting.
 - Receipt photos: the Storage bucket `receipts` is private, JPEG only, 1 MB per file. A file can be uploaded only into your
   own folder and only for a photo you declared first; you can read your own files and those on shared expenses of groups you

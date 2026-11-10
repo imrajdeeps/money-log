@@ -10,7 +10,7 @@ import { Icon } from './components/Icon.tsx';
 import type { IconName } from './components/Icon.tsx';
 import { LockScreen } from './components/LockScreen.tsx';
 import { QuickLog } from './components/QuickLog.tsx';
-import { RecentList } from './components/RecentList.tsx';
+import { AllPayments } from './components/AllPayments.tsx';
 import { SyncPill } from './components/SyncPill.tsx';
 import { ThemeToggle } from './components/ThemeToggle.tsx';
 import { ExportScreen } from './screens/ExportScreen.tsx';
@@ -113,7 +113,7 @@ function Shell() {
         </p>
       )}
       <main>
-        <div hidden={page !== 'home'}><HomeScreen open={openSheet} openAdd={openAdd} goSettings={() => goSettings()} /></div>
+        <div hidden={page !== 'home'}><HomeScreen open={openSheet} openAdd={openAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
         <div hidden={page !== 'settings'} className="narrow">
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
@@ -123,8 +123,8 @@ function Shell() {
         <QuickLog amountRef={amountRef} onSaved={() => refs.add.current?.close()} />
         {here('add')}
       </DetailDrawer>
-      <DetailDrawer ref={refs.recent} title="Recent payments" onOpenChange={tracked('recent')}>
-        <RecentList limit={20} empty={<p className="muted">No payments yet. Your last 20 appear here.</p>} />
+      <DetailDrawer ref={refs.recent} title="All payments" onOpenChange={tracked('recent')}>
+        <AllPayments />
         {here('recent')}
       </DetailDrawer>
       {/* The month view starts again at this month each time it opens. */}

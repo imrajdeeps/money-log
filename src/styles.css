@@ -221,6 +221,7 @@ input[type='file'] { display: none; }
 .btnrow .btn { flex: 1; }
 .card > .btn:not(.big) { margin-top: 6px; width: 100%; }
 .filebtn { margin-top: 10px; }
+.btnrow .filebtn { margin-top: 0; } /* inside a row of buttons it lines up with its neighbour */
 
 .msg { margin: 10px 0 0; padding: 0; font-size: 14px; }
 .msg.bad { color: var(--bad); }
@@ -246,9 +247,15 @@ input[type='file'] { display: none; }
 }
 .row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .row-main small { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.payfilters { margin-bottom: 12px; }
+.payselects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.payselects select { padding-inline: 8px; }
+.payfilters p { margin: 0; }
+.list.virtual { position: relative; }
+.list.virtual > li { position: absolute; top: 0; left: 0; width: 100%; }
 .row > svg { flex: none; color: var(--muted); }
-.backbtn { display: inline-flex; align-items: center; gap: 2px; margin: 2px 0 12px -6px; padding: 8px 12px 8px 4px; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
-.backbtn svg { transform: rotate(180deg); }
+.settings-back { display: inline-flex; align-items: center; gap: 2px; margin: 2px 0 12px -6px; padding: 8px 12px 8px 4px; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.settings-back svg { transform: rotate(180deg); }
 .amt { font-weight: 700; font-variant-numeric: tabular-nums; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); flex: none; }
 
@@ -518,6 +525,7 @@ dialog.viewer img { display: block; width: 100%; max-height: 70vh; object-fit: c
 .foot { margin-top: auto !important; padding-top: 10px; }
 .status { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
 .status.bad { color: var(--bad); }
+.status.warn { color: var(--warn); }
 .delta { display: inline-block; padding: 5px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .delta.bad { background: var(--bad-bg); color: var(--bad); }
 .delta.good { background: var(--good-bg); color: var(--good); }
