@@ -284,7 +284,7 @@ Uber, electricity ...) and only if that category is in your list. Check it and t
 ## Goals and a plan (version 1.10, being built)
 
 Short-term and long-term goals made in the app, with a plan of what to set aside each month. Built in five steps (see
-`docs/prd-goals.md`); **steps 1 and 2 are in**.
+`docs/prd-goals.md`); **steps 1 to 3 are in**.
 
 - **The data** (step 1): a goal is a name, a target amount and a target date (and an optional amount already saved);
   top-ups are items of their own, so two phones adding one at the same time keep both; goals sync as one more block
@@ -292,10 +292,12 @@ Short-term and long-term goals made in the app, with a plan of what to set aside
 - **The Goals page** (step 2, `/goals`, opened from the Plan page): goals in two lists, **short term** (due within 12 months)
   and **long term**, moving from long to short by themselves as the date gets close. Each shows what is saved of the target, a
   bar, the date, and one line: *Needs ₹11,250 a month for 8 months* (rounded up to the rupee, counting this month), *Reached*,
-  or *The date has passed*. Saved is the starting amount, plus top-ups (step 3), plus payments you log in the goal's linked
+  or *The date has passed*. Saved is the starting amount, plus top-ups, plus payments you log in the goal's linked
   category from the day the goal was made; log a saving as a payment *or* add it as a top-up, not both. Tap a goal to change it;
   slide it to the left and tap the trash to remove it.
-- Still to come: top-ups (3), the monthly plan against your Saving budget (4), and an Overview tile (5).
+- **Top-ups** (step 3): **Add to this goal** takes an amount and a day (not in the future); the top-ups made are listed under the
+  goal (*Top-ups (2) · ₹7,500*), and slide to the left removes one. They count towards the goal at once.
+- Still to come: the monthly plan against your Saving budget (4), and an Overview tile (5).
 
 ## Receipt photos
 
