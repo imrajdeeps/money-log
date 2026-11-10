@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import { cleanDoneMap, mergeDone, pruneDone, setDone } from './blocks.ts';
 import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from './blocks.ts';
+import { parseAuthHash } from './authlink.ts';
+import type { AuthLink } from './authlink.ts';
 import type { BackupParse } from './backup.ts';
 import { addCategory as addCategoryTo, categoryList, mergeMine, removeCategory as removeCategoryFrom, setBudget } from './categories.ts';
 import type { AddResult, CategoryInfo, Mine } from './categories.ts';
@@ -21,6 +23,18 @@ import { createSync } from './sync.ts';
 import type { DueDone, MineBlock, Sync, SyncState } from './sync.ts';
 
 interface Engine { store: Store; sync: Sync }
+
+// A link from a Supabase email brings its answer in the address bar. Read it once, when the page loads, and take it out of
+// the address at once so the tokens are not left in the browser history or read again at the next start.
+function takeAuthLink(): AuthLink | null {
+  if (typeof window === 'undefined') return null;
+  const link = parseAuthHash(window.location.hash);
+  if (link) {
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* the address bar is only cosmetic */ }
+  }
+  return link;
+}
+const startupLink = takeAuthLink();
 
 export interface AppApi {
   ready: boolean;
@@ -80,6 +94,10 @@ export interface AppApi {
   syncNow: () => void;
   signUp: (email: string, password: string) => Promise<'signed-in' | 'confirm'>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  recovering: boolean; // the person opened a reset link: signed in, and now choosing a new password
+  authNotice: { text: string; bad: boolean } | null; // what a link from an email led to, to be shown in Settings
+  dismissAuthNotice: () => void;
   changePassword: (password: string) => Promise<void>;
   signOutOthers: () => Promise<void>;
   signOutEverywhere: () => Promise<void>;
@@ -118,6 +136,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const lockRef = useRef<LockConfig | null>(null);
   const hiddenAt = useRef<number | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(() => joinCodeFromHash(window.location.hash));
+  const [recovering, setRecovering] = useState(false);
+  const [authNotice, setAuthNotice] = useState<{ text: string; bad: boolean } | null>(null);
+  const linkHandled = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -177,6 +198,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [reload]);
 
+  // A link from one of Supabase's emails: the reset link, or a link that failed. Used when the page opens with one, and when one
+  // is opened in a tab where the app is already running (then only the # part of the address changes and nothing reloads).
+  const handleAuthLink = useCallback(async (link: AuthLink) => {
+    const e = engRef.current;
+    if (!e) return;
+    if (link.kind === 'recovery') {
+      try {
+        await e.sync.signInWithRecovery(link);
+        setRecovering(true);
+        setAuthNotice(null);
+        void e.sync.sync();
+      } catch (err) {
+        setAuthNotice({ text: err instanceof Error ? err.message : String(err), bad: true });
+      }
+    } else if (link.kind === 'error') {
+      setAuthNotice({ text: link.message, bad: true });
+    } else {
+      setAuthNotice({ text: 'That link is not one this app uses. Sign in with your email and password.', bad: true });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!eng || !startupLink || linkHandled.current) return;
+    linkHandled.current = true;
+    void handleAuthLink(startupLink);
+  }, [eng, handleAuthLink]);
+
   // Cover the app again when it was away for the chosen time.
   useEffect(() => {
     const onVisibility = () => {
@@ -192,10 +240,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // A join link opened while the app is already running.
   useEffect(() => {
-    const onHash = () => { const c = joinCodeFromHash(window.location.hash); if (c) setJoinCode(c); };
+    const onHash = () => {
+      const c = joinCodeFromHash(window.location.hash);
+      if (c) setJoinCode(c);
+      const link = takeAuthLink();
+      if (link) void handleAuthLink(link);
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
-  }, []);
+  }, [handleAuthLink]);
 
   // Sync when the app comes back to the front and when the network returns.
   useEffect(() => {
@@ -494,10 +547,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await engine().signInWithPassword(email, password);
     void engRef.current?.sync.sync();
   }, []);
-  const changePassword = useCallback((password: string) => engine().changePassword(password), []);
+  const requestPasswordReset = useCallback((email: string) => engine().requestPasswordReset(email, window.location.origin + window.location.pathname), []);
+  const dismissAuthNotice = useCallback(() => setAuthNotice(null), []);
+  const changePassword = useCallback(async (password: string) => { await engine().changePassword(password); setRecovering(false); }, []);
   const signOutOthers = useCallback(() => engine().signOutOthers(), []);
   const signOutEverywhere = useCallback(() => engine().signOutEverywhere(), []);
-  const signOut = useCallback(async () => { await engRef.current?.sync.signOut(); }, []);
+  const signOut = useCallback(async () => { await engRef.current?.sync.signOut(); setRecovering(false); }, []);
   const eraseAll = useCallback(async () => {
     await engRef.current?.sync.eraseAll();
     await reload();
@@ -522,8 +577,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast,
     addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName,
-    syncNow, signUp, signInWithPassword, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, signUp, signInWithPassword, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+    syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

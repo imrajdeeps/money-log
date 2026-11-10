@@ -25,7 +25,12 @@ function AccountCard() {
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
   const [leaving, setLeaving] = useState(false); // the sign-out choice is showing
+  const [forgot, setForgot] = useState(false); // the "send me a reset link" panel is open
+  const [resetNote, setResetNote] = useState<{ text: string; bad: boolean } | null>(null);
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+
+  // a reset note from a moment ago must not still be showing after signing in or out
+  useEffect(() => { setForgot(false); setResetNote(null); }, [s.mode === 'signedout']);
 
   function choose(next: 'signin' | 'signup') {
     setHow(next); setMsg(null); setPassword2('');
@@ -53,6 +58,14 @@ function AccountCard() {
     } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
   }
 
+  async function sendReset() {
+    setBusy(true); setResetNote(null);
+    try {
+      await app.requestPasswordReset(email.trim());
+      setResetNote({ text: `If ${email.trim()} can receive email from this project, a link is on its way. Open it on this phone: it works once and runs out quickly. Nothing after a few minutes? Check the spam folder, then see the README (email setup).`, bad: false });
+    } catch (e) { setResetNote({ text: errText(e), bad: true }); } finally { setBusy(false); }
+  }
+
   if (!app.syncEnabled) {
     return (
       <div className="card">
@@ -67,6 +80,11 @@ function AccountCard() {
     return (
       <div className="card">
         <h2>{how === 'signup' ? 'Create an account' : 'Sign in to sync'}</h2>
+        {app.authNotice && (
+          <p className={`msg ${app.authNotice.bad ? 'bad' : 'good'}`} role="alert">
+            {app.authNotice.text} <button type="button" className="linkbtn" onClick={app.dismissAuthNotice}>Dismiss</button>
+          </p>
+        )}
         <p className="muted small">Your payments are saved on this phone either way. Signing in only adds the cloud copy and your other devices.</p>
         <div className="chips" role="group" aria-label="How to sign in">
           <button type="button" className="chip" aria-pressed={how === 'signin'} onClick={() => choose('signin')}>Sign in</button>
@@ -86,7 +104,15 @@ function AccountCard() {
             <div className="btnrow">
               <button type="submit" className="btn" disabled={busy || !email.trim() || !password}>Sign in</button>
             </div>
-            <p className="muted small">Forgot your password? This app cannot email you a new one. Ask whoever runs the project to reset it (README, "If someone forgets their password").</p>
+            <p className="muted small"><button type="button" className="linkbtn" aria-expanded={forgot} onClick={() => { setForgot(!forgot); setResetNote(null); }}>Forgot your password?</button></p>
+            {forgot && (
+              <div className="newcat" role="group" aria-label="Reset your password">
+                <p className="small">We will email {email.trim() ? <b>{email.trim()}</b> : 'the address above'} a link to choose a new password. Open it on this phone.</p>
+                <button type="button" className="btn" disabled={busy || !email.trim()} onClick={sendReset}>Email me a reset link</button>
+                {resetNote && <p className={`msg ${resetNote.bad ? 'bad' : 'good'}`} role={resetNote.bad ? 'alert' : 'status'}>{resetNote.text}</p>}
+                <p className="muted small">It reaches the addresses this project's email can send to: today that is the project owner's. For anyone else, ask whoever runs the project to reset it (README, "If someone forgets their password").</p>
+              </div>
+            )}
           </form>
         )}
         {how === 'signup' && (
@@ -107,7 +133,7 @@ function AccountCard() {
             <div className="btnrow">
               <button type="submit" className="btn" disabled={busy || !email.trim() || !password || !password2}>Create account</button>
             </div>
-            <p className="muted small">A few words in a row make a strong password. It cannot be emailed to you if you forget it: whoever runs the project can reset it (README).</p>
+            <p className="muted small">A few words in a row make a strong password. If you forget it, use "Forgot your password?" on the Sign in form (see the README for who it can reach).</p>
           </form>
         )}
       </div>
@@ -216,8 +242,10 @@ function PasswordCard() {
   return (
     <div className="card">
       <h2>Password and sessions</h2>
+      {app.recovering && <p className="msg good" role="status">You opened a reset link, so you are signed in. Choose a new password now.</p>}
       <form onSubmit={save} noValidate>
-        <p className="muted small">Choose a new password. Others cannot see it and it is not kept on this phone.</p>
+        <h3 className="h2">Change password</h3>
+        <p className="muted small">You are signed in, so no old password is needed. Others cannot see the new one and it is not kept on this phone.</p>
         <label className="field">
           <span>New password (at least {MIN_PASSWORD} characters)</span>
           <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} disabled={busy} />

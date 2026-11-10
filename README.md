@@ -44,6 +44,9 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
      link, not a code. This app takes a password or a typed code, never a link, so it offers passwords only. If you ever add
      your own email service (Authentication, Emails, SMTP Settings; the free plan allows it) the templates unlock and a code
      could be offered again; nothing in the app needs it today.
+   - **Authentication, URL Configuration, Site URL:** set it to your site's address, for example
+     `https://imrajdeeps.github.io/money-log/`. Why: the "Forgot your password?" email holds a link that opens this address; while
+     it is Supabase's default (`http://localhost:3000`) the link lands on a blank page.
 5. **Sign-ups.** Turn **Allow new users to sign up** on **only while you are inviting someone**, and turn it off again
    once they have signed in once (people who already have an account keep working). Why it matters: the app's key is
    public by design, so while sign-ups are on a stranger can create an account on your project. Such an account can see
@@ -243,8 +246,14 @@ cannot be recovered: you erase this phone's copy and sign in again (what is in t
 
 ## If someone forgets their password
 
-The app cannot email a new password: Supabase's free built-in email only reaches your own team (see step 1.4). So the person
-who runs the project resets it, in Supabase's **SQL Editor** (read the line, put the real address in, Run):
+**Changing a password you know:** *Settings, Password and sessions, Change password* (you are signed in, so no old password is
+needed).
+
+**Forgot it:** on the Sign in form, tap **Forgot your password?**, enter the email, and tap *Email me a reset link*. Open the
+link **on that phone**: the app signs the person in and shows "choose a new password" in Settings. The link works once and runs
+out quickly. It needs the **Site URL** set in Supabase (step 1.4), and Supabase's free built-in email only sends to your own
+team's addresses, at most 2 an hour, so today this works for the project owner. For anyone else, either add your own email
+service (step 1.4), or reset the password yourself in Supabase's **SQL Editor** (read the line, put the real address in, Run):
 
 ```sql
 update auth.users
@@ -254,8 +263,9 @@ where email = 'person@example.com';
 
 Then the person signs in with that temporary password and changes it at once in *Settings, Password and sessions*. This is
 the usual way to set a password directly in Supabase, written for its standard setup (the password functions live in the
-`extensions` schema), but it has **not been tried on a real project**. The SQL Editor keeps a copy of what you ran: delete that
-snippet afterwards, and do not use a password the person uses anywhere else. A password you set yourself and forgot is reset the same way.
+`extensions` schema), but it has **not been tried on a real project**, and neither has the emailed link on the real one (only
+against a stand-in for Supabase). The SQL Editor keeps a copy of what you ran: delete that snippet afterwards, and do not use a
+password the person uses anywhere else.
 
 ## Updating the app
 

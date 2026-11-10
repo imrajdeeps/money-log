@@ -40,7 +40,7 @@ function device(email = 'me@example.com', cfg?: { supabaseUrl: string; supabaseK
 const iso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
 const entry = (over: Partial<Parameters<typeof makeEntry>[0]> = {}): Entry =>
   makeEntry({ amount: 100, category: 'Rent', method: 'UPI', note: 'n', date: '2026-11-09', ...over }, iso());
-const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
+const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.recoveries.length = 0; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
 
 test('without a Supabase URL and key the app stays local and never touches the network', async () => {
   reset();
@@ -1269,4 +1269,86 @@ test('signing out one phone does not end the same account\'s session on another'
   await b.store.setMeta('session', { ...s, expires_at: 0 }); // force a refresh on b
   await b.sync.sync();
   assert.equal(b.sync.getState().mode, 'idle', b.sync.getState().error ?? '');
+});
+
+// ------------------------------------------------------------------ forgot password: a reset link by email
+import { parseAuthHash } from '../src/authlink.ts';
+
+const SITE = 'https://example.github.io/money-log/';
+const lastLink = () => {
+  const l = parseAuthHash(mock.state.recoveries.at(-1)!.hash);
+  assert.equal(l?.kind, 'recovery');
+  return l as Extract<typeof l, { kind: 'recovery' }>;
+};
+
+test('forgot password: ask for a link, open it, choose a new password, and the old one stops working', async () => {
+  reset();
+  const a = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  await a.sync.signOut();
+  assert.equal(a.sync.getState().mode, 'signedout');
+
+  await a.sync.requestPasswordReset('pw@example.com', SITE);
+  assert.equal(mock.state.recoveries.length, 1);
+  assert.equal(mock.state.recoveries[0]!.redirectTo, SITE, 'the link comes back to this site');
+
+  await a.sync.signInWithRecovery(lastLink());
+  assert.equal(a.sync.getState().mode, 'idle');
+  assert.equal(a.sync.getState().email, 'pw@example.com');
+  await a.sync.changePassword('a brand new phrase');
+
+  await a.sync.signOut();
+  await assert.rejects(a.sync.signInWithPassword('pw@example.com', PW), /email or password is not right/, 'the old password is gone');
+  await a.sync.signInWithPassword('pw@example.com', 'a brand new phrase');
+  assert.equal(a.sync.getState().mode, 'idle');
+});
+
+test('forgot password answers the same for an address with no account, and sends nothing', async () => {
+  reset();
+  const a = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  await a.sync.signOut();
+  await a.sync.requestPasswordReset('nobody@example.com', SITE); // no error: nothing about who has an account is revealed
+  assert.equal(mock.state.recoveries.length, 0);
+  await assert.rejects(a.sync.requestPasswordReset('not an email', SITE), /valid email/);
+  assert.equal(mock.state.requests.filter((r) => r.includes('/recover')).length, 1, 'the bad address never left the phone');
+});
+
+test('a dead or made-up reset link signs nobody in and says why', async () => {
+  reset();
+  const a = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  await a.sync.signOut();
+  await assert.rejects(
+    a.sync.signInWithRecovery({ accessToken: 'at-not-a-real-token', refreshToken: 'rt-not-a-real-token', expiresIn: 3600 }),
+    /expired or was already used/,
+  );
+  assert.equal(a.sync.getState().mode, 'signedout');
+  assert.equal(await a.store.getMeta('session'), undefined);
+});
+
+test('a reset link for a different account is refused on a phone that still holds the first one\'s data', async () => {
+  reset();
+  const a = await pwDevice('first@example.com');
+  await a.sync.signUp('first@example.com', PW);
+  await a.sync.signOut(); // signing out keeps the data on the phone
+  const other = await pwDevice('second@example.com');
+  await other.sync.signUp('second@example.com', PW);
+  await other.sync.requestPasswordReset('second@example.com', SITE);
+  await assert.rejects(a.sync.signInWithRecovery(lastLink()), (e: any) => e instanceof SyncError && e.kind === 'owner-mismatch');
+  assert.equal(a.sync.getState().mode, 'signedout');
+  assert.equal(await a.store.getMeta('session'), undefined);
+});
+
+test('forgot password: a rate limit and an address the project\'s email cannot reach give readable messages', async () => {
+  reset();
+  const a = await pwDevice();
+  await a.sync.signUp('pw@example.com', PW);
+  await a.sync.signOut();
+  mock.state.failNext = { status: 429, body: { code: 429, error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' } };
+  await assert.rejects(a.sync.requestPasswordReset('pw@example.com', SITE), /Too many tries/);
+  mock.state.failNext = { status: 422, body: { code: 422, error_code: 'email_address_not_authorized', msg: 'Email address "pw@example.com" cannot be used as it is not authorized' } };
+  await assert.rejects(a.sync.requestPasswordReset('pw@example.com', SITE), /could not be sent to this address/);
+  await a.sync.requestPasswordReset('pw@example.com', SITE); // and the next one goes through
+  assert.equal(mock.state.recoveries.length, 1);
 });
