@@ -1,0 +1,15 @@
+/* Settings: PIN lock, checkboxes, the password sign-in. */
+
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.check input { width: 22px; height: 22px; flex: none; }
+.layoutcheck { margin: 12px 0 0; }
+.lockscreen { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; }
+.lockbox { width: 100%; max-width: 340px; text-align: center; }
+.lockbox h1 { margin-bottom: 4px; }
+.pininput { text-align: center; font-size: 28px; letter-spacing: 8px; min-height: 60px; margin: 12px 0 4px; }
+.forgot { margin-top: 24px; text-align: left; }
+.forgot summary { cursor: pointer; color: var(--muted); }
+
+/* Release 5: password sign-in */
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
+.chips + form, .chips + p { margin-top: 12px; }

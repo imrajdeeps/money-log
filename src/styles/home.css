@@ -1,0 +1,143 @@
+/* Overview: the tile grid and everything inside a tile. */
+
+/* the grid: one column on a phone (small stat tiles two to a row), 6 columns on a tablet, 12 on a wide screen. It
+   measures its own width, so it works inside anything. */
+.bento-wrap { container-type: inline-size; }
+.bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bento-card {
+  grid-column: span 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow), var(--inner);
+}
+.bento-card.compact { grid-column: span 1; padding: 14px; }
+.bento-card.compact.fill { grid-column: 1 / -1; } /* an odd one out takes the whole row */
+@container (min-width: 600px) {
+  .bento { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; grid-auto-flow: row dense; }
+  .bento-card, .bento-card.compact { grid-column: span 3; padding: 18px; }
+  .bento-card.span-8, .bento-card.span-12 { grid-column: span 6; }
+}
+@container (min-width: 600px) and (max-width: 899.98px) {
+  .bento-card.compact.fill { grid-column: span 6; }
+}
+@container (min-width: 900px) {
+  .bento { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; grid-auto-flow: row; }
+  .bento-card.span-3 { grid-column: span 3; }
+  .bento-card.span-4 { grid-column: span 4; }
+  .bento-card.span-6 { grid-column: span 6; }
+  .bento-card.span-8 { grid-column: span 8; }
+  .bento-card.span-12 { grid-column: span 12; }
+}
+.bento-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; margin-bottom: 8px; }
+.bento-head h3 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); }
+.bento-chev { display: inline-flex; color: var(--muted); transition: transform 0.18s ease, color 0.18s ease; }
+.bento-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.bento-body > p { margin: 0; }
+/* the invisible button stretched over a tile that opens its details */
+.bento-hit { position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.bento-hit:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.bento-card.is-action { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+@media (hover: hover) {
+  .bento-card.is-action:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover), var(--inner); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .bento-card.is-action:hover .bento-chev { color: var(--accent); transform: translateX(2px); }
+  .list .row:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+  .iconbtn:hover { background: var(--bg); color: var(--ink); }
+}
+.bento-card.is-action:active { transform: translateY(0) scale(0.995); }
+
+/* the one big green tile: the tokens are re-pointed inside it, so its text, meters, chips and chart re-colour themselves */
+.bento-card.hero {
+  --card: var(--hero); --ink: #ffffff; --muted: #bcd5c7; --line: rgba(255, 255, 255, 0.2);
+  --accent: #c9e96a; --good: #c9e96a; --bad: #ffb4b4; --warn: #ffd27a;
+  --bg: rgba(255, 255, 255, 0.12); --good-bg: rgba(201, 233, 106, 0.16); --bad-bg: rgba(255, 180, 180, 0.16); --warn-bg: rgba(255, 210, 122, 0.16);
+  --chart-ref: rgba(255, 255, 255, 0.5); --shadow: 0 12px 28px -16px rgba(16, 74, 48, 0.7); --inner: 0 0 0 0 transparent;
+  background: var(--hero); color: var(--ink); border-color: transparent;
+}
+:root[data-theme='dark'] .bento-card.hero { border-color: rgba(201, 233, 106, 0.14); }
+
+/* figures: one hero number per page, stat numbers on the other tiles, muted text for everything around them */
+.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.hero-num { font-size: clamp(36px, 7vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 4px; }
+.hero-top .muted { margin: 0; }
+.stat-num { font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; margin: 0; overflow-wrap: anywhere; }
+.compact .stat-num { font-size: 21px; }
+.stat-unit { font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.bento-body .muted.small { margin: 2px 0 0; }
+.foot { margin-top: auto !important; padding-top: 10px; }
+.status { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+.status.bad { color: var(--bad); }
+.status.warn { color: var(--warn); }
+.delta { display: inline-block; padding: 5px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.delta.bad { background: var(--bad-bg); color: var(--bad); }
+.delta.good { background: var(--good-bg); color: var(--good); }
+.warn-text { color: var(--warn); font-weight: 600; margin: 4px 0 0; }
+.left.warn { color: var(--warn); }
+.goal { margin-top: 10px; }
+.netfacts { list-style: none; margin: 12px 0 0; padding: 0; font-size: 14px; }
+.netfacts li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); }
+.netfacts span { color: var(--muted); min-width: 0; }
+.netfacts b { font-weight: 600; white-space: nowrap; }
+
+/* the month's spending by day */
+.pace { display: block; width: 100%; height: 112px; overflow: visible; margin-top: 6px; }
+.pace path, .pace line { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.pace .pace-base { stroke: var(--line); stroke-width: 1; }
+.pace .pace-budget { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; stroke-linecap: butt; }
+.pace .pace-last { stroke: var(--chart-ref); stroke-width: 2; }
+.pace .pace-area { fill: var(--accent); fill-opacity: 0.1; stroke: none; }
+.pace .pace-now { stroke: var(--accent); stroke-width: 2; }
+.pace .pace-ring { stroke: var(--card); stroke-width: 12; }
+.pace .pace-dot { stroke: var(--accent); stroke-width: 8; }
+.pace-axis { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; padding: 0; font-size: 13px; color: var(--muted); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.legend b { color: var(--ink); font-weight: 600; }
+.key { display: inline-block; width: 16px; border-top: 2px solid var(--accent); }
+.key.last { border-top-color: var(--chart-ref); }
+.key.budget { border-top: 2px dashed var(--muted); }
+
+/* budget meters: the track is a light step of the fill's own colour */
+.bar.meter-accent { --meter: var(--accent); }
+.bar.meter-warn { --meter: var(--warn); }
+.bar.meter-bad { --meter: var(--bad); }
+.bar.meter-good { --meter: var(--good); }
+.bar.meter-idle { --meter: var(--muted); }
+.bar[class*='meter-'] { background: color-mix(in srgb, var(--meter) 16%, transparent); }
+.bar[class*='meter-'] i { background: var(--meter); border-radius: 0 4px 4px 0; }
+
+/* where the month's money went: one colour, the bar is the share of the month */
+.shares { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 2px 0 0; padding: 0; }
+.share-line { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.share-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.share-bar { display: block; height: 6px; margin-top: 4px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.share-bar i { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+
+/* short lists inside tiles */
+.mini { list-style: none; margin: 10px 0 0; padding: 0; }
+.mini li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.mini .row-main small { white-space: nowrap; }
+.bento-card .plainlist.recent { margin: 0 -8px; }
+.recent .row { min-height: 54px; padding: 8px; border-radius: 12px; }
+.seeall { position: relative; z-index: 2; min-height: 44px; margin: -10px -10px -10px 0; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+/* empty tiles: what is missing and the one thing to do about it */
+.bento-empty { flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; }
+.bento-empty p { margin: 0; font-size: 14px; }
+.bento-empty .btn { position: relative; z-index: 2; }
+
+/* loading placeholders in the tiles' shapes */
+.skel-card { gap: 12px; }
+.skel { display: block; border-radius: 8px; background: linear-gradient(90deg, var(--skel) 25%, var(--skel-hi) 50%, var(--skel) 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
+.skel-title { width: 40%; height: 12px; }
+.skel-figure { width: 60%; height: 26px; }
+.skel-hero { width: 50%; height: 46px; }
+.skel-chart { width: 100%; height: 112px; }
+.skel-line { width: 100%; height: 14px; }
+.skel-line.short { width: 55%; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }

@@ -11,7 +11,7 @@
     "check": "tsc --noEmit",
     "test": "node --test \"tests/**/*.test.ts\"",
     "e2e:build": "VITE_SUPABASE_URL=http://localhost:54380 VITE_SUPABASE_KEY=test-key vite build --outDir dist-e2e",
-    "e2e:serve": "node tests/serve-e2e.ts"
+    "e2e:serve": "node tests/support/serve-e2e.ts"
   },
   "engines": {
     "node": ">=22.18"
