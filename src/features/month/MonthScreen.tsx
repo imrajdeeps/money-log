@@ -66,14 +66,14 @@ export function MonthScreen({ group, onGroup, onAddExpense }: { group?: Group; o
       {group && shown.length === 0 && <p className="text-muted">No {group} categories have a budget or a payment this month.</p>}
       {shown.length > 0 && (
         <ul className={ui.list(false, 'mt-0 mx-0 mb-3.5')}>
-          {shown.map((r) => (
+          {shown.map((r, ri) => (
             <li key={r.category} className="px-3.5 py-3">
               <div className="flex items-start gap-2">
                 <div className={`${ui.catLine} flex-1 pt-2.5`}>
                   <b>{r.category}</b>
                   <span>{fmtINR(r.spent)}{r.planned > 0 ? <small className="text-muted"> / {fmtINR(r.planned)}</small> : null}</span>
                 </div>
-                <button type="button" className={ui.icoBtn} aria-label={`Actions for ${r.category}: set budget or add expense`} onClick={() => setPicked(r.category)}><Icon name="dots" size={20} /></button>
+                <button type="button" data-tour={ri === 0 ? 'category-actions' : undefined} className={ui.icoBtn} aria-label={`Actions for ${r.category}: set budget or add expense`} onClick={() => setPicked(r.category)}><Icon name="dots" size={20} /></button>
               </div>
               <Line group={r.group} spent={r.spent} planned={r.planned} over={monthIsOver} budgeted={r.budgeted} />
             </li>

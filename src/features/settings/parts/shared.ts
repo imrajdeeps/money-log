@@ -1,4 +1,4 @@
-export const VERSION = '1.13.0';
+export { VERSION } from '../../../core/version.ts';
 
 export const importedOn = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 

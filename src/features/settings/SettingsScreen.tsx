@@ -63,7 +63,7 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
               <ul className={ui.list()}>
                 {items.map((s) => (
                   <li key={s.id}>
-                    <button type="button" className={ui.row} onClick={() => onSection(s.id)}>
+                    <button type="button" data-tour={s.id === 'profile' ? 'settings-profile' : undefined} className={ui.row} onClick={() => onSection(s.id)}>
                       <span className={ui.rowMain()}><b>{s.title}</b><small>{blurb(s.id, s.blurb)}</small></span>
                       <Icon name="chevron" size={20} />
                     </button>
