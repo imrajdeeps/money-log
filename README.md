@@ -161,11 +161,11 @@ alter table public.plan_blocks add constraint plan_blocks_block_known
 - **Colours:** deep green for the big "This month" tile and selected chips, lime for the main buttons and the Add button,
   an off-white page with white cards by day and near-black green-tinted surfaces by night. Red means overspending or debt,
   amber means close to the limit, green means fine. Every text and background pairing is checked at the WCAG AA level
-  (4.5:1) by `tests/theme.test.ts`, read straight from `src/styles.css`, so a later colour change cannot quietly make text
+  (4.5:1) by `tests/features/settings/theme.test.ts`, read straight from the files in `src/styles/`, so a later colour change cannot quietly make text
   hard to read. (The pale lime button has a soft ring because its edge alone is low-contrast on a white page; its label is not.)
 - **Type:** Outfit, a free font (SIL Open Font License, `src/assets/fonts/OFL.txt`) kept inside the app, about 47 KB in two
   files, so nothing is fetched from the internet and it works offline. It has the ₹ sign, and amounts use its even-width digits.
-- To change the look, edit the colour values at the top of `src/styles.css` (one block for light, one for dark).
+- To change the look, edit the colour values at the top of `src/styles/tokens.css` (one block for light, one for dark).
 
 ## Categories and budgets
 
@@ -275,7 +275,7 @@ Uber, electricity ...) and only if that category is in your list. Check it and t
   nothing and say so; a balance is never taken as the amount.
 - The bank's reference number is kept at the end of the note, so pasting the same message twice warns you.
 - It is built for the common Indian formats (UPI, card, ATM, bank transfer). A message it cannot read just says so; send an
-  example and the reader can be taught it (`src/smsParse.ts`, tests in `tests/smsParse.test.ts`). The plan is in
+  example and the reader can be taught it (`src/features/payments/smsParse.ts`, tests in `tests/features/payments/smsParse.test.ts`). The plan is in
   `docs/prd-paste-message.md`.
 
 ## Receipt photos
@@ -355,7 +355,10 @@ npm run check    # type check
 npm run build    # production build into dist/
 ```
 
-`tests/mock-supabase.ts` is a small stand-in for the Supabase sign-in, REST and group-function endpoints the app uses.
+The code is laid out in layers (`core`, `data`, `ui`, `features`, `app`, `routes`); `docs/structure.md` explains the layout and
+how to add a feature, and a test keeps it that way.
+
+`tests/support/mock-supabase.ts` is a small stand-in for the Supabase sign-in, REST and group-function endpoints the app uses.
 It records how those APIs are understood to behave; it is not the real service. `npm run e2e:build` plus
 `npm run e2e:serve` serve a build that talks to the stand-in, for checking in a browser.
 

@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { cleanSection } from '../settingsSections.ts';
+import { cleanSection } from '../features/settings/index.ts';
 
 // The Settings list (/settings). Drawn by the shell; see __root.tsx.
 // An older link, /settings?s=password, goes to the page it meant: /settings/password.

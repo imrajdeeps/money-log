@@ -1,0 +1,30 @@
+/* Payments: receipt photos and the camera, edit history, pasting a bank message. */
+
+/* Release 3: receipt photos, history, PIN lock */
+.photostrip { margin-top: 14px; }
+.fieldlabel { font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.thumb { position: relative; width: 84px; height: 84px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; cursor: pointer; display: flex; align-items: center; justify-content: center; text-align: center; font: inherit; color: inherit; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumbtag { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 4px; font-size: 10px; font-weight: 700; background: var(--warn-bg); color: var(--warn); }
+.thumbx { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 14px; cursor: pointer; }
+.thumbx::after { content: ''; position: absolute; inset: -8px; } /* a 44px target around the small round button */
+.addphoto { position: relative; min-height: 84px; width: auto; padding: 0 14px; margin: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.addphoto.disabled { opacity: 0.5; pointer-events: none; }
+dialog.viewer { max-width: 96vw; }
+dialog.viewer img { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 10px; background: #000; margin-bottom: 10px; }
+.facts li { margin-bottom: 4px; }
+.history { margin: 8px 0; }
+.histrow { padding: 10px 12px; }
+.histrow p { margin: 0 0 2px; }
+
+.photostrip + .btn, .photostrip + .msg, .photostrip + .settleform { margin-top: 12px; }
+
+/* Add expense: fill the form from a pasted bank message */
+.pastebox { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.pastebox summary { min-height: 28px; cursor: pointer; font-weight: 600; color: var(--accent); }
+.pastebox textarea { width: 100%; box-sizing: border-box; margin-top: 4px; }
+.pastebox .btnrow { margin: 10px 0 4px; }
+
+/* the in-app camera (computers): the live picture, then Take photo and Cancel */
+dialog.camera video { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 10px; background: #000; }
