@@ -27,7 +27,9 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
    limited to 1 MB JPEG files).
 3. Paste and run `supabase/rls_tests.sql`. The last message must be `ALL ACCESS TESTS PASSED`. It uses fake users,
    groups and rows inside a transaction that is rolled back, so nothing is kept. Run it again after every change to
-   `schema.sql`.
+   `schema.sql`. (Supabase's Storage refuses plain SQL deletes on its file tables, error 42501 "Use the Storage API instead".
+   The test removes its fake files the way Storage itself does, by setting `storage.allow_delete_query` around that one
+   delete. The app never deletes files through SQL: it uses the Storage API.)
 4. **Authentication, how people sign in.** The app signs in with **email and password** (Settings, Create account) and
    keeps an **email code** as the way back in when a password is forgotten. Decide the next two settings together:
    - **Email delivery.** Supabase's built-in email sender on the free plan only sends to the addresses of your own
