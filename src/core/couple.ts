@@ -2,13 +2,14 @@
 // the full split editor). Pure helpers, no DOM, no storage, no network, so the browser and the Node test runner share it.
 import { fmtINR } from './logic.ts';
 import { equalShares, fromPaise } from './groups.ts';
+import { tr } from './i18n.ts';
 
 // me or the partner paid; and the cost is shared 50/50 or is all the other person's.
 export type CoupleChoice = 'meHalf' | 'meAll' | 'themHalf' | 'themAll';
 export const COUPLE_CHOICES: CoupleChoice[] = ['meHalf', 'meAll', 'themHalf', 'themAll'];
 
 export const coupleLabel = (c: CoupleChoice, partner: string): string =>
-  c === 'meHalf' ? 'You paid · 50/50' : c === 'meAll' ? `You paid · ${partner} owes all` : c === 'themHalf' ? `${partner} paid · 50/50` : `${partner} paid · you owe all`;
+  c === 'meHalf' ? tr('You paid · 50/50') : c === 'meAll' ? tr('You paid · {0} owes all', partner) : c === 'themHalf' ? tr('{0} paid · 50/50', partner) : tr('{0} paid · you owe all', partner);
 
 // The split state (who paid, who shares in it) a choice stands for. Equal split among the people included.
 export function coupleSetting(c: CoupleChoice, me: string, partner: string): { paidBy: string; included: string[] } {
@@ -28,10 +29,10 @@ export function coupleChoiceOf(paidBy: string, included: string[], me: string, p
 
 // The line the two of them care about. myPaise > 0: the partner owes me.
 export function coupleLine(myPaise: number, partner: string): { text: string; tone: 'owed' | 'late' | 'muted' } {
-  if (myPaise === 0) return { text: `You and ${partner} are all settled`, tone: 'muted' };
+  if (myPaise === 0) return { text: tr('You and {0} are all settled', partner), tone: 'muted' };
   return myPaise > 0
-    ? { text: `${partner} owes you ${fmtINR(fromPaise(myPaise))}`, tone: 'owed' }
-    : { text: `You owe ${partner} ${fmtINR(fromPaise(-myPaise))}`, tone: 'late' };
+    ? { text: tr('{0} owes you {1}', partner, fmtINR(fromPaise(myPaise))), tone: 'owed' }
+    : { text: tr('You owe {0} {1}', partner, fmtINR(fromPaise(-myPaise))), tone: 'late' };
 }
 
 // What the choice means for this amount, in words: "Priya owes you ₹250".
@@ -40,6 +41,6 @@ export function coupleSummary(c: CoupleChoice, total: number, me: string, partne
   const { paidBy, included } = coupleSetting(c, me, partner);
   const shares = equalShares(total, included);
   return paidBy === me
-    ? `${partnerName} owes you ${fmtINR(shares[partner] ?? 0)}`
-    : `You owe ${partnerName} ${fmtINR(shares[me] ?? 0)}`;
+    ? tr('{0} owes you {1}', partnerName, fmtINR(shares[partner] ?? 0))
+    : tr('You owe {0} {1}', partnerName, fmtINR(shares[me] ?? 0));
 }

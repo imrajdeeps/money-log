@@ -5,6 +5,7 @@
 // it cannot read it says so (see `problem`), so a miss is never a silently wrong payment.
 import { METHODS, catKey, parseAmount } from '../../core/logic.ts';
 import type { Method } from '../../core/logic.ts';
+import { tr } from '../../core/i18n.ts';
 
 export interface ParsedMessage {
   amount: number;
@@ -84,16 +85,16 @@ function findRef(text: string): string | null {
 
 export function parseMessage(raw: string, today: string): MessageResult {
   const text = raw.replace(/\s+/g, ' ').trim();
-  if (text === '') return { ok: false, problem: 'Paste a payment message first.' };
+  if (text === '') return { ok: false, problem: tr('Paste a payment message first.') };
   if (/\b(?:otp|one[- ]time password|verification code|do not share)\b/i.test(text) && !/debited|spent|paid/i.test(text)) {
-    return { ok: false, problem: 'That looks like a one-time password, not a payment. Nothing was filled in.' };
+    return { ok: false, problem: tr('That looks like a one-time password, not a payment. Nothing was filled in.') };
   }
   const amount = findAmount(text);
-  if (amount === null) return { ok: false, problem: 'No amount found in that message. Type the payment in below.' };
+  if (amount === null) return { ok: false, problem: tr('No amount found in that message. Type the payment in below.') };
   const out = OUT.exec(text);
   const into = IN.exec(text);
   if (into && (!out || into.index < out.index)) {
-    return { ok: false, problem: 'That looks like money coming in. Money Log records spending, so nothing was filled in.' };
+    return { ok: false, problem: tr('That looks like money coming in. Money Log records spending, so nothing was filled in.') };
   }
   return { ok: true, payment: { amount, merchant: findMerchant(text), date: findDate(text, today), method: findMethod(text), ref: findRef(text) } };
 }

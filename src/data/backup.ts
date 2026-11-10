@@ -9,6 +9,7 @@ import { cleanRecurring } from '../core/recurring.ts';
 import type { Recurring } from '../core/recurring.ts';
 import { cleanEntry, cleanPlan, parseTs } from '../core/logic.ts';
 import type { Entry, Plan, PlanData } from '../core/logic.ts';
+import { tr } from '../core/i18n.ts';
 
 // What a backup may hold beyond payments and the budget plan. Every field is optional, so a Release 1 backup still loads.
 export interface BackupExtras { due?: DueBlock | null; networth?: NetBlock | null; dueDone?: DoneMap; categories?: Mine; recurring?: Recurring; goals?: Goals }
@@ -62,8 +63,8 @@ export type BackupParse =
 
 export function parseBackup(text: string): BackupParse {
   let j: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  try { j = JSON.parse(text); } catch { return { ok: false, error: 'This is not a Money Log backup (not valid JSON).' }; }
-  if (!j || j.app !== 'money-log' || j.v !== 1 || !Array.isArray(j.entries)) return { ok: false, error: 'This is not a Money Log backup file.' };
+  try { j = JSON.parse(text); } catch { return { ok: false, error: tr('This is not a Money Log backup (not valid JSON).') }; }
+  if (!j || j.app !== 'money-log' || j.v !== 1 || !Array.isArray(j.entries)) return { ok: false, error: tr('This is not a Money Log backup file.') };
   const entries: Entry[] = [];
   let skipped = 0;
   for (const e of j.entries) {

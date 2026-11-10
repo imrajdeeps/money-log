@@ -4,8 +4,10 @@ import { RouterProvider } from '@tanstack/react-router';
 import { router } from './router.ts';
 import '../styles/index.css';
 import { startTheme } from '../features/settings/index.ts';
+import { initLang } from '../data/lang.ts';
 
 startTheme(); // before anything is drawn by React: paint the stored theme and follow the phone's setting
+initLang(); // and the chosen language
 
 const root = document.getElementById('root');
 if (root) {

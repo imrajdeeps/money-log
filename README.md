@@ -156,6 +156,11 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Language (version 1.15)
+Settings, Language: English, Hindi (हिन्दी) or Hinglish (Hindi in Roman letters, the way people write it on WhatsApp). The whole app
+changes at once, dates included. What you typed (category names, notes, group names) stays as you wrote it. A text that has no
+translation yet shows in English. How texts are added is in `docs/structure.md`, Language.
+
 ## The tour (version 1.14)
 A new person (no payments or groups yet) sees a nine-step tour of the whole app the first time it opens; someone who already uses the
 app sees only what is new since they last saw a tour. Either can be skipped at any step (Escape too), and Settings, About has

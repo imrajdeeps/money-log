@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // The "Take photo" button. A phone or tablet hands the job to its own camera app (the back camera, via capture="environment").
 // A computer ignores that hint and shows a file chooser instead, so there the picture is taken in the app, from the webcam.
@@ -10,10 +11,10 @@ const hasLiveCamera = (): boolean =>
 
 function reason(e: unknown): string {
   const name = e instanceof DOMException ? e.name : '';
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Camera access was blocked. Allow it for this site in the browser, or use Choose photo.';
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No camera was found. Use Choose photo instead.';
-  if (name === 'NotReadableError') return 'The camera is in use by another app. Close it and try again, or use Choose photo.';
-  return 'The camera could not be opened. Use Choose photo instead.';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return tr('Camera access was blocked. Allow it for this site in the browser, or use Choose photo.');
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return tr('No camera was found. Use Choose photo instead.');
+  if (name === 'NotReadableError') return tr('The camera is in use by another app. Close it and try again, or use Choose photo.');
+  return tr('The camera could not be opened. Use Choose photo instead.');
 }
 
 function Camera({ onShot, onClose }: { onShot: (photo: Blob) => void; onClose: () => void }) {
@@ -46,18 +47,18 @@ function Camera({ onShot, onClose }: { onShot: (photo: Blob) => void; onClose: (
     canvas.height = v.videoHeight;
     canvas.getContext('2d')?.drawImage(v, 0, 0);
     canvas.toBlob((b) => {
-      if (!b) { setError('The picture could not be taken. Try again.'); return; }
+      if (!b) { setError(tr('The picture could not be taken. Try again.')); return; }
       onShot(b);
       dlg.current?.close();
     }, 'image/jpeg', 0.92);
   }
 
   return (
-    <dialog ref={dlg} className={`${ui.viewer} ${ui.camera}`} aria-label="Take a receipt photo" onClose={onClose}>
-      {error ? <p className={ui.msg('bad')} role="alert">{error}</p> : <video ref={video} playsInline muted aria-label="Camera view" />}
+    <dialog ref={dlg} className={`${ui.viewer} ${ui.camera}`} aria-label={tr('Take a receipt photo')} onClose={onClose}>
+      {error ? <p className={ui.msg('bad')} role="alert">{error}</p> : <video ref={video} playsInline muted aria-label={tr('Camera view')} />}
       <div className={ui.btnRow}>
-        {!error && <button type="button" className={ui.btn()} disabled={!ready} onClick={snap}>Take photo</button>}
-        <button type="button" className={ui.btn('ghost')} onClick={() => dlg.current?.close()}>{error ? 'Close' : 'Cancel'}</button>
+        {!error && <button type="button" className={ui.btn()} disabled={!ready} onClick={snap}>{tr('Take photo')}</button>}
+        <button type="button" className={ui.btn('ghost')} onClick={() => dlg.current?.close()}>{error ? tr('Close') : tr('Cancel')}</button>
       </div>
     </dialog>
   );
@@ -66,7 +67,7 @@ function Camera({ onShot, onClose }: { onShot: (photo: Blob) => void; onClose: (
 export function TakePhoto({ busy, onPicked }: { busy: boolean; onPicked: (files: Blob[]) => void }) {
   const [live] = useState(hasLiveCamera);
   const [open, setOpen] = useState(false);
-  const label = busy ? 'Working…' : 'Take photo';
+  const label = busy ? 'Working…' : tr('Take photo');
   if (live) {
     return (
       <>

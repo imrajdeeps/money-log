@@ -3,6 +3,7 @@
 import { daysInMonth } from './logic.ts';
 import { MAX_AMOUNT, METHODS, UUID_RE, monthOf, newId, normName, parseTs, round2 } from './logic.ts';
 import type { Method } from './logic.ts';
+import { tr } from './i18n.ts';
 
 export const MAX_RECURRING = 100; // what one account may keep, removed ones included
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -16,11 +17,11 @@ export interface RecurInput { category: string; amount: number; day: number; met
 
 export function checkRecurInput(i: RecurInput): string | null {
   const c = normName(i.category);
-  if (c === '' || c.length > 80) return 'Choose a category.';
-  if (typeof i.amount !== 'number' || !Number.isFinite(i.amount) || i.amount <= 0 || i.amount >= MAX_AMOUNT || round2(i.amount) !== i.amount) return 'Enter an amount above zero, with at most two decimals.';
-  if (!Number.isInteger(i.day) || i.day < 1 || i.day > 31) return 'The day must be between 1 and 31.';
-  if (i.method !== null && !(METHODS as readonly string[]).includes(i.method)) return 'Choose a method from the list.';
-  if (i.note.length > 200) return 'Keep the note under 200 characters.';
+  if (c === '' || c.length > 80) return tr('Choose a category.');
+  if (typeof i.amount !== 'number' || !Number.isFinite(i.amount) || i.amount <= 0 || i.amount >= MAX_AMOUNT || round2(i.amount) !== i.amount) return tr('Enter an amount above zero, with at most two decimals.');
+  if (!Number.isInteger(i.day) || i.day < 1 || i.day > 31) return tr('The day must be between 1 and 31.');
+  if (i.method !== null && !(METHODS as readonly string[]).includes(i.method)) return tr('Choose a method from the list.');
+  if (i.note.length > 200) return tr('Keep the note under 200 characters.');
   return null;
 }
 
@@ -29,13 +30,13 @@ export type RecurResult = { ok: true; items: Recurring } | { ok: false; error: s
 export function addRecurring(items: Recurring, i: RecurInput, nowIso: string, id: string = newId()): RecurResult {
   const error = checkRecurInput(i);
   if (error) return { ok: false, error };
-  if (Object.keys(items).length >= MAX_RECURRING) return { ok: false, error: 'That is the most recurring payments one account can keep.' };
+  if (Object.keys(items).length >= MAX_RECURRING) return { ok: false, error: tr('That is the most recurring payments one account can keep.') };
   return { ok: true, items: { ...items, [id]: { id, c: normName(i.category), a: i.amount, d: i.day, m: i.method, n: i.note.trim(), x: 0, t: nowIso, l: '' } } };
 }
 
 export function editRecurring(items: Recurring, id: string, i: RecurInput, nowIso: string): RecurResult {
   const cur = items[id];
-  if (!cur || cur.x) return { ok: false, error: 'That recurring payment is gone.' };
+  if (!cur || cur.x) return { ok: false, error: tr('That recurring payment is gone.') };
   const error = checkRecurInput(i);
   if (error) return { ok: false, error };
   return { ok: true, items: { ...items, [id]: { ...cur, c: normName(i.category), a: i.amount, d: i.day, m: i.method, n: i.note.trim(), t: nowIso } } };

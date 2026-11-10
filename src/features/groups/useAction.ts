@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { loadProfile, saveProfile } from '../../data/profile.ts';
+import { tr } from '../../core/i18n.ts';
 
 // "Your name in this group" starts from the name in the profile, and what is typed there is kept in the profile.
 export const rememberedName = (): string => loadProfile().name;
@@ -21,7 +22,7 @@ export function useAction() {
       return true;
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
-      setError(m === 'No connection' ? 'You are offline. Creating, joining and leaving groups needs a connection.' : m);
+      setError(m === 'No connection' ? tr('You are offline. Creating, joining and leaving groups needs a connection.') : m);
       return false;
     } finally {
       setBusy(false);

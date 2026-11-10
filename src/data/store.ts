@@ -2,6 +2,7 @@
 import type { Settlement } from '../core/groups.ts';
 import type { Entry } from '../core/logic.ts';
 import type { Receipt } from '../core/receipts.ts';
+import { tr } from '../core/i18n.ts';
 
 export interface Store {
   readonly kind: 'indexeddb' | 'memory';
@@ -269,7 +270,7 @@ export async function openStore(): Promise<Store> {
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error('Storage is blocked by another tab.'));
+      req.onblocked = () => reject(new Error(tr('Storage is blocked by another tab.')));
     });
     return idbStore(db);
   } catch {

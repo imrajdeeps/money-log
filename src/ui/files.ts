@@ -1,5 +1,7 @@
 // Clipboard, share-sheet and file helpers.
 
+import { tr } from '../core/i18n.ts';
+
 export async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -44,6 +46,6 @@ export async function saveFile(name: string, text: string, type: string): Promis
 }
 
 export async function readTextFile(file: File, maxBytes = 2_000_000): Promise<string> {
-  if (file.size > maxBytes) throw new Error('That file is too large.');
+  if (file.size > maxBytes) throw new Error(tr('That file is too large.'));
   return file.text();
 }

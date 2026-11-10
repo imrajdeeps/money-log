@@ -20,6 +20,7 @@ import type { Session, SyncOptions, SyncState } from './syncTypes.ts';
 import { BLOCKS, BLOCK_NAMES, MERGED, isBlock } from './syncBlocks.ts';
 import type { Items, StoredBlock } from './syncBlocks.ts';
 import { isRefusal, pushable, toReceiptRow, toRow, toSettlementRow } from './syncRows.ts';
+import { tr } from '../core/i18n.ts';
 
 // Everything other files used to import from here still comes from here.
 export type { SyncConfig, SyncMode, SyncOptions, SyncState } from './syncTypes.ts';
@@ -57,7 +58,7 @@ export function createSync(opts: SyncOptions) {
     const refresh = j?.refresh_token ?? prev?.refresh_token;
     const uid = j?.user?.id ?? prev?.user_id;
     if (typeof access !== 'string' || typeof refresh !== 'string' || typeof uid !== 'string') {
-      throw new SyncError('http', 'The sign-in response was not what this app expects.');
+      throw new SyncError('http', tr('The sign-in response was not what this app expects.'));
     }
     return {
       access_token: access,
@@ -90,7 +91,7 @@ export function createSync(opts: SyncOptions) {
     if (res.status === 400 || res.status === 401 || res.status === 403) {
       await store.delMeta('session');
       set({ mode: 'signedout', email: null });
-      throw new SyncError('signed-out', 'Your sign-in expired. Please sign in again.');
+      throw new SyncError('signed-out', tr('Your sign-in expired. Please sign in again.'));
     }
     if (!res.ok) throw new SyncError('http', await errorText(res), res.status);
     const next = toSession(await res.json(), s);
@@ -111,7 +112,7 @@ export function createSync(opts: SyncOptions) {
     if (body !== undefined) h['Content-Type'] = 'application/json';
     if (auth) {
       const token = await accessToken();
-      if (!token) throw new SyncError('signed-out', 'Signed out');
+      if (!token) throw new SyncError('signed-out', tr('Signed out'));
       h.Authorization = `Bearer ${token}`;
     }
     let res: Response;
@@ -134,13 +135,13 @@ export function createSync(opts: SyncOptions) {
   // to a link without a custom email service), so the app signs in with email and password. Kept because the tests sign their
   // phones in with it, and a project that sets up its own email service could offer it again.
   async function requestCode(email: string): Promise<void> {
-    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SyncError('http', 'Enter a valid email address.');
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SyncError('http', tr('Enter a valid email address.'));
     await request('/auth/v1/otp', { method: 'POST', auth: false, body: { email, create_user: true } });
   }
 
   async function verifyCode(email: string, code: string): Promise<void> {
-    if (!/^\d{4,10}$/.test(code.trim())) throw new SyncError('http', 'The code is the 6 digits from the email.');
+    if (!/^\d{4,10}$/.test(code.trim())) throw new SyncError('http', tr('The code is the 6 digits from the email.'));
     const res = await request('/auth/v1/verify', { method: 'POST', auth: false, body: { type: 'email', email, token: code.trim() } });
     await finishSignIn(res);
   }
@@ -150,7 +151,7 @@ export function createSync(opts: SyncOptions) {
     const sess = toSession(res);
     const owner = await store.getMeta<string>('localOwner');
     if (owner && owner !== sess.user_id) {
-      throw new SyncError('owner-mismatch', 'This phone still holds data from a different account. Use "Erase everything on this phone" in Settings first, then sign in.');
+      throw new SyncError('owner-mismatch', tr('This phone still holds data from a different account. Use "Erase everything on this phone" in Settings first, then sign in.'));
     }
     await store.setMeta('session', sess);
     await store.setMeta('localOwner', sess.user_id);
@@ -169,8 +170,8 @@ export function createSync(opts: SyncOptions) {
     }
   }
   const validEmail = (email: string) => {
-    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SyncError('http', 'Enter a valid email address.');
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SyncError('http', tr('Enter a valid email address.'));
   };
 
   // 'signed-in' when the project lets new accounts in at once; 'confirm' when it first wants the email confirmed
@@ -186,7 +187,7 @@ export function createSync(opts: SyncOptions) {
 
   async function signInWithPassword(email: string, password: string): Promise<void> {
     validEmail(email);
-    if (!password) throw new SyncError('http', 'Enter your password.');
+    if (!password) throw new SyncError('http', tr('Enter your password.'));
     const res = await authRequest('/auth/v1/token?grant_type=password', { method: 'POST', auth: false, body: { email, password } });
     await finishSignIn(res);
   }
@@ -202,7 +203,7 @@ export function createSync(opts: SyncOptions) {
   // A reset link carries a session of its own. Ask who it belongs to, then keep it like any other sign-in (including the
   // refusal when this phone still holds another account's data); the person is then signed in and chooses a new password.
   async function signInWithRecovery(link: { accessToken: string; refreshToken: string; expiresIn: number }): Promise<void> {
-    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
     let res: Response;
     try {
       res = await fetchFn(`${base}/auth/v1/user`, { headers: { apikey: config.supabaseKey, Authorization: `Bearer ${link.accessToken}` } });
@@ -211,7 +212,7 @@ export function createSync(opts: SyncOptions) {
     }
     if (!res.ok) {
       const expired = res.status === 401 || res.status === 403;
-      throw new SyncError('http', expired ? 'That link has expired or was already used. Ask for a new one.' : authMessage(res.status, await errorText(res)), res.status);
+      throw new SyncError('http', expired ? tr('That link has expired or was already used. Ask for a new one.') : authMessage(res.status, await errorText(res)), res.status);
     }
     const user: any = await res.json();
     await finishSignIn({ access_token: link.accessToken, refresh_token: link.refreshToken, expires_in: link.expiresIn, user: { id: user?.id, email: user?.email } });
@@ -371,7 +372,7 @@ export function createSync(opts: SyncOptions) {
   async function storageFetch(path: string, o: { method?: string; body?: Blob; headers?: Record<string, string>; retry?: boolean } = {}): Promise<Response> {
     const { method = 'GET', body, headers = {}, retry = true } = o;
     const token = await accessToken();
-    if (!token) throw new SyncError('signed-out', 'Signed out');
+    if (!token) throw new SyncError('signed-out', tr('Signed out'));
     let res: Response;
     try {
       res = await fetchFn(base + path, { method, headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, ...headers }, body });
@@ -403,18 +404,18 @@ export function createSync(opts: SyncOptions) {
   async function receiptBlob(r: Receipt): Promise<Blob> {
     const have = await store.getBlob(r.id);
     if (have) return have;
-    if (!r.uploaded_at) throw new SyncError('http', 'This photo has not been uploaded yet.');
+    if (!r.uploaded_at) throw new SyncError('http', tr('This photo has not been uploaded yet.'));
     const res = await storageFetch(`/storage/v1/object/authenticated/receipts/${r.path}`);
-    if (!res.ok) throw new SyncError('http', res.status === 404 ? 'This photo is not available.' : await errorText(res), res.status);
+    if (!res.ok) throw new SyncError('http', res.status === 404 ? tr('This photo is not available.') : await errorText(res), res.status);
     const blob = await res.blob();
-    if (blob.size > 2_097_152) throw new SyncError('http', 'This photo is larger than expected.');
+    if (blob.size > 2_097_152) throw new SyncError('http', tr('This photo is larger than expected.'));
     const jpeg = blob.type === 'image/jpeg' ? blob : new Blob([blob], { type: 'image/jpeg' });
     if (!(await store.getBlob(r.id))) await store.putBlob(r.id, jpeg);
     return jpeg;
   }
 
   async function fetchHistory(entryId: string): Promise<HistoryRow[]> {
-    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
     const rows: any[] = (await request(`/rest/v1/entry_history?select=*&entry_id=eq.${encodeURIComponent(entryId)}&order=changed_at.desc&limit=100`)) ?? [];
     return rows.map(cleanHistory).filter((x): x is HistoryRow => x !== null);
   }
@@ -635,7 +636,7 @@ export function createSync(opts: SyncOptions) {
   // These are the database functions in schema.sql; each one checks the rules itself. Afterwards we sync, so the new
   // group, member list or code shows up straight away.
   async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
-    if (!enabled) throw new SyncError('http', 'Cloud sync is not set up in this build.');
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
     const out = await request(`/rest/v1/rpc/${name}`, { method: 'POST', body: args });
     await sync();
     return out as T;

@@ -7,6 +7,7 @@ import { monthLabel, shortDate } from '../../../core/format.ts';
 import { GROUPS } from '../../../core/logic.ts';
 import { importedOn, errText } from './shared.ts';
 import * as ui from '../../../ui/styles.ts';
+import { tr } from '../../../core/i18n.ts';
 
 export function PlanCard() {
   const app = useApp();
@@ -27,7 +28,7 @@ export function PlanCard() {
     if (parsed.kind === 'budget') await app.applyPlan(parsed.plan);
     else if (parsed.kind === 'due') await app.applyDue(parsed.data);
     else await app.applyNet(parsed.data);
-    app.toast(parsed.kind === 'budget' ? 'Plan imported' : parsed.kind === 'due' ? 'Due list imported' : 'Net worth and goals imported');
+    app.toast(parsed.kind === 'budget' ? tr('Plan imported') : parsed.kind === 'due' ? tr('Due list imported') : tr('Net worth and goals imported'));
     setText('');
   }
 
@@ -35,46 +36,44 @@ export function PlanCard() {
 
   return (
     <div className={ui.card()}>
-      <h2>Spreadsheet plan (optional)</h2>
+      <h2>{tr('Spreadsheet plan (optional)')}</h2>
       <p className="text-muted text-[13px]">
-        The app works on its own: it has built-in categories and you can add your own and set budgets under Month.
-        If you also keep the spreadsheet, import its blocks here. The spreadsheet's categories, groups and planned amounts then
-        take over for the months it covers, and nothing you logged changes.
+        {tr('The app works on its own: it has built-in categories and you can add your own and set budgets under Month. If you also keep the spreadsheet, import its blocks here. The spreadsheet\'s categories, groups and planned amounts then take over for the months it covers, and nothing you logged changes.')}
       </p>
       <ul className={ui.facts + ' text-[13px]'}>
-        <li><b>Budget</b>: {p ? `${p.rows.length} categories, ${monthLabel(p.months[0] ?? '')} to ${monthLabel(p.months[p.months.length - 1] ?? '')}. Imported ${importedOn(p.importedAt)}.` : 'not imported. Optional: the app has its own categories and budgets.'}</li>
-        <li><b>Due list</b>: {due ? `${due.items.length} items. Imported ${importedOn(due.importedAt)}.` : 'not imported.'}</li>
-        <li><b>Net worth and goals</b>: {net ? `${net.items.length} figures${net.asOf ? ` for ${monthLabel(net.asOf.slice(0, 7))}` : ''}. Imported ${importedOn(net.importedAt)}.` : 'not imported.'}</li>
+        <li><b>{tr('Budget')}</b>: {p ? tr('{0} categories, {1} to {2}. Imported {3}.', p.rows.length, monthLabel(p.months[0] ?? ''), monthLabel(p.months[p.months.length - 1] ?? ''), importedOn(p.importedAt)) : tr('not imported. Optional: the app has its own categories and budgets.')}</li>
+        <li><b>{tr('Due list')}</b>: {due ? tr('{0} items. Imported {1}.', due.items.length, importedOn(due.importedAt)) : tr('not imported.')}</li>
+        <li><b>{tr('Net worth and goals')}</b>: {net ? tr('{0} figures{1}. Imported {2}.', net.items.length, net.asOf ? tr(' for {0}', monthLabel(net.asOf.slice(0, 7))) : '', importedOn(net.importedAt)) : tr('not imported.')}</li>
       </ul>
       <ol className={ui.steps + ' text-muted text-[13px]'}>
-        <li>In the spreadsheet's <b>App export</b> tab, copy one block: the budget <b>A5 to AL34</b>, the due list <b>A38 to E66</b>, or net worth and goals <b>A70 to C79</b>.</li>
-        <li>Paste it below, or choose a .tsv/.csv file. The app recognises which block it is. Importing replaces that block only and never touches your payments.</li>
+        <li>{tr('In the spreadsheet\'s')}{' '}<b>{tr('App export')}</b>{' '}{tr('tab, copy one block: the budget')}{' '}<b>{tr('A5 to AL34')}</b>{tr(', the due list')}{' '}<b>{tr('A38 to E66')}</b>{tr(', or net worth and goals')}{' '}<b>{tr('A70 to C79')}</b>.</li>
+        <li>{tr('Paste it below, or choose a .tsv/.csv file. The app recognises which block it is. Importing replaces that block only and never touches your payments.')}</li>
       </ol>
-      <textarea className="whitespace-pre overflow-auto mt-2" rows={5} value={text} onChange={(e) => setText(e.target.value)} aria-label="Block pasted from the spreadsheet" placeholder="Paste the block here" spellCheck={false} />
+      <textarea className="whitespace-pre overflow-auto mt-2" rows={5} value={text} onChange={(e) => setText(e.target.value)} aria-label={tr('Block pasted from the spreadsheet')} placeholder={tr('Paste the block here')} spellCheck={false} />
       <label className={ui.btn('ghost', 'md', ui.inCard)}>
-        Choose a file
+        {tr('Choose a file')}
         <input type="file" accept=".tsv,.csv,.txt,text/plain,text/csv,text/tab-separated-values" onChange={pickFile} />
       </label>
       {fileErr && <p className={ui.msg('bad')} role="alert">{fileErr}</p>}
       {parsed && !parsed.ok && <p className={ui.msg('bad')} role="alert">{parsed.error}</p>}
       {parsed?.ok && parsed.kind === 'budget' && (
         <div className={ui.msg('good')} role="status">
-          <p>Budget block: <b>{parsed.summary.categories}</b> categories for <b>{parsed.summary.months}</b> months ({monthLabel(parsed.summary.first)} to {monthLabel(parsed.summary.last)}).</p>
+          <p>{tr('Budget block:')}{' '}<b>{parsed.summary.categories}</b>{' '}{tr('categories for')}{' '}<b>{parsed.summary.months}</b>{' '}{tr('months ({0} to {1}).', monthLabel(parsed.summary.first), monthLabel(parsed.summary.last))}</p>
           <p className="text-[13px]">{GROUPS.map((g) => `${g}: ${parsed.summary.byGroup[g]}`).join(' · ')}</p>
         </div>
       )}
       {parsed?.ok && parsed.kind === 'due' && (
         <div className={ui.msg('good')} role="status">
-          <p>Due list: <b>{parsed.summary.oneoffs}</b> one-off payment{parsed.summary.oneoffs === 1 ? '' : 's'} and <b>{parsed.summary.todos}</b> to-do{parsed.summary.todos === 1 ? '' : 's'}{parsed.summary.undated ? `, ${parsed.summary.undated} without a date` : ''}.</p>
-          <p className="text-[13px]">Next: {parsed.data.items.filter((i) => i.due && !i.done).sort((a, b) => (a.due ?? '').localeCompare(b.due ?? '')).slice(0, 1).map((i) => `${i.title} (${shortDate(i.due!)})`).join('') || 'nothing dated'}. Done marks you made in the app are kept for items that are still on the list.</p>
+          <p>{tr('Due list:')}{' '}<b>{parsed.summary.oneoffs}</b>{' '}{tr('one-off payment{0} and', parsed.summary.oneoffs === 1 ? '' : 's')}{' '}<b>{parsed.summary.todos}</b>{' '}{tr('to-do{0}{1}.', parsed.summary.todos === 1 ? '' : 's', parsed.summary.undated ? tr(', {0} without a date', parsed.summary.undated) : '')}</p>
+          <p className="text-[13px]">{tr('Next: {0}. Done marks you made in the app are kept for items that are still on the list.', parsed.data.items.filter((i) => i.due && !i.done).sort((a, b) => (a.due ?? '').localeCompare(b.due ?? '')).slice(0, 1).map((i) => `${i.title} (${shortDate(i.due!)})`).join('') || tr('nothing dated'))}</p>
         </div>
       )}
       {parsed?.ok && parsed.kind === 'networth' && (
         <div className={ui.msg('good')} role="status">
-          <p>Net worth and goals: <b>{parsed.summary.items}</b> figures{parsed.summary.asOf ? ` for ${monthLabel(parsed.summary.asOf.slice(0, 7))}` : ''}.</p>
+          <p>{tr('Net worth and goals:')}{' '}<b>{parsed.summary.items}</b>{' '}{tr('figures{0}.', parsed.summary.asOf ? tr(' for {0}', monthLabel(parsed.summary.asOf.slice(0, 7))) : '')}</p>
         </div>
       )}
-      <button type="button" className={ui.btn('solid', 'md', ui.inCard)} disabled={!parsed?.ok} onClick={apply}>{replacing ? 'Replace this block' : 'Import this block'}</button>
+      <button type="button" className={ui.btn('solid', 'md', ui.inCard)} disabled={!parsed?.ok} onClick={apply}>{replacing ? tr('Replace this block') : tr('Import this block')}</button>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { MAX_NAME } from '../core/categories.ts';
 import { GROUPS } from '../core/logic.ts';
 import type { Group } from '../core/logic.ts';
 import * as ui from './styles.ts';
+import { tr } from '../core/i18n.ts';
 
 interface Props {
   id: string;
@@ -44,8 +45,8 @@ export function CategorySelect({ id, value, onChange }: Props) {
           onChange(e.target.value);
         }}
       >
-        <option value="" disabled>Choose category…</option>
-        {value && !known && <option value={value}>{value} (not in your list)</option>}
+        <option value="" disabled>{tr('Choose category…')}</option>
+        {value && !known && <option value={value}>{tr('{0} (not in your list)', value)}</option>}
         {GROUPS.map((g) => {
           const items = app.categories.filter((c) => c.group === g);
           return items.length ? (
@@ -54,12 +55,12 @@ export function CategorySelect({ id, value, onChange }: Props) {
             </optgroup>
           ) : null;
         })}
-        <option value={NEW}>＋ New category…</option>
+        <option value={NEW}>{tr('＋ New category…')}</option>
       </select>
       {adding && (
         <div className={ui.newCat}>
           <label className={ui.field}>
-            <span>Name of the new category</span>
+            <span>{tr('Name of the new category')}</span>
             <input
               value={name}
               maxLength={MAX_NAME}
@@ -70,15 +71,15 @@ export function CategorySelect({ id, value, onChange }: Props) {
             />
           </label>
           <label className={ui.field}>
-            <span>Group</span>
+            <span>{tr('Group')}</span>
             <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
               {GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
           </label>
           <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
           <div className={ui.btnRow}>
-            <button type="button" className={ui.btn()} onClick={() => void add()}>Add category</button>
-            <button type="button" className={ui.btn('ghost')} onClick={() => { setAdding(false); setError(''); }}>Cancel</button>
+            <button type="button" className={ui.btn()} onClick={() => void add()}>{tr('Add category')}</button>
+            <button type="button" className={ui.btn('ghost')} onClick={() => { setAdding(false); setError(''); }}>{tr('Cancel')}</button>
           </div>
         </div>
       )}

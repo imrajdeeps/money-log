@@ -4,6 +4,7 @@ import { compareVersions, pickTour, replay } from '../../core/tour.ts';
 import type { Tour, TourKind, TourPage } from '../../core/tour.ts';
 import { loadTourSeen, saveTourSeen } from '../../data/tour.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // The guided tour: a dimmed page with a spotlight on the part being explained and a card beside it. It shows by itself once
 // (the full tour to a new person, what is new to someone who already uses the app) and again whenever startTour() is called
@@ -109,14 +110,14 @@ export function TourHost({ version, ready, hasData, go }: { version: string; rea
         />
       )}
       <div className="fixed z-[81] bg-card text-ink border border-line rounded-2xl p-4 [box-shadow:0_12px_32px_-8px_rgba(0,0,0,0.5)]" style={place}>
-        <p className="text-muted text-[13px] m-0 mb-1" aria-live="polite">Step {i + 1} of {tour.steps.length}{tour.kind === 'news' ? ' · what is new' : ''}</p>
-        <h2 id="tour-title" className="m-0 mb-1.5">{step.title}</h2>
-        <p className="text-[15px] m-0 mb-3">{step.text}</p>
+        <p className="text-muted text-[13px] m-0 mb-1" aria-live="polite">{tr('Step {0} of {1}{2}', i + 1, tour.steps.length, tour.kind === 'news' ? tr(' · what is new') : '')}</p>
+        <h2 id="tour-title" className="m-0 mb-1.5">{tr(step.title)}</h2>
+        <p className="text-[15px] m-0 mb-3">{tr(step.text)}</p>
         <div className="flex items-center justify-between gap-2.5">
-          <button type="button" className={ui.linkBtn + ' text-muted'} onClick={close}>{last ? 'Close' : 'Skip tour'}</button>
+          <button type="button" className={ui.linkBtn + ' text-muted'} onClick={close}>{last ? tr('Close') : tr('Skip tour')}</button>
           <div className="flex gap-2">
-            {i > 0 && <button type="button" className={ui.btn('ghost', 'small')} onClick={back}>Back</button>}
-            <button ref={next} type="button" className={ui.btn('solid', 'small')} onClick={forward}>{last ? 'Done' : 'Next'}</button>
+            {i > 0 && <button type="button" className={ui.btn('ghost', 'small')} onClick={back}>{tr('Back')}</button>}
+            <button ref={next} type="button" className={ui.btn('solid', 'small')} onClick={forward}>{last ? tr('Done') : tr('Next')}</button>
           </div>
         </div>
       </div>

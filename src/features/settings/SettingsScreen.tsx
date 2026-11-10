@@ -14,10 +14,12 @@ import { ReceiptsCard } from './parts/ReceiptsCard.tsx';
 import { AboutCard } from './parts/AboutCard.tsx';
 import { AppLockCard } from './parts/AppLockCard.tsx';
 import { ProfileCard } from './parts/ProfileCard.tsx';
+import { LanguageCard } from './parts/LanguageCard.tsx';
 import { SessionCard } from './parts/SessionCard.tsx';
 import { useProfile } from '../../data/useProfile.ts';
 import { formatWhatsapp } from '../../core/profile.ts';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 // A list of headings; tapping one opens just that part. Every part stays mounted (only hidden), so a half-typed
 // password or a half-pasted plan is still there after a look at another part.
@@ -28,9 +30,9 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
   const sections = SETTINGS_SECTIONS.filter((s) => s.id !== 'password' || signedIn);
   const open = sections.find((s) => s.id === section)?.id;
   const blurb = (id: SettingsSection, fallback: string) => {
-    if (id === 'profile') return profile.name ? `${profile.name}${profile.whatsapp ? ` · ${formatWhatsapp(profile.whatsapp)}` : ''}` : fallback;
-    if (id !== 'account') return fallback;
-    return signedIn ? `Signed in as ${app.sync.email ?? ''}` : app.syncEnabled ? 'Not signed in' : 'This phone only';
+    if (id === 'profile') return profile.name ? `${profile.name}${profile.whatsapp ? ` · ${formatWhatsapp(profile.whatsapp)}` : ''}` : tr(fallback);
+    if (id !== 'account') return tr(fallback);
+    return signedIn ? tr('Signed in as {0}', app.sync.email ?? '') : app.syncEnabled ? tr('Not signed in') : tr('This phone only');
   };
   const parts: Record<SettingsSection, ReactNode> = {
     profile: <ProfileCard />,
@@ -38,6 +40,7 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
     password: <PasswordCard />,
     recurring: <RecurringCard />,
     appearance: <AppearanceCard />,
+    language: <LanguageCard />,
     plan: <PlanCard />,
     receipts: <ReceiptsCard />,
     lock: <AppLockCard />,
@@ -46,11 +49,11 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
     about: <AboutCard />,
   };
   return (
-    <section aria-label="Settings">
+    <section aria-label={tr('Settings')}>
       {open ? (
-        <button type="button" className={ui.backLink} onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
+        <button type="button" className={ui.backLink} onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />{tr('Settings')}</button>
       ) : (
-        <div className={ui.pageHead}><h2>Settings</h2></div>
+        <div className={ui.pageHead}><h2>{tr('Settings')}</h2></div>
       )}
       <div hidden={open !== undefined}>
         {signedIn && <SessionCard onSwitched={() => onSection('account')} />}
@@ -59,12 +62,12 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
           if (!items.length) return null;
           return (
             <div key={g}>
-              <h3 className={`text-[13px] font-semibold text-muted mx-0 mb-1.5 ${gi === 0 && !signedIn ? 'mt-0' : 'mt-5'}`}>{g}</h3>
+              <h3 className={`text-[13px] font-semibold text-muted mx-0 mb-1.5 ${gi === 0 && !signedIn ? 'mt-0' : 'mt-5'}`}>{tr(g)}</h3>
               <ul className={ui.list()}>
                 {items.map((s) => (
                   <li key={s.id}>
-                    <button type="button" data-tour={s.id === 'profile' ? 'settings-profile' : undefined} className={ui.row} onClick={() => onSection(s.id)}>
-                      <span className={ui.rowMain()}><b>{s.title}</b><small>{blurb(s.id, s.blurb)}</small></span>
+                    <button type="button" data-tour={s.id === 'profile' ? 'settings-profile' : s.id === 'language' ? 'settings-language' : undefined} className={ui.row} onClick={() => onSection(s.id)}>
+                      <span className={ui.rowMain()}><b>{tr(s.title)}</b><small>{blurb(s.id, s.blurb)}</small></span>
                       <Icon name="chevron" size={20} />
                     </button>
                   </li>

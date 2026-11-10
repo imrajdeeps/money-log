@@ -2,6 +2,7 @@ import { Children, useId } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from './Icon.tsx';
 import * as ui from './styles.ts';
+import { tr } from '../core/i18n.ts';
 
 // The dashboard's layout. A wide screen gets 12 columns and each tile spans some of them; narrower screens fold the spans:
 // half or full width on a tablet, one column on a phone with small stat tiles two to a row. The grid measures its own width
@@ -75,7 +76,7 @@ export function BentoCard({ title, span = 4, compact = false, fill = false, hero
         )}
       </header>
       <div className="flex-1 flex flex-col min-w-0">{children}</div>
-      {onOpen && <button type="button" className="absolute inset-0 z-[1] w-full p-0 border-0 rounded-[inherit] bg-transparent cursor-pointer" aria-label={openLabel ?? `Open ${title}`} onClick={onOpen} />}
+      {onOpen && <button type="button" className="absolute inset-0 z-[1] w-full p-0 border-0 rounded-[inherit] bg-transparent cursor-pointer" aria-label={openLabel ?? tr('Open {0}', title)} onClick={onOpen} />}
     </section>
   );
 }

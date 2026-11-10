@@ -1,3 +1,5 @@
+import { tr } from './i18n.ts';
+
 // The kinds a shared group can have. The database allows exactly these names (supabase/schema.sql); what each kind offers
 // is decided here, so a kind can be added in one place. Pure data and helpers: no DOM, no storage, no network.
 export const GROUP_KINDS = [
@@ -10,7 +12,7 @@ export const GROUP_KINDS = [
 export type GroupKind = (typeof GROUP_KINDS)[number]['id'];
 
 export const isGroupKind = (v: unknown): v is GroupKind => GROUP_KINDS.some((k) => k.id === v);
-export const kindLabel = (kind: GroupKind): string => GROUP_KINDS.find((k) => k.id === kind)?.label ?? kind;
+export const kindLabel = (kind: GroupKind): string => tr(GROUP_KINDS.find((k) => k.id === kind)?.label ?? kind);
 
 export const kindMax = (kind: GroupKind): number => GROUP_KINDS.find((k) => k.id === kind)?.max ?? 20;
 

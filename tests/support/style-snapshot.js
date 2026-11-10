@@ -109,5 +109,26 @@
     const list = [...groups].map(([sig, g]) => `${g.count}x ${sig.slice(0, 260)}  @ ${g.example.slice(0, 90)}`);
     return { compared: name, differences: diffs.length, changes: list.length, groups: list.slice(0, 40) };
   };
+
+  // The words on every page, not the styles: `await window.__snapText('save', 'name')` then, after a change to the text,
+  // `await window.__snapText('compare', 'name')`. An empty list means every page says exactly what it said.
+  window.__snapText = async (mode, name) => {
+    const pages = {};
+    const startPath = location.pathname;
+    for (const route of routes()) { await go(route); pages[route] = document.querySelector('#root').innerText; }
+    await go(startPath);
+    const key = `text:${name}`;
+    if (mode === 'save') { localStorage.setItem(key, JSON.stringify(pages)); return { saved: name, pages: Object.keys(pages).length }; }
+    const base = JSON.parse(localStorage.getItem(key) ?? 'null');
+    if (!base) return { error: `no baseline called ${name}` };
+    const diffs = [];
+    for (const [route, text] of Object.entries(pages)) {
+      if (base[route] === text) continue;
+      const a = (base[route] ?? '').split('\n'); const b = text.split('\n');
+      const gone = a.filter((l) => !b.includes(l)); const added = b.filter((l) => !a.includes(l));
+      diffs.push(`${route}: -${JSON.stringify(gone).slice(0, 200)} +${JSON.stringify(added).slice(0, 200)}`);
+    }
+    return { compared: name, differences: diffs.length, diffs: diffs.slice(0, 20) };
+  };
   return 'snapshot tool ready';
 })();

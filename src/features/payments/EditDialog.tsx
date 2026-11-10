@@ -11,6 +11,7 @@ import { MethodChips } from './MethodChips.tsx';
 import { SplitEditor, splitFromEntry } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
 import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
 
 export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => void }) {
   const app = useApp();
@@ -43,21 +44,21 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
   async function save(ev: FormEvent) {
     ev.preventDefault();
     const amt = parseAmount(amount);
-    if (amt === null) return setError('Amount must be a positive number with at most 2 decimals.');
-    if (!category) return setError('Pick a category.');
-    if (!isValidDate(date)) return setError('Pick a valid date.');
-    if (date > isoDate()) return setError('The date cannot be in the future.');
+    if (amt === null) return setError(tr('Amount must be a positive number with at most 2 decimals.'));
+    if (!category) return setError(tr('Pick a category.'));
+    if (!isValidDate(date)) return setError(tr('Pick a valid date.'));
+    if (date > isoDate()) return setError(tr('The date cannot be in the future.'));
     const changes: Partial<NewEntryInput> = { category, method, note: note.trim(), date };
     if (!shared) changes.amount = amt;
     else if (!frozen) {
       const r = computeShares(split.mode, amt, people.map((m) => m.user_id), new Set(split.included), split.values);
       if (!r.shares) return setError(r.problem);
-      if (split.paidBy !== app.me && !(app.me && app.me in r.shares)) return setError('You can only record an expense that you paid or share in.');
+      if (split.paidBy !== app.me && !(app.me && app.me in r.shares)) return setError(tr('You can only record an expense that you paid or share in.'));
       changes.amount = amt;
       changes.group = { group_id: entry.group_id!, paid_by: split.paidBy, shares: r.shares };
     }
     await app.updateEntry(entry.id, changes);
-    app.toast(`Updated ${fmtINR(amt)} · ${category}`);
+    app.toast(tr('Updated {0} · {1}', fmtINR(amt), category));
     close();
   }
 
@@ -77,42 +78,42 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
       aria-labelledby="edit-title"
     >
       <form onSubmit={save} noValidate>
-        <h2 id="edit-title">{shared ? 'Edit shared expense' : 'Edit payment'}</h2>
-        {readOnly && <p className={ui.msg('bad')} role="status">You are no longer in this group, so this expense can no longer be changed.</p>}
-        {frozen && inGroup && <p className={ui.msg()} role="status">Someone this expense names has left the group, so its amount, split and deletion are locked. You can still change the category, method, note and date.</p>}
+        <h2 id="edit-title">{shared ? tr('Edit shared expense') : tr('Edit payment')}</h2>
+        {readOnly && <p className={ui.msg('bad')} role="status">{tr('You are no longer in this group, so this expense can no longer be changed.')}</p>}
+        {frozen && inGroup && <p className={ui.msg()} role="status">{tr('Someone this expense names has left the group, so its amount, split and deletion are locked. You can still change the category, method, note and date.')}</p>}
         <label className={ui.field}>
-          <span>Amount (₹)</span>
+          <span>{tr('Amount (₹)')}</span>
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={readOnly || frozen} />
         </label>
         {shared && inGroup && !frozen && app.me && (
           <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
         )}
-        <label className={ui.field} htmlFor="edit-cat"><span>Category</span></label>
+        <label className={ui.field} htmlFor="edit-cat"><span>{tr('Category')}</span></label>
         <CategorySelect id="edit-cat" value={category} onChange={setCategory} />
         <MethodChips value={method} onChange={setMethod} options={METHODS} />
         <label className={ui.field}>
-          <span>Note</span>
+          <span>{tr('Note')}</span>
           <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
         </label>
         <label className={ui.field}>
-          <span>Date</span>
+          <span>{tr('Date')}</span>
           <input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} />
         </label>
         <PhotoStrip entryId={entry.id} canEdit={!readOnly} />
         {shared && inGroup && entry.group_id && (
           <div className={ui.photoStrip}>
-            <p className={ui.fieldLabel}>History</p>
+            <p className={ui.fieldLabel}>{tr('History')}</p>
             <HistoryList entryId={entry.id} groupId={entry.group_id} />
           </div>
         )}
         {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
         <div className={ui.btnRow}>
-          <button type="submit" className={ui.btn()} disabled={readOnly}>Save</button>
-          <button type="button" className={ui.btn('ghost')} onClick={close}>{readOnly ? 'Close' : 'Cancel'}</button>
+          <button type="submit" className={ui.btn()} disabled={readOnly}>{tr('Save')}</button>
+          <button type="button" className={ui.btn('ghost')} onClick={close}>{readOnly ? tr('Close') : tr('Cancel')}</button>
         </div>
         {!readOnly && !frozen && (
           <button type="button" className={ui.btn('danger', 'md', 'w-full')} onClick={remove}>
-            {confirmDelete ? 'Tap again to delete' : shared ? 'Delete shared expense' : 'Delete payment'}
+            {confirmDelete ? tr('Tap again to delete') : shared ? tr('Delete shared expense') : tr('Delete payment')}
           </button>
         )}
       </form>

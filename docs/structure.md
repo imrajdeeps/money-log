@@ -69,6 +69,18 @@ grouped (a changed height that only ripples down from another change is left out
 dialogs that need a click (budgets, an expense). Animations are cancelled while recording. Record the baseline from the build
 **before** the change: keep that build's folder so it can be served again.
 
+## Language
+
+Every visible text is written in English in the code as `tr('English text', value, ...)` (`core/i18n.ts`), and the English text is the
+key: Hindi (Devanagari) and Hinglish (Hindi in Roman letters, as on WhatsApp) have dictionaries from that text to their own
+(`core/i18n/hi.ts`, `hinglish.ts`), and a text with no entry shows in English, so nothing breaks. `{0}`, `{1}` are filled with the values
+after the text; a translation may reorder them or leave one out. The choice is kept on the phone (`data/lang.ts`) and read before the
+first screen is drawn; changing it draws the whole app again from the top (`app/App.tsx` keys the screen on the language), which is why
+texts are looked up *while drawing*: a text kept in a constant is translated where it is shown (`tr(step.title)`), not where it is defined.
+Dates follow the language (`core/format.ts`). **When you add visible text: write it with `tr()` and add it to both dictionaries**;
+`tests/app/i18n-coverage.test.ts` fails otherwise. Not translated on purpose: the spreadsheet-import error messages (they quote exact
+header names), what people typed (category names, notes, group names), and the names of payment methods.
+
 ## The guided tour
 
 `core/tour.ts` holds the steps (`FIRST_STEPS`: the whole app; `NEWS_STEPS`: one step per new thing, each with the version that brought
