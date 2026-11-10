@@ -9,7 +9,7 @@ import { SplitEditor, freshSplit } from '../components/SplitEditor.tsx';
 import type { SplitState } from '../components/SplitEditor.tsx';
 import { shortDate } from '../format.ts';
 import { activeMembers, computeShares } from '../groups.ts';
-import { METHODS, byRecent, fmtINR, frequentCategories, isValidDate, isoDate, myShare, parseAmount } from '../logic.ts';
+import { METHODS, byRecent, catKey, fmtINR, frequentCategories, isValidDate, isoDate, myShare, parseAmount } from '../logic.ts';
 import type { Entry, Method, NewEntryInput } from '../logic.ts';
 
 const METHOD_KEY = 'money-log.method';
@@ -23,7 +23,7 @@ function lastMethod(): Method | null {
   }
 }
 
-export function LogScreen({ active, openSettings }: { active: boolean; openSettings: () => void }) {
+export function LogScreen({ active }: { active: boolean }) {
   const app = useApp();
   const amountRef = useRef<HTMLInputElement>(null);
   const [amount, setAmount] = useState('');
@@ -44,9 +44,11 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
 
   const recent = useMemo(() => app.entries.slice().sort(byRecent).slice(0, 20), [app.entries]);
   const frequent = useMemo(() => {
-    const known = new Set(app.plan?.rows.map((r) => r.c));
-    return frequentCategories(app.entries, Date.now()).filter((c) => known.has(c));
-  }, [app.entries, app.plan]);
+    // shown under the list's spelling, so a plan that spells "rent" differently from older payments ("Rent") still counts
+    const canonical = new Map(app.categories.map((c) => [catKey(c.name), c.name]));
+    const names = frequentCategories(app.entries, Date.now(), 12).flatMap((c) => canonical.get(catKey(c)) ?? []);
+    return [...new Set(names)].slice(0, 6);
+  }, [app.entries, app.categories]);
 
   function pickMethod(m: Method | null) {
     setMethod(m);
@@ -88,16 +90,8 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
     amountRef.current?.focus();
   }
 
-  const noPlan = !app.plan;
-
   return (
     <section aria-label="Log a payment">
-      {noPlan && (
-        <div className="card notice">
-          <p><strong>Import your plan first.</strong> The category list comes from the spreadsheet's App export tab.</p>
-          <button type="button" className="btn" onClick={openSettings}>Go to Settings</button>
-        </div>
-      )}
       <form onSubmit={save} noValidate autoComplete="off" className="card">
         <label className="amount">
           <span aria-hidden="true">₹</span>
@@ -123,7 +117,7 @@ export function LogScreen({ active, openSettings }: { active: boolean; openSetti
         )}
 
         <label className="field" htmlFor="log-cat"><span>Category</span></label>
-        <CategorySelect id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} plan={app.plan} />
+        <CategorySelect id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
 
         <MethodChips value={method} onChange={pickMethod} options={METHODS} />
 

@@ -6,7 +6,8 @@
 --
 -- What it creates
 --   entries        one row per payment. group_id empty = private to its owner; set = a shared expense of that group
---   plan_blocks    the plan numbers you paste in from the spreadsheet's "App export" tab (one row per block)
+--   plan_blocks    the plan numbers you paste in from the spreadsheet's "App export" tab, and the categories and budgets
+--                  set in the app (one row per block)
 --   groups, group_members, group_invites, settlements
 --                  the shared ledger (Release 2). Groups and memberships change ONLY through the functions below.
 --
@@ -51,9 +52,10 @@ create table if not exists public.plan_blocks (
   primary key (owner_id, block)
 );
 
--- Only the blocks the app uses can be stored, so one account holds at most four small rows here.
+-- Only the blocks the app uses can be stored, so one account holds at most five small rows here
+-- (categories = the categories and budgets set in the app, Release 4).
 alter table public.plan_blocks drop constraint if exists plan_blocks_block_known;
-alter table public.plan_blocks add constraint plan_blocks_block_known check (block in ('budget', 'due', 'networth', 'due_done'));
+alter table public.plan_blocks add constraint plan_blocks_block_known check (block in ('budget', 'due', 'networth', 'due_done', 'categories'));
 
 -- ---------------------------------------------------------------------------------
 -- the shared ledger (Release 2)

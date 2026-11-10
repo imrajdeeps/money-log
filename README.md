@@ -5,6 +5,7 @@ spreadsheet plan. Release 1 is the quick log, month vs budget, cloud sync with e
 spreadsheet's Log tab. Release 2 adds shared groups (a family group, trip groups) with splits and settle-up, a due list
 with a calendar file, and a net worth and goals snapshot. Release 3 adds receipt photos, the edit history of shared
 expenses, a one-tap "add my share to my budget", an optional PIN lock, and a Method column for the spreadsheet's Log tab.
+Release 4 gives the app its own categories and budgets, so importing the spreadsheet is optional.
 It works on iPhone and Android, and offline.
 
 The repository holds code only. Your plan numbers, balances and payments never go in it; they live on your phone and
@@ -19,7 +20,7 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
 1. Create a new project. Note the project URL.
 2. **SQL Editor:** paste and run `supabase/schema.sql`. Read it first; nothing in this repository applies it for you.
    Run it as the default `postgres` role (the SQL Editor does). It is safe to run again, and **if you already ran the
-   Release 1 or 2 version, run this one on top of it**: it adds what is new and keeps your data. It also creates the
+   Release 1, 2 or 3 version, run this one on top of it**: it adds what is new and keeps your data. It also creates the
    private Storage bucket `receipts` for photos (free plan: 1 GB of file storage, 50 MB largest upload; the bucket is
    limited to 1 MB JPEG files).
 3. Paste and run `supabase/rls_tests.sql`. The last message must be `ALL ACCESS TESTS PASSED`. It uses fake users,
@@ -61,22 +62,50 @@ GitHub account, or give this app its own account, organisation, or custom domain
 1. Open the address from step 2.4. iPhone: use Safari, tap Share, then Add to Home Screen. Android: use Chrome, menu,
    Install app.
 2. **Settings:** send yourself a code, sign in.
-3. **Settings, Plan data:** paste the blocks from the spreadsheet (next section).
+3. Start logging. Nothing has to be imported: the app has its own categories (see the next section). If you also keep the
+   spreadsheet, **Settings, Spreadsheet plan:** paste its blocks (the section after that).
 
-## Getting the plan from the spreadsheet
+## Categories and budgets
 
-In your Money Plan v2 spreadsheet, the **App export** tab holds three blocks. Copy one, paste it in the app under
-Settings, Plan data (or open a saved `.tsv` with *Choose a file*), check the preview, and import. The app recognises the
-block by its header row. Importing replaces that block only and never touches payments. Copy a block again after you
-change anything it depends on.
+The app starts with a short list, grouped as the spreadsheet groups them: **Spending** (Rent, Groceries, Eating out,
+Transport & fuel, Bills, Shopping, Health, Other), **EMI** (Loan EMI), **Family** (Family support) and **Saving**
+(Savings).
+
+- **Add your own** with *＋ New category…* at the end of the category list on the Log tab (or in the edit dialogs), or in
+  *Categories and budgets* on the Month tab. Pick the group it belongs to. A name that only differs in capitals or spaces
+  from an existing one counts as the same category.
+- **Remove** any category you do not use (the ✕ in *Categories and budgets*). It only leaves the pick list; payments already
+  logged keep it and show under "Not in your categories". Add the same name again to bring it back.
+- **Budgets:** in *Categories and budgets*, give a category a monthly amount (empty = none). It applies to every month. A
+  category with no budget shows "no budget" instead of "over".
+- Your categories and budgets sync between your phones (the latest change to each category wins) and are in the backup file.
+
+## Getting the plan from the spreadsheet (optional)
+
+If you also keep the Money Plan v2 spreadsheet, its **App export** tab holds three blocks. Copy one, paste it in the app
+under Settings, Spreadsheet plan (or open a saved `.tsv` with *Choose a file*), check the preview, and import. The app
+recognises the block by its header row. Importing replaces that block only and never touches payments. Copy a block again
+after you change anything it depends on.
+
+**The budget block merges with what is in the app, it does not replace it.** A category the spreadsheet lists keeps the
+spreadsheet's spelling, group and planned amount for the months the spreadsheet covers (the amount you set in the app is
+ignored for that category in those months, and used again for months the spreadsheet does not cover). Categories the
+spreadsheet lacks stay as they are, with their app budgets, so a built-in such as "Eating out" can sit beside the sheet's
+"Eating out / food orders": remove the one you do not want.
 
 | Block | Copy | What it gives the app |
 | --- | --- | --- |
-| Budget | `A5` to `AL34` | The category list and the planned amount per month (Month tab). Needed first. |
+| Budget | `A5` to `AL34` | The spreadsheet's categories, groups and planned amount per month (Month tab). |
 | Due list | `A38` to `E66` | One-off payments (Inputs section 6, Active = Yes) and to-dos, with dates. |
 | Net worth and goals | `A70` to `C79` | The snapshot on the Plan tab, labelled with the plan month. |
 
 Keep such files out of this repository (`.gitignore` already skips `*.tsv`, `*.csv`, `*.xlsx` and backup files).
+
+**Names must match for Export.** The spreadsheet adds payments up by the categories on its Budget tab (its Inputs tab
+holds the list); its Log shows NOT IN LIST for any other name and Budget and Tracker leave that payment out. After you
+import the budget block, the Export tab names the categories in the rows it is about to copy that the spreadsheet does not
+have, so you can add them there or change the payment's category. Without an imported plan the app cannot know what the
+spreadsheet holds and only reminds you of this.
 
 ## Sending payments to the spreadsheet
 
@@ -164,7 +193,7 @@ second one uses them.
 ## Backups
 
 Settings, **Download backup** saves one JSON file with all *your own* payments (not other people's shared expenses),
-the three plan blocks and the Done marks. It does not include receipt photos. Keep one in iCloud Drive now and then. **Restore** merges it back in (newer
+the three plan blocks, the Done marks and your categories and budgets. It does not include receipt photos. Keep one in iCloud Drive now and then. **Restore** merges it back in (newer
 copies win).
 
 ## Developing
@@ -197,7 +226,7 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
   other's chosen names. They never see your private payments, your plan, or your email address. Recording a payment
   between two people needs no confirmation from the other: this is meant for groups of people who trust each other.
 - Because the key is public and sign-ups are open while you invite people, each account is capped (20,000 payments and
-  2,000 recorded group payments; plan data only under four known names; at most 10 groups made and 20 people per group),
+  2,000 recorded group payments; plan data only under five known names; at most 10 groups made and 20 people per group),
   so a stranger's account cannot fill the free database. For stricter control keep sign-ups off except when inviting.
 - Receipt photos: the Storage bucket `receipts` is private, JPEG only, 1 MB per file. A file can be uploaded only into your
   own folder and only for a photo you declared first; you can read your own files and those on shared expenses of groups you
@@ -217,5 +246,4 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
 
 ## Not built
 
-Push notifications (reminders are the due list and the calendar file), and in-app budgets and categories (they come from the
-spreadsheet's budget block for now).
+Push notifications (reminders are the due list and the calendar file).

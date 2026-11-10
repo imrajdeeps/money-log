@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { cleanDoneMap, mergeDone, pruneDone, setDone } from './blocks.ts';
 import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from './blocks.ts';
 import type { BackupParse } from './backup.ts';
+import { addCategory as addCategoryTo, categoryList, mergeMine, removeCategory as removeCategoryFrom, setBudget } from './categories.ts';
+import type { AddResult, CategoryInfo, Mine } from './categories.ts';
 import { config } from './config.ts';
 import type { HistoryRow } from './history.ts';
 import { checkPin, cleanLock, makeLock, registerFailure, secondsToWait, shouldLock } from './lock.ts';
@@ -12,11 +14,11 @@ import type { Receipt } from './receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from './groups.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement } from './groups.ts';
 import { editEntry, isMine, makeEntry, markExportedEntry, parseTs, softDelete } from './logic.ts';
-import type { Entry, NewEntryInput, Plan, PlanData } from './logic.ts';
+import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from './logic.ts';
 import { openStore } from './store.ts';
 import type { Store } from './store.ts';
 import { createSync } from './sync.ts';
-import type { DueDone, Sync, SyncState } from './sync.ts';
+import type { DueDone, MineBlock, Sync, SyncState } from './sync.ts';
 
 interface Engine { store: Store; sync: Sync }
 
@@ -48,6 +50,8 @@ export interface AppApi {
   due: DueBlock | null;
   net: NetBlock | null;
   doneMap: DoneMap;
+  mine: Mine; // the categories and budgets set in the app
+  categories: CategoryInfo[]; // everything that can be picked: built-in, own and the imported plan's, merged
   sync: SyncState;
   syncEnabled: boolean;
   toastMsg: string | null;
@@ -60,6 +64,9 @@ export interface AppApi {
   applyDue: (data: DueData) => Promise<void>;
   applyNet: (data: NetData) => Promise<void>;
   toggleDone: (key: string, done: boolean) => Promise<void>;
+  addCategory: (name: string, group: Cat) => Promise<AddResult>;
+  removeCategory: (name: string) => Promise<void>;
+  saveBudgets: (budgets: { name: string; amount: number }[]) => Promise<void>;
   addSettlement: (input: NewSettlementInput) => Promise<void>;
   removeSettlement: (id: string) => Promise<void>;
   createGroup: (name: string, kind: 'family' | 'trip', displayName: string) => Promise<string>;
@@ -96,6 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [due, setDue] = useState<DueBlock | null>(null);
   const [net, setNet] = useState<NetBlock | null>(null);
   const [doneMap, setDoneMap] = useState<DoneMap>({});
+  const [mine, setMine] = useState<Mine>({});
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -115,12 +123,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     const e = engRef.current;
     if (!e) return;
-    const [entries, p, d, n, dd, g, m, i, st, owner, rc, lk] = await Promise.all([
+    const [entries, p, d, n, dd, mn, g, m, i, st, owner, rc, lk] = await Promise.all([
       e.store.allEntries(),
       e.store.getMeta<Plan>('plan'),
       e.store.getMeta<DueBlock>('block:due'),
       e.store.getMeta<NetBlock>('block:networth'),
       e.store.getMeta<DueDone>('dueDone'),
+      e.store.getMeta<MineBlock>('mine'),
       e.store.getMeta<Group[]>('groups'),
       e.store.getMeta<Member[]>('members'),
       e.store.getMeta<Invite[]>('invites'),
@@ -143,6 +152,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDue(d ?? null);
     setNet(n ?? null);
     setDoneMap(dd?.items ?? {});
+    setMine(mn?.items ?? {});
   }, []);
 
   useEffect(() => {
@@ -399,6 +409,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await afterChange();
   }, [afterChange]);
 
+  // Changes to the categories and budgets are read-modify-write on the stored map, so two quick taps never lose one.
+  const changeMine = useCallback(async (f: (m: Mine, list: CategoryInfo[], nowIso: string) => Mine) => {
+    const e = engRef.current;
+    if (!e) return;
+    const plan = (await e.store.getMeta<Plan>('plan')) ?? null;
+    const nowIso = new Date().toISOString();
+    await e.store.mutateMeta<MineBlock>('mine', (cur) => {
+      const before = cur?.items ?? {};
+      const next = f(before, categoryList(plan, before), nowIso);
+      return next === before ? undefined : { items: next, dirty: 1 };
+    });
+    await afterChange();
+  }, [afterChange]);
+
+  const addCategory = useCallback(async (name: string, group: Cat): Promise<AddResult> => {
+    let result: AddResult = { ok: false, error: 'The app is still starting.' };
+    await changeMine((m, list, nowIso) => {
+      result = addCategoryTo(m, list, name, group, nowIso);
+      return result.ok ? result.mine : m;
+    });
+    return result;
+  }, [changeMine]);
+
+  const removeCategory = useCallback((name: string) => changeMine((m, list, nowIso) => {
+    const info = list.find((c) => c.name === name && c.source !== 'plan');
+    return info ? removeCategoryFrom(m, info, nowIso) : m;
+  }), [changeMine]);
+
+  const saveBudgets = useCallback((budgets: { name: string; amount: number }[]) => changeMine((m, list, nowIso) => {
+    let next = m;
+    for (const b of budgets) {
+      const info = list.find((c) => c.name === b.name);
+      if (info) next = setBudget(next, info, b.amount, nowIso);
+    }
+    return next;
+  }), [changeMine]);
+
   const restoreBackup = useCallback(async (b: Extract<BackupParse, { ok: true }>) => {
     const e = engRef.current;
     if (!e) return { added: 0, updated: 0, blocksReplaced: 0 };
@@ -427,6 +474,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (Object.keys(b.dueDone).length) {
       await e.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: mergeDone(cur?.items ?? {}, cleanDoneMap(b.dueDone)), dirty: 1 }));
     }
+    if (Object.keys(b.categories).length) {
+      await e.store.mutateMeta<MineBlock>('mine', (cur) => ({ items: mergeMine(cur?.items ?? {}, b.categories), dirty: 1 }));
+    }
     await afterChange();
     return { added, updated, blocksReplaced };
   }, [afterChange]);
@@ -445,6 +495,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [reload]);
 
   const own = useMemo(() => all.filter((e) => isMine(e, me)), [all, me]);
+  const categories = useMemo(() => categoryList(plan, mine), [plan, mine]);
   const value = useMemo<AppApi>(() => ({
     ready: loaded,
     storageKind: eng?.store.kind ?? 'memory',
@@ -454,15 +505,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     allEntries: own,
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
-    plan, due, net, doneMap,
+    plan, due, net, doneMap, mine, categories,
     sync,
     syncEnabled,
     toastMsg,
     toast,
-    addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup,
+    addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName,
     syncNow, requestCode, verifyCode, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, requestCode, verifyCode, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, syncNow, requestCode, verifyCode, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

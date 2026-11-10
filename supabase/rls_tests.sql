@@ -707,6 +707,26 @@ begin
     raise exception 'FAIL an unknown plan block name was accepted'; end if;
   raise notice 'PASS a stranger cannot learn who is in a group, nor store unknown blocks';
 
+  -- the five known plan blocks, the categories block (Release 4) among them: accepted for the owner, bounded in size, private
+  perform pg_temp.act_as(c);
+  insert into public.plan_blocks (owner_id, block, payload)
+    select c::uuid, pbn, '{"v":1,"items":{}}' from unnest(array['budget', 'due', 'networth', 'due_done', 'categories']) as plan_block_names(pbn);
+  update public.plan_blocks set payload = '{"v":1,"items":{"gym":{"n":"Gym","g":"Spending","b":0,"x":0,"t":"2026-11-10T10:00:00Z"}}}' where block = 'categories';
+  if (select payload->'items'->'gym'->>'n' from public.plan_blocks where block = 'categories') is distinct from 'Gym' then
+    raise exception 'FAIL the owner could not change the categories block'; end if;
+  if pg_temp.n('select 1 from public.plan_blocks') <> 5 then raise exception 'FAIL an account should hold exactly the five known blocks'; end if;
+  if not pg_temp.fails(format($q$update public.plan_blocks set payload = jsonb_build_object('pad', repeat('x', 300000)) where owner_id = %L and block = 'categories'$q$, c)) then
+    raise exception 'FAIL an oversized categories block was accepted'; end if;
+  perform pg_temp.act_as(a);
+  if pg_temp.n(format($q$select 1 from public.plan_blocks where owner_id = %L$q$, c)) <> 0 then raise exception 'FAIL another account can read the categories block'; end if;
+  if not pg_temp.fails(format($q$insert into public.plan_blocks (owner_id, block, payload) values (%L, 'categories', '{}')$q$, c)) then
+    raise exception 'FAIL another account could write the categories block'; end if;
+  execute format($q$update public.plan_blocks set payload = '{"hacked":true}' where owner_id = %L$q$, c); -- the row is invisible to this account: nothing changes
+  perform pg_temp.act_as(c);
+  if (select payload->'items'->'gym'->>'n' from public.plan_blocks where block = 'categories') is distinct from 'Gym' then
+    raise exception 'FAIL another account changed the categories block'; end if;
+  raise notice 'PASS the categories block is stored like the other plan blocks: own row only, bounded, private';
+
   -- row caps (the cap triggers are switched off only while the bulk rows are loaded, then back on)
   reset role;
   perform set_config('request.jwt.claims', '', true); -- act as the database owner (no signed-in user) while loading bulk rows

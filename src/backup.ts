@@ -1,11 +1,13 @@
 // The backup file: every payment, the plan blocks and the Done marks, as one JSON document. Pure, like logic.ts.
 import { cleanDoneMap, cleanDue, cleanNet } from './blocks.ts';
 import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from './blocks.ts';
+import { cleanMine } from './categories.ts';
+import type { Mine } from './categories.ts';
 import { cleanEntry, cleanPlan, parseTs } from './logic.ts';
 import type { Entry, Plan, PlanData } from './logic.ts';
 
 // What a backup may hold beyond payments and the budget plan. Every field is optional, so a Release 1 backup still loads.
-export interface BackupExtras { due?: DueBlock | null; networth?: NetBlock | null; dueDone?: DoneMap }
+export interface BackupExtras { due?: DueBlock | null; networth?: NetBlock | null; dueDone?: DoneMap; categories?: Mine }
 
 export interface Backup {
   app: 'money-log';
@@ -16,6 +18,7 @@ export interface Backup {
   due?: (DueData & { importedAt: string }) | null;
   networth?: (NetData & { importedAt: string }) | null;
   dueDone?: DoneMap;
+  categories?: Mine; // the person's own categories and budgets
 }
 
 // Only payments this account made go in: a backup is a copy of your own data, never of what others shared with you.
@@ -30,6 +33,7 @@ export function makeBackup(entries: Entry[], plan: Plan | null, nowIso: string, 
   if (extras.due) out.due = { v: 1, items: extras.due.items, importedAt: extras.due.importedAt };
   if (extras.networth) out.networth = { v: 1, asOf: extras.networth.asOf, items: extras.networth.items, importedAt: extras.networth.importedAt };
   if (extras.dueDone && Object.keys(extras.dueDone).length) out.dueDone = extras.dueDone;
+  if (extras.categories && Object.keys(extras.categories).length) out.categories = extras.categories;
   return out;
 }
 
@@ -41,6 +45,7 @@ export type BackupParse =
       due: (DueData & { importedAt: string }) | null;
       networth: (NetData & { importedAt: string }) | null;
       dueDone: DoneMap;
+      categories: Mine;
       skipped: number;
     }
   | { ok: false; error: string };
@@ -67,6 +72,7 @@ export function parseBackup(text: string): BackupParse {
     due: withDate(cleanDue, j.due),
     networth: withDate(cleanNet, j.networth),
     dueDone: cleanDoneMap(j.dueDone),
+    categories: cleanMine(j.categories),
     skipped,
   };
 }

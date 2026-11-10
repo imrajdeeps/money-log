@@ -87,7 +87,7 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
           <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
         )}
         <label className="field" htmlFor="edit-cat"><span>Category</span></label>
-        <CategorySelect id="edit-cat" value={category} onChange={setCategory} plan={app.plan} />
+        <CategorySelect id="edit-cat" value={category} onChange={setCategory} />
         <MethodChips value={method} onChange={setMethod} options={METHODS} />
         <label className="field">
           <span>Note</span>
