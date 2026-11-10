@@ -12,6 +12,9 @@ import { hasRoom, kindLabel, kindMax } from '../../core/groupKinds.ts';
 import { BASEPATH, appRootUrl } from '../../core/paths.ts';
 import { fmtINR, isValidDate, isoDate, myShare, parseAmount } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
+import { TripSettings } from './TripSettings.tsx';
+import { TripSummary } from './TripSummary.tsx';
+import { tripDatesLabel } from '../../core/groupSummary.ts';
 import { useAction } from './useAction.ts';
 
 const owes = (paise: number): string => (paise === 0 ? 'All settled' : paise > 0 ? `is owed ${fmtINR(fromPaise(paise))}` : `owes ${fmtINR(fromPaise(-paise))}`);
@@ -38,6 +41,8 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
   const invite = app.invites.find((i) => i.group_id === group.id);
   const partner = group.kind === 'couple' && people.length === 2 ? people.find((m) => m.user_id !== me) : undefined; // the other half of a couple
   const line = coupleLine(bal[me] ?? 0, partner?.display_name ?? '');
+  const closed = group.closed_at !== null; // a closed trip: no new expenses, no new people
+  const dates = group.kind === 'trip' ? tripDatesLabel(group.starts_on, group.ends_on) : null;
 
   const items = useMemo<LedgerItem[]>(() => [
     ...ledger(app.groupEntries, group.id).map((e): LedgerItem => ({ kind: 'expense', date: e.entry_date, at: e.created_at, e })),
@@ -75,8 +80,12 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
   return (
     <section aria-label={`Group ${group.name}`}>
       <button type="button" className="btn ghost backbtn" onClick={onBack}>‹ All groups</button>
-      <h2>{group.name} <span className="tag">{kindLabel(group.kind)}</span></h2>
-      <p className="muted small">{people.length} {people.length === 1 ? 'person' : 'people'}. Add a shared expense with + Add expense by choosing this group under "Share with".</p>
+      <h2>{group.name} <span className="tag">{kindLabel(group.kind)}</span>{closed && <> <span className="tag">Closed</span></>}</h2>
+      {dates && <p className="muted small">{dates}</p>}
+      <p className="muted small">
+        {people.length} {people.length === 1 ? 'person' : 'people'}.
+        {closed ? ' This trip is closed: it takes no new expenses.' : ' Add a shared expense with + Add expense by choosing this group under "Share with".'}
+      </p>
 
       <div className="card">
         {partner && group.kind === 'couple' ? (
@@ -133,6 +142,8 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
         )}
       </div>
 
+      {group.kind === 'trip' && <TripSummary group={group} />}
+
       <h3 className="h2">Expenses and payments</h3>
       {items.length === 0 ? <p className="muted">Nothing yet.</p> : (
         <ul className="list">
@@ -164,10 +175,14 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
         </ul>
       )}
 
+      {group.kind === 'trip' && <TripSettings group={group} isAdmin={isAdmin} />}
+
       {isAdmin && (
         <div className="card">
           <h3>Invite people</h3>
-          {!hasRoom(group.kind, people.length) ? (
+          {closed ? (
+            <p className="muted small">This trip is closed, so nobody can join it. Reopen it to invite someone.</p>
+          ) : !hasRoom(group.kind, people.length) ? (
             <p className="muted small">A {kindLabel(group.kind).toLowerCase()} group holds at most {kindMax(group.kind)} people and this one is full. If someone leaves, a new code can be made here.</p>
           ) : invite && Date.parse(invite.expires_at) > Date.now() ? (
             <>
@@ -179,7 +194,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
               </div>
             </>
           ) : <p className="muted small">The code has expired. Make a new one to invite someone.</p>}
-          {hasRoom(group.kind, people.length) && <button type="button" className="btn ghost" disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>Make a new code</button>}
+          {!closed && hasRoom(group.kind, people.length) && <button type="button" className="btn ghost" disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>Make a new code</button>}
           {act.error && <p className="msg bad" role="alert">{act.error}</p>}
         </div>
       )}

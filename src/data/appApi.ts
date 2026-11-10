@@ -4,7 +4,7 @@ import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import type { HistoryRow } from '../core/history.ts';
 import type { LockConfig } from './lock.ts';
 import type { Receipt } from '../core/receipts.ts';
-import type { Group, Invite, Member, NewSettlementInput, Settlement } from '../core/groups.ts';
+import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from '../core/logic.ts';
 import type { Store } from './store.ts';
@@ -74,6 +74,9 @@ export interface AppApi {
   removeMember: (groupId: string, userId: string) => Promise<void>;
   makeAdmin: (groupId: string, userId: string) => Promise<void>;
   setDisplayName: (groupId: string, name: string) => Promise<void>;
+  setTripDates: (groupId: string, starts: string | null, ends: string | null) => Promise<void>; // admins, trips
+  setGroupClosed: (groupId: string, closed: boolean) => Promise<void>; // admins, trips: close or reopen
+  setUsualSplit: (groupId: string, split: UsualSplit | null) => Promise<void>; // admins, flatmates
   restoreBackup: (b: Extract<BackupParse, { ok: true }>) => Promise<{ added: number; updated: number; blocksReplaced: number }>;
   syncNow: () => void;
   signUp: (email: string, password: string) => Promise<'signed-in' | 'confirm'>;

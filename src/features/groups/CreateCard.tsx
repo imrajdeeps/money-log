@@ -13,13 +13,20 @@ export function CreateCard() {
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<GroupKind>('family');
   const [name, setName] = useState(rememberedName());
+  const [starts, setStarts] = useState('');
+  const [ends, setEnds] = useState('');
 
   async function create(ev: FormEvent) {
     ev.preventDefault();
     if (!title.trim()) return setError('Give the group a name.');
     if (!name.trim()) return setError('Enter the name the others will see you as.');
+    if (kind === 'trip' && starts && ends && ends < starts) return setError('The trip cannot end before it starts.');
     rememberName(name.trim());
-    if (await run(() => app.createGroup(title.trim(), kind, name.trim()), 'Group created')) { setTitle(''); setOpen(false); }
+    const made = await run(async () => {
+      const id = await app.createGroup(title.trim(), kind, name.trim());
+      if (kind === 'trip' && (starts || ends)) await app.setTripDates(id, starts || null, ends || null); // optional
+    }, 'Group created');
+    if (made) { setTitle(''); setStarts(''); setEnds(''); setOpen(false); }
   }
 
   if (!open) return <button type="button" className="btn" onClick={() => setOpen(true)}>Create a group</button>;
@@ -36,6 +43,12 @@ export function CreateCard() {
           </button>
         ))}
       </fieldset>
+      {kind === 'trip' && (
+        <div className="btnrow">
+          <label className="field half"><span>First day (optional)</span><input type="date" value={starts} onChange={(e) => { setStarts(e.target.value); setError(''); }} /></label>
+          <label className="field half"><span>Last day (optional)</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { setEnds(e.target.value); setError(''); }} /></label>
+        </div>
+      )}
       <label className="field"><span>Your name in this group</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
       {error && <p className="msg bad" role="alert">{error}</p>}
       <div className="btnrow">

@@ -2,8 +2,9 @@
 
 /* wide screens: section links and the Add button in the header instead of the bottom bar */
 @media (min-width: 1024px) {
-  .app { padding: 16px 32px 48px; }
-  .top { padding: 4px 0 24px; }
+  .app { padding: 0 32px 48px; }
+  .top { padding: 20px 0 14px; }
+  main { padding-top: 10px; }
   .brand { flex: none; }
   .topnav { display: flex; flex: 1; justify-content: center; gap: 2px; }
   .topnav button { min-height: 44px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
