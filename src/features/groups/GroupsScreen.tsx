@@ -41,14 +41,14 @@ export function GroupsScreen({ groupId, onOpen, openSettings }: { groupId?: stri
       {app.groups.length === 0 && !app.joinCode && <p className="muted">No groups yet. Make one for the family or a trip, or join one with a code.</p>}
       {app.groups.length > 0 && (
         <ul className="list">
-          {app.groups.map((g) => {
+          {[...app.groups].sort((a, b) => Number(a.closed_at !== null) - Number(b.closed_at !== null)).map((g) => {
             const bal = groupBalances(g.id, app.groupEntries, app.settlements)[app.me ?? ''] ?? 0;
             return (
               <li key={g.id}>
                 <button type="button" className="row" onClick={() => onOpen(g.id)}>
                   <span className="row-main">
                     <b>{g.name}</b>
-                    <small>{kindLabel(g.kind)} · {activeMembers(app.members, g.id).length} people</small>
+                    <small>{kindLabel(g.kind)}{g.closed_at ? ' (closed)' : ''} · {activeMembers(app.members, g.id).length} people</small>
                   </span>
                   <span className={`amt ${bal > 0 ? 'owed' : bal < 0 ? 'late' : 'muted'}`}>{bal === 0 ? 'Settled' : bal > 0 ? `+${fmtINR(fromPaise(bal))}` : `−${fmtINR(fromPaise(-bal))}`}</span>
                 </button>
