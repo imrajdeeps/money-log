@@ -12,11 +12,11 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 ## Version 1.10: goals and a plan (done: on main as 1.10.0)
 - [x] **Goals and a plan**: the data, the Goals page, top-ups, the plan, and the Overview tile (see `docs/prd-goals.md`).
 
-## Version 1.11: Tailwind setup, animations, icons, splash screen (in progress, `version/1.11`)
+## Version 1.11: Tailwind setup, animations, icons, splash screen (done: on main as 1.11.0)
 - [x] Tailwind CSS set up and proven on the Goals screens (#36)
 - [x] **Animations** — pages come in, tiles rise one after another, the toast slides up, dialogs open with a small scale, meters grow, buttons give when pressed; all of it switched off by the phone's reduced-motion setting. (#37)
 - [x] **Better icons for the whole app** — the owner's words: "the app icons in not looking good, if possible can se enhance the icons of the complete app". Two things to look at: the app icon on the home screen and in the browser tab (`public/icons`), and the small icons inside the app (`src/ui/Icon.tsx`). Do both unless the owner says which.
-- [x] **A splash screen when the app opens** — "also add a splash sceen in the app when open". The manifest's background colour and icon give the installed app a start screen; add an in-app screen with the logo until the data is loaded Done: a green screen with the logo shows from the first paint (static markup in `index.html`) until the data is ready, at least 0.9 s, then fades; no wait under reduced motion.
+- [x] **A splash screen when the app opens** — "also add a splash sceen in the app when open". The manifest's background colour and icon give the installed app a start screen; add an in-app screen with the logo until the data is loaded. Done: a green screen with the logo shows from the first paint (static markup in `index.html`) until the data is ready, at least 0.9 s, then fades; no wait under reduced motion.
 
 ## Version 1.12: finish the move to Tailwind
 - [ ] **Tailwind, the rest** (the owner's words: "add some animations, remove the css use tailwind css"): convert the remaining features from the hand-written CSS to utility classes and delete the CSS files; colours and fonts are already in Tailwind's theme. What stays in a small stylesheet because Tailwind cannot say it well: the keyframes, the SVG chart strokes, the one green tile that re-points the colour tokens, the Overview grid's container queries. `tests/support/style-snapshot.js` records the computed style of every visible element (both themes, phone and desktop width) and compares it after each conversion; record the baseline first.
