@@ -124,7 +124,12 @@ function Shell() {
 
   if (!showApp) return <Splash />;
 
-  const toast = <div key={app.toastMsg} className={`${sh.toast} animate-toast`} role="status" aria-live="polite">{app.toastMsg}</div>; // a new message is a new element, so it slides in again
+  const toast = (
+    <div key={app.toastMsg} className={`${sh.toast} animate-toast`} role="status" aria-live="polite">
+      {app.toastMsg}
+      {app.toastAction && <button type="button" className={sh.toastButton} onClick={() => { const a = app.toastAction!; app.toast(''); void a.run(); }}>{app.toastAction.label}</button>}
+    </div>
+  ); // a new message is a new element, so it slides in again
   const current = (id: Page) => (page === id || (id === 'plan' && page === 'goals') ? 'page' : undefined); // the Goals page belongs to Plan
 
   return (

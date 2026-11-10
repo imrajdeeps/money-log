@@ -57,15 +57,20 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
       changes.amount = amt;
       changes.group = { group_id: entry.group_id!, paid_by: split.paidBy, shares: r.shares };
     }
+    const before = entry; // as it was when this dialog opened: what Undo goes back to
     await app.updateEntry(entry.id, changes);
-    app.toast(tr('Updated {0} · {1}', fmtINR(amt), category));
+    // Undo is for the person's own payments: a shared expense is also other people's, and the group has rules about changing it afterwards
+    app.toast(tr('Updated {0} · {1}', fmtINR(amt), category), shared ? undefined : { label: tr('Undo'), run: async () => { await app.undoEntry(before); app.toast(tr('Back as it was.')); } });
     close();
   }
 
   async function remove() {
     if (!confirmDelete) { setConfirmDelete(true); return; }
+    const before = entry;
+    // deleting a payment also deletes its receipt photos for good, which Undo cannot bring back: so no Undo for a payment that has some
+    const hasPhotos = app.receipts.some((r) => r.entry_id === entry.id && !r.deleted_at);
     await app.removeEntry(entry.id);
-    app.toast('Deleted');
+    app.toast(tr('Deleted'), shared || hasPhotos ? undefined : { label: tr('Undo'), run: async () => { await app.undoEntry(before); app.toast(tr('Back as it was.')); } });
     close();
   }
 
