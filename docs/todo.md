@@ -2,7 +2,7 @@
 
 What is planned, in the order it will be picked up. **How it works:** anything the owner asks for while other work is running is written here first, in the owner's words. The running work is finished (and its pull request opened), then the next item is picked from this list.
 
-## Version 1.9 (in progress, `version/1.9`; pull request #26 into main)
+## Version 1.9 (built; `version/1.9` goes into main with pull request #26)
 - [x] Sticky top bar (#23)
 - [x] Database foundation: trip dates, closing a trip, the flatmates' usual split (#24)
 - [x] Trip screens: dates, summary, close and reopen (#25)
