@@ -724,3 +724,352 @@ create policy settlements_update on public.settlements for update to authenticat
               and (from_user = (select auth.uid()) or to_user = (select auth.uid())));
 create policy settlements_delete on public.settlements for delete to authenticated
   using (created_by = (select auth.uid()) and public.is_group_member(group_id));
+
+-- =================================================================================
+-- Release 3: receipt photos, edit history of shared expenses, "my share" link
+-- =================================================================================
+
+-- A private payment that records this account's share of someone else's shared expense (the "Add my share to my budget"
+-- button). It only remembers which expense it came from, so the button is not offered twice.
+alter table public.entries add column if not exists share_of uuid;
+
+-- ---------------------------------------------------------------------------------
+-- receipts: one row per photo; the photo itself is a file in the private Storage bucket "receipts"
+-- The file lives at <owner id>/<receipt id>.jpg (the check below makes that the only possible path). The phone first
+-- creates the row, then uploads the file, then sets uploaded_at. Deleting a payment deletes its photos' rows (soft) and
+-- the phone then removes the files through the Storage API (deleting a file with SQL would leave it orphaned and billed).
+-- ---------------------------------------------------------------------------------
+create table if not exists public.receipts (
+  id           uuid primary key,                       -- made on the phone
+  entry_id     uuid not null references public.entries (id) on delete cascade,
+  owner_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  path         text not null unique,
+  bytes        integer not null check (bytes > 0 and bytes <= 1048576),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  uploaded_at  timestamptz,                            -- the file is in Storage
+  deleted_at   timestamptz,                            -- soft delete, so other phones learn about it
+  purged_at    timestamptz,                            -- the file has been removed from Storage
+  synced_at    timestamptz not null default now(),
+  check (path = owner_id::text || '/' || id::text || '.jpg')
+);
+
+create index if not exists receipts_entry_idx on public.receipts (entry_id);
+create index if not exists receipts_owner_idx on public.receipts (owner_id, purged_at);
+create index if not exists receipts_synced_idx on public.receipts (synced_at);
+
+-- Can the caller see this payment (their own, or a shared expense of a group they are in)? Definer, so it reads entries
+-- whatever the caller's own rules say; it answers only about the caller.
+create or replace function public.can_view_entry(eid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+  select exists (
+    select 1 from public.entries e
+    where e.id = eid
+      and (e.owner_id = (select auth.uid()) or (e.group_id is not null and public.is_group_member(e.group_id)))
+  );
+$$;
+
+-- Can the caller attach photos to this payment: it is theirs, not deleted, and (if shared) they are still in the group?
+create or replace function public.can_edit_entry(eid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+  select exists (
+    select 1 from public.entries e
+    where e.id = eid and e.owner_id = (select auth.uid()) and e.deleted_at is null
+      and (e.group_id is null or public.is_group_member(e.group_id))
+  );
+$$;
+
+-- Used by the Storage rules below: may the caller upload a file at this path (they declared the photo first)?
+create or replace function public.receipt_slot_open(object_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+  select exists (
+    select 1 from public.receipts r
+    where r.path = object_name and r.owner_id = (select auth.uid()) and r.deleted_at is null and r.purged_at is null
+  );
+$$;
+
+-- ...and may the caller read it (their own photo, or one on a shared expense of a group they are in)?
+create or replace function public.can_read_receipt(object_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+  select exists (
+    select 1 from public.receipts r
+    where r.path = object_name and r.deleted_at is null
+      and (r.owner_id = (select auth.uid()) or public.can_view_entry(r.entry_id))
+  );
+$$;
+
+-- At most 3 photos on a payment, and at most 300 photos per account whose file may still be stored (purged_at not set).
+-- The cap is on the NUMBER of photos, not on the declared size: the database cannot see how big an uploaded file really is
+-- (the phone declares it), and Storage only limits each file to 1 MB. So the real ceiling per account is 300 photos x 1 MB
+-- = 300 MB, which keeps a stranger's account from filling the free 1 GB. Excludes the row itself, so re-sending the same
+-- row is never refused.
+create or replace function public.enforce_receipt_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+begin
+  if (select count(*) from public.receipts r where r.entry_id = new.entry_id and r.deleted_at is null and r.id <> new.id) >= 3 then
+    raise exception 'A payment can carry at most 3 receipt photos' using errcode = '53400';
+  end if;
+  if (select count(*) from public.receipts r where r.owner_id = new.owner_id and r.purged_at is null and r.id <> new.id) >= 300 then
+    raise exception 'This account has reached its limit of 300 receipt photos' using errcode = '53400';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.keep_receipt_fixed()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+begin
+  if new.id <> old.id or new.entry_id <> old.entry_id or new.owner_id <> old.owner_id or new.path <> old.path or new.bytes <> old.bytes then
+    raise exception 'A receipt can only be marked uploaded, deleted or purged' using errcode = '23514';
+  end if;
+  -- "purged" frees the account's quota, so it is allowed only once the file is really gone from Storage; otherwise an
+  -- account could keep its files and still make room for more.
+  if new.purged_at is not null and old.purged_at is null
+     and exists (select 1 from storage.objects o where o.bucket_id = 'receipts' and o.name = new.path) then
+    raise exception 'The file is still in storage: remove it before marking the photo purged' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+-- A payment that still has photos whose files may be in storage cannot be hard-deleted: that would drop the rows (the
+-- foreign key cascades) while the files stay behind, unreachable and still billed, and would free the account's quota.
+-- The normal way is to mark the payment deleted (the app does), remove the files, and only then delete the row.
+-- (Skipped when there is no signed-in user, so the owner's maintenance in the SQL editor is not blocked.)
+create or replace function public.keep_unpurged_receipts()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+begin
+  if (select auth.uid()) is not null and exists (select 1 from public.receipts r where r.entry_id = old.id and r.purged_at is null) then
+    raise exception 'Delete this payment the normal way: its photos have to be removed first' using errcode = '23514';
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists entries_keep_receipts on public.entries;
+create trigger entries_keep_receipts before delete on public.entries
+  for each row execute function public.keep_unpurged_receipts();
+
+drop trigger if exists receipts_rules on public.receipts;
+create trigger receipts_rules before insert on public.receipts
+  for each row execute function public.enforce_receipt_rules();
+drop trigger if exists receipts_fixed on public.receipts;
+create trigger receipts_fixed before update on public.receipts
+  for each row execute function public.keep_receipt_fixed();
+drop trigger if exists receipts_keep_latest_edit on public.receipts;
+create trigger receipts_keep_latest_edit before update on public.receipts
+  for each row execute function public.keep_latest_edit();
+drop trigger if exists receipts_touch_synced_at on public.receipts;
+create trigger receipts_touch_synced_at before insert or update on public.receipts
+  for each row execute function public.touch_synced_at();
+
+-- Deleting a payment deletes its photos, whatever phone did it.
+create or replace function public.delete_receipts_with_entry()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+begin
+  if new.deleted_at is not null and old.deleted_at is null then
+    -- updated_at must beat the stored one (a phone whose clock runs ahead wrote it), or keep_latest_edit would skip this
+    update public.receipts set deleted_at = clock_timestamp(), updated_at = greatest(clock_timestamp(), updated_at + interval '1 microsecond')
+     where entry_id = new.id and deleted_at is null;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists entries_delete_receipts on public.entries;
+create trigger entries_delete_receipts after update on public.entries
+  for each row execute function public.delete_receipts_with_entry();
+
+-- ---------------------------------------------------------------------------------
+-- entry_history: what changed in a shared expense, shown to the group. Written only by the trigger below.
+-- ---------------------------------------------------------------------------------
+create table if not exists public.entry_history (
+  id          uuid primary key default gen_random_uuid(),
+  entry_id    uuid not null references public.entries (id) on delete cascade,
+  group_id    uuid not null references public.groups (id),
+  changed_by  uuid not null,
+  changed_at  timestamptz not null default clock_timestamp(),
+  kind        text not null check (kind in ('created', 'edited', 'deleted', 'moved')),
+  changes     jsonb not null
+);
+
+create index if not exists entry_history_entry_idx on public.entry_history (entry_id, changed_at desc);
+
+-- Records what a member created, changed, or deleted. A payment made private again is logged for the group only as
+-- "moved out", never with its values, so nothing private leaks into the group's history. Keeps the latest 100 per expense.
+-- History is kept only for groups with at least two current members: in a group of one nobody else could read it, and
+-- it would only be a way to pile up rows.
+create or replace function public.group_has_company(gid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+  select (select count(*) from public.group_members m where m.group_id = gid and m.left_at is null) >= 2;
+$$;
+
+create or replace function public.log_entry_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare
+  who uuid := coalesce((select auth.uid()), new.owner_id);
+  diff jsonb := '{}'::jsonb;
+  change_kind text := 'edited';
+  after_values jsonb;
+begin
+  after_values := jsonb_build_object('amount', new.amount, 'category', new.category, 'note', new.note, 'entry_date', new.entry_date,
+                                     'paid_by', new.paid_by, 'shares', new.shares);
+  if tg_op = 'INSERT' then
+    if new.group_id is not null and public.group_has_company(new.group_id) then
+      insert into public.entry_history (entry_id, group_id, changed_by, kind, changes) values (new.id, new.group_id, who, 'created', after_values);
+    end if;
+    return null;
+  end if;
+
+  if old.group_id is not null and new.group_id is distinct from old.group_id and public.group_has_company(old.group_id) then
+    insert into public.entry_history (entry_id, group_id, changed_by, kind, changes)
+      values (new.id, old.group_id, who, 'moved', jsonb_build_object('group_id', jsonb_build_object('from', old.group_id, 'to', new.group_id)));
+  end if;
+  if new.group_id is null or not public.group_has_company(new.group_id) then return null; end if;
+  if new.group_id is distinct from old.group_id then
+    insert into public.entry_history (entry_id, group_id, changed_by, kind, changes) values (new.id, new.group_id, who, 'created', after_values);
+    return null;
+  end if;
+
+  if new.amount is distinct from old.amount then diff := diff || jsonb_build_object('amount', jsonb_build_object('from', old.amount, 'to', new.amount)); end if;
+  if new.category is distinct from old.category then diff := diff || jsonb_build_object('category', jsonb_build_object('from', old.category, 'to', new.category)); end if;
+  if new.note is distinct from old.note then diff := diff || jsonb_build_object('note', jsonb_build_object('from', old.note, 'to', new.note)); end if;
+  if new.entry_date is distinct from old.entry_date then diff := diff || jsonb_build_object('entry_date', jsonb_build_object('from', old.entry_date, 'to', new.entry_date)); end if;
+  if new.paid_by is distinct from old.paid_by then diff := diff || jsonb_build_object('paid_by', jsonb_build_object('from', old.paid_by, 'to', new.paid_by)); end if;
+  if new.shares is distinct from old.shares then diff := diff || jsonb_build_object('shares', jsonb_build_object('from', old.shares, 'to', new.shares)); end if;
+  if new.deleted_at is distinct from old.deleted_at and new.deleted_at is not null then change_kind := 'deleted'; end if;
+  if diff = '{}'::jsonb and change_kind = 'edited' then return null; end if; -- nothing a member would care about (exported_at, sync times)
+
+  insert into public.entry_history (entry_id, group_id, changed_by, kind, changes) values (new.id, new.group_id, who, change_kind, diff);
+  delete from public.entry_history h
+   where h.entry_id = new.id
+     and h.id in (select x.id from public.entry_history x where x.entry_id = new.id order by x.changed_at desc, x.id offset 100);
+  return null;
+end;
+$$;
+
+drop trigger if exists entries_history on public.entries;
+create trigger entries_history after insert or update on public.entries
+  for each row execute function public.log_entry_history();
+
+-- ---------------------------------------------------------------------------------
+-- the private Storage bucket for receipts, and who may use it
+-- Files are JPEG only and at most 1 MB each (Storage enforces both on the bucket). Nothing here is public.
+-- ---------------------------------------------------------------------------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('receipts', 'receipts', false, 1048576, array['image/jpeg'])
+on conflict (id) do update
+  set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists receipts_objects_insert on storage.objects;
+drop policy if exists receipts_objects_select on storage.objects;
+drop policy if exists receipts_objects_delete on storage.objects;
+-- upload: only into your own folder, and only for a photo you have declared in the receipts table
+create policy receipts_objects_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'receipts' and (storage.foldername(name))[1] = (select auth.uid())::text and public.receipt_slot_open(name));
+-- read: everything in your own folder (Storage must be able to SEE a file to let you delete it, even once its photo is
+-- marked deleted), and the photos on shared expenses of groups you are in
+create policy receipts_objects_select on storage.objects for select to authenticated
+  using (bucket_id = 'receipts' and ((storage.foldername(name))[1] = (select auth.uid())::text or public.can_read_receipt(name)));
+-- remove: from your own folder only
+create policy receipts_objects_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'receipts' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ---------------------------------------------------------------------------------
+-- who may run what, and the access rules for the new tables
+-- ---------------------------------------------------------------------------------
+revoke all on function public.can_view_entry(uuid)             from public, anon, authenticated;
+revoke all on function public.can_edit_entry(uuid)             from public, anon, authenticated;
+revoke all on function public.receipt_slot_open(text)          from public, anon, authenticated;
+revoke all on function public.can_read_receipt(text)           from public, anon, authenticated;
+revoke all on function public.enforce_receipt_rules()          from public, anon, authenticated;
+revoke all on function public.keep_receipt_fixed()             from public, anon, authenticated;
+revoke all on function public.keep_unpurged_receipts()         from public, anon, authenticated;
+revoke all on function public.group_has_company(uuid)          from public, anon, authenticated;
+revoke all on function public.delete_receipts_with_entry()     from public, anon, authenticated;
+revoke all on function public.log_entry_history()              from public, anon, authenticated;
+-- used inside the access rules, which run as the signed-in user
+grant execute on function public.can_view_entry(uuid)    to authenticated;
+grant execute on function public.can_edit_entry(uuid)    to authenticated;
+grant execute on function public.receipt_slot_open(text) to authenticated;
+grant execute on function public.can_read_receipt(text)  to authenticated;
+
+alter table public.receipts      enable row level security;
+alter table public.entry_history enable row level security;
+alter table public.receipts      force row level security;
+alter table public.entry_history force row level security;
+
+revoke all on public.receipts      from anon, authenticated;
+revoke all on public.entry_history from anon, authenticated;
+grant select, insert, update on public.receipts to authenticated; -- no delete: a photo is marked deleted, then purged
+grant select on public.entry_history to authenticated;            -- written only by the trigger
+
+drop policy if exists receipts_select on public.receipts;
+drop policy if exists receipts_insert on public.receipts;
+drop policy if exists receipts_update on public.receipts;
+create policy receipts_select on public.receipts for select to authenticated
+  using (owner_id = (select auth.uid()) or public.can_view_entry(entry_id));
+create policy receipts_insert on public.receipts for insert to authenticated
+  with check (owner_id = (select auth.uid()) and public.can_edit_entry(entry_id));
+create policy receipts_update on public.receipts for update to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists entry_history_select on public.entry_history;
+create policy entry_history_select on public.entry_history for select to authenticated
+  using (public.is_group_member(group_id));

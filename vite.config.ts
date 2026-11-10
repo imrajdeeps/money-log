@@ -26,7 +26,7 @@ function csp(supabaseUrl: string): Plugin {
     "default-src 'none'",
     "script-src 'self'",
     "style-src 'self'",
-    "img-src 'self' data:",
+    "img-src 'self' data: blob:", // blob: = receipt photos shown from this phone's own copy; nothing is loaded from elsewhere
     `connect-src 'self'${origin ? ` ${origin}` : ''}`,
     "manifest-src 'self'",
     "worker-src 'self'",

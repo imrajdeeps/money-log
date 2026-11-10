@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context.tsx';
+import { LockScreen } from './components/LockScreen.tsx';
 import { SyncPill } from './components/SyncPill.tsx';
 import { ExportScreen } from './screens/ExportScreen.tsx';
 import { GroupsScreen } from './screens/GroupsScreen.tsx';
@@ -26,7 +27,9 @@ function Shell() {
   if (!app.ready) return <p className="boot" role="status">Opening your payments…</p>;
   const goSettings = () => setTab('settings');
   return (
-    <div className="app">
+    <>
+      {app.locked && <LockScreen />}
+      <div className="app" inert={app.locked}>
       <header className="top">
         <h1>Money Log</h1>
         <SyncPill onOpenSettings={goSettings} />
@@ -54,7 +57,8 @@ function Shell() {
         ))}
       </nav>
       <div className="toast" role="status" aria-live="polite">{app.toastMsg}</div>
-    </div>
+      </div>
+    </>
   );
 }
 

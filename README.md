@@ -3,7 +3,9 @@
 A small installable web app (PWA) for logging payments in about five seconds and seeing the month against your
 spreadsheet plan. Release 1 is the quick log, month vs budget, cloud sync with email-code sign-in, and export to the
 spreadsheet's Log tab. Release 2 adds shared groups (a family group, trip groups) with splits and settle-up, a due list
-with a calendar file, and a net worth and goals snapshot. It works on iPhone and Android, and offline.
+with a calendar file, and a net worth and goals snapshot. Release 3 adds receipt photos, the edit history of shared
+expenses, a one-tap "add my share to my budget", an optional PIN lock, and a Method column for the spreadsheet's Log tab.
+It works on iPhone and Android, and offline.
 
 The repository holds code only. Your plan numbers, balances and payments never go in it; they live on your phone and
 in your own Supabase database.
@@ -17,7 +19,9 @@ You need a free Supabase account and a GitHub account. Names of menus may differ
 1. Create a new project. Note the project URL.
 2. **SQL Editor:** paste and run `supabase/schema.sql`. Read it first; nothing in this repository applies it for you.
    Run it as the default `postgres` role (the SQL Editor does). It is safe to run again, and **if you already ran the
-   Release 1 version, run this one on top of it**: it adds the groups and keeps your data.
+   Release 1 or 2 version, run this one on top of it**: it adds what is new and keeps your data. It also creates the
+   private Storage bucket `receipts` for photos (free plan: 1 GB of file storage, 50 MB largest upload; the bucket is
+   limited to 1 MB JPEG files).
 3. Paste and run `supabase/rls_tests.sql`. The last message must be `ALL ACCESS TESTS PASSED`. It uses fake users,
    groups and rows inside a transaction that is rolled back, so nothing is kept. Run it again after every change to
    `schema.sql`.
@@ -81,8 +85,12 @@ Then tap **Mark as exported**: it marks exactly the payments you just copied, so
 If you later edit or delete a payment that was already exported, the Export tab lists it under **Changed after export**,
 because its spreadsheet row is now out of date and has to be fixed by hand.
 
-The payment method is written at the start of the note, for example `[UPI] lunch`. Text that Excel might misread (it
-starts with `=`, `+`, `-`, `@` or a quote, or looks like a date or number) gets a leading space so it stays plain text.
+The payment method is written at the start of the note, for example `[UPI] lunch`, unless your Log tab has a **Method
+column**: the current `Rajdeep - Money Plan v2.xlsx` does (Date, Category, Amount, Method, Note, then the Month and Group
+formulas). Tick *My spreadsheet's Log tab has a Method column* on the Export tab and the copy becomes five columns, with
+the note free of the prefix. It is off by default, so an older Log tab with four input columns keeps working; paste only
+into a Log tab whose columns match the box. Text that Excel might misread (it starts with `=`, `+`, `-`, `@` or a quote, or
+looks like a date or number) gets a leading space so it stays plain text.
 
 A **shared expense** is exported at **your share**, with the full amount kept in the note: `[UPI] dinner, my share of
 1,800`. An expense you owe nothing on is not exported, and expenses other people made never are.
@@ -106,6 +114,12 @@ A **shared expense** is exported at **your share**, with the full amount kept in
   expenses stay. An expense or payment that names someone who has left is locked (its amount, split and deletion), so
   nobody's balance changes behind their back. If the only admin wants to leave, they hand over admin first.
 - A shared expense must be one you paid or share in; nobody can record a debt between two other people.
+- **Add my share to my budget:** tap someone else's expense and the button logs your share as a payment of your own
+  (you pick the category), so your Month view and Log export include it. It does not change the group's balances, and
+  the button is not offered twice for the same expense.
+- **History:** a shared expense keeps a list of who created, changed or deleted it and what changed (amount, split, payer,
+  category, note, date). It is kept in the cloud (needs a connection to open), only for groups with two or more people,
+  the latest 100 changes per expense. An expense made private again leaves only "taken out of this group", never its values.
 
 Groups need a connection to create, join, leave or remove; expenses and payments inside a group can be added offline
 like any other.
@@ -119,6 +133,29 @@ dated item that is not done; by default the alert is 2 days before at 9:00, and 
 again later updates the same events instead of adding copies. Below it, **Net worth and goals** shows the imported
 figures. They are the spreadsheet's numbers at the plan month shown; they do not change as you log payments.
 
+## Receipt photos
+
+On the Log tab, **Take photo** or **Choose photo** before saving, or add and remove them later when you edit a payment (up
+to 3 photos per payment). Each photo is drawn again at most 1,600 pixels on its longest side and saved as JPEG under 1 MB,
+which also removes its location, camera and time. It is saved on the phone first, shows *Waiting to upload* until it has
+reached your private Supabase Storage, and works offline. Photos of a **private** payment are visible only to you; photos of
+a **shared** expense are visible to the members of that group, and stop being visible to them the moment the expense is made
+private again or deleted. Deleting a payment deletes its photos, and the app then removes the files from Storage.
+
+Limits: 3 photos per payment, 300 photos per account (each at most 1 MB, so at most 300 MB; the app counts photos because the
+database cannot see real file sizes), and the free plan's 1 GB for the whole project. Settings shows the space used by every
+photo you can see and warns at 80%. Photos are not in the backup file or the spreadsheet export. Because Storage files can
+only be removed through the Storage service, a payment cannot be hard-deleted in the database while its photos' files remain,
+and deleting a user in the dashboard leaves their files behind (see the security notes).
+
+## App lock
+
+Settings, *App lock*: a 4 to 8 digit PIN. The app starts covered by a PIN screen and covers itself again when you come back
+after the time you choose (every time, after 1 minute, or after 5 minutes). After 4 wrong tries each further one makes you wait
+longer (30 seconds, then 1, 2, 4... up to 15 minutes). It is a privacy screen, **not encryption**: the data stays readable in
+this browser's storage to anyone who can open its developer tools, so your phone's own lock is what protects it. A forgotten PIN
+cannot be recovered: you erase this phone's copy and sign in again (what is in the cloud stays).
+
 ## Updating the app
 
 After a new version is published, open the app twice: the first open fetches the new files in the background, the
@@ -127,7 +164,7 @@ second one uses them.
 ## Backups
 
 Settings, **Download backup** saves one JSON file with all *your own* payments (not other people's shared expenses),
-the three plan blocks and the Done marks. Keep one in iCloud Drive now and then. **Restore** merges it back in (newer
+the three plan blocks and the Done marks. It does not include receipt photos. Keep one in iCloud Drive now and then. **Restore** merges it back in (newer
 copies win).
 
 ## Developing
@@ -162,7 +199,12 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
 - Because the key is public and sign-ups are open while you invite people, each account is capped (20,000 payments and
   2,000 recorded group payments; plan data only under four known names; at most 10 groups made and 20 people per group),
   so a stranger's account cannot fill the free database. For stricter control keep sign-ups off except when inviting.
-- **Do not delete a user in the Supabase dashboard** if they have shared expenses: it would delete their expenses and so
+- Receipt photos: the Storage bucket `receipts` is private, JPEG only, 1 MB per file. A file can be uploaded only into your
+  own folder and only for a photo you declared first; you can read your own files and those on shared expenses of groups you
+  are in; you can remove only your own. Declaring a photo needs a payment of yours, and the 300-photo cap and the "purged only
+  once the file is gone" rule stop an account from hiding stored files to make room for more. These rules are tested against a
+  stand-in for Storage, not the real service, so check one upload, one view and one delete on your own project first.
+- **Do not delete a user in the Supabase dashboard** if they have shared expenses or receipt photos: it would delete their expenses and so
   change everyone else's balances (the database refuses it while others recorded them as payer). Ask them to leave their
   groups after settling up instead.
 - A Content-Security-Policy limits the page to its own files and your one Supabase address. There are no third-party
@@ -173,7 +215,7 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
 - Packages are installed with a lockfile and without install scripts. Workflow actions are pinned to major versions;
   pin them to commit SHAs if you want stricter supply-chain control.
 
-## Not yet built
+## Not built
 
-Receipt photos (Release 3). Your own budget does not count the part of someone else's expense that you owe until you
-log it yourself. There are no push notifications: reminders are the due list and the calendar file.
+Push notifications (reminders are the due list and the calendar file), and in-app budgets and categories (they come from the
+spreadsheet's budget block for now).

@@ -5,6 +5,8 @@ import { activeMembers, computeShares } from '../groups.ts';
 import { METHODS, fmtINR, isValidDate, isoDate, parseAmount } from '../logic.ts';
 import type { Entry, Method, NewEntryInput } from '../logic.ts';
 import { CategorySelect } from './CategorySelect.tsx';
+import { HistoryList } from './HistoryList.tsx';
+import { PhotoStrip } from './PhotoStrip.tsx';
 import { MethodChips } from './MethodChips.tsx';
 import { SplitEditor, splitFromEntry } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
@@ -68,7 +70,8 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      // a photo viewer inside this dialog also closes: React passes that close event up, so only our own counts
+      onClose={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onClick={(e) => { if (e.target === ref.current) close(); }}
       aria-labelledby="edit-title"
     >
@@ -94,6 +97,13 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
           <span>Date</span>
           <input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} />
         </label>
+        <PhotoStrip entryId={entry.id} canEdit={!readOnly} />
+        {shared && inGroup && entry.group_id && (
+          <div className="photostrip">
+            <p className="fieldlabel">History</p>
+            <HistoryList entryId={entry.id} groupId={entry.group_id} />
+          </div>
+        )}
         {error && <p className="msg bad" role="alert">{error}</p>}
         <div className="btnrow">
           <button type="submit" className="btn" disabled={readOnly}>Save</button>

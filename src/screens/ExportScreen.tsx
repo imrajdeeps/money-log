@@ -3,12 +3,22 @@ import { useApp } from '../context.tsx';
 import { copyText, saveFile } from '../files.ts';
 import { shortDate, stamp } from '../format.ts';
 import { changedAfterExport, exportRows, fmtINR, isoDate, monthOf, myShare, toCSV, toTSV } from '../logic.ts';
+import type { LogLayout } from '../logic.ts';
 
 type Scope = 'new' | 'month' | 'all';
+const LAYOUT_KEY = 'money-log.logLayout';
+// 'note' keeps the method at the start of the note (the original Log tab); 'column' is for a Log tab with a Method column.
+const savedLayout = (): LogLayout => { try { return localStorage.getItem(LAYOUT_KEY) === 'column' ? 'column' : 'note'; } catch { return 'note'; } };
 
 export function ExportScreen() {
   const app = useApp();
   const [scope, setScope] = useState<Scope>('new');
+  const [layout, setLayout] = useState<LogLayout>(savedLayout);
+  const pickLayout = (next: LogLayout) => {
+    setLayout(next);
+    setBatch([]);
+    try { localStorage.setItem(LAYOUT_KEY, next); } catch { /* a remembered choice is a convenience only */ }
+  };
   // The payments that were in the last Copy or Share. "Mark as exported" marks exactly these and nothing else, even if
   // a sync brings in more payments afterwards.
   const [batch, setBatch] = useState<string[]>([]);
@@ -16,8 +26,8 @@ export function ExportScreen() {
   const rows = useMemo(() => {
     const cur = monthOf(isoDate());
     const list = app.entries.filter((e) => (scope === 'all' ? true : scope === 'month' ? monthOf(e.entry_date) === cur : !e.exported_at));
-    return exportRows(list, app.me);
-  }, [app.entries, app.me, scope]);
+    return exportRows(list, app.me, layout);
+  }, [app.entries, app.me, scope, layout]);
 
   const markIds = useMemo(() => {
     const byId = new Map(app.entries.map((e) => [e.id, e]));
@@ -26,7 +36,7 @@ export function ExportScreen() {
 
   const changed = useMemo(() => changedAfterExport(app.allEntries), [app.allEntries]);
 
-  const tsv = toTSV(rows);
+  const tsv = toTSV(rows, layout);
   const n = rows.length;
   const plural = (k: number) => `${k} payment${k === 1 ? '' : 's'}`;
   // Only count batch members that are still unexported (they may have been marked, or deleted, since).
@@ -39,7 +49,7 @@ export function ExportScreen() {
   }
 
   async function share() {
-    const r = await saveFile(`money-log-${stamp()}.csv`, toCSV(rows), 'text/csv');
+    const r = await saveFile(`money-log-${stamp()}.csv`, toCSV(rows, layout), 'text/csv');
     if (r === 'cancelled') return;
     setBatch(markIds);
     app.toast(r === 'shared' ? 'CSV shared.' : 'CSV downloaded.');
@@ -87,7 +97,12 @@ export function ExportScreen() {
             <option value="all">All payments</option>
           </select>
         </label>
-        <p className="muted small">{n === 0 ? 'Nothing to export here.' : `${plural(n)}, oldest first. Columns: Date, Category, Amount, Note.`}</p>
+        <label className="check layoutcheck">
+          <input type="checkbox" checked={layout === 'column'} onChange={(e) => pickLayout(e.target.checked ? 'column' : 'note')} />
+          <span>My spreadsheet's Log tab has a Method column</span>
+        </label>
+        <p className="muted small">{layout === 'column' ? 'Five columns, for the Log tab with a Method column.' : 'Four columns: the method is written at the start of the note, like [UPI] lunch.'}</p>
+        <p className="muted small">{n === 0 ? 'Nothing to export here.' : `${plural(n)}, oldest first. Columns: ${layout === 'column' ? 'Date, Category, Amount, Method, Note' : 'Date, Category, Amount, Note'}.`}</p>
         <textarea className="preview" readOnly rows={8} value={tsv} aria-label="Rows to paste into the Log tab" placeholder="Nothing to export." />
         <div className="btnrow">
           <button type="button" className="btn" disabled={n === 0} onClick={copy}>Copy for Excel</button>
