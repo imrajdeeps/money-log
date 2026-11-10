@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   MAX_GOALS, MAX_TOPUPS, activeGoals, addGoal, addMonths, addTopUp, checkGoalInput, cleanGoals, editGoal, goalTerm, mergeGoals,
-  removeGoal, removeTopUp, sameGoals, topUpsOf, goalLine, goalProgress, monthsLeft,
+  removeGoal, removeTopUp, sameGoals, topUpsOf, goalLine, goalPlan, goalProgress, monthsLeft,
 } from '../../src/core/goals.ts';
 import type { GoalInput, Goals } from '../../src/core/goals.ts';
 import { makeBackup, parseBackup } from '../../src/data/backup.ts';
@@ -200,4 +200,22 @@ test('one line per goal: reached, date passed, or what to set aside a month (rou
   const done = made({ target: 1000, saved: 0, date: '2026-11-01', category: 'Savings' }, 5);
   const g5 = done[id(5)] as import('../../src/core/goals.ts').Goal;
   assert.deepEqual(goalLine(g5, goalProgress(g5, done, [pay({ amount: 1000 })]), TODAY), { state: 'reached' }); // a reached goal is reached even after its date
+});
+
+test('the plan: a monthly amount for each goal that still needs money, the total, and the Saving budget check both ways', () => {
+  let items = made({ name: 'Emergency fund', target: 100000, saved: 10000, date: '2027-06-30', category: '' }, 1); // 8 months: 11,250
+  items = made({ name: 'Laptop', target: 60000, saved: 0, date: '2027-01-31', category: '' }, 2, items); // 3 months: 20,000
+  items = made({ name: 'Old goal', target: 5000, saved: 0, date: '2026-10-01', category: '' }, 3, items); // passed
+  items = made({ name: 'Done goal', target: 1000, saved: 0, date: '2027-03-01', category: 'Savings' }, 4, items);
+  const rows = activeGoals(items).map((goal) => ({ goal, line: goalLine(goal, goalProgress(goal, items, [pay({ amount: 1000 })]), TODAY) }));
+  const short = goalPlan(rows, 30000);
+  assert.deepEqual(short.rows.map((r) => [r.goal.n, r.monthly, r.months]), [['Laptop', 20000, 3], ['Emergency fund', 11250, 8]]); // nearest date first
+  assert.deepEqual([short.total, short.reached, short.passed], [31250, 1, 1]);
+  assert.deepEqual([short.budget, short.gap, short.covers], [30000, 1250, false]); // 1,250 a month short
+  const spare = goalPlan(rows, 40000);
+  assert.deepEqual([spare.gap, spare.covers], [-8750, true]); // 8,750 to spare
+  assert.deepEqual([goalPlan(rows, 31250).gap, goalPlan(rows, 31250).covers], [0, true]); // exactly
+  const none = goalPlan(rows, null);
+  assert.deepEqual([none.budget, none.gap, none.covers], [null, null, null]); // no budget set: nothing to compare with
+  assert.deepEqual(goalPlan([], 1000), { rows: [], total: 0, budget: 1000, gap: -1000, covers: true, reached: 0, passed: 0 });
 });
