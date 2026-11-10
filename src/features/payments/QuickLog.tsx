@@ -188,7 +188,7 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
             onChange={(e) => {
               const id = e.target.value;
               setGroupId(id);
-              setSplit(id && app.me ? freshSplit(app.me, activeMembers(app.members, id)) : null);
+              setSplit(id && app.me ? freshSplit(app.me, activeMembers(app.members, id), app.groups.find((g) => g.id === id)?.usual_split ?? null) : null);
               setError('');
             }}
           >

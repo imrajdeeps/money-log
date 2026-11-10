@@ -61,6 +61,21 @@ export function cleanUsualSplit(v: any): UsualSplit | null {
   return Math.abs(total - 100) < 0.005 ? { mode: 'percent', percent } : null;
 }
 
+// The percentages (as the split editor holds them, one text per person) that a flatmates group's usual split gives the
+// people in it now, or null to start from an equal split: nothing set, "equal", or percentages that do not add up to 100
+// for the people who are in the group today (someone left, or joined after it was set).
+export function usualSplitValues(usual: UsualSplit | null, ids: string[]): Record<string, string> | null {
+  if (!usual || usual.mode !== 'percent') return null;
+  const values: Record<string, string> = {};
+  let total = 0;
+  for (const id of ids) {
+    const p = usual.percent[id] ?? 0;
+    values[id] = String(p);
+    total += p;
+  }
+  return Math.abs(total - 100) < 0.005 ? values : null;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanGroup(g: any): Group | null {
   if (!g || !isId(g.id) || typeof g.name !== 'string' || g.name.length < 1 || g.name.length > 60) return null;

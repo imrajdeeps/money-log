@@ -14,6 +14,8 @@ import { fmtINR, isValidDate, isoDate, myShare, parseAmount } from '../../core/l
 import type { Entry } from '../../core/logic.ts';
 import { TripSettings } from './TripSettings.tsx';
 import { TripSummary } from './TripSummary.tsx';
+import { FamilyMonth } from './FamilyMonth.tsx';
+import { UsualSplitCard } from './UsualSplitCard.tsx';
 import { tripDatesLabel } from '../../core/groupSummary.ts';
 import { useAction } from './useAction.ts';
 
@@ -143,6 +145,8 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
       </div>
 
       {group.kind === 'trip' && <TripSummary group={group} />}
+      {group.kind === 'family' && <FamilyMonth group={group} />}
+      {group.kind === 'flatmates' && <UsualSplitCard group={group} people={people} isAdmin={isAdmin} />}
 
       <h3 className="h2">Expenses and payments</h3>
       {items.length === 0 ? <p className="muted">Nothing yet.</p> : (
