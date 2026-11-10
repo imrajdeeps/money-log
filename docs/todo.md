@@ -11,10 +11,10 @@ What is planned, in the order it will be picked up. The owner says what is next;
 - [ ] Family: a "This month" summary; Couple: one Overview tile
 - [ ] Release 1.9.0 (package.json and Settings, About)
 
-## Next, needs a question round and a short PRD first
-- [ ] **Goals and a plan** — long-term and short-term goals made in the app (what, how much, by when, progress), and a generated plan: what to set aside each month to reach them given the budgets. Today the "Net worth and goals" figures are only imported from the spreadsheet.
+## Version 1.10: goals and a plan (the question round is done; the PRD is `docs/prd-goals.md`, waiting for the owner's go-ahead)
+- [ ] **Goals and a plan** — short-term and long-term goals made in the app (name, target amount, target date; short or long by the date), progress from manual top-ups and from payments in a linked category, and a generated plan: the monthly amount for each goal and whether the Saving budget covers it. Five steps, see the PRD.
 
-## Version 1.10 (decided)
+## Version 1.11 (decided; was 1.10 until goals took that number)
 - [ ] **Tailwind CSS** instead of the hand-written CSS (utility classes in the components, the CSS files deleted; colours and fonts in Tailwind's theme, light and dark kept). Approved to install `tailwindcss` 4.3.5 and `@tailwindcss/vite` 4.3.5 when it starts.
 - [ ] **Animations** — page and tile transitions, list changes, swipe and sheet motion; always respecting reduced motion.
 
