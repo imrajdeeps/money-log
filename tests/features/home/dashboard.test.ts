@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coupleTiles, dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
+import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from '../../../src/features/payments/payments.ts';
 import { dueKey } from '../../../src/core/blocks.ts';
 import type { DueBlock } from '../../../src/core/blocks.ts';
@@ -217,4 +217,44 @@ test('one Overview tile for each couple that has both people, with the one line'
   const many = [grp(G1, 'couple'), grp(G3, 'couple'), grp(G4, 'couple')];
   const both = [G1, G3, G4].flatMap((g) => [mem(g, CA, 'Raj'), mem(g, CB, 'Priya')]);
   assert.equal(coupleTiles(many, both, [], [], CA).length, 2);
+});
+
+import { addGoal as addGoalTo } from '../../../src/core/goals.ts';
+import type { Goals } from '../../../src/core/goals.ts';
+const GT = '2026-11-10';
+const gid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const goalsWith = (...specs: [name: string, target: number, saved: number, date: string][]): Goals =>
+  specs.reduce((items, [name, target, saved, date], i) => {
+    const r = addGoalTo(items, { name, target, date, saved, category: '' }, GT, '2026-11-10T10:00:00.000Z', gid(i + 1));
+    assert.ok(r.ok);
+    return r.items;
+  }, {} as Goals);
+
+const savingPay = (amount: number): Entry => ({
+  id: `sp${amount}`, owner_id: null, entry_date: GT, category: 'Savings', amount, note: '', method: null, created_at: '2026-11-10T10:00:00Z',
+  updated_at: '2026-11-10T10:00:00Z', deleted_at: null, exported_at: null, group_id: null, paid_by: null, shares: null, share_of: null, dirty: 0,
+});
+const linked = (...specs: [name: string, target: number, date: string][]): Goals =>
+  specs.reduce((items, [name, target, date], i) => {
+    const r = addGoalTo(items, { name, target, date, saved: 0, category: 'Savings' }, GT, '2026-11-10T10:00:00.000Z', gid(i + 1));
+    assert.ok(r.ok);
+    return r.items;
+  }, {} as Goals);
+
+test('the Overview goal tile: the nearest short-term goal that still needs money, else the nearest that does, else the nearest', () => {
+  assert.equal(nearestGoal({}, [], GT), null);
+  const mixed = goalsWith(['Retirement', 1000000, 0, '2030-01-01'], ['Laptop', 60000, 0, '2027-03-01'], ['Trip', 20000, 0, '2027-01-15']);
+  const t = nearestGoal(mixed, [], GT)!;
+  assert.deepEqual([t.goal.n, t.term, t.count, t.line.state], ['Trip', 'short', 3, 'needs']);
+  const onlyLong = goalsWith(['B', 1000, 0, '2030-01-01'], ['A', 1000, 0, '2029-01-01']);
+  assert.deepEqual([nearestGoal(onlyLong, [], GT)!.goal.n, nearestGoal(onlyLong, [], GT)!.term], ['A', 'long']);
+  // a short-term goal that is reached is passed over for a long-term one that still needs money
+  const oneDone = linked(['Small', 1000, '2027-01-01']);
+  const bigLong = goalsWith(['Big', 500000, 0, '2030-01-01']);
+  const both = { ...oneDone, ...bigLong };
+  assert.equal(nearestGoal(both, [savingPay(1000)], GT)!.goal.n, 'Big');
+  // when every goal is reached, the nearest one is shown, as reached
+  const all = linked(['B', 1000, '2027-02-01'], ['A', 1000, '2027-01-01']);
+  const r = nearestGoal(all, [savingPay(5000)], GT)!;
+  assert.deepEqual([r.goal.n, r.line.state], ['A', 'reached']);
 });

@@ -281,10 +281,10 @@ Uber, electricity ...) and only if that category is in your list. Check it and t
   example and the reader can be taught it (`src/features/payments/smsParse.ts`, tests in `tests/features/payments/smsParse.test.ts`). The plan is in
   `docs/prd-paste-message.md`.
 
-## Goals and a plan (version 1.10, being built)
+## Goals and a plan (version 1.10)
 
 Short-term and long-term goals made in the app, with a plan of what to set aside each month. Built in five steps (see
-`docs/prd-goals.md`); **steps 1 to 4 are in**.
+`docs/prd-goals.md`).
 
 - **The data** (step 1): a goal is a name, a target amount and a target date (and an optional amount already saved);
   top-ups are items of their own, so two phones adding one at the same time keep both; goals sync as one more block
@@ -301,7 +301,9 @@ Short-term and long-term goals made in the app, with a plan of what to set aside
   date first), the total a month, and one sentence against this month's Saving budget (the Saving group's planned amounts): *covers
   it, with ₹X to spare*, *is ₹X a month short*, or that no Saving budget is set. A goal past its date is left out until the date is
   changed. It is plain division, with no interest or returns.
-- Still to come: an Overview tile (5).
+- **The Overview tile** (step 5): *Goals* shows the nearest short-term goal that still needs money (else the nearest one that
+  does, else the nearest), with its saved amount, a bar and what it needs a month; with no goals it invites you to make one. It
+  opens the Goals page.
 
 ## Receipt photos
 
