@@ -41,8 +41,8 @@ function Shell() {
       )}
       <main>
         {/* All of them stay mounted so a half-typed payment survives a look at another tab. */}
-        <div hidden={tab !== 'log'}><LogScreen active={tab === 'log'} openSettings={goSettings} /></div>
-        <div hidden={tab !== 'month'}><MonthScreen openSettings={goSettings} /></div>
+        <div hidden={tab !== 'log'}><LogScreen active={tab === 'log'} /></div>
+        <div hidden={tab !== 'month'}><MonthScreen /></div>
         <div hidden={tab !== 'plan'}><PlanScreen openSettings={goSettings} /></div>
         <div hidden={tab !== 'groups'}><GroupsScreen openSettings={goSettings} /></div>
         <div hidden={tab !== 'export'}><ExportScreen /></div>

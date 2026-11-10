@@ -52,7 +52,7 @@ export function ExpenseDialog({ entry, group, onClose }: { entry: Entry; group: 
           <h3>Add my {fmtINR(share)} to my budget</h3>
           <p className="muted small">This makes a payment of your own for your share. It does not change the group's balances.</p>
           <label className="field" htmlFor="share-cat"><span>Category</span></label>
-          <CategorySelect id="share-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} plan={app.plan} />
+          <CategorySelect id="share-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
           <label className="field"><span>Note</span><input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} /></label>
           <label className="field"><span>Date</span><input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} /></label>
           {error && <p className="msg bad" role="alert">{error}</p>}

@@ -28,7 +28,9 @@ export interface Entry {
   dirty: 0 | 1; // 1 = changed on this phone and not yet pushed to the cloud
 }
 
-export interface PlanRow { c: string; g: Group; p: number[] }
+// u = 1 marks a category with no budget at all (one made in the app and left without an amount): its zero is "nothing set",
+// not a plan of zero, so spending on it is not "over". Rows from a spreadsheet never carry it.
+export interface PlanRow { c: string; g: Group; p: number[]; u?: 1 }
 export interface PlanData { v: 1; months: string[]; rows: PlanRow[] }
 export interface Plan extends PlanData { importedAt: string; dirty: 0 | 1 }
 
@@ -38,6 +40,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_AMOUNT = 1e9;
 
 export const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+
+// A category name as typed, tidied, and the key two spellings share when they differ only in case or spacing
+// (Excel's lookups ignore case too).
+export const normName = (name: string): string => name.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+export const catKey = (name: string): string => normName(name).toLowerCase();
 
 // ---------------------------------------------------------------- ids, dates, timestamps
 export function newId(): string {
@@ -362,43 +369,49 @@ export function cleanPlan(p: any): PlanData | null {
 }
 
 // ---------------------------------------------------------------- month view
-export interface MonthRow { category: string; group: Group; spent: number; planned: number; left: number }
+export interface MonthRow { category: string; group: Group; spent: number; planned: number; left: number; budgeted: boolean }
 export interface MonthSummary {
   month: string;
   hasPlan: boolean;
   count: number;
   rows: MonthRow[];
   extra: { category: string; spent: number }[];
-  groups: Record<Group, { spent: number; planned: number }>;
+  groups: Record<Group, { spent: number; planned: number; budgeted: boolean }>;
   totalSpent: number;
 }
 
 export function summarizeMonth(entries: Entry[], plan: PlanData | null, month: string): MonthSummary {
-  const spentBy = new Map<string, number>();
+  // Spending is matched to categories by catKey, so "groceries" and "Groceries" are one line.
+  const spentBy = new Map<string, { name: string; spent: number }>();
   let count = 0;
   for (const e of entries) {
     if (e.deleted_at || monthOf(e.entry_date) !== month) continue;
     count++;
-    spentBy.set(e.category, round2((spentBy.get(e.category) ?? 0) + e.amount));
+    const k = catKey(e.category);
+    const cur = spentBy.get(k) ?? { name: normName(e.category), spent: 0 };
+    cur.spent = round2(cur.spent + e.amount);
+    spentBy.set(k, cur);
   }
   const mi = plan ? plan.months.indexOf(month) : -1;
   const rows: MonthRow[] = [];
   const known = new Set<string>();
   if (plan) {
     for (const r of plan.rows) {
-      known.add(r.c);
-      const spent = spentBy.get(r.c) ?? 0;
+      const k = catKey(r.c);
+      known.add(k);
+      const spent = spentBy.get(k)?.spent ?? 0;
       const planned = mi >= 0 ? (r.p[mi] ?? 0) : 0;
-      rows.push({ category: r.c, group: r.g, spent, planned, left: round2(planned - spent) });
+      rows.push({ category: r.c, group: r.g, spent, planned, left: round2(planned - spent), budgeted: !r.u });
     }
   }
-  const extra = [...spentBy].filter(([c]) => !known.has(c)).map(([category, spent]) => ({ category, spent }));
-  const groups = Object.fromEntries(GROUPS.map((g) => [g, { spent: 0, planned: 0 }])) as Record<Group, { spent: number; planned: number }>;
+  const extra = [...spentBy].filter(([k]) => !known.has(k)).map(([, v]) => ({ category: v.name, spent: v.spent }));
+  const groups = Object.fromEntries(GROUPS.map((g) => [g, { spent: 0, planned: 0, budgeted: false }])) as Record<Group, { spent: number; planned: number; budgeted: boolean }>;
   for (const r of rows) {
     groups[r.group].spent = round2(groups[r.group].spent + r.spent);
     groups[r.group].planned = round2(groups[r.group].planned + r.planned);
+    if (r.budgeted) groups[r.group].budgeted = true;
   }
-  const totalSpent = round2([...spentBy.values()].reduce((a, b) => a + b, 0));
+  const totalSpent = round2([...spentBy.values()].reduce((a, b) => a + b.spent, 0));
   return { month, hasPlan: mi >= 0, count, rows, extra, groups, totalSpent };
 }
 

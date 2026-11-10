@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../context.tsx';
 import { copyText, saveFile } from '../files.ts';
+import { missingFromPlan } from '../categories.ts';
 import { shortDate, stamp } from '../format.ts';
 import { changedAfterExport, exportRows, fmtINR, isoDate, monthOf, myShare, toCSV, toTSV } from '../logic.ts';
 import type { LogLayout } from '../logic.ts';
@@ -35,6 +36,9 @@ export function ExportScreen() {
   }, [app.entries, rows]);
 
   const changed = useMemo(() => changedAfterExport(app.allEntries), [app.allEntries]);
+
+  // The spreadsheet adds payments up by the categories on its Budget tab; its Log shows "NOT IN LIST" for any other name.
+  const unknown = useMemo(() => missingFromPlan(rows.map((r) => r.category), app.plan), [rows, app.plan]);
 
   const tsv = toTSV(rows, layout);
   const n = rows.length;
@@ -103,6 +107,18 @@ export function ExportScreen() {
         </label>
         <p className="muted small">{layout === 'column' ? 'Five columns, for the Log tab with a Method column.' : 'Four columns: the method is written at the start of the note, like [UPI] lunch.'}</p>
         <p className="muted small">{n === 0 ? 'Nothing to export here.' : `${plural(n)}, oldest first. Columns: ${layout === 'column' ? 'Date, Category, Amount, Method, Note' : 'Date, Category, Amount, Note'}.`}</p>
+        {unknown.length > 0 && (
+          <p className="msg bad" role="alert">
+            The spreadsheet does not have {unknown.length === 1 ? 'this category' : 'these categories'}: <b>{unknown.join(', ')}</b>.
+            Its Log will show NOT IN LIST and the Budget and Tracker tabs will not count {unknown.length === 1 ? 'it' : 'them'} until you add
+            {unknown.length === 1 ? ' it' : ' them'} to the spreadsheet's category list (Inputs tab), or change the category of {unknown.length === 1 ? 'that payment' : 'those payments'} here.
+          </p>
+        )}
+        {!app.plan && n > 0 && (
+          <p className="muted small">
+            The spreadsheet only counts the categories on its Budget tab. If your list differs, import your plan in Settings and this screen will name the categories it is missing.
+          </p>
+        )}
         <textarea className="preview" readOnly rows={8} value={tsv} aria-label="Rows to paste into the Log tab" placeholder="Nothing to export." />
         <div className="btnrow">
           <button type="button" className="btn" disabled={n === 0} onClick={copy}>Copy for Excel</button>

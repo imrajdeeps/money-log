@@ -1017,3 +1017,101 @@ test('the my-share link travels with the payment to the other phone', async () =
   assert.equal(mock.state.entries.get(e.id).share_of, src);
   assert.equal((await a2.store.getEntry(e.id))!.share_of, src);
 });
+
+// ------------------------------------------------------------------ Release 4: categories and budgets made in the app
+import { addCategory, categoryList, removeCategory, setBudget } from '../src/categories.ts';
+import type { Mine } from '../src/categories.ts';
+import type { MineBlock } from '../src/sync.ts';
+
+const mineOf = async (d: ReturnType<typeof device>): Promise<Mine> => (await d.store.getMeta<MineBlock>('mine'))?.items ?? {};
+const change = (d: ReturnType<typeof device>, f: (m: Mine) => Mine) =>
+  d.store.mutateMeta<MineBlock>('mine', (cur) => ({ items: f(cur?.items ?? {}), dirty: 1 }));
+const add = (name: string, group: 'Spending' | 'Family' = 'Spending', at = iso()) => (m: Mine): Mine => {
+  const r = addCategory(m, categoryList(null, m), name, group, at);
+  assert.ok(r.ok);
+  return r.ok ? r.mine : m;
+};
+const budget = (name: string, amount: number, at = iso()) => (m: Mine): Mine => setBudget(m, categoryList(null, m).find((c) => c.name === name)!, amount, at);
+
+test('own categories and budgets travel between phones, and nothing is left waiting', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await change(a, add('Gym'));
+  await change(a, budget('Rent', 9000));
+  await a.sync.refreshPending();
+  assert.equal(a.sync.getState().pending, 1, 'one block waits to upload');
+  await a.sync.sync();
+  assert.equal(a.sync.getState().pending, 0);
+  assert.equal((await a.store.getMeta<MineBlock>('mine'))!.dirty, 0);
+  await b.sync.sync();
+  const got = categoryList(null, await mineOf(b));
+  assert.ok(got.some((c) => c.name === 'Gym' && c.source === 'mine'));
+  assert.equal(got.find((c) => c.name === 'Rent')?.budget, 9000);
+  assert.equal((await b.store.getMeta<MineBlock>('mine'))!.dirty, 0);
+  assert.equal(b.sync.getState().pending, 0);
+});
+
+test('two phones adding different categories offline both keep both', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await a.sync.sync(); await b.sync.sync();
+  await change(a, add('Gym', 'Spending', iso(-3000)));
+  await change(b, add('Pets', 'Family', iso(-2000)));
+  await a.sync.sync();   // the cloud now holds Gym only
+  await b.sync.sync();   // B merges Gym in and sends Gym + Pets
+  await a.sync.sync();
+  for (const d of [a, b]) {
+    const names = categoryList(null, await mineOf(d)).map((c) => c.name);
+    assert.ok(names.includes('Gym') && names.includes('Pets'), 'both categories on both phones');
+  }
+  assert.equal(a.sync.getState().pending + b.sync.getState().pending, 0);
+});
+
+test('the latest change to a category wins, and a removal reaches the other phone', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await change(a, add('Gym', 'Spending', iso(-9000)));
+  await change(a, budget('Rent', 100, iso(-9000)));
+  await a.sync.sync(); await b.sync.sync();
+  await change(b, budget('Rent', 250, iso(-2000)));
+  await change(a, budget('Rent', 175, iso(-6000)));   // older than B's change
+  await change(a, (m) => removeCategory(m, categoryList(null, m).find((c) => c.name === 'Gym')!, iso(-1000)));
+  await b.sync.sync(); await a.sync.sync(); await b.sync.sync();
+  for (const d of [a, b]) {
+    const l = categoryList(null, await mineOf(d));
+    assert.equal(l.find((c) => c.name === 'Rent')?.budget, 250, "B's later budget won on both phones");
+    assert.ok(!l.some((c) => c.name === 'Gym'), 'the removal reached both phones');
+  }
+});
+
+test('a change made while the categories are being pushed stays waiting and goes out next', async () => {
+  reset();
+  const a = device();
+  await a.signIn();
+  await change(a, add('Gym'));
+  a.net.beforeBlockPost = async () => { await change(a, add('Pets', 'Family')); };
+  await a.sync.sync();
+  assert.equal(a.sync.getState().pending, 1, 'the second change was not counted as uploaded');
+  await a.sync.sync();
+  assert.equal(a.sync.getState().pending, 0);
+  const cloud = [...mock.state.plans.values()].find((p) => p.block === 'categories')!.payload.items as Mine;
+  assert.deepEqual(Object.keys(cloud).sort(), ['gym', 'pets']);
+});
+
+test('category rows from the server that fail validation are ignored, and another account cannot read them', async () => {
+  reset();
+  const a = device('a@example.com'); const x = device('x@example.com');
+  await a.signIn(); await x.signIn();
+  const uid = [...mock.state.users.values()][0]!;
+  mock.state.plans.set(`${uid}|categories`, { block: 'categories', imported_at: iso(), payload: {
+    v: 1, items: { gym: { n: 'Gym', g: 'Spending', b: 5, x: 0, t: iso() }, bad: { n: 'Bad', g: 'Nope', b: 5, x: 0, t: iso() }, '__proto__': { n: 'x', g: 'Spending', b: 0, x: 0, t: iso() } },
+  } });
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.deepEqual(Object.keys(await mineOf(a)), ['gym']);
+  await x.sync.sync();
+  assert.deepEqual(await mineOf(x), {}, "another account sees nothing of A's categories");
+});

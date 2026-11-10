@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../context.tsx';
 import { monthLabel } from '../format.ts';
+import { BudgetsDialog } from '../components/BudgetsDialog.tsx';
+import { planCovers, planForMonth } from '../categories.ts';
 import { GROUPS, budgetEntries, budgetState, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../logic.ts';
 import type { BudgetState, Group } from '../logic.ts';
 
 const stateClass: Record<BudgetState, string> = { over: 'bad', ok: 'good', short: 'bad', idle: 'idle' };
 
-function Line({ group, spent, planned, over }: { group: Group; spent: number; planned: number; over: boolean }) {
+function Line({ group, spent, planned, over, budgeted }: { group: Group; spent: number; planned: number; over: boolean; budgeted: boolean }) {
+  if (!budgeted) return <><div className="bar" aria-hidden="true"><i className="idle" style={{ width: '0%' }} /></div><span className="left idle">no budget</span></>;
   const st = budgetState(group, spent, planned, over);
   const saving = group === 'Saving';
   const diff = planned - spent;
@@ -22,12 +25,18 @@ function Line({ group, spent, planned, over }: { group: Group; spent: number; pl
   );
 }
 
-export function MonthScreen({ openSettings }: { openSettings: () => void }) {
+export function MonthScreen() {
   const app = useApp();
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);
-  // Shared expenses count at this account's own share; other people's expenses never count.
-  const s = useMemo(() => summarizeMonth(budgetEntries(app.entries, app.me), app.plan, month), [app.entries, app.me, app.plan, month]);
+  const [editing, setEditing] = useState(false);
+  // Shared expenses count at this account's own share; other people's expenses never count. The budgets are the
+  // spreadsheet plan's figures where it covers the month and the ones set in the app everywhere else.
+  const s = useMemo(
+    () => summarizeMonth(budgetEntries(app.entries, app.me), planForMonth(app.plan, app.mine, month), month),
+    [app.entries, app.me, app.plan, app.mine, month],
+  );
+  const noBudgets = !app.plan && app.categories.every((c) => c.budget === 0);
   const monthIsOver = month < current;
   const shown = s.rows.filter((r) => r.planned > 0 || r.spent > 0);
 
@@ -39,13 +48,13 @@ export function MonthScreen({ openSettings }: { openSettings: () => void }) {
         <button type="button" className="btn ghost sq" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}>›</button>
       </div>
 
-      {!app.plan && (
+      {noBudgets && (
         <div className="card notice">
-          <p>No plan imported yet, so there is nothing to compare against.</p>
-          <button type="button" className="btn" onClick={openSettings}>Import plan</button>
+          <p>No budgets yet, so there is nothing to compare against. Give each category a monthly amount to see what is left.</p>
+          <button type="button" className="btn" onClick={() => setEditing(true)}>Set budgets</button>
         </div>
       )}
-      {app.plan && !s.hasPlan && <p className="muted">The plan has no figures for this month (it covers {monthLabel(app.plan.months[0] ?? month)} to {monthLabel(app.plan.months[app.plan.months.length - 1] ?? month)}). Spending is shown without a budget.</p>}
+      {app.plan && !planCovers(app.plan, month) && <p className="muted">Your spreadsheet plan covers {monthLabel(app.plan.months[0] ?? month)} to {monthLabel(app.plan.months[app.plan.months.length - 1] ?? month)}. This month uses the budgets set in the app.</p>}
 
       <div className="groups">
         {GROUPS.map((g) => {
@@ -54,8 +63,8 @@ export function MonthScreen({ openSettings }: { openSettings: () => void }) {
             <div key={g} className="card group">
               <h3>{g}</h3>
               <p className="big-num">{fmtINR(t.spent)}</p>
-              <p className="muted small">of {fmtINR(t.planned)}</p>
-              <Line group={g} spent={t.spent} planned={t.planned} over={monthIsOver} />
+              <p className="muted small">{t.budgeted ? `of ${fmtINR(t.planned)}` : '\u00a0'}</p>
+              <Line group={g} spent={t.spent} planned={t.planned} over={monthIsOver} budgeted={t.budgeted} />
             </div>
           );
         })}
@@ -69,7 +78,7 @@ export function MonthScreen({ openSettings }: { openSettings: () => void }) {
                 <b>{r.category}</b>
                 <span>{fmtINR(r.spent)}{r.planned > 0 ? <small className="muted"> / {fmtINR(r.planned)}</small> : null}</span>
               </div>
-              <Line group={r.group} spent={r.spent} planned={r.planned} over={monthIsOver} />
+              <Line group={r.group} spent={r.spent} planned={r.planned} over={monthIsOver} budgeted={r.budgeted} />
             </li>
           ))}
         </ul>
@@ -77,7 +86,7 @@ export function MonthScreen({ openSettings }: { openSettings: () => void }) {
 
       {s.extra.length > 0 && (
         <>
-          <h3 className="h2">Not in the plan</h3>
+          <h3 className="h2">Not in your categories</h3>
           <ul className="list">
             {s.extra.map((x) => (
               <li key={x.category} className="catline plain"><b>{x.category}</b><span>{fmtINR(x.spent)}</span></li>
@@ -87,6 +96,8 @@ export function MonthScreen({ openSettings }: { openSettings: () => void }) {
       )}
 
       <p className="muted small">{s.count} payment{s.count === 1 ? '' : 's'} this month · {fmtINR(s.totalSpent)} in total</p>
+      <button type="button" className="btn ghost" onClick={() => setEditing(true)}>Categories and budgets</button>
+      {editing && <BudgetsDialog onClose={() => setEditing(false)} />}
     </section>
   );
 }

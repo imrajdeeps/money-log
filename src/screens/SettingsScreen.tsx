@@ -124,9 +124,14 @@ function PlanCard() {
 
   return (
     <div className="card">
-      <h2>Plan data</h2>
+      <h2>Spreadsheet plan (optional)</h2>
+      <p className="muted small">
+        The app works on its own: it has built-in categories and you can add your own and set budgets on the Month tab.
+        If you also keep the spreadsheet, import its blocks here. The spreadsheet's categories, groups and planned amounts then
+        take over for the months it covers, and nothing you logged changes.
+      </p>
       <ul className="facts small">
-        <li><b>Budget</b>: {p ? `${p.rows.length} categories, ${monthLabel(p.months[0] ?? '')} to ${monthLabel(p.months[p.months.length - 1] ?? '')}. Imported ${importedOn(p.importedAt)}.` : 'not imported (needed for the category list and monthly budgets).'}</li>
+        <li><b>Budget</b>: {p ? `${p.rows.length} categories, ${monthLabel(p.months[0] ?? '')} to ${monthLabel(p.months[p.months.length - 1] ?? '')}. Imported ${importedOn(p.importedAt)}.` : 'not imported. Optional: the app has its own categories and budgets.'}</li>
         <li><b>Due list</b>: {due ? `${due.items.length} items. Imported ${importedOn(due.importedAt)}.` : 'not imported.'}</li>
         <li><b>Net worth and goals</b>: {net ? `${net.items.length} figures${net.asOf ? ` for ${monthLabel(net.asOf.slice(0, 7))}` : ''}. Imported ${importedOn(net.importedAt)}.` : 'not imported.'}</li>
       </ul>
@@ -275,7 +280,7 @@ function BackupCard() {
   const [msg, setMsg] = useState('');
 
   async function download() {
-    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, networth: app.net, dueDone: app.doneMap }), null, 2);
+    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, networth: app.net, dueDone: app.doneMap, categories: app.mine }), null, 2);
     const r = await saveFile(`money-log-backup-${stamp()}.json`, body, 'application/json');
     if (r !== 'cancelled') app.toast(r === 'shared' ? 'Backup shared.' : 'Backup downloaded.');
   }

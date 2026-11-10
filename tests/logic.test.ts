@@ -123,8 +123,8 @@ test('summarizeMonth adds up spending by category, group and unplanned categorie
   assert.equal(s.hasPlan, true);
   const rent = s.rows.find((r) => r.category === 'Rent');
   assert.deepEqual([rent?.spent, rent?.planned, rent?.left], [9000, 9000, 0]);
-  assert.deepEqual(s.groups.Spending, { spent: 9000, planned: 9000 });
-  assert.deepEqual(s.groups.Saving, { spent: 20000, planned: 50000 });
+  assert.deepEqual(s.groups.Spending, { spent: 9000, planned: 9000, budgeted: true });
+  assert.deepEqual(s.groups.Saving, { spent: 20000, planned: 50000, budgeted: true });
   assert.deepEqual(s.extra, [{ category: 'Groceries', spent: 300 }]);
   assert.equal(s.totalSpent, 29300);
   const outside = summarizeMonth(entries, PLAN, '2030-01');

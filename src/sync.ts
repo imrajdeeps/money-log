@@ -5,6 +5,8 @@
 //
 // Entries are written to the phone first. Each carries dirty = 1 until a push succeeds, so nothing is lost offline.
 import { cleanDoneMap, cleanDue, cleanNet, mergeDone, sameDone } from './blocks.ts';
+import { cleanMine, mergeMine, sameMine } from './categories.ts';
+import type { Mine } from './categories.ts';
 import type { DoneMap } from './blocks.ts';
 import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from './groups.ts';
 import type { Group, Invite, Member, Settlement } from './groups.ts';
@@ -61,9 +63,17 @@ const BLOCKS: Record<BlockName, { meta: string; clean: (p: unknown) => object | 
 const BLOCK_NAMES = Object.keys(BLOCKS) as BlockName[];
 const isBlock = (n: unknown): n is BlockName => typeof n === 'string' && Object.hasOwn(BLOCKS, n);
 interface StoredBlock { importedAt: string; dirty: 0 | 1 }
-// The Done marks on the due list are not imported: they are made in the app, merged per item, and synced as one more block.
+// Two more blocks are made in the app instead of imported, merged per item (the latest change to each item wins) and
+// synced as one row each: the Done marks on the due list, and the categories and budgets the person set.
 export interface DueDone { items: DoneMap; dirty: 0 | 1 }
-const DONE_BLOCK = 'due_done';
+export interface MineBlock { items: Mine; dirty: 0 | 1 }
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type Items = Record<string, any>;
+const MERGED: { block: string; meta: string; clean: (p: unknown) => Items; merge: (a: Items, b: Items) => Items; same: (a: Items, b: Items) => boolean }[] = [
+  { block: 'due_done', meta: 'dueDone', clean: cleanDoneMap, merge: mergeDone, same: sameDone },
+  { block: 'categories', meta: 'mine', clean: cleanMine, merge: mergeMine, same: sameMine },
+];
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function createSync(opts: SyncOptions) {
@@ -234,7 +244,7 @@ export function createSync(opts: SyncOptions) {
     pending += (await store.allSettlements()).filter((x) => x.dirty && pushable({ owner_id: x.created_by, group_id: x.group_id }, uid, active)).length;
     pending += (await store.allReceipts()).filter((r) => r.owner_id === uid && (r.dirty || needsUpload(r, uid) || needsPurge(r, uid))).length;
     for (const n of BLOCK_NAMES) if ((await store.getMeta<StoredBlock>(BLOCKS[n].meta))?.dirty) pending++;
-    if ((await store.getMeta<DueDone>('dueDone'))?.dirty) pending++;
+    for (const m of MERGED) if ((await store.getMeta<{ dirty: 0 | 1 }>(m.meta))?.dirty) pending++;
     set({ pending });
   }
 
@@ -352,15 +362,17 @@ export function createSync(opts: SyncOptions) {
       // Clear the flag only if a newer import did not arrive while the request was in flight.
       await store.mutateMeta<StoredBlock>(key, (cur) => (cur && cur.importedAt === importedAt ? { ...cur, dirty: 0 } : undefined));
     }
-    const done = await store.getMeta<DueDone>('dueDone');
-    if (done?.dirty) {
-      const sent = done.items;
+    for (const m of MERGED) {
+      const mine = await store.getMeta<{ items: Items; dirty: 0 | 1 }>(m.meta);
+      if (!mine?.dirty) continue;
+      const sent = mine.items;
       await request('/rest/v1/plan_blocks?on_conflict=owner_id,block', {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: [{ owner_id: uid, block: DONE_BLOCK, imported_at: new Date(now()).toISOString(), payload: { v: 1, items: sent } }],
+        body: [{ owner_id: uid, block: m.block, imported_at: new Date(now()).toISOString(), payload: { v: 1, items: sent } }],
       });
-      await store.mutateMeta<DueDone>('dueDone', (cur) => (cur && sameDone(cur.items, sent) ? { ...cur, dirty: 0 } : undefined));
+      // Clear the flag only if nothing changed on this phone while the request was in flight.
+      await store.mutateMeta<{ items: Items; dirty: 0 | 1 }>(m.meta, (cur) => (cur && m.same(cur.items, sent) ? { ...cur, dirty: 0 } : undefined));
     }
   }
 
@@ -558,13 +570,14 @@ export function createSync(opts: SyncOptions) {
   async function pullBlocks(): Promise<void> {
     const rows: any[] = (await request('/rest/v1/plan_blocks?select=block,imported_at,payload')) ?? [];
     for (const row of rows) {
-      if (row.block === DONE_BLOCK) {
+      const kind = MERGED.find((m) => m.block === row.block);
+      if (kind) {
         // Merge per item; if this phone knows something the cloud does not, mark it to be pushed.
-        const remote = cleanDoneMap(row.payload?.items);
-        await store.mutateMeta<DueDone>('dueDone', (cur) => {
-          const merged = mergeDone(cur?.items ?? {}, remote);
-          const dirty: 0 | 1 = cur?.dirty || !sameDone(merged, remote) ? 1 : 0;
-          return cur && sameDone(cur.items, merged) && cur.dirty === dirty ? undefined : { items: merged, dirty };
+        const remote = kind.clean(row.payload?.items);
+        await store.mutateMeta<{ items: Items; dirty: 0 | 1 }>(kind.meta, (cur) => {
+          const merged = kind.merge(cur?.items ?? {}, remote);
+          const dirty: 0 | 1 = cur?.dirty || !kind.same(merged, remote) ? 1 : 0;
+          return cur && kind.same(cur.items, merged) && cur.dirty === dirty ? undefined : { items: merged, dirty };
         });
         continue;
       }
