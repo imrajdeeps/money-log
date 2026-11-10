@@ -8,17 +8,17 @@ import type { Entry } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 
 // One payment as a tappable row: category, the day, method, note, your share.
-export function PaymentRow({ entry: e, onOpen }: { entry: Entry; onOpen: (e: Entry) => void }) {
+export function PaymentRow({ entry: e, onOpen, compact = false }: { entry: Entry; onOpen: (e: Entry) => void; compact?: boolean }) {
   const app = useApp();
   const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
   return (
-    <button type="button" className={ui.row} onClick={() => onOpen(e)}>
+    <button type="button" className={compact ? ui.rowCompact : ui.row} onClick={() => onOpen(e)}>
       <span className={ui.rowMain()}>
         <b>{e.category}</b>
         <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? `shared with ${groupName(e.group_id)}, total ${fmtINR(e.amount)}` : ''].filter(Boolean).join(' · ')}</small>
       </span>
       <span className="font-bold tabular-nums">{fmtINR(myShare(e, app.me))}</span>
-      {app.syncEnabled && e.dirty ? <span className="dot" role="img" aria-label="Waiting to sync" /> : null}
+      {app.syncEnabled && e.dirty ? <span className={ui.dot} role="img" aria-label="Waiting to sync" /> : null}
     </button>
   );
 }
@@ -32,8 +32,8 @@ export function RecentList({ limit, plain = false, empty }: { limit: number; pla
   return (
     <>
       {recent.length === 0 ? empty : (
-        <ul className={plain ? ui.list(true, 'my-0 -mx-2') + ' recent' : ui.list()}>
-          {recent.map((e) => <li key={e.id}><PaymentRow entry={e} onOpen={setEditing} /></li>)}
+        <ul className={plain ? ui.list(true, 'my-0 -mx-2') : ui.list()}>
+          {recent.map((e) => <li key={e.id}><PaymentRow entry={e} onOpen={setEditing} compact={plain} /></li>)}
         </ul>
       )}
       {/* outside the list: deleting the last payment empties the list before the dialog has reported that it closed */}

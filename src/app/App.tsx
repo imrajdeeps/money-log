@@ -47,7 +47,7 @@ function PageBody({ title, back, backLabel = 'Overview', onBack, children }: { t
   return (
     <section className={`${sh.page} animate-page-in`} aria-labelledby="page-title">
       {back && <button type="button" className={sh.backLink} onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
-      <div className={sh.pageHead}><h2 id="page-title">{title}</h2></div>
+      <div className={ui.pageHead}><h2 id="page-title">{title}</h2></div>
       {children}
     </section>
   );

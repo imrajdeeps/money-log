@@ -126,7 +126,7 @@ function Figure({ i }: { i: NetItem }) {
   return (
     <li className="catrow">
       <div className={ui.catLine}><span>{i.label}</span><b>{fmtNet(i)}</b></div>
-      {pct !== null && <div className="bar" aria-hidden="true"><i className="good" style={{ width: `${pct}%` }} /></div>}
+      {pct !== null && <div className={ui.bar} aria-hidden="true"><i className={ui.barFill('good')} style={{ width: `${pct}%` }} /></div>}
     </li>
   );
 }

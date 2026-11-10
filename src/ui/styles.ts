@@ -72,9 +72,12 @@ const LIST = 'list-none p-0 overflow-hidden [&>li+li]:border-t [&>li+li]:border-
 export function list(plain?: boolean, margin = 'm-0') {
   return cx(LIST, margin, plain ? 'bg-transparent border-0 rounded-none' : 'bg-card border border-line rounded-card');
 }
-export const row =
-  'flex w-full items-center gap-2.5 min-h-[58px] px-3.5 py-2.5 border-0 bg-transparent text-inherit text-left cursor-pointer [font-family:inherit] [font-size:inherit] [line-height:inherit] ' +
+const ROW_BASE =
+  'flex w-full items-center gap-2.5 border-0 bg-transparent text-inherit text-left cursor-pointer [font-family:inherit] [font-size:inherit] [line-height:inherit] ' +
   '[&>svg]:flex-none [&>svg]:text-muted [@media(hover:hover)]:hover:bg-[color-mix(in_srgb,var(--bg)_70%,transparent)]';
+export const row = `${ROW_BASE} min-h-[58px] px-3.5 py-2.5`;
+/** a row of the short list on the Overview: tighter, with rounded corners for the hover */
+export const rowCompact = `${ROW_BASE} min-h-[54px] p-2 rounded-xl`;
 const ROW_SMALL = '[&_small]:text-muted [&_small]:overflow-hidden [&_small]:text-ellipsis';
 /** the text part of a row; the small line under the title stays on one line unless `wrap` */
 export function rowMain(wrap?: boolean) {
@@ -126,3 +129,27 @@ const PILL_TONE = {
 /** the sync pill in the header */
 export const pill = (tone: keyof typeof PILL_TONE) => cx(PILL, PILL_TONE[tone]);
 export type PillTone = keyof typeof PILL_TONE;
+
+// ---- meters (budget bars) ---------------------------------------------------------------------------------------------
+const GROW = 'origin-left [animation:grow_700ms_cubic-bezier(0.2,0.8,0.2,1)_backwards]'; // the fill grows from the left when it appears
+/** a plain bar: put an <i style={{ width }}> with barFill() inside */
+export const bar = 'h-2 rounded-full bg-line overflow-hidden mt-2 mb-1';
+export const barFill = (tone?: 'good' | 'bad') => cx('block h-full rounded-full', tone === 'good' ? 'bg-good' : tone === 'bad' ? 'bg-bad' : 'bg-muted', GROW);
+const METER_TONE = {
+  accent: '[--meter:var(--accent)]',
+  warn: '[--meter:var(--warn)]',
+  bad: '[--meter:var(--bad)]',
+  good: '[--meter:var(--good)]',
+  idle: '[--meter:var(--muted)]',
+} as const;
+export type MeterTone = keyof typeof METER_TONE;
+/** a budget meter: the track is a light step of the fill's own colour; put an <i style={{ width }}> inside */
+export const meter = (tone: MeterTone, margin = 'mt-2 mb-1') =>
+  cx('h-2 rounded-full overflow-hidden bg-[color-mix(in_srgb,var(--meter)_16%,transparent)]', margin, METER_TONE[tone],
+    '[&>i]:block [&>i]:h-full [&>i]:rounded-[0_4px_4px_0] [&>i]:bg-[var(--meter)]', `[&>i]:${GROW.split(' ').join(' [&>i]:')}`);
+/** the words beside a meter ("2,000 left") */
+export const leftText = (tone?: 'good' | 'bad' | 'warn' | '') => cx('text-[13px] font-semibold', tone === 'good' ? 'text-good' : tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : 'text-muted');
+
+// ---- the page heading and the bits of a row ---------------------------------------------------------------------------
+export const pageHead = 'flex items-baseline justify-between gap-3 mt-0.5 mb-3.5 mx-0 [&_h2]:text-[24px] [&_h2]:m-0 [&_h2]:tracking-[-0.01em] [&_p]:m-0';
+export const dot = 'w-2.5 h-2.5 rounded-[50%] bg-warn flex-none';

@@ -79,3 +79,17 @@
 @keyframes dialog-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* the one big green tile on the Overview: the colour tokens are re-pointed inside it, so its text, meters, chips and chart
+   re-colour themselves (everything inside uses var(--ink), var(--muted) ... through Tailwind's names). In the utilities layer, after
+   the generated classes, so it wins over the tile's own bg-card and border-line. */
+@layer utilities {
+  .hero {
+    --card: var(--hero); --ink: #ffffff; --muted: #bcd5c7; --line: rgba(255, 255, 255, 0.2);
+    --accent: #c9e96a; --good: #c9e96a; --bad: #ffb4b4; --warn: #ffd27a;
+    --bg: rgba(255, 255, 255, 0.12); --good-bg: rgba(201, 233, 106, 0.16); --bad-bg: rgba(255, 180, 180, 0.16); --warn-bg: rgba(255, 210, 122, 0.16);
+    --chart-ref: rgba(255, 255, 255, 0.5); --shadow: 0 12px 28px -16px rgba(16, 74, 48, 0.7); --inner: 0 0 0 0 transparent;
+    background: var(--hero); color: var(--ink); border-color: transparent;
+  }
+  :root[data-theme='dark'] .hero { border-color: rgba(201, 233, 106, 0.14); }
+}
