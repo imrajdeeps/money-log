@@ -2,7 +2,9 @@ import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { DEFAULT_ALERT, buildIcs, classifyDue, cleanAlert, dueRelative, fmtNet } from '../../core/blocks.ts';
-import type { AlertPrefs, DueView, NetItem } from '../../core/blocks.ts';
+import type { AlertPrefs, DueView, NetItem, SentEvent } from '../../core/blocks.ts';
+import { afterExport, toCancel } from '../../core/calendar.ts';
+import { loadSent, saveSent } from '../../data/calendar.ts';
 import { saveFile } from '../../ui/files.ts';
 import { SwipeRow } from '../../ui/SwipeRow.tsx';
 import { monthLabel, shortDate, stamp } from '../../core/format.ts';
@@ -39,6 +41,7 @@ function DueRow({ v, onToggle, onCalendar, onDelete }: { v: DueView; onToggle: (
 function DueSection() {
   const app = useApp();
   const [alert, setAlert] = useState<AlertPrefs>(loadAlert);
+  const [sent, setSent] = useState(loadSent);
   const today = isoDate();
   const due = app.due;
   const views = useMemo(() => (due ? classifyDue(due.items, app.doneMap, due.importedAt, today) : []), [due, app.doneMap, today]);
@@ -48,10 +51,15 @@ function DueSection() {
     try { localStorage.setItem(ALERT_KEY, JSON.stringify(next)); } catch { /* a remembered choice is a convenience only */ }
   }
 
-  async function calendar(list: DueView[], name: string) {
-    const r = await saveFile(`money-log-${name}-${stamp()}.ics`, buildIcs(list, alert, new Date().toISOString()), 'text/calendar');
+  // `cancels` are the events an earlier file put in the calendar whose item is now finished, removed or renamed: only the full file carries them.
+  async function calendar(list: DueView[], name: string, cancels: readonly SentEvent[] = []) {
+    const r = await saveFile(`money-log-${name}-${stamp()}.ics`, buildIcs(list, alert, new Date().toISOString(), cancels), 'text/calendar');
     if (r === 'cancelled') return;
-    app.toast(r === 'shared' ? tr('Calendar file shared. Open it to add the events.') : tr('Calendar file downloaded. Open it to add the events.'));
+    const next = afterExport(sent, list, cancels);
+    setSent(next);
+    saveSent(next);
+    const base = r === 'shared' ? tr('Calendar file shared. Open it to add the events.') : tr('Calendar file downloaded. Open it to add the events.');
+    app.toast(cancels.length > 0 ? `${base} ${tr('{0} finished or removed event{1} cancelled in it.', cancels.length, cancels.length === 1 ? ' is' : 's are')}` : base);
   }
 
   function remove(v: DueView) {
@@ -64,6 +72,7 @@ function DueSection() {
   const undated = views.filter((v) => v.state === 'nodate');
   const finished = views.filter((v) => v.state === 'done');
   const calendarable = views.filter((v) => v.due && !v.isDone && v.due >= today);
+  const cancels = toCancel(sent, due.items, app.doneMap, due.importedAt);
 
   const block = (title: string, list: DueView[], badge?: string) => list.length > 0 && (
     <>
@@ -97,6 +106,7 @@ function DueSection() {
         <p className="text-muted text-[13px]">
           {tr('Makes a calendar file with every dated item that is not done yet ({0} now), each with an alert {1} at {2}. Open the file and your calendar app adds the events. Opening it again later updates them rather than adding copies.', calendarable.length, alert.daysBefore === 0 ? tr('on the day') : tr('{0} day{1} before', alert.daysBefore, alert.daysBefore === 1 ? '' : 's'), hourLabel(alert.hour))}
         </p>
+        <p className="text-muted text-[13px]">{tr('Events for items you have since finished or removed are cancelled in the next file, so your calendar drops them ({0} now). This covers only events this phone put in a file.', cancels.length)}</p>
         <div className={ui.btnRow}>
           <label className={ui.fieldHalf}>
             <span>{tr('Alert')}</span>
@@ -112,7 +122,7 @@ function DueSection() {
             </select>
           </label>
         </div>
-        <button type="button" className={ui.btn('solid', 'md', ui.inCard)} disabled={calendarable.length === 0} onClick={() => { void calendar(calendarable, 'due'); }}>
+        <button type="button" className={ui.btn('solid', 'md', ui.inCard)} disabled={calendarable.length === 0 && cancels.length === 0} onClick={() => { void calendar(calendarable, 'due', cancels); }}>
           {tr('Add {0} to calendar', calendarable.length)}
         </button>
       </div>
