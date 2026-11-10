@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as AddRouteImport } from './routes/add'
 import { Route as ExportRouteImport } from './routes/export'
+import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as MonthRouteImport } from './routes/month'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as PlanRouteImport } from './routes/plan'
@@ -39,6 +40,11 @@ const AddRoute = AddRouteImport.update({
 const ExportRoute = ExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GoalsRoute = GoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MonthRoute = MonthRouteImport.update({
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/add': typeof AddRoute
   '/export': typeof ExportRoute
+  '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/add': typeof AddRoute
   '/export': typeof ExportRoute
+  '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/add': typeof AddRoute
   '/export': typeof ExportRoute
+  '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/add'
     | '/export'
+    | '/goals'
     | '/month'
     | '/payments'
     | '/plan'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/add'
     | '/export'
+    | '/goals'
     | '/month'
     | '/payments'
     | '/plan'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/add'
     | '/export'
+    | '/goals'
     | '/month'
     | '/payments'
     | '/plan'
@@ -164,6 +176,7 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AddRoute: typeof AddRoute
   ExportRoute: typeof ExportRoute
+  GoalsRoute: typeof GoalsRoute
   MonthRoute: typeof MonthRoute
   PaymentsRoute: typeof PaymentsRoute
   PlanRoute: typeof PlanRoute
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/goals': {
+      id: '/goals'
+      path: '/goals'
+      fullPath: '/goals'
+      preLoaderRoute: typeof GoalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/month': {
@@ -260,6 +280,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AddRoute: AddRoute,
   ExportRoute: ExportRoute,
+  GoalsRoute: GoalsRoute,
   MonthRoute: MonthRoute,
   PaymentsRoute: PaymentsRoute,
   PlanRoute: PlanRoute,

@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   MAX_GOALS, MAX_TOPUPS, activeGoals, addGoal, addMonths, addTopUp, checkGoalInput, cleanGoals, editGoal, goalTerm, mergeGoals,
-  removeGoal, removeTopUp, sameGoals, topUpsOf,
+  removeGoal, removeTopUp, sameGoals, topUpsOf, goalLine, goalProgress, monthsLeft,
 } from '../../src/core/goals.ts';
 import type { GoalInput, Goals } from '../../src/core/goals.ts';
 import { makeBackup, parseBackup } from '../../src/data/backup.ts';
+import type { Entry } from '../../src/core/logic.ts';
 
 const TODAY = '2026-11-10';
 const NOW = '2026-11-10T10:00:00.000Z';
@@ -141,4 +142,62 @@ test('goals are in a backup and come back from it; an old backup without them st
   assert.ok(old.ok);
   assert.deepEqual(old.goals, {});
   assert.ok(!('goals' in JSON.parse(JSON.stringify(makeBackup([], null, NOW)))), 'nothing written when there are no goals');
+});
+
+const pay = (o: Partial<Entry>): Entry => ({
+  id: `p${Math.random()}`, owner_id: null, entry_date: '2026-11-10', category: 'Savings', amount: 1000, note: '', method: null, created_at: NOW, updated_at: NOW,
+  deleted_at: null, exported_at: null, group_id: null, paid_by: null, shares: null, share_of: null, dirty: 0, ...o,
+});
+
+test('saved so far: the starting amount, the top-ups, and payments in the linked category from the day the goal was made', () => {
+  let items = made({ saved: 10000, category: 'savings' }); // made on 2026-11-10; the category is spelled differently on purpose
+  const t = addTopUp(items, id(1), 5000, TODAY, TODAY, NOW, id(2));
+  assert.ok(t.ok);
+  items = t.items;
+  const g = items[id(1)] as import('../../src/core/goals.ts').Goal;
+  const p = goalProgress(g, items, [
+    pay({ amount: 2000 }), pay({ amount: 500.5, category: 'Savings ' }), // count
+    pay({ amount: 999, entry_date: '2026-11-09' }), // before the goal was made
+    pay({ amount: 999, category: 'Rent' }), // another category
+    pay({ amount: 999, deleted_at: NOW }), // deleted
+  ]);
+  assert.deepEqual([p.fromStart, p.fromTopUps, p.fromPayments, p.saved, p.remaining], [10000, 5000, 2500.5, 17500.5, 82499.5]);
+  assert.ok(Math.abs(p.fraction - 0.175005) < 1e-9 && !p.reached);
+  // a removed top-up stops counting; a goal with no linked category ignores payments
+  assert.equal(goalProgress(g, removeTopUp(items, id(2), NOW), []).fromTopUps, 0);
+  const plain = made({ category: '' }, 3);
+  assert.equal(goalProgress(plain[id(3)] as import('../../src/core/goals.ts').Goal, plain, [pay({ amount: 5000 })]).fromPayments, 0);
+});
+
+test('a goal is reached when nothing remains, and the bar never passes full', () => {
+  const items = made({ target: 1000, saved: 0, category: 'Savings' });
+  const g = items[id(1)] as import('../../src/core/goals.ts').Goal;
+  const p = goalProgress(g, items, [pay({ amount: 1500 })]);
+  assert.deepEqual([p.remaining, p.fraction, p.reached], [0, 1, true]);
+});
+
+test('months left count this month and never go below one', () => {
+  assert.equal(monthsLeft('2026-11-30', TODAY), 1);
+  assert.equal(monthsLeft('2026-12-01', TODAY), 2);
+  assert.equal(monthsLeft('2027-06-30', TODAY), 8);
+  assert.equal(monthsLeft('2027-11-10', TODAY), 13);
+  assert.equal(monthsLeft('2026-01-01', TODAY), 1); // passed
+});
+
+test('one line per goal: reached, date passed, or what to set aside a month (rounded up)', () => {
+  const items = made({ target: 100000, saved: 10000, date: '2027-06-30', category: '' }); // 8 months left, 90,000 to go
+  const g = items[id(1)] as import('../../src/core/goals.ts').Goal;
+  assert.deepEqual(goalLine(g, goalProgress(g, items, []), TODAY), { state: 'needs', monthly: 11250, months: 8 });
+  const odd = made({ target: 1000, saved: 1, date: '2027-01-31', category: '' }, 2);
+  const g2 = odd[id(2)] as import('../../src/core/goals.ts').Goal;
+  assert.deepEqual(goalLine(g2, goalProgress(g2, odd, []), TODAY), { state: 'needs', monthly: 333, months: 3 }); // 999 / 3 = 333; 333.0 exactly
+  const odd2 = made({ target: 1000, saved: 0, date: '2027-01-31', category: '' }, 3);
+  const g3 = odd2[id(3)] as import('../../src/core/goals.ts').Goal;
+  assert.deepEqual(goalLine(g3, goalProgress(g3, odd2, []), TODAY), { state: 'needs', monthly: 334, months: 3 }); // 333.33 rounds up
+  const old = made({ date: '2026-11-01', saved: 0, category: '' }, 4);
+  const g4 = old[id(4)] as import('../../src/core/goals.ts').Goal;
+  assert.deepEqual(goalLine(g4, goalProgress(g4, old, []), TODAY), { state: 'passed', remaining: 100000 });
+  const done = made({ target: 1000, saved: 0, date: '2026-11-01', category: 'Savings' }, 5);
+  const g5 = done[id(5)] as import('../../src/core/goals.ts').Goal;
+  assert.deepEqual(goalLine(g5, goalProgress(g5, done, [pay({ amount: 1000 })]), TODAY), { state: 'reached' }); // a reached goal is reached even after its date
 });

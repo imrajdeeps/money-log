@@ -13,7 +13,7 @@ import type { Group } from '../../core/logic.ts';
 import { fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
-export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export';
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export' | 'goals';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;

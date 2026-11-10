@@ -145,10 +145,15 @@ function SnapshotSection() {
   );
 }
 
-export function PlanScreen({ openSettings }: { openSettings: () => void }) {
+export function PlanScreen({ openSettings, openGoals }: { openSettings: () => void; openGoals: () => void }) {
   const app = useApp();
   return (
     <div>
+      <div className="card">
+        <h3>Goals</h3>
+        <p className="muted small">Make short-term and long-term goals, see how far along each one is, and what to set aside each month.</p>
+        <button type="button" className="btn" onClick={openGoals}>Open goals</button>
+      </div>
       {!app.due && !app.net && (
         <div className="card notice">
           <p><strong>Nothing imported yet.</strong> The due list and the net worth and goals figures come from the spreadsheet's App export tab.</p>

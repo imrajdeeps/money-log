@@ -13,6 +13,7 @@ import { AllPayments } from '../features/payments/index.ts';
 import { SyncPill } from '../ui/SyncPill.tsx';
 import { ThemeToggle } from '../features/settings/index.ts';
 import { ExportScreen } from '../features/export/index.ts';
+import { GoalsScreen } from '../features/goals/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
 import type { Section } from '../features/home/index.ts';
@@ -27,9 +28,9 @@ import { SettingsScreen } from '../features/settings/index.ts';
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', export: '/export', payments: '/payments' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', export: '/export', payments: '/payments', goals: '/goals' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', export: 'Export to the spreadsheet', payments: 'All payments' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', export: 'Export to the spreadsheet', payments: 'All payments', goals: 'Goals' };
 
 const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'month', label: 'Month', icon: 'month' },
@@ -38,10 +39,10 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'export', label: 'Export', icon: 'export' },
 ];
 
-function PageBody({ title, back, onBack, children }: { title: string; back?: boolean; onBack?: () => void; children: ReactNode }) {
+function PageBody({ title, back, backLabel = 'Overview', onBack, children }: { title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }) {
   return (
     <section className="page" aria-labelledby="page-title">
-      {back && <button type="button" className="settings-back" onClick={onBack}><Icon name="chevron" size={20} />Overview</button>}
+      {back && <button type="button" className="settings-back" onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
       <div className="pagehead"><h2 id="page-title">{title}</h2></div>
       {children}
     </section>
@@ -97,7 +98,7 @@ function Shell() {
   }
 
   const toast = <div className="toast" role="status" aria-live="polite">{app.toastMsg}</div>;
-  const current = (id: Page) => (page === id ? 'page' : undefined);
+  const current = (id: Page) => (page === id || (id === 'plan' && page === 'goals') ? 'page' : undefined); // the Goals page belongs to Plan
 
   return (
     <>
@@ -133,8 +134,9 @@ function Shell() {
           <PageBody title="Add expense" back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} /></PageBody>}
-        {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} /></PageBody>}
+        {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} openGoals={() => goPage('goals')} /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
+        {page === 'goals' && <PageBody title={TITLES.goals} back backLabel="Plan" onBack={() => goPage('plan')}><GoalsScreen /></PageBody>}
         {page === 'export' && <PageBody title={TITLES.export}><ExportScreen /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}
       </main>
