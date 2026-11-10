@@ -13,9 +13,9 @@ export function PlanCard({ plan }: { plan: GoalPlan }) {
     );
   }
   return (
-    <div className="card plancard">
+    <div className="card">
       <h3>Plan</h3>
-      <p className="big-num">{fmtINR(plan.total)} <small className="muted">a month</small></p>
+      <p className="big-num mb-1.5">{fmtINR(plan.total)} <small className="muted">a month</small></p>
       <ul className="list plainlist">
         {plan.rows.map((r) => (
           <li key={r.goal.id} className="catline plain"><span>{r.goal.n}</span><span>{fmtINR(r.monthly)} <small className="muted">for {r.months} {r.months === 1 ? 'month' : 'months'}</small></span></li>
@@ -24,9 +24,9 @@ export function PlanCard({ plan }: { plan: GoalPlan }) {
       {plan.budget === null ? (
         <p className="muted small">You have no Saving budget set for this month, so there is nothing to compare this with. Set one under Month, Categories and budgets.</p>
       ) : plan.covers ? (
-        <p className="planverdict ok">Your Saving budget of {fmtINR(plan.budget)} covers it{plan.gap! < 0 ? `, with ${fmtINR(-plan.gap!)} to spare` : ' exactly'}.</p>
+        <p className="mt-2.5 mb-1.5 font-semibold text-good">Your Saving budget of {fmtINR(plan.budget)} covers it{plan.gap! < 0 ? `, with ${fmtINR(-plan.gap!)} to spare` : ' exactly'}.</p>
       ) : (
-        <p className="planverdict short">Your Saving budget of {fmtINR(plan.budget)} is {fmtINR(plan.gap!)} a month short of this.</p>
+        <p className="mt-2.5 mb-1.5 font-semibold text-bad">Your Saving budget of {fmtINR(plan.budget)} is {fmtINR(plan.gap!)} a month short of this.</p>
       )}
       {plan.passed > 0 && <p className="muted small">{plan.passed} {plan.passed === 1 ? 'goal is' : 'goals are'} past {plan.passed === 1 ? 'its' : 'their'} date and left out until the date is changed.</p>}
       <p className="muted small">This is what is left of each goal divided by the months to its date, counting this month. It assumes no interest or returns.</p>

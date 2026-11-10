@@ -27,12 +27,28 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="referrer" content="no-referrer" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Money Log</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- The start screen, here as plain markup so there is no blank moment before the first script has run. React replaces it
+           with the same thing (src/ui/Splash.tsx) and then fades it out. Keep the two in step. -->
+      <div class="splash fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-[linear-gradient(160deg,#1b6b47_0%,#124d33_55%,#0a3322_100%)] text-[#ffffff] transition-opacity duration-300" role="status" aria-label="Opening Money Log">
+        <svg width="112" height="112" viewBox="64 64 384 384" aria-hidden="true" focusable="false" class="animate-splash-in">
+        <defs><linearGradient id="logo-ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3f6a0"/><stop offset="1" stop-color="#b9de55"/></linearGradient></defs>
+        <circle cx="256" cy="256" r="196" fill="#ffffff" fill-opacity="0.06"/>
+        <circle class="animate-ring" cx="256" cy="256" r="196" fill="none" stroke="#c9e96a" stroke-opacity="0.55" stroke-width="6"/>
+        <circle cx="256" cy="256" r="172" fill="none" stroke="#c9e96a" stroke-opacity="0.16" stroke-width="2"/>
+        <path d="M120 372 L196 318 L246 346 L318 268 L392 214" fill="none" stroke="#c9e96a" stroke-opacity="0.22" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        <g fill="none" stroke="url(#logo-ink)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"><path d="M164 150 H352 M164 208 H352"/><path d="M164 150 H232 C292 150 312 184 312 208 C312 258 270 280 232 280 L336 392"/></g>
+      </svg>
+        <p class="m-0 text-[26px] font-bold tracking-[-0.01em]">Money Log</p>
+        <p class="m-0 text-sm text-[#ffffffb3]">Opening your payments…</p>
+      </div>
+    </div>
     <noscript>Money Log needs JavaScript to run.</noscript>
     <script type="module" src="/src/app/main.tsx"></script>
   </body>

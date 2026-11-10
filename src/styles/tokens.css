@@ -39,8 +39,6 @@
   --bad-bg: #ffe9ec;
   --warn-bg: #fff1d4;
   --chart-ref: #9aa39b; /* last month's line: a quiet grey next to the accent colour */
-  --skel: #e8ebe6;
-  --skel-hi: #f4f6f2;
   --shadow: 0 1px 2px rgba(16, 40, 28, 0.05);
   --shadow-hover: 0 12px 28px -14px rgba(16, 40, 28, 0.35);
   --inner: 0 0 0 0 transparent;
@@ -68,8 +66,6 @@
   --bad-bg: #3a1519;
   --warn-bg: #38290c;
   --chart-ref: #5d6b62;
-  --skel: #1d2722;
-  --skel-hi: #26332c;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-hover: 0 14px 32px -14px rgba(0, 0, 0, 0.75);
   --inner: inset 0 1px 0 rgba(255, 255, 255, 0.04);

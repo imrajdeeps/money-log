@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -136,7 +137,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: BASE,
     // Writes src/routeTree.gen.ts from the files in src/routes. One chunk: the app is small and works offline.
-    plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: false }), csp(env.VITE_SUPABASE_URL ?? ''), serviceWorker(), spaFallback()],
+    plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: false }), tailwindcss(), csp(env.VITE_SUPABASE_URL ?? ''), serviceWorker(), spaFallback()],
     build: { target: 'es2022', modulePreload: { polyfill: false } },
     oxc: { jsx: { runtime: 'automatic' } },
   };
