@@ -11,7 +11,7 @@ export function BackupCard() {
   const [msg, setMsg] = useState('');
 
   async function download() {
-    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, networth: app.net, dueDone: app.doneMap, categories: app.mine, recurring: app.recurring }), null, 2);
+    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, networth: app.net, dueDone: app.doneMap, categories: app.mine, recurring: app.recurring, goals: app.goals }), null, 2);
     const r = await saveFile(`money-log-backup-${stamp()}.json`, body, 'application/json');
     if (r !== 'cancelled') app.toast(r === 'shared' ? 'Backup shared.' : 'Backup downloaded.');
   }

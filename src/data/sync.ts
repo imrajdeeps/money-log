@@ -24,7 +24,7 @@ import { isRefusal, pushable, toReceiptRow, toRow, toSettlementRow } from './syn
 // Everything other files used to import from here still comes from here.
 export type { SyncConfig, SyncMode, SyncOptions, SyncState } from './syncTypes.ts';
 export { SyncError } from './syncTypes.ts';
-export type { DueDone, MineBlock, RecurBlock } from './syncBlocks.ts';
+export type { DueDone, GoalsBlock, MineBlock, RecurBlock } from './syncBlocks.ts';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function createSync(opts: SyncOptions) {

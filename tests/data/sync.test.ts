@@ -1414,3 +1414,63 @@ test('recurring payments of another account, and malformed rows from the cloud, 
   await a.sync.sync();
   assert.equal((await recurOf(a))[RID(1)]?.a, 20000, 'the bad copy was ignored; this phone keeps its good one');
 });
+
+// ------------------------------------------------------------------ goals (a merged block of goals and top-ups)
+import { addGoal, addTopUp, topUpsOf } from '../../src/core/goals.ts';
+import type { Goals } from '../../src/core/goals.ts';
+import type { GoalsBlock } from '../../src/data/sync.ts';
+
+const goalsOf = async (d: ReturnType<typeof device>): Promise<Goals> => (await d.store.getMeta<GoalsBlock>('goals'))?.items ?? {};
+const changeGoals = (d: ReturnType<typeof device>, f: (g: Goals) => Goals) =>
+  d.store.mutateMeta<GoalsBlock>('goals', (cur) => ({ items: f(cur?.items ?? {}), dirty: 1 }));
+const makeGoal = (id: string, at: string) => (g: Goals): Goals => {
+  const x = addGoal(g, { name: 'Emergency fund', target: 100000, date: '2027-06-30', saved: 0, category: 'Savings' }, '2026-11-10', at, id);
+  assert.ok(x.ok);
+  return x.ok ? x.items : g;
+};
+const topUp = (goal: string, id: string, amount: number, at: string) => (g: Goals): Goals => {
+  const x = addTopUp(g, goal, amount, '2026-11-10', '2026-11-10', at, id);
+  assert.ok(x.ok);
+  return x.ok ? x.items : g;
+};
+
+test('goals travel between phones, and nothing is left waiting', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeGoals(a, makeGoal(RID(1), iso()));
+  await a.sync.refreshPending();
+  assert.equal(a.sync.getState().pending, 1, 'one block waits to upload');
+  await a.sync.sync();
+  assert.equal(a.sync.getState().pending, 0);
+  assert.equal((await a.store.getMeta<GoalsBlock>('goals'))!.dirty, 0);
+  assert.ok([...mock.state.plans.values()].some((p) => p.block === 'goals'), 'stored as its own block in the cloud');
+  await b.sync.sync();
+  assert.equal((await goalsOf(b))[RID(1)]?.k, 'g');
+  assert.equal(b.sync.getState().pending, 0);
+});
+
+test('top-ups added on two phones at once are both kept', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeGoals(a, makeGoal(RID(1), iso(-5000)));
+  await a.sync.sync(); await b.sync.sync();
+  await changeGoals(a, topUp(RID(1), RID(2), 100, iso(-2000)));
+  await changeGoals(b, topUp(RID(1), RID(3), 200, iso(-1000)));
+  await a.sync.sync(); await b.sync.sync(); await a.sync.sync();
+  for (const d of [a, b]) assert.deepEqual(topUpsOf(await goalsOf(d), RID(1)).map((t) => t.a).sort((x, y) => x - y), [100, 200]);
+});
+
+test('goals of another account, and malformed rows from the cloud, are never taken in', async () => {
+  reset();
+  const a = device('a@example.com'); const x = device('x@example.com');
+  await a.signIn(); await x.signIn();
+  const uid = [...mock.state.users.values()][0]!;
+  await changeGoals(a, makeGoal(RID(1), iso()));
+  await a.sync.sync(); await x.sync.sync();
+  assert.deepEqual(await goalsOf(x), {}, "another account sees nothing of A's goals");
+  mock.state.plans.set(`${uid}|goals`, { block: 'goals', imported_at: iso(), payload: { v: 1, items: { [RID(1)]: { id: RID(1), k: 'g', n: 'Bad', a: -10, d: '2027-01-01', s: 0, c: '', b: '2026-11-10', x: 0, t: iso(5000) }, junk: 5 } } });
+  await a.sync.sync();
+  assert.equal((await goalsOf(a))[RID(1)]?.k === 'g' && ((await goalsOf(a))[RID(1)] as { a: number }).a, 100000, 'the bad copy was ignored; this phone keeps its good one');
+});
