@@ -63,10 +63,15 @@ alter table public.plan_blocks add constraint plan_blocks_block_known check (blo
 create table if not exists public.groups (
   id          uuid primary key default gen_random_uuid(),
   name        text not null check (char_length(name) between 1 and 60),
-  kind        text not null check (kind in ('family', 'trip')),
+  kind        text not null check (kind in ('family', 'trip', 'flatmates', 'couple')),
   created_by  uuid references auth.users (id) on delete set null,
   created_at  timestamptz not null default now()
 );
+
+-- The kinds a group can have. Family and trip came first; flatmates and couple were added later, so a database made
+-- before then has the old, shorter list and this replaces it (safe to run again).
+alter table public.groups drop constraint if exists groups_kind_check;
+alter table public.groups add constraint groups_kind_check check (kind in ('family', 'trip', 'flatmates', 'couple'));
 
 -- A row stays after someone leaves (left_at set): the group's old expenses still name that person.
 create table if not exists public.group_members (
@@ -462,7 +467,7 @@ declare
 begin
   if uid is null then raise exception 'Not signed in' using errcode = '28000'; end if;
   if char_length(nm) not between 1 and 60 then raise exception 'Give the group a name of 1 to 60 characters' using errcode = '22023'; end if;
-  if p_kind not in ('family', 'trip') then raise exception 'A group is a family or a trip' using errcode = '22023'; end if;
+  if p_kind not in ('family', 'trip', 'flatmates', 'couple') then raise exception 'A group is a family, a trip, flatmates or a couple' using errcode = '22023'; end if;
   if char_length(dn) not between 1 and 40 then raise exception 'Enter the name others will see you as (1 to 40 characters)' using errcode = '22023'; end if;
   if (select count(*) from public.groups g where g.created_by = uid) >= 10 then
     raise exception 'You can create at most 10 groups' using errcode = '53400';
@@ -499,6 +504,10 @@ begin
   end if;
   if (select count(*) from public.group_members m where m.group_id = gid and m.left_at is null) >= 20 then
     raise exception 'This group is full (20 people)' using errcode = '53400';
+  end if;
+  if (select g.kind from public.groups g where g.id = gid) = 'couple'
+     and (select count(*) from public.group_members m where m.group_id = gid and m.left_at is null) >= 2 then
+    raise exception 'A couple is only two people' using errcode = '53400';
   end if;
 
   -- coming back is always as a plain member, whatever the person was before

@@ -649,6 +649,38 @@ begin
   if n <> 1 then raise exception 'FAIL the note of an expense naming a removed member could not be edited'; end if;
   raise notice 'PASS removing a member needs a zero balance and replaces the invite code; what involved them is frozen';
 
+  -- =========================================================================
+  -- 5b. BEHAVIOUR: group kinds (a couple is two people)
+  -- =========================================================================
+  declare
+    gcouple uuid;
+    gflat uuid;
+    ccode text;
+  begin
+    perform pg_temp.act_as(a);
+    gflat := public.create_group('Flat 4B', 'flatmates', 'Asha');
+    if (select kind from public.groups where id = gflat) <> 'flatmates' then raise exception 'FAIL a flatmates group was not stored as flatmates'; end if;
+    if not pg_temp.fails($q$select public.create_group('Party', 'party', 'Asha')$q$) then raise exception 'FAIL a group of an unknown kind was created'; end if;
+    if not pg_temp.fails($q$update public.groups set kind = 'couple'$q$) then raise exception 'FAIL a member changed a group kind directly'; end if;
+
+    gcouple := public.create_group('Us two', 'couple', 'Asha');
+    select i.code into ccode from public.group_invites i where i.group_id = gcouple;
+    perform pg_temp.act_as(b);
+    perform public.join_group(ccode, 'Ravi');
+    perform pg_temp.act_as(c);
+    if not pg_temp.fails(format($q$select public.join_group(%L, 'Cee')$q$, ccode)) then raise exception 'FAIL a third person joined a couple'; end if;
+    -- when one of the two leaves there is room again, and the room is for one person only
+    perform pg_temp.act_as(b);
+    perform public.leave_group(gcouple);
+    perform pg_temp.act_as(a);
+    ccode := public.reset_invite(gcouple);
+    perform pg_temp.act_as(c);
+    perform public.join_group(ccode, 'Cee');
+    perform pg_temp.act_as(d);
+    if not pg_temp.fails(format($q$select public.join_group(%L, 'Dev')$q$, ccode)) then raise exception 'FAIL a third person joined a couple after one left and another joined'; end if;
+    raise notice 'PASS new kinds are accepted, unknown kinds refused, and a couple is two people';
+  end;
+
   -- coming back is as a plain member, even for a former admin; a group with no admin is taken over by the next joiner
   perform pg_temp.act_as(a);
   gid5 := public.create_group('Club', 'trip', 'Asha');

@@ -4,6 +4,8 @@
 // Money is added up in whole paise (integers) so rounding can never make a group's balances drift.
 import { fmtINR, isValidDate, laterThan, newId, parseTs, round2 } from './logic.ts';
 import type { Entry, Shares } from './logic.ts';
+import { isGroupKind } from './groupKinds.ts';
+import type { GroupKind } from './groupKinds.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_AMOUNT = 1e9;
@@ -12,7 +14,6 @@ export const toPaise = (rupees: number): number => Math.round(rupees * 100);
 export const fromPaise = (paise: number): number => paise / 100;
 
 // ---------------------------------------------------------------- the group data that comes from the server
-export type GroupKind = 'family' | 'trip';
 export interface Group { id: string; name: string; kind: GroupKind; created_at: string }
 export interface Member { group_id: string; user_id: string; display_name: string; role: 'admin' | 'member'; joined_at: string; left_at: string | null }
 export interface Invite { group_id: string; code: string; expires_at: string }
@@ -36,7 +37,7 @@ const isTs = (v: unknown): boolean => Number.isFinite(parseTs(v));
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanGroup(g: any): Group | null {
   if (!g || !isId(g.id) || typeof g.name !== 'string' || g.name.length < 1 || g.name.length > 60) return null;
-  if (g.kind !== 'family' && g.kind !== 'trip') return null;
+  if (!isGroupKind(g.kind)) return null;
   return { id: g.id.toLowerCase(), name: g.name, kind: g.kind, created_at: isTs(g.created_at) ? g.created_at : new Date(0).toISOString() };
 }
 

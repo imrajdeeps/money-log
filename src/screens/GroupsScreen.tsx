@@ -7,6 +7,8 @@ import { copyText } from '../files.ts';
 import { shortDate } from '../format.ts';
 import { activeMembers, codeLooksValid, formatCode, fromPaise, groupBalances, inviteLink, ledger, memberName, normalizeCode, simplifyDebts } from '../groups.ts';
 import type { Group, Settlement } from '../groups.ts';
+import { GROUP_KINDS, hasRoom, kindLabel, kindMax } from '../groupKinds.ts';
+import type { GroupKind } from '../groupKinds.ts';
 import { BASEPATH, appRootUrl } from '../paths.ts';
 import { fmtINR, isValidDate, isoDate, myShare, parseAmount } from '../logic.ts';
 import type { Entry } from '../logic.ts';
@@ -78,7 +80,7 @@ function CreateCard() {
   const { busy, error, run, setError } = useAction();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<'family' | 'trip'>('family');
+  const [kind, setKind] = useState<GroupKind>('family');
   const [name, setName] = useState(rememberedName());
 
   async function create(ev: FormEvent) {
@@ -94,10 +96,14 @@ function CreateCard() {
     <form className="card" onSubmit={create} noValidate>
       <h2>New group</h2>
       <label className="field"><span>Group name</span><input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="Home, or Goa trip" /></label>
-      <fieldset className="chips">
+      <fieldset className="kinds">
         <legend>Kind</legend>
-        <button type="button" className="chip" aria-pressed={kind === 'family'} onClick={() => setKind('family')}>Family</button>
-        <button type="button" className="chip" aria-pressed={kind === 'trip'} onClick={() => setKind('trip')}>Trip</button>
+        {GROUP_KINDS.map((k) => (
+          <button key={k.id} type="button" className="kindcard" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
+            <b>{k.label}</b>
+            <span>{k.blurb}</span>
+          </button>
+        ))}
       </fieldset>
       <label className="field"><span>Your name in this group</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
       {error && <p className="msg bad" role="alert">{error}</p>}
@@ -169,7 +175,7 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
   return (
     <section aria-label={`Group ${group.name}`}>
       <button type="button" className="btn ghost backbtn" onClick={onBack}>‹ All groups</button>
-      <h2>{group.name} <span className="tag">{group.kind === 'family' ? 'Family' : 'Trip'}</span></h2>
+      <h2>{group.name} <span className="tag">{kindLabel(group.kind)}</span></h2>
       <p className="muted small">{people.length} {people.length === 1 ? 'person' : 'people'}. Add a shared expense with + Add expense by choosing this group under "Share with".</p>
 
       <div className="card">
@@ -255,7 +261,9 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
       {isAdmin && (
         <div className="card">
           <h3>Invite people</h3>
-          {invite && Date.parse(invite.expires_at) > Date.now() ? (
+          {!hasRoom(group.kind, people.length) ? (
+            <p className="muted small">A {kindLabel(group.kind).toLowerCase()} group holds at most {kindMax(group.kind)} people and this one is full. If someone leaves, a new code can be made here.</p>
+          ) : invite && Date.parse(invite.expires_at) > Date.now() ? (
             <>
               <p className="codebox" aria-label="Join code">{formatCode(invite.code)}</p>
               <p className="muted small">Valid until {shortDate(invite.expires_at.slice(0, 10))}. Anyone with the code can join, so send it only to people you mean to add.</p>
@@ -265,7 +273,7 @@ function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
               </div>
             </>
           ) : <p className="muted small">The code has expired. Make a new one to invite someone.</p>}
-          <button type="button" className="btn ghost" disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>Make a new code</button>
+          {hasRoom(group.kind, people.length) && <button type="button" className="btn ghost" disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>Make a new code</button>}
           {act.error && <p className="msg bad" role="alert">{act.error}</p>}
         </div>
       )}
@@ -339,7 +347,7 @@ export function GroupsScreen({ openSettings }: { openSettings: () => void }) {
                 <button type="button" className="row" onClick={() => setOpenId(g.id)}>
                   <span className="row-main">
                     <b>{g.name}</b>
-                    <small>{g.kind === 'family' ? 'Family' : 'Trip'} · {activeMembers(app.members, g.id).length} people</small>
+                    <small>{kindLabel(g.kind)} · {activeMembers(app.members, g.id).length} people</small>
                   </span>
                   <span className={`amt ${bal > 0 ? 'owed' : bal < 0 ? 'late' : 'muted'}`}>{bal === 0 ? 'Settled' : bal > 0 ? `+${fmtINR(fromPaise(bal))}` : `−${fmtINR(fromPaise(-bal))}`}</span>
                 </button>

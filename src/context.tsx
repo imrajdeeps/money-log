@@ -15,6 +15,7 @@ import { MAX_ACCOUNT_PHOTOS, MAX_PHOTOS, liveFor, makeReceipt, markDeleted, phot
 import type { Receipt } from './receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from './groups.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement } from './groups.ts';
+import type { GroupKind } from './groupKinds.ts';
 import { editEntry, isMine, isoDate, makeEntry, markExportedEntry, parseTs, softDelete } from './logic.ts';
 import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from './logic.ts';
 import { openStore } from './store.ts';
@@ -91,7 +92,7 @@ export interface AppApi {
   saveBudgets: (budgets: { name: string; amount: number }[]) => Promise<void>;
   addSettlement: (input: NewSettlementInput) => Promise<void>;
   removeSettlement: (id: string) => Promise<void>;
-  createGroup: (name: string, kind: 'family' | 'trip', displayName: string) => Promise<string>;
+  createGroup: (name: string, kind: GroupKind, displayName: string) => Promise<string>;
   joinGroup: (code: string, displayName: string) => Promise<string>;
   resetInvite: (groupId: string) => Promise<string>;
   leaveGroup: (groupId: string) => Promise<void>;
@@ -364,7 +365,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const engine = () => { const e = engRef.current; if (!e) throw new Error('The app is still starting.'); return e.sync; };
-  const createGroup = useCallback((name: string, kind: 'family' | 'trip', displayName: string) => engine().createGroup(name, kind, displayName), []);
+  const createGroup = useCallback((name: string, kind: GroupKind, displayName: string) => engine().createGroup(name, kind, displayName), []);
   const joinGroup = useCallback(async (code: string, displayName: string) => { const id = await engine().joinGroup(code, displayName); clearJoinCode(); return id; }, [clearJoinCode]);
   const resetInvite = useCallback((groupId: string) => engine().resetInvite(groupId), []);
   const leaveGroup = useCallback(async (groupId: string) => { await engine().leaveGroup(groupId); }, []);

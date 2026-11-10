@@ -14,6 +14,7 @@ import type { Mine } from './categories.ts';
 import type { DoneMap } from './blocks.ts';
 import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from './groups.ts';
 import type { Group, Invite, Member, Settlement } from './groups.ts';
+import type { GroupKind } from './groupKinds.ts';
 import { cleanHistory } from './history.ts';
 import type { HistoryRow } from './history.ts';
 import { cleanEntry, cleanPlan, isMine, mergeRemote, newId, parseTs } from './logic.ts';
@@ -748,7 +749,7 @@ export function createSync(opts: SyncOptions) {
     await sync();
     return out as T;
   }
-  const createGroup = (name: string, kind: 'family' | 'trip', displayName: string) => rpc<string>('create_group', { p_name: name, p_kind: kind, p_display_name: displayName });
+  const createGroup = (name: string, kind: GroupKind, displayName: string) => rpc<string>('create_group', { p_name: name, p_kind: kind, p_display_name: displayName });
   const joinGroup = (code: string, displayName: string) => rpc<string>('join_group', { p_code: code, p_display_name: displayName });
   const resetInvite = (groupId: string) => rpc<string>('reset_invite', { p_group: groupId });
   const leaveGroup = (groupId: string) => rpc<null>('leave_group', { p_group: groupId });

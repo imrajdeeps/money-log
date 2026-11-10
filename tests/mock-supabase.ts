@@ -136,7 +136,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     const lockedOut = err(403, '42501', 'Only a group admin can do this');
     if (name === 'create_group') {
       const nm = String(a.p_name ?? '').trim(); const dn = String(a.p_display_name ?? '').trim();
-      if (nm.length < 1 || nm.length > 60 || !['family', 'trip'].includes(a.p_kind) || dn.length < 1 || dn.length > 40) return err(400, '22023', 'Check the group name, kind and your name');
+      if (nm.length < 1 || nm.length > 60 || !['family', 'trip', 'flatmates', 'couple'].includes(a.p_kind) || dn.length < 1 || dn.length > 40) return err(400, '22023', 'Check the group name, kind and your name');
       if ([...state.groups.values()].filter((g) => g.created_by === uid).length >= 10) return err(400, '53400', 'You can create at most 10 groups');
       const id = randomUUID();
       state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, created_at: new Date().toISOString() });
@@ -152,6 +152,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (!inv) return err(400, '22023', 'That code is not valid or has expired');
       if (active(inv.group_id, uid)) return ok(inv.group_id);
       if (activeIn(inv.group_id).length >= 20) return err(400, '53400', 'This group is full (20 people)');
+      if (state.groups.get(inv.group_id)?.kind === 'couple' && activeIn(inv.group_id).length >= 2) return err(400, '53400', 'A couple is only two people');
       state.members.set(`${inv.group_id}|${uid}`, { group_id: inv.group_id, user_id: uid, display_name: dn, role: 'member', joined_at: new Date().toISOString(), left_at: null });
       if (!activeIn(inv.group_id).some((m) => m.role === 'admin')) member(inv.group_id, uid).role = 'admin';
       return ok(inv.group_id);
