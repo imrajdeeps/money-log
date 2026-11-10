@@ -8,6 +8,9 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 
+// The plan block names the database accepts (plan_blocks_block_known).
+const KNOWN_BLOCKS = ['budget', 'due', 'networth', 'due_done', 'categories', 'recurring', 'goals'];
+
 export const API_KEY = 'test-key';
 const METHODS = ['UPI', 'Card', 'Cash', 'Other'];
 const MIME: Record<string, string> = {
@@ -517,6 +520,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
         if (req.method === 'POST') {
           const rows: any[] = await body(req);
           for (const r of rows) if (r.owner_id !== uid) return send(res, 403, rls('plan_blocks'));
+          for (const r of rows) if (!KNOWN_BLOCKS.includes(r.block)) return send(res, 400, { code: '23514', message: 'new row for relation "plan_blocks" violates check constraint "plan_blocks_block_known"' });
           for (const r of rows) state.plans.set(`${uid}|${r.block}`, { block: r.block, imported_at: r.imported_at, payload: r.payload });
           return send(res, 201);
         }

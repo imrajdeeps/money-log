@@ -5,6 +5,8 @@ import type { DoneMap, DueBlock, DueView, NetItem } from '../../core/blocks.ts';
 import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
 import type { Group as SharedGroup, Member, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
+import { activeGoals, goalLine, goalProgress, goalTerm } from '../../core/goals.ts';
+import type { Goal, GoalLine, GoalProgress, Goals } from '../../core/goals.ts';
 import { GROUPS, budgetEntries, catKey, changedAfterExport, daysInMonth, exportRows, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from '../../core/logic.ts';
 
@@ -117,6 +119,20 @@ export function coupleTiles(groups: SharedGroup[], members: Member[], entries: E
     if (out.length === 2) break;
   }
   return out;
+}
+
+// The goal the Overview tile shows: the nearest short-term goal that still needs money; failing that the nearest goal that
+// still needs money (all long term); failing that the nearest goal (all are reached). Null when there are no goals.
+export interface GoalTile { goal: Goal; progress: GoalProgress; line: GoalLine; term: 'short' | 'long'; count: number }
+export function nearestGoal(items: Goals, entries: Entry[], todayIso: string): GoalTile | null {
+  const all = activeGoals(items).map((goal) => {
+    const progress = goalProgress(goal, items, entries);
+    return { goal, progress, line: goalLine(goal, progress, todayIso), term: goalTerm(goal.d, todayIso) };
+  });
+  if (all.length === 0) return null;
+  const open = all.filter((g) => g.line.state !== 'reached');
+  const pick = open.find((g) => g.term === 'short') ?? open[0] ?? all[0]!;
+  return { ...pick, count: all.length };
 }
 
 export function groupsOverview(groups: SharedGroup[], entries: Entry[], settlements: Settlement[], me: string | null): { owed: number; owe: number } {

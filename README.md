@@ -148,8 +148,11 @@ one change to the database, once, run in the Supabase SQL Editor *before* the ap
 ```sql
 alter table public.plan_blocks drop constraint if exists plan_blocks_block_known;
 alter table public.plan_blocks add constraint plan_blocks_block_known
-  check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring'));
+  check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring', 'goals'));
 ```
+
+(The list now ends with `'goals'`, added in version 1.10 for goals; running the current `supabase/schema.sql` again does this and
+everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
@@ -278,6 +281,30 @@ Uber, electricity ...) and only if that category is in your list. Check it and t
   example and the reader can be taught it (`src/features/payments/smsParse.ts`, tests in `tests/features/payments/smsParse.test.ts`). The plan is in
   `docs/prd-paste-message.md`.
 
+## Goals and a plan (version 1.10)
+
+Short-term and long-term goals made in the app, with a plan of what to set aside each month. Built in five steps (see
+`docs/prd-goals.md`).
+
+- **The data** (step 1): a goal is a name, a target amount and a target date (and an optional amount already saved);
+  top-ups are items of their own, so two phones adding one at the same time keep both; goals sync as one more block
+  (merged item by item, the latest change to each item wins), are in the backup file, and need the database line above.
+- **The Goals page** (step 2, `/goals`, opened from the Plan page): goals in two lists, **short term** (due within 12 months)
+  and **long term**, moving from long to short by themselves as the date gets close. Each shows what is saved of the target, a
+  bar, the date, and one line: *Needs ₹11,250 a month for 8 months* (rounded up to the rupee, counting this month), *Reached*,
+  or *The date has passed*. Saved is the starting amount, plus top-ups, plus payments you log in the goal's linked
+  category from the day the goal was made; log a saving as a payment *or* add it as a top-up, not both. Tap a goal to change it;
+  slide it to the left and tap the trash to remove it.
+- **Top-ups** (step 3): **Add to this goal** takes an amount and a day (not in the future); the top-ups made are listed under the
+  goal (*Top-ups (2) · ₹7,500*), and slide to the left removes one. They count towards the goal at once.
+- **The plan** (step 4, a card at the top of the Goals page): the monthly amount for each goal that still needs money (nearest
+  date first), the total a month, and one sentence against this month's Saving budget (the Saving group's planned amounts): *covers
+  it, with ₹X to spare*, *is ₹X a month short*, or that no Saving budget is set. A goal past its date is left out until the date is
+  changed. It is plain division, with no interest or returns.
+- **The Overview tile** (step 5): *Goals* shows the nearest short-term goal that still needs money (else the nearest one that
+  does, else the nearest), with its saved amount, a bar and what it needs a month; with no goals it invites you to make one. It
+  opens the Goals page.
+
 ## Receipt photos
 
 In *Add expense*, **Take photo** or **Choose photo** before saving, or add and remove them later when you edit a payment (up
@@ -385,7 +412,7 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
   other's chosen names. They never see your private payments, your plan, or your email address. Recording a payment
   between two people needs no confirmation from the other: this is meant for groups of people who trust each other.
 - Because the key is public and sign-ups are open while you invite people, each account is capped (20,000 payments and
-  2,000 recorded group payments; plan data only under six known names; at most 10 groups made and 20 people per group),
+  2,000 recorded group payments; plan data only under seven known names; at most 10 groups made and 20 people per group),
   so a stranger's account cannot fill the free database. For stricter control keep sign-ups off except when inviting.
 - Receipt photos: the Storage bucket `receipts` is private, JPEG only, 1 MB per file. A file can be uploaded only into your
   own folder and only for a photo you declared first; you can read your own files and those on shared expenses of groups you

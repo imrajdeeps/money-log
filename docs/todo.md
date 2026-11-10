@@ -9,8 +9,8 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 - [x] Swipe a due-list item left to delete it, with a trash icon (#27)
 - [x] Flatmates usual split card, Family "This month", the Couple tile on the Overview, and the release number 1.9.0 (the fifth pull request of 1.9)
 
-## Version 1.10: goals and a plan (the question round is done; the PRD is `docs/prd-goals.md`, waiting for the owner's go-ahead)
-- [ ] **Goals and a plan** — short-term and long-term goals made in the app (name, target amount, target date; short or long by the date), progress from manual top-ups and from payments in a linked category, and a generated plan: the monthly amount for each goal and whether the Saving budget covers it. Five steps, see the PRD.
+## Version 1.10: goals and a plan (built; `version/1.10` goes into main)
+- [x] **Goals and a plan**: the data, the Goals page, top-ups, the plan, and the Overview tile (see `docs/prd-goals.md`).
 
 ## Version 1.11 (decided; was 1.10 until goals took that number)
 - [ ] **Tailwind CSS** instead of the hand-written CSS (the owner's words: "add some animations, remove the css use tailwind css") (utility classes in the components, the CSS files deleted; colours and fonts in Tailwind's theme, light and dark kept). Approved to install `tailwindcss` 4.3.5 and `@tailwindcss/vite` 4.3.5 when it starts.

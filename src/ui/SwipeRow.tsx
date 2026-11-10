@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PointerEvent, ReactNode } from 'react';
+import type { PointerEvent, ReactNode, RefObject } from 'react';
 import { Icon } from './Icon.tsx';
 
 const WIDTH = 92; // how far the row slides to show Delete
@@ -7,12 +7,13 @@ const INTENT = 8; // how far a finger moves before it counts as a swipe (and not
 
 // A list row that slides left to show a Delete button: drag it (a finger, or a mouse), then tap Delete. Tapping elsewhere or
 // swiping back closes it. Delete is also reachable with the keyboard (Tab to it: the row opens). Vertical scrolling still works.
-export function SwipeRow({ children, onDelete, label, className }: { children: ReactNode; onDelete: () => void; label: string; className?: string }) {
+export function SwipeRow({ children, onDelete, label, className, as = 'li' }: { children: ReactNode; onDelete: () => void; label: string; className?: string; as?: 'li' | 'div' }) {
   const [shift, setShift] = useState(0); // 0 closed, -WIDTH open, in between while dragging
   const [dragging, setDragging] = useState(false);
   const start = useRef<{ x: number; y: number; from: number; id: number } | null>(null);
   const moved = useRef(false); // a drag just happened: swallow the click that follows it
-  const root = useRef<HTMLLIElement>(null);
+  const root = useRef<HTMLElement>(null);
+  const Root = as as 'li'; // a div where the row is not a list item
   const open = shift <= -WIDTH / 2;
 
   // Tapping anywhere else closes an open row.
@@ -52,7 +53,7 @@ export function SwipeRow({ children, onDelete, label, className }: { children: R
   }
 
   return (
-    <li ref={root} className="swiperow">
+    <Root ref={root as RefObject<HTMLLIElement>} className="swiperow">
       <button
         type="button"
         className="swipe-del"
@@ -74,6 +75,6 @@ export function SwipeRow({ children, onDelete, label, className }: { children: R
       >
         {children}
       </div>
-    </li>
+    </Root>
   );
 }

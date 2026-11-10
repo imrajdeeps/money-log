@@ -21,8 +21,10 @@ import { openStore } from './store.ts';
 import { BASEPATH, appRootUrl } from '../core/paths.ts';
 import { addRecurring as addRecurringTo, editRecurring as editRecurringIn, markHandled, mergeRecurring, removeRecurring as removeRecurringFrom, scheduledDate } from '../core/recurring.ts';
 import type { RecurInput, Recurring } from '../core/recurring.ts';
+import { addGoal as addGoalTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
+import type { GoalInput, Goals } from '../core/goals.ts';
 import { createSync } from './sync.ts';
-import type { DueDone, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
+import type { DueDone, GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
 import type { AppApi, Engine } from './appApi.ts';
 export type { AppApi } from './appApi.ts';
 
@@ -61,6 +63,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [doneMap, setDoneMap] = useState<DoneMap>({});
   const [mine, setMine] = useState<Mine>({});
   const [recurring, setRecurring] = useState<Recurring>({});
+  const [goals, setGoals] = useState<Goals>({});
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -83,7 +86,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     const e = engRef.current;
     if (!e) return;
-    const [entries, p, d, n, dd, mn, rcr, g, m, i, st, owner, rc, lk] = await Promise.all([
+    const [entries, p, d, n, dd, mn, rcr, gl, g, m, i, st, owner, rc, lk] = await Promise.all([
       e.store.allEntries(),
       e.store.getMeta<Plan>('plan'),
       e.store.getMeta<DueBlock>('block:due'),
@@ -91,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       e.store.getMeta<DueDone>('dueDone'),
       e.store.getMeta<MineBlock>('mine'),
       e.store.getMeta<RecurBlock>('recurring'),
+      e.store.getMeta<GoalsBlock>('goals'),
       e.store.getMeta<Group[]>('groups'),
       e.store.getMeta<Member[]>('members'),
       e.store.getMeta<Invite[]>('invites'),
@@ -115,6 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDoneMap(dd?.items ?? {});
     setMine(mn?.items ?? {});
     setRecurring(rcr?.items ?? {});
+    setGoals(gl?.items ?? {});
   }, []);
 
   useEffect(() => {
@@ -485,6 +490,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return error;
   }, [changeRecurring]);
 
+  // Goals and their top-ups: the same read-modify-write, so two quick taps never lose one.
+  const changeGoals = useCallback(async (f: (items: Goals, nowIso: string) => Goals) => {
+    const e = engRef.current;
+    if (!e) return;
+    const nowIso = new Date().toISOString();
+    await e.store.mutateMeta<GoalsBlock>('goals', (cur) => {
+      const before = cur?.items ?? {};
+      const next = f(before, nowIso);
+      return next === before ? undefined : { items: next, dirty: 1 };
+    });
+    await afterChange();
+  }, [afterChange]);
+
+  const runGoals = useCallback(async (f: (items: Goals, nowIso: string) => { ok: true; items: Goals } | { ok: false; error: string }): Promise<string | null> => {
+    let error: string | null = null;
+    await changeGoals((items, nowIso) => {
+      const r = f(items, nowIso);
+      if (!r.ok) { error = r.error; return items; }
+      return r.items;
+    });
+    return error;
+  }, [changeGoals]);
+
+  const addGoal = useCallback((i: GoalInput) => runGoals((items, nowIso) => addGoalTo(items, i, isoDate(), nowIso)), [runGoals]);
+  const editGoal = useCallback((id: string, i: GoalInput) => runGoals((items, nowIso) => editGoalIn(items, id, i, nowIso)), [runGoals]);
+  const removeGoal = useCallback((id: string) => changeGoals((items, nowIso) => removeGoalFrom(items, id, nowIso)), [changeGoals]);
+  const addTopUp = useCallback((goalId: string, amount: number, date: string) => runGoals((items, nowIso) => addTopUpTo(items, goalId, amount, date, isoDate(), nowIso)), [runGoals]);
+  const removeTopUp = useCallback((id: string) => changeGoals((items, nowIso) => removeTopUpFrom(items, id, nowIso)), [changeGoals]);
+
   const removeRecurring = useCallback((id: string) => changeRecurring((items, nowIso) => removeRecurringFrom(items, id, nowIso)), [changeRecurring]);
 
   // One tap on the Overview: mark this month handled first (so a double tap cannot log twice), then add the payment on its
@@ -550,6 +584,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (Object.keys(b.recurring).length) {
       await e.store.mutateMeta<RecurBlock>('recurring', (cur) => ({ items: mergeRecurring(cur?.items ?? {}, b.recurring), dirty: 1 }));
     }
+    if (Object.keys(b.goals).length) {
+      await e.store.mutateMeta<GoalsBlock>('goals', (cur) => ({ items: mergeGoals(cur?.items ?? {}, b.goals), dirty: 1 }));
+    }
     await afterChange();
     return { added, updated, blocksReplaced };
   }, [afterChange]);
@@ -588,6 +625,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
     plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
+    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp,
     sync,
     syncEnabled,
     toastMsg,
@@ -595,7 +633,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

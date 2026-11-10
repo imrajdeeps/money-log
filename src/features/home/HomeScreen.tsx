@@ -7,13 +7,13 @@ import { RecurringTile } from '../recurring/index.ts';
 import { RecentList } from '../payments/index.ts';
 import { dueRelative, fmtNet } from '../../core/blocks.ts';
 import { planForMonth } from '../../core/categories.ts';
-import { coupleTiles, dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
+import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
 import { monthLabel, shortDate } from '../../core/format.ts';
 import type { Group } from '../../core/logic.ts';
-import { fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
+import { budgetEntries, fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
-export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export';
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export' | 'goals';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;
@@ -43,6 +43,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
   const netFacts = useMemo(() => (app.net?.items ?? []).filter((i) => i !== net?.main && i !== net?.goal).slice(0, 2), [app.net, net]);
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
   const couples = useMemo(() => coupleTiles(app.groups, app.members, app.groupEntries, app.settlements, app.me), [app.groups, app.members, app.groupEntries, app.settlements, app.me]);
+  const goalTile = useMemo(() => nearestGoal(app.goals, budgetEntries(app.entries, app.me), today), [app.goals, app.entries, app.me, today]);
   const ex = useMemo(() => exportOverview(app.entries, app.allEntries, app.me), [app.entries, app.allEntries, app.me]);
 
   const tiles = overviewGroups(ov.summary.groups);
@@ -212,6 +213,19 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
               {app.groups.length} {app.groups.length === 1 ? 'group' : 'groups'}
               {shared.owed > 0 && shared.owe > 0 ? ` · ${fmtINR(shared.owed)} owed to you, ${fmtINR(shared.owe)} you owe` : ''}
             </p>
+          </BentoCard>
+        )}
+
+        {goalTile ? (
+          <BentoCard title="Goals" span={4} onOpen={() => open('goals')} openLabel="Open your goals and the plan">
+            <p className="stat-num">{fmtINR(goalTile.progress.saved)} <span className="stat-unit">of {fmtINR(goalTile.goal.a)}</span></p>
+            <p className="muted small">{goalTile.goal.n} · {goalTile.term === 'short' ? 'short term' : 'long term'}{goalTile.count > 1 ? ` · ${goalTile.count} goals` : ''}</p>
+            <div className={`bar meter-${goalTile.line.state === 'reached' ? 'good' : goalTile.line.state === 'passed' ? 'bad' : 'accent'}`} aria-hidden="true"><i style={{ width: `${Math.round(goalTile.progress.fraction * 100)}%` }} /></div>
+            <p className="muted small">{goalTile.line.state === 'reached' ? 'Reached' : goalTile.line.state === 'passed' ? 'The date has passed' : `Needs ${fmtINR(goalTile.line.monthly)} a month`}</p>
+          </BentoCard>
+        ) : (
+          <BentoCard title="Goals" span={4}>
+            <BentoEmpty cta="Make a goal" onCta={() => open('goals')}>No goals yet. Set a target and a date, and see what to set aside each month.</BentoEmpty>
           </BentoCard>
         )}
 
