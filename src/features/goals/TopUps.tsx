@@ -5,6 +5,7 @@ import { SwipeRow } from '../../ui/SwipeRow.tsx';
 import type { Goal, TopUp } from '../../core/goals.ts';
 import { shortDate } from '../../core/format.ts';
 import { fmtINR, isoDate, parseAmount } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 // What has been set aside for a goal by hand: add a top-up (an amount and a day), and see or remove the ones made.
 // Slide a top-up to the left and tap the trash to remove it.
@@ -34,26 +35,26 @@ export function TopUps({ goal, topUps }: { goal: Goal; topUps: TopUp[] }) {
     <div className="topups">
       {open ? (
         <form onSubmit={add} noValidate className="mt-1">
-          <div className="btnrow">
-            <label className="field half"><span>Amount (₹)</span><input inputMode="decimal" value={amount} placeholder="5000" aria-label={`Amount to add to ${goal.n}`} onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
-            <label className="field half"><span>Day</span><input type="date" value={date} max={today} onChange={(e) => { setDate(e.target.value || today); setError(''); }} /></label>
+          <div className={ui.btnRow}>
+            <label className={ui.fieldHalf}><span>Amount (₹)</span><input inputMode="decimal" value={amount} placeholder="5000" aria-label={`Amount to add to ${goal.n}`} onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
+            <label className={ui.fieldHalf}><span>Day</span><input type="date" value={date} max={today} onChange={(e) => { setDate(e.target.value || today); setError(''); }} /></label>
           </div>
-          {error && <p className="msg bad" role="alert">{error}</p>}
-          <div className="btnrow">
-            <button type="submit" className="btn">Add</button>
-            <button type="button" className="btn ghost" onClick={() => { setOpen(false); setError(''); }}>Cancel</button>
+          {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+          <div className={ui.btnRow}>
+            <button type="submit" className={ui.btn()}>Add</button>
+            <button type="button" className={ui.btn('ghost')} onClick={() => { setOpen(false); setError(''); }}>Cancel</button>
           </div>
         </form>
       ) : (
-        <button type="button" className="btn ghost min-h-10 px-3.5" onClick={() => setOpen(true)}>Add to this goal</button>
+        <button type="button" className={ui.btn('ghost', 'none', 'min-h-10 px-3.5 py-2.5')} onClick={() => setOpen(true)}>Add to this goal</button>
       )}
       {topUps.length > 0 && (
-        <details className="finished mt-2 mb-0">
+        <details className={ui.finished('mt-2 mb-0')}>
           <summary>Top-ups ({topUps.length}) · {fmtINR(total)}</summary>
-          <ul className="list">
+          <ul className={ui.list()}>
             {topUps.map((t) => (
               <SwipeRow key={t.id} className="flex items-center px-3 py-2" label={`${fmtINR(t.a)} on ${shortDate(t.d)}`} onDelete={() => { void app.removeTopUp(t.id).then(() => app.toast(`Removed ${fmtINR(t.a)} from ${goal.n}`)); }}>
-                <span className="row-main"><b>{fmtINR(t.a)}</b><small>{shortDate(t.d)}</small></span>
+                <span className={ui.rowMain()}><b>{fmtINR(t.a)}</b><small>{shortDate(t.d)}</small></span>
               </SwipeRow>
             ))}
           </ul>

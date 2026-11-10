@@ -3,6 +3,7 @@ import { useApp } from '../data/context.tsx';
 import { MAX_NAME } from '../core/categories.ts';
 import { GROUPS } from '../core/logic.ts';
 import type { Group } from '../core/logic.ts';
+import * as ui from './styles.ts';
 
 interface Props {
   id: string;
@@ -56,8 +57,8 @@ export function CategorySelect({ id, value, onChange }: Props) {
         <option value={NEW}>＋ New category…</option>
       </select>
       {adding && (
-        <div className="newcat">
-          <label className="field">
+        <div className={ui.newCat}>
+          <label className={ui.field}>
             <span>Name of the new category</span>
             <input
               value={name}
@@ -68,16 +69,16 @@ export function CategorySelect({ id, value, onChange }: Props) {
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void add(); } }}
             />
           </label>
-          <label className="field">
+          <label className={ui.field}>
             <span>Group</span>
             <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
               {GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
           </label>
-          <p className="msg bad" role="alert" hidden={!error}>{error}</p>
-          <div className="btnrow">
-            <button type="button" className="btn" onClick={() => void add()}>Add category</button>
-            <button type="button" className="btn ghost" onClick={() => { setAdding(false); setError(''); }}>Cancel</button>
+          <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
+          <div className={ui.btnRow}>
+            <button type="button" className={ui.btn()} onClick={() => void add()}>Add category</button>
+            <button type="button" className={ui.btn('ghost')} onClick={() => { setAdding(false); setError(''); }}>Cancel</button>
           </div>
         </div>
       )}

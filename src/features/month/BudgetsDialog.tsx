@@ -5,6 +5,7 @@ import { useApp } from '../../data/context.tsx';
 import { MAX_NAME } from '../../core/categories.ts';
 import { GROUPS, fmtINR, parseAmount } from '../../core/logic.ts';
 import type { Group } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 // Where the person manages categories and monthly budgets without any spreadsheet: add or remove categories, and give
 // each a monthly amount that applies to every month. Categories from an imported plan show the plan's own figures.
@@ -58,7 +59,7 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
     >
       <form onSubmit={save} noValidate>
         <h2 id="budgets-title">Categories and budgets</h2>
-        <p className="muted small">
+        <p className="text-muted text-[13px]">
           A budget is the amount you plan to spend in a month; it applies to every month. Leave it empty for none.
           Categories from your spreadsheet plan keep the plan's figures for the months it covers.
         </p>
@@ -67,20 +68,20 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
           if (!items.length) return null;
           return (
             <div key={g}>
-              <h3 className="h2">{g}</h3>
-              <ul className="list">
+              <h3 className="text-[16px] mt-5 mb-2">{g}</h3>
+              <ul className={ui.list()}>
                 {items.map((c) => (
-                  <li key={c.name} className="budgetrow">
-                    <span className="row-main">
+                  <li key={c.name} className="flex items-center gap-2.5 px-3 py-2">
+                    <span className={ui.rowMain(true)}>
                       <b>{c.name}</b>
                       {c.source === 'plan' && <small>from your spreadsheet</small>}
                       {c.source === 'mine' && <small>yours</small>}
                     </span>
                     {c.source === 'plan' ? (
-                      <span className="muted small">set in the spreadsheet</span>
+                      <span className="text-muted text-[13px]">set in the spreadsheet</span>
                     ) : (
-                      <label className="budgetin">
-                        <span className="sr">Monthly budget for {c.name}, in rupees</span>
+                      <label className="flex items-center gap-1 flex-none [&_input]:w-[104px] [&_input]:text-right">
+                        <span className="sr-only">Monthly budget for {c.name}, in rupees</span>
                         <span aria-hidden="true">₹</span>
                         <input
                           inputMode="decimal"
@@ -91,7 +92,7 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
                       </label>
                     )}
                     {c.source !== 'plan' && (
-                      <button type="button" className="icobtn" aria-label={`Remove ${c.name}`} onClick={() => { void app.removeCategory(c.name); }}><Icon name="close" size={18} /></button>
+                      <button type="button" className={ui.icoBtn} aria-label={`Remove ${c.name}`} onClick={() => { void app.removeCategory(c.name); }}><Icon name="close" size={18} /></button>
                     )}
                   </li>
                 ))}
@@ -99,10 +100,10 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
             </div>
           );
         })}
-        <p className="muted small">Removing a category only takes it off the pick list; payments already logged keep it. To bring a removed one back, add it again by name.</p>
+        <p className="text-muted text-[13px]">Removing a category only takes it off the pick list; payments already logged keep it. To bring a removed one back, add it again by name.</p>
 
-        <h3 className="h2">Add a category</h3>
-        <label className="field">
+        <h3 className="text-[16px] mt-5 mb-2">Add a category</h3>
+        <label className={ui.field}>
           <span>Name</span>
           <input
             value={name}
@@ -111,22 +112,22 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void add(); } }}
           />
         </label>
-        <label className="field">
+        <label className={ui.field}>
           <span>Group</span>
           <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
             {GROUPS.map((x) => <option key={x} value={x}>{x}</option>)}
           </select>
         </label>
-        <p className="msg bad" role="alert" hidden={!addError}>{addError}</p>
-        <div className="btnrow">
-          <button type="button" className="btn ghost" onClick={() => void add()}>Add category</button>
+        <p className={ui.msg('bad')} role="alert" hidden={!addError}>{addError}</p>
+        <div className={ui.btnRow}>
+          <button type="button" className={ui.btn('ghost')} onClick={() => void add()}>Add category</button>
         </div>
 
-        {error && <p className="msg bad" role="alert">{error}</p>}
-        <p className="muted small">Total planned each month from the budgets above: {fmtINR(app.categories.filter((c) => c.source !== 'plan' && c.group !== 'Saving').reduce((a, c) => a + (parseAmount(shown(c.name, c.budget).replace(/[₹,\s]/g, '')) ?? 0), 0))} (savings not counted).</p>
-        <div className="btnrow">
-          <button type="submit" className="btn">Save budgets</button>
-          <button type="button" className="btn ghost" onClick={close}>Close</button>
+        {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+        <p className="text-muted text-[13px]">Total planned each month from the budgets above: {fmtINR(app.categories.filter((c) => c.source !== 'plan' && c.group !== 'Saving').reduce((a, c) => a + (parseAmount(shown(c.name, c.budget).replace(/[₹,\s]/g, '')) ?? 0), 0))} (savings not counted).</p>
+        <div className={ui.btnRow}>
+          <button type="submit" className={ui.btn()}>Save budgets</button>
+          <button type="button" className={ui.btn('ghost')} onClick={close}>Close</button>
         </div>
       </form>
     </dialog>

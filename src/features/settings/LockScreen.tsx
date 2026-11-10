@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
+import * as ui from '../../ui/styles.ts';
 
 // Covers the whole app until the right PIN is typed. It is a privacy screen, not encryption (see src/lock.ts).
 export function LockScreen() {
@@ -36,27 +37,27 @@ export function LockScreen() {
   }
 
   return (
-    <div className="lockscreen" role="dialog" aria-modal="true" aria-label="Enter your PIN">
-      <form onSubmit={submit} className="lockbox" noValidate>
+    <div className="fixed inset-0 z-50 bg-bg flex items-center justify-center p-6 overflow-auto" role="dialog" aria-modal="true" aria-label="Enter your PIN">
+      <form onSubmit={submit} className="w-full max-w-[340px] text-center [&_h1]:mb-1" noValidate>
         <h1>Money Log</h1>
-        <p className="muted">Enter your PIN</p>
+        <p className="text-muted">Enter your PIN</p>
         <input
           ref={input}
           type="password"
           inputMode="numeric"
           autoComplete="off"
           maxLength={8}
-          className="pininput"
+          className="text-center text-[28px] tracking-[8px] min-h-[60px] mt-3 mx-0 mb-1"
           aria-label="PIN"
           value={pin}
           onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setMsg(''); }}
         />
-        <p className="msg bad" role="alert" hidden={!msg}>{msg}{wait > 0 ? ` Try again in ${wait} second${wait === 1 ? '' : 's'}.` : ''}</p>
-        <button type="submit" className="btn big" disabled={busy || wait > 0 || pin.length < 4}>Unlock</button>
-        <details className="forgot">
+        <p className={ui.msg('bad')} role="alert" hidden={!msg}>{msg}{wait > 0 ? ` Try again in ${wait} second${wait === 1 ? '' : 's'}.` : ''}</p>
+        <button type="submit" className={ui.btn('solid', 'big')} disabled={busy || wait > 0 || pin.length < 4}>Unlock</button>
+        <details className="mt-6 text-left [&>summary]:cursor-pointer [&>summary]:text-muted">
           <summary>Forgot your PIN?</summary>
-          <p className="muted small">The PIN cannot be recovered. You can erase this phone's copy of your data and sign in again; what is in the cloud stays.</p>
-          <button type="button" className="btn danger" onClick={() => { void forgot(); }}>Erase this phone and start again</button>
+          <p className="text-muted text-[13px]">The PIN cannot be recovered. You can erase this phone's copy of your data and sign in again; what is in the cloud stays.</p>
+          <button type="button" className={ui.btn('danger')} onClick={() => { void forgot(); }}>Erase this phone and start again</button>
         </details>
       </form>
     </div>

@@ -9,6 +9,7 @@ import type { Entry } from '../../core/logic.ts';
 import { CategorySelect } from '../../ui/CategorySelect.tsx';
 import { HistoryList } from './HistoryList.tsx';
 import { PhotoStrip } from './PhotoStrip.tsx';
+import * as ui from '../../ui/styles.ts';
 
 // Someone else's shared expense, read-only: what it was, how it is split, its photos and history, and the one thing you
 // can do with it: record your own share as a payment of your own, so your Month view and Log export include it.
@@ -37,7 +38,7 @@ export function ExpenseDialog({ entry, group, onClose }: { entry: Entry; group: 
   return (
     <dialog ref={ref} onClose={(e) => { if (e.target === e.currentTarget) onClose(); }} onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }} aria-labelledby="exp-title">
       <h2 id="exp-title">{entry.category}</h2>
-      <ul className="facts small">
+      <ul className={ui.facts + ' text-[13px]'}>
         <li><b>Total</b>: {fmtINR(entry.amount)} on {shortDate(entry.entry_date)}</li>
         <li><b>Paid by</b>: {who(entry.paid_by)}</li>
         {entry.note && <li><b>Note</b>: {entry.note}</li>}
@@ -46,25 +47,25 @@ export function ExpenseDialog({ entry, group, onClose }: { entry: Entry; group: 
       <PhotoStrip entryId={entry.id} canEdit={false} />
 
       {share > 0 && (added ? (
-        <p className="msg good" role="status">Added to your budget: {fmtINR(added.amount)} under {added.category} on {shortDate(added.entry_date)}.</p>
+        <p className={ui.msg('good')} role="status">Added to your budget: {fmtINR(added.amount)} under {added.category} on {shortDate(added.entry_date)}.</p>
       ) : adding ? (
-        <form onSubmit={save} noValidate className="settleform">
+        <form onSubmit={save} noValidate className={ui.settleForm}>
           <h3>Add my {fmtINR(share)} to my budget</h3>
-          <p className="muted small">This makes a payment of your own for your share. It does not change the group's balances.</p>
-          <label className="field" htmlFor="share-cat"><span>Category</span></label>
+          <p className="text-muted text-[13px]">This makes a payment of your own for your share. It does not change the group's balances.</p>
+          <label className={ui.field} htmlFor="share-cat"><span>Category</span></label>
           <CategorySelect id="share-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
-          <label className="field"><span>Note</span><input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} /></label>
-          <label className="field"><span>Date</span><input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} /></label>
-          {error && <p className="msg bad" role="alert">{error}</p>}
-          <div className="btnrow"><button type="submit" className="btn">Add to my budget</button><button type="button" className="btn ghost" onClick={() => setAdding(false)}>Cancel</button></div>
+          <label className={ui.field}><span>Note</span><input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} /></label>
+          <label className={ui.field}><span>Date</span><input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} /></label>
+          {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+          <div className={ui.btnRow}><button type="submit" className={ui.btn()}>Add to my budget</button><button type="button" className={ui.btn('ghost')} onClick={() => setAdding(false)}>Cancel</button></div>
         </form>
       ) : (
-        <button type="button" className="btn" onClick={() => setAdding(true)}>Add my {fmtINR(share)} to my budget</button>
+        <button type="button" className={ui.btn()} onClick={() => setAdding(true)}>Add my {fmtINR(share)} to my budget</button>
       ))}
 
-      <h3 className="h2">History</h3>
+      <h3 className="text-[16px] mt-5 mb-2">History</h3>
       <HistoryList entryId={entry.id} groupId={group.id} />
-      <button type="button" className="btn ghost" onClick={() => ref.current?.close()}>Close</button>
+      <button type="button" className={ui.btn('ghost')} onClick={() => ref.current?.close()}>Close</button>
     </dialog>
   );
 }

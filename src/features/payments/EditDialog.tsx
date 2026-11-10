@@ -10,6 +10,7 @@ import { PhotoStrip } from './PhotoStrip.tsx';
 import { MethodChips } from './MethodChips.tsx';
 import { SplitEditor, splitFromEntry } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
+import * as ui from '../../ui/styles.ts';
 
 export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => void }) {
   const app = useApp();
@@ -77,40 +78,40 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
     >
       <form onSubmit={save} noValidate>
         <h2 id="edit-title">{shared ? 'Edit shared expense' : 'Edit payment'}</h2>
-        {readOnly && <p className="msg bad" role="status">You are no longer in this group, so this expense can no longer be changed.</p>}
-        {frozen && inGroup && <p className="msg" role="status">Someone this expense names has left the group, so its amount, split and deletion are locked. You can still change the category, method, note and date.</p>}
-        <label className="field">
+        {readOnly && <p className={ui.msg('bad')} role="status">You are no longer in this group, so this expense can no longer be changed.</p>}
+        {frozen && inGroup && <p className={ui.msg()} role="status">Someone this expense names has left the group, so its amount, split and deletion are locked. You can still change the category, method, note and date.</p>}
+        <label className={ui.field}>
           <span>Amount (₹)</span>
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={readOnly || frozen} />
         </label>
         {shared && inGroup && !frozen && app.me && (
           <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
         )}
-        <label className="field" htmlFor="edit-cat"><span>Category</span></label>
+        <label className={ui.field} htmlFor="edit-cat"><span>Category</span></label>
         <CategorySelect id="edit-cat" value={category} onChange={setCategory} />
         <MethodChips value={method} onChange={setMethod} options={METHODS} />
-        <label className="field">
+        <label className={ui.field}>
           <span>Note</span>
           <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
         </label>
-        <label className="field">
+        <label className={ui.field}>
           <span>Date</span>
           <input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} />
         </label>
         <PhotoStrip entryId={entry.id} canEdit={!readOnly} />
         {shared && inGroup && entry.group_id && (
-          <div className="photostrip">
-            <p className="fieldlabel">History</p>
+          <div className={ui.photoStrip}>
+            <p className={ui.fieldLabel}>History</p>
             <HistoryList entryId={entry.id} groupId={entry.group_id} />
           </div>
         )}
-        {error && <p className="msg bad" role="alert">{error}</p>}
-        <div className="btnrow">
-          <button type="submit" className="btn" disabled={readOnly}>Save</button>
-          <button type="button" className="btn ghost" onClick={close}>{readOnly ? 'Close' : 'Cancel'}</button>
+        {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+        <div className={ui.btnRow}>
+          <button type="submit" className={ui.btn()} disabled={readOnly}>Save</button>
+          <button type="button" className={ui.btn('ghost')} onClick={close}>{readOnly ? 'Close' : 'Cancel'}</button>
         </div>
         {!readOnly && !frozen && (
-          <button type="button" className="btn danger" onClick={remove}>
+          <button type="button" className={ui.btn('danger', 'md', 'w-full')} onClick={remove}>
             {confirmDelete ? 'Tap again to delete' : shared ? 'Delete shared expense' : 'Delete payment'}
           </button>
         )}

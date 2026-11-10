@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { MIN_PASSWORD } from '../../../data/password.ts';
 import { errText } from './shared.ts';
+import * as ui from '../../../ui/styles.ts';
 
 export function PasswordCard() {
   const app = useApp();
@@ -39,41 +40,41 @@ export function PasswordCard() {
   }
 
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h2>Password and sessions</h2>
-      {app.recovering && <p className="msg good" role="status">You opened a reset link, so you are signed in. Choose a new password now.</p>}
+      {app.recovering && <p className={ui.msg('good')} role="status">You opened a reset link, so you are signed in. Choose a new password now.</p>}
       <form onSubmit={save} noValidate>
-        <h3 className="h2">Change password</h3>
-        <p className="muted small">You are signed in, so no old password is needed. Others cannot see the new one and it is not kept on this phone.</p>
-        <label className="field">
+        <h3 className="text-[16px] mt-5 mb-2">Change password</h3>
+        <p className="text-muted text-[13px]">You are signed in, so no old password is needed. Others cannot see the new one and it is not kept on this phone.</p>
+        <label className={ui.field}>
           <span>New password (at least {MIN_PASSWORD} characters)</span>
           <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} disabled={busy} />
         </label>
-        <label className="field">
+        <label className={ui.field}>
           <span>Repeat the new password</span>
           <input type="password" autoComplete="new-password" value={password2} onChange={(e) => { setPassword2(e.target.value); setMsg(null); }} disabled={busy} />
         </label>
-        <div className="btnrow">
-          <button type="submit" className="btn" disabled={busy || !password || !password2}>Save password</button>
+        <div className={ui.btnRow}>
+          <button type="submit" className={ui.btn()} disabled={busy || !password || !password2}>Save password</button>
         </div>
       </form>
-      {msg && <p className={`msg ${msg.bad ? 'bad' : 'good'}`} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
-      <h3 className="h2">Where you are signed in</h3>
-      <p className="muted small">
+      {msg && <p className={ui.msg(msg.bad ? 'bad' : 'good')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
+      <h3 className="text-[16px] mt-5 mb-2">Where you are signed in</h3>
+      <p className="text-muted text-[13px]">
         This phone stays signed in and renews its sign-in by itself until you sign out. If you lose a phone, sign out your other devices
         here, or everywhere, then change the password.
       </p>
-      <div className="btnrow">
-        <button type="button" className="btn ghost" disabled={busy} onClick={() => { void signOutFrom('others'); }}>
+      <div className={ui.btnRow}>
+        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => { void signOutFrom('others'); }}>
           {ask === 'others' ? 'Tap again: sign out other devices' : 'Sign out my other devices'}
         </button>
       </div>
-      <div className="btnrow">
-        <button type="button" className="btn danger" disabled={busy} onClick={() => { void signOutFrom('everywhere'); }}>
+      <div className={ui.btnRow}>
+        <button type="button" className={ui.btn('danger')} disabled={busy} onClick={() => { void signOutFrom('everywhere'); }}>
           {ask === 'everywhere' ? 'Tap again: sign out everywhere' : 'Sign out everywhere, this phone too'}
         </button>
       </div>
-      {ask && <button type="button" className="btn ghost small" onClick={() => setAsk(null)}>Cancel</button>}
+      {ask && <button type="button" className={ui.btn('ghost', 'small', 'mt-1.5')} onClick={() => setAsk(null)}>Cancel</button>}
     </div>
   );
 }

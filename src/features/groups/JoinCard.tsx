@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { codeLooksValid, formatCode, normalizeCode } from '../../core/groups.ts';
 import { rememberedName, rememberName, useAction } from './useAction.ts';
+import * as ui from '../../ui/styles.ts';
 
 export function JoinCard() {
   const app = useApp();
@@ -22,17 +23,17 @@ export function JoinCard() {
     if (await run(() => app.joinGroup(normalizeCode(code), name.trim()), 'You have joined the group')) { setCode(''); setOpen(false); }
   }
 
-  if (!open) return <button type="button" className="btn ghost" onClick={() => setOpen(true)}>Join a group with a code</button>;
+  if (!open) return <button type="button" className={ui.btn('ghost')} onClick={() => setOpen(true)}>Join a group with a code</button>;
   return (
-    <form className={`card${invited ? ' notice' : ''}`} onSubmit={join} noValidate>
+    <form className={ui.card(invited ? 'notice' : undefined)} onSubmit={join} noValidate>
       <h2>{invited ? 'You were invited to a group' : 'Join a group'}</h2>
-      <p className="muted small">The code comes from the person who made the group. Joining means they, and everyone in it, can see the expenses you share there.</p>
-      <label className="field"><span>Code</span><input value={code} onChange={(e) => { setCode(e.target.value); setError(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="ABCD-EF01-2345" /></label>
-      <label className="field"><span>Your name in this group</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
-      {error && <p className="msg bad" role="alert">{error}</p>}
-      <div className="btnrow">
-        <button type="submit" className="btn" disabled={busy}>Join</button>
-        <button type="button" className="btn ghost" disabled={busy} onClick={() => { setOpen(false); setError(''); app.clearJoinCode(); }}>Cancel</button>
+      <p className="text-muted text-[13px]">The code comes from the person who made the group. Joining means they, and everyone in it, can see the expenses you share there.</p>
+      <label className={ui.field}><span>Code</span><input value={code} onChange={(e) => { setCode(e.target.value); setError(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="ABCD-EF01-2345" /></label>
+      <label className={ui.field}><span>Your name in this group</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
+      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      <div className={ui.btnRow}>
+        <button type="submit" className={ui.btn()} disabled={busy}>Join</button>
+        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => { setOpen(false); setError(''); app.clearJoinCode(); }}>Cancel</button>
       </div>
     </form>
   );

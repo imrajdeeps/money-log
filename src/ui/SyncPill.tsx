@@ -1,11 +1,13 @@
 import { useApp } from '../data/context.tsx';
 import { clockLabel } from '../core/format.ts';
+import { pill } from './styles.ts';
+import type { PillTone } from './styles.ts';
 
 export function SyncPill({ onOpenSettings }: { onOpenSettings: () => void }) {
   const app = useApp();
   const s = app.sync;
   let label = '';
-  let cls = 'idle';
+  let cls: PillTone = 'idle';
   let action = app.syncNow;
   switch (s.mode) {
     case 'local': label = 'This phone only'; cls = 'muted'; action = onOpenSettings; break;
@@ -18,7 +20,7 @@ export function SyncPill({ onOpenSettings }: { onOpenSettings: () => void }) {
       cls = s.pending ? 'warn' : 'good';
   }
   return (
-    <button type="button" className={`pill ${cls}`} onClick={action} title={s.error ?? undefined} aria-live="polite">
+    <button type="button" className={pill(cls)} onClick={action} title={s.error ?? undefined} aria-live="polite">
       {label}
     </button>
   );

@@ -1,4 +1,5 @@
 import { useApp } from '../../../data/context.tsx';
+import * as ui from '../../../ui/styles.ts';
 
 export function DangerCard() {
   const app = useApp();
@@ -10,10 +11,10 @@ export function DangerCard() {
     app.toast('This phone has been erased.');
   }
   return (
-    <div className="card">
+    <div className={ui.card()}>
       <h2>Erase</h2>
-      <p className="muted small">Removes the payments, plan and sign-in stored on this phone. Use it before handing the phone to someone or signing in with another account.</p>
-      <button type="button" className="btn danger" onClick={erase}>Erase everything on this phone</button>
+      <p className="text-muted text-[13px]">Removes the payments, plan and sign-in stored on this phone. Use it before handing the phone to someone or signing in with another account.</p>
+      <button type="button" className={ui.btn('danger', 'md', ui.inCard)} onClick={erase}>Erase everything on this phone</button>
     </div>
   );
 }

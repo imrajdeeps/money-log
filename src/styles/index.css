@@ -1,32 +1,20 @@
-/* The styles. Tailwind (version 1.11) is moving in feature by feature, so there are three layers, lowest first:
-     theme     Tailwind's design tokens
-     legacy    the hand-written CSS below (one file per area), until each area has moved to Tailwind classes
-     utilities Tailwind's classes, which therefore win over legacy wherever both apply
-   There is no Tailwind preflight (the legacy base still does the resetting). Inside legacy, later files override earlier ones.
-   tokens.css stays for good: it holds the colour values for the light and dark themes. See docs/structure.md. */
-@layer theme, base, legacy, utilities;
+/* The styles. Tailwind does the styling: utility classes in the components, and the building blocks every screen shares in
+   src/ui/styles.ts. What is left in CSS is only what a class says badly:
+     tokens.css  the fonts, the colour values for the light and dark themes, the page defaults
+     @theme      the names Tailwind gives those colours, and the animations
+     base        the plain element rules (headings, form fields, dialogs); there is no Tailwind preflight
+     .hero       the one tile that re-points the colour tokens
+     .pace       the chart's SVG strokes
+   See docs/structure.md. */
+@layer theme, base, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
-
-
-@import './tokens.css' layer(legacy);
-@import './base.css' layer(legacy);
-@import './plan.css' layer(legacy);
-@import './groups.css' layer(legacy);
-@import './payments.css' layer(legacy);
-@import './month.css' layer(legacy);
-@import './settings.css' layer(legacy);
-@import './shell.css' layer(legacy);
-@import './home.css' layer(legacy);
-@import './responsive.css' layer(legacy);
-
+@import './tokens.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
 /* the start screen is also written out in index.html: Tailwind must see the classes used there */
 @source "../../index.html";
 
-/* Tailwind's names for the colours in tokens.css. `inline` keeps them as var(--x), so the light and dark themes (set on
-   <html data-theme>) work without any dark: classes. */
 /* Motion. Every animation fills only backwards (so the end state is the normal style, and hover and press effects keep working
-   afterwards), and the rule at the end of responsive.css (prefers-reduced-motion) shortens them all to nothing. */
+   afterwards), and the prefers-reduced-motion rule at the end shortens them all to nothing. */
 @theme {
   --animate-page-in: page-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   --animate-rise: rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
@@ -40,6 +28,8 @@
   @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 }
 
+/* Tailwind's names for the colours in tokens.css. `inline` keeps them as var(--x), so the light and dark themes (set on
+   <html data-theme>) work without any dark: classes. */
 @theme inline {
   --color-*: initial;
   --color-bg: var(--bg);
@@ -66,16 +56,80 @@
   --radius-card-lg: var(--radius-lg);
 }
 
-/* Motion for things that are elements, not components: dialogs open with a small scale and fade, the meters grow from the left
-   when they appear, buttons give a little when pressed. (Keyframes are plain CSS because no component names them.) */
 @layer base {
+  html { scroll-padding-top: 96px; } /* a page jump (the net worth part of Plan) must not end up under the sticky header */
+
+  h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+  h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.005em; margin: 0 0 8px; }
+  h3 { font-size: 15px; margin: 0 0 4px; color: var(--muted); font-weight: 600; }
+  p { margin: 0 0 10px; }
+
+  input, select, textarea {
+    width: 100%;
+    min-height: 46px;
+    font: inherit;
+    font-size: 16px; /* 16px stops iPhone from zooming the page when a field is focused */
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; min-height: 90px; }
+  select { appearance: auto; }
+  input[type='file'] { display: none; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  dialog {
+    width: min(92vw, 480px);
+    max-height: 92dvh;
+    overflow: auto;
+    border: 0;
+    border-radius: 18px;
+    padding: 18px;
+    background: var(--card);
+    color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+
+  /* dialogs open with a small scale and fade */
   dialog[open] { animation: dialog-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
   dialog[open]::backdrop { animation: fade-in 200ms ease backwards; }
-  .bar i, .share-bar i { transform-origin: left center; animation: grow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-  .btn, .chip, .pill { transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease; }
-  .btn:active:not(:disabled), .chip:active, .pill:active { transform: scale(0.97); }
-  .tabs button { transition: color 150ms ease; }
+
 }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* the month's spending by day (components/features/home/PaceChart): the SVG stretches to the tile, the lines stay 2px and the dot round */
+@layer base {
+  /* the month's spending by day */
+  .pace { display: block; width: 100%; height: 112px; overflow: visible; margin-top: 6px; }
+  .pace path, .pace line { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+  .pace .pace-base { stroke: var(--line); stroke-width: 1; }
+  .pace .pace-budget { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; stroke-linecap: butt; }
+  .pace .pace-last { stroke: var(--chart-ref); stroke-width: 2; }
+  .pace .pace-area { fill: var(--accent); fill-opacity: 0.1; stroke: none; }
+  .pace .pace-now { stroke: var(--accent); stroke-width: 2; }
+  .pace .pace-ring { stroke: var(--card); stroke-width: 12; }
+  .pace .pace-dot { stroke: var(--accent); stroke-width: 8; }
+}
+
+/* the one big green tile on the Overview: the colour tokens are re-pointed inside it, so its text, meters, chips and chart
+   re-colour themselves (everything inside uses var(--ink), var(--muted) ... through Tailwind's names). In the utilities layer, after
+   the generated classes, so it wins over the tile's own bg-card and border-line. */
+@layer utilities {
+  .hero {
+    --card: var(--hero); --ink: #ffffff; --muted: #bcd5c7; --line: rgba(255, 255, 255, 0.2);
+    --accent: #c9e96a; --good: #c9e96a; --bad: #ffb4b4; --warn: #ffd27a;
+    --bg: rgba(255, 255, 255, 0.12); --good-bg: rgba(201, 233, 106, 0.16); --bad-bg: rgba(255, 180, 180, 0.16); --warn-bg: rgba(255, 210, 122, 0.16);
+    --chart-ref: rgba(255, 255, 255, 0.5); --shadow: 0 12px 28px -16px rgba(16, 74, 48, 0.7); --inner: 0 0 0 0 transparent;
+    background: var(--hero); color: var(--ink); border-color: transparent;
+  }
+  :root[data-theme='dark'] .hero { border-color: rgba(201, 233, 106, 0.14); }
+}
+
+/* the phone's reduced-motion setting: every animation and transition ends at once */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after, ::backdrop { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

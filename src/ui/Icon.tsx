@@ -31,7 +31,7 @@ const FILLS: Partial<Record<IconName, string>> = {
 
 export function Icon({ name, size = 22, duotone = false }: { name: IconName; size?: number; duotone?: boolean }) {
   return (
-    <svg className="icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+    <svg className="block flex-none" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false"
       fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       {duotone && FILLS[name] && <path d={FILLS[name]} fill="currentColor" fillOpacity="0.18" stroke="none" />}
       <path d={PATHS[name]} />

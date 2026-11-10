@@ -2,6 +2,7 @@ import { computeShares, equalShares, fromPaise, sharesPaise, toPaise, usualSplit
 import type { Member, SplitMode, UsualSplit } from '../../core/groups.ts';
 import { fmtINR } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
+import * as ui from '../../ui/styles.ts';
 
 // Everything the person has chosen about who paid and how the expense is divided.
 export interface SplitState { paidBy: string; mode: SplitMode; included: string[]; values: Record<string, string> }
@@ -40,28 +41,28 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
   const name = (m: Member) => (m.user_id === me ? `${m.display_name} (you)` : m.display_name);
 
   return (
-    <div className="split">
-      <label className="field">
+    <div className={ui.split}>
+      <label className={ui.field}>
         <span>Who paid</span>
         <select value={value.paidBy} onChange={(e) => set({ paidBy: e.target.value })}>
           {people.map((m) => <option key={m.user_id} value={m.user_id}>{name(m)}</option>)}
         </select>
       </label>
 
-      <fieldset className="chips">
+      <fieldset className={ui.chips}>
         <legend>Split</legend>
         {MODES.map((m) => (
-          <button key={m.id} type="button" className="chip" aria-pressed={value.mode === m.id} onClick={() => set({ mode: m.id })}>{m.label}</button>
+          <button key={m.id} type="button" className={ui.chip} aria-pressed={value.mode === m.id} onClick={() => set({ mode: m.id })}>{m.label}</button>
         ))}
       </fieldset>
 
-      <ul className="list splitlist">
+      <ul className={ui.list(false, 'mt-2 mx-0 mb-0')}>
         {people.map((m) => {
           const share = result.shares?.[m.user_id];
           return (
-            <li key={m.user_id} className="splitrow">
+            <li key={m.user_id} className={ui.splitRow}>
               {value.mode === 'equal' ? (
-                <label className="check">
+                <label className={ui.check + ' flex-1'}>
                   <input
                     type="checkbox"
                     checked={value.included.includes(m.user_id)}
@@ -71,9 +72,9 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
                 </label>
               ) : (
                 <>
-                  <span className="who">{name(m)}</span>
+                  <span className="flex-1">{name(m)}</span>
                   <input
-                    className="num"
+                    className="w-24 text-right"
                     inputMode="decimal"
                     aria-label={`${value.mode === 'percent' ? 'Percent' : 'Amount'} for ${m.display_name}`}
                     placeholder={value.mode === 'percent' ? '%' : '₹'}
@@ -82,13 +83,13 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
                   />
                 </>
               )}
-              <span className="amt">{share !== undefined ? fmtINR(share) : '–'}</span>
+              <span className="font-bold tabular-nums min-w-[72px] text-right">{share !== undefined ? fmtINR(share) : '–'}</span>
             </li>
           );
         })}
       </ul>
-      {total > 0 && result.problem && <p className="msg bad" role="status">{result.problem}</p>}
-      {total > 0 && result.shares && <p className="muted small">Adds up to {fmtINR(fromPaise(sharesPaise(result.shares)))}.</p>}
+      {total > 0 && result.problem && <p className={ui.msg('bad')} role="status">{result.problem}</p>}
+      {total > 0 && result.shares && <p className="text-muted text-[13px]">Adds up to {fmtINR(fromPaise(sharesPaise(result.shares)))}.</p>}
     </div>
   );
 }
