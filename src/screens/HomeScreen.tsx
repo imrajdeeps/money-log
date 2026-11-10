@@ -3,6 +3,7 @@ import { useApp } from '../context.tsx';
 import { BentoCard, BentoEmpty, BentoGrid } from '../components/Bento.tsx';
 import { BudgetLine } from '../components/BudgetLine.tsx';
 import { PaceChart } from '../components/PaceChart.tsx';
+import { RecurringTile } from '../components/RecurringTile.tsx';
 import { RecentList } from '../components/RecentList.tsx';
 import { dueRelative, fmtNet } from '../blocks.ts';
 import { planForMonth } from '../categories.ts';
@@ -17,6 +18,7 @@ interface Props {
   open: (s: Section, anchor?: string) => void;
   openAdd: () => void;
   goSettings: () => void;
+  manageRecurring: () => void;
 }
 
 const pct = (f: number): string => { const v = Math.abs(f * 100); return `${v < 100 ? v.toFixed(1) : Math.round(v)}%`; };
@@ -24,7 +26,7 @@ const whole = (f: number): string => `${Math.round(f * 100)}%`;
 
 // The surface layer: one figure or picture per tile, every tile a door to its details. Everything shown is worked out from
 // what the app already holds; there is no tile for figures the app does not record (income, net worth over time).
-export function HomeScreen({ open, openAdd, goSettings }: Props) {
+export function HomeScreen({ open, openAdd, goSettings, manageRecurring }: Props) {
   const app = useApp();
   const today = isoDate();
   const month = monthOf(today);
@@ -123,6 +125,8 @@ export function HomeScreen({ open, openAdd, goSettings }: Props) {
             </BentoCard>
           );
         })}
+
+        <RecurringTile onManage={manageRecurring} />
 
         <BentoCard
           title="Recent payments"
