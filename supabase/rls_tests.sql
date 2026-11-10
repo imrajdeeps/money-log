@@ -750,6 +750,364 @@ begin
   if pg_temp.n('select 1 from public.groups') <> 0 or pg_temp.n('select 1 from public.entries') <> 0 then raise exception 'FAIL a token without a user id can read group data'; end if;
   raise notice 'PASS anonymous visitors and user-less tokens get nothing';
 
+end $$;
+
+-- =====================================================================================
+-- Release 3: receipt photos (table, private Storage bucket), edit history, "my share" link
+-- Cast: "a" (owner, group admin; user D above), B (group member), C (stranger), plus X and Y for the storage caps.
+-- =====================================================================================
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into auth.users (id) values
+  ('eeee0001-eeee-4eee-8eee-eeeeeeee0001'),
+  ('eeee0002-eeee-4eee-8eee-eeeeeeee0002');
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict do nothing;
+
+do $$
+declare
+  a constant text := 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'; -- the owner here is D (A already made its 10 groups in the tests above)
+  b constant text := 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  c constant text := 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  x constant text := 'eeee0001-eeee-4eee-8eee-eeeeeeee0001';
+  y constant text := 'eeee0002-eeee-4eee-8eee-eeeeeeee0002';
+  ep  constant text := '40000000-0000-4000-8000-000000000001';  -- A private payment
+  es  constant text := '40000000-0000-4000-8000-000000000002';  -- A shared expense (A + B)
+  eb  constant text := '40000000-0000-4000-8000-000000000003';  -- B private payment
+  es2 constant text := '40000000-0000-4000-8000-000000000004';  -- A shared expense that is made private later
+  es3 constant text := '40000000-0000-4000-8000-000000000005';  -- A shared expense edited many times
+  es4 constant text := '40000000-0000-4000-8000-00000000000a';  -- expense in a group of one
+  ex  constant text := '40000000-0000-4000-8000-000000000006';  -- X's payment (all of X's bulk receipts hang on it)
+  ey  constant text := '40000000-0000-4000-8000-000000000007';
+  ex2 constant text := '40000000-0000-4000-8000-000000000008';  -- fresh payments for the cap checks (the bulk photos hang on ex and ey)
+  ey2 constant text := '40000000-0000-4000-8000-000000000009';
+  r1  constant text := '50000000-0000-4000-8000-000000000001';
+  r2  constant text := '50000000-0000-4000-8000-000000000002';
+  r3  constant text := '50000000-0000-4000-8000-000000000003';
+  r4  constant text := '50000000-0000-4000-8000-000000000004';
+  r5  constant text := '50000000-0000-4000-8000-000000000005';
+  r6  constant text := '50000000-0000-4000-8000-000000000006';
+  rb  constant text := '50000000-0000-4000-8000-000000000007';
+  gid uuid; code text; gsolo uuid; csolo text;
+  n bigint; tbl text; fn text; pol record; i int; bump int := 0;
+  m text;
+  rcpt constant text := $q$insert into public.receipts (id, entry_id, owner_id, path, bytes) values (%L, %L, %L, %L, %s)$q$;
+  objins constant text := $q$insert into storage.objects (bucket_id, name) values (%L, %L)$q$;
+begin
+  -- =========================================================================
+  -- 1. STRUCTURE
+  -- =========================================================================
+  if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'receipts') <> 3
+     or (select count(distinct cmd) from pg_policies where schemaname = 'public' and tablename = 'receipts' and cmd in ('SELECT', 'INSERT', 'UPDATE')) <> 3 then
+    raise exception 'FAIL receipts must have exactly a select, an insert and an update policy (a photo is never hard-deleted by a user)'; end if;
+  if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'entry_history') <> 1
+     or (select cmd from pg_policies where schemaname = 'public' and tablename = 'entry_history') <> 'SELECT' then
+    raise exception 'FAIL entry_history must have exactly one policy, for SELECT'; end if;
+  for pol in select * from pg_policies where schemaname = 'public' and tablename in ('receipts', 'entry_history') loop
+    if pol.roles::text <> '{authenticated}' or pol.permissive <> 'PERMISSIVE' then
+      raise exception 'FAIL policy % must be permissive and for role authenticated only', pol.policyname; end if;
+  end loop;
+  if (select with_check from pg_policies where tablename = 'receipts' and cmd = 'INSERT') not like '%owner_id%'
+     or (select with_check from pg_policies where tablename = 'receipts' and cmd = 'INSERT') not like '%can_edit_entry%' then
+    raise exception 'FAIL receipts_insert must tie the row to its owner and to a payment they may edit'; end if;
+  if (select qual from pg_policies where tablename = 'receipts' and cmd = 'SELECT') not like '%can_view_entry%' then
+    raise exception 'FAIL receipts_select must share photos only through can_view_entry'; end if;
+  if (select qual from pg_policies where tablename = 'receipts' and cmd = 'UPDATE') not like '%owner_id%' then
+    raise exception 'FAIL receipts_update must be limited to the owner'; end if;
+  if (select qual from pg_policies where tablename = 'entry_history') not like '%is_group_member%' then
+    raise exception 'FAIL entry_history must be readable only by group members'; end if;
+  foreach tbl in array array['public.receipts', 'public.entry_history'] loop
+    if not (select relrowsecurity and relforcerowsecurity from pg_class where oid = tbl::regclass) then raise exception 'FAIL row-level security is not enabled and forced on %', tbl; end if;
+    if has_table_privilege('anon', tbl, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then raise exception 'FAIL role anon holds a privilege on %', tbl; end if;
+    if has_table_privilege('authenticated', tbl, 'DELETE,TRUNCATE,REFERENCES,TRIGGER') then raise exception 'FAIL role authenticated can delete from or truncate %', tbl; end if;
+  end loop;
+  if has_table_privilege('authenticated', 'public.entry_history', 'INSERT,UPDATE') then raise exception 'FAIL users can write the edit history directly'; end if;
+  if not (has_table_privilege('authenticated', 'public.receipts', 'SELECT') and has_table_privilege('authenticated', 'public.receipts', 'INSERT') and has_table_privilege('authenticated', 'public.receipts', 'UPDATE')) then
+    raise exception 'FAIL authenticated is missing select/insert/update on receipts'; end if;
+  raise notice 'PASS receipts and edit history: row-level security forced, anon locked out, history read-only, photos never hard-deleted';
+
+  foreach fn in array array['can_view_entry(uuid)', 'can_edit_entry(uuid)', 'receipt_slot_open(text)', 'can_read_receipt(text)', 'enforce_receipt_rules()', 'keep_receipt_fixed()', 'delete_receipts_with_entry()', 'log_entry_history()', 'keep_unpurged_receipts()', 'group_has_company(uuid)'] loop
+    if has_function_privilege('anon', ('public.' || fn)::regprocedure, 'EXECUTE') or has_function_privilege('public', ('public.' || fn)::regprocedure, 'EXECUTE') then
+      raise exception 'FAIL anon or public can execute %', fn; end if;
+    if not (select exists (select 1 from pg_proc p, unnest(p.proconfig) cfg where p.oid = ('public.' || fn)::regprocedure and cfg like 'search_path=%')) then
+      raise exception 'FAIL % does not pin its search_path', fn; end if;
+  end loop;
+  foreach fn in array array['enforce_receipt_rules()', 'keep_receipt_fixed()', 'delete_receipts_with_entry()', 'log_entry_history()', 'keep_unpurged_receipts()', 'group_has_company(uuid)'] loop
+    if has_function_privilege('authenticated', ('public.' || fn)::regprocedure, 'EXECUTE') then raise exception 'FAIL authenticated can execute the internal function %', fn; end if;
+  end loop;
+  foreach fn in array array['can_view_entry(uuid)', 'can_edit_entry(uuid)', 'receipt_slot_open(text)', 'can_read_receipt(text)'] loop
+    if not has_function_privilege('authenticated', ('public.' || fn)::regprocedure, 'EXECUTE') then raise exception 'FAIL authenticated cannot execute % (the rules need it)', fn; end if;
+  end loop;
+  foreach fn in array array['can_view_entry(uuid)', 'can_edit_entry(uuid)', 'receipt_slot_open(text)', 'can_read_receipt(text)', 'enforce_receipt_rules()', 'keep_receipt_fixed()', 'delete_receipts_with_entry()', 'log_entry_history()'] loop
+    if not (select prosecdef from pg_proc where oid = ('public.' || fn)::regprocedure) then raise exception 'FAIL % must be security definer', fn; end if;
+  end loop;
+  raise notice 'PASS receipt and history functions: not callable by anon, search_path pinned, internal ones hidden from users';
+
+  if (select count(*) from pg_trigger where not tgisinternal and tgname in
+        ('receipts_rules', 'receipts_fixed', 'receipts_keep_latest_edit', 'receipts_touch_synced_at', 'entries_delete_receipts', 'entries_history', 'entries_keep_receipts')) <> 7 then
+    raise exception 'FAIL receipt or history triggers are missing'; end if;
+  if (select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname like 'receipts_objects_%') <> 3 then
+    raise exception 'FAIL the three receipts storage policies are missing'; end if;
+  for pol in select * from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname like 'receipts_objects_%' loop
+    if pol.roles::text <> '{authenticated}' or position('receipts' in coalesce(pol.qual, '') || coalesce(pol.with_check, '')) = 0 then
+      raise exception 'FAIL storage policy % must be for authenticated and limited to the receipts bucket', pol.policyname; end if;
+  end loop;
+  if not exists (select 1 from storage.buckets where id = 'receipts' and public = false and file_size_limit = 1048576 and allowed_mime_types = array['image/jpeg']) then
+    raise exception 'FAIL the receipts bucket must be private, 1 MB per file, JPEG only'; end if;
+  raise notice 'PASS receipts bucket is private, 1 MB per file, JPEG only, with exactly three storage policies';
+
+  -- =========================================================================
+  -- 2. SETUP: A, B and a group
+  -- =========================================================================
+  perform pg_temp.act_as(a);
+  gid := public.create_group('Home', 'family', 'Asha');
+  select i.code into code from public.group_invites i where i.group_id = gid;
+  perform pg_temp.act_as(b);
+  perform public.join_group(code, 'Ravi');
+  perform pg_temp.act_as(a);
+  insert into public.entries (id, owner_id, entry_date, category, amount) values (ep::uuid, a::uuid, '2026-11-09', 'Rent', 9000);
+  insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
+    values (es::uuid, a::uuid, '2026-11-09', 'Dinner', 100, gid, a::uuid, jsonb_build_object(a, 50, b, 50));
+  perform pg_temp.act_as(b);
+  insert into public.entries (id, owner_id, entry_date, category, amount) values (eb::uuid, b::uuid, '2026-11-09', 'Groceries', 50);
+
+  -- =========================================================================
+  -- 3. RECEIPT ROWS
+  -- =========================================================================
+  perform pg_temp.act_as(a);
+  execute format(rcpt, r1, ep, a, a || '/' || r1 || '.jpg', 200000);
+  if not pg_temp.fails(format(rcpt, r2, ep, a, b || '/' || r2 || '.jpg', 1000)) then raise exception 'FAIL a path in another user folder was accepted'; end if;
+  if not pg_temp.fails(format(rcpt, r2, ep, a, a || '/' || r1 || '.jpg', 1000)) then raise exception 'FAIL a path that is not <owner>/<id>.jpg was accepted'; end if;
+  if not pg_temp.fails(format(rcpt, r2, ep, a, a || '/' || r2 || '.png', 1000)) then raise exception 'FAIL a non-jpg path was accepted'; end if;
+  if not pg_temp.fails(format(rcpt, r2, ep, a, a || '/' || r2 || '.jpg', 0)) then raise exception 'FAIL a zero-byte photo was accepted'; end if;
+  if not pg_temp.fails(format(rcpt, r2, ep, a, a || '/' || r2 || '.jpg', 1048577)) then raise exception 'FAIL a photo over 1 MB was accepted'; end if;
+  if not pg_temp.fails(format(rcpt, r2, ep, b, b || '/' || r2 || '.jpg', 1000)) then raise exception 'FAIL A declared a photo owned by B'; end if;
+  perform pg_temp.act_as(b);
+  if pg_temp.n('select 1 from public.receipts') <> 0 then raise exception 'FAIL B can see a receipt of A private payment'; end if;
+  if not pg_temp.fails(format(rcpt, r2, ep, b, b || '/' || r2 || '.jpg', 1000)) then raise exception 'FAIL B attached a photo to A payment'; end if;
+  execute format(rcpt, rb, eb, b, b || '/' || rb || '.jpg', 1000);
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format(rcpt, r2, ep, c, c || '/' || r2 || '.jpg', 1000)) then raise exception 'FAIL a stranger attached a photo to A payment'; end if;
+  raise notice 'PASS a photo row must sit at <owner>/<id>.jpg, be 1 byte to 1 MB, and belong to a payment the owner may edit';
+
+  -- at most 3 per payment; re-sending a row is not refused
+  perform pg_temp.act_as(a);
+  execute format(rcpt, r2, ep, a, a || '/' || r2 || '.jpg', 1000);
+  execute format(rcpt, r3, ep, a, a || '/' || r3 || '.jpg', 1000);
+  if not pg_temp.fails(format(rcpt, r4, ep, a, a || '/' || r4 || '.jpg', 1000)) then raise exception 'FAIL a 4th photo on one payment was accepted'; end if;
+  insert into public.receipts (id, entry_id, owner_id, path, bytes) values (r3::uuid, ep::uuid, a::uuid, a || '/' || r3 || '.jpg', 1000)
+    on conflict (id) do update set updated_at = excluded.updated_at;
+  update public.receipts set deleted_at = now(), updated_at = now() + interval '1 minute' where id = r3::uuid;
+  execute format(rcpt, r4, ep, a, a || '/' || r4 || '.jpg', 1000); -- a deleted photo frees the slot
+  raise notice 'PASS at most 3 live photos on a payment; deleting one frees a slot';
+
+  -- shared expense: photos are visible to the group, editable by the owner only
+  execute format(rcpt, r5, es, a, a || '/' || r5 || '.jpg', 50000);
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from public.receipts where id = %L', r5)) <> 1 then raise exception 'FAIL group member B cannot see a photo on a shared expense'; end if;
+  if pg_temp.n(format('select 1 from public.receipts where id = %L', r1)) <> 0 then raise exception 'FAIL B sees a photo on A private payment'; end if;
+  update public.receipts set deleted_at = now(), updated_at = now() + interval '5 minutes' where id = r5::uuid;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL B deleted A photo'; end if;
+  if not pg_temp.fails(format(rcpt, r6, es, b, b || '/' || r6 || '.jpg', 1000)) then raise exception 'FAIL B attached a photo to A shared expense'; end if;
+  perform pg_temp.act_as(c);
+  if pg_temp.n('select 1 from public.receipts') <> 0 then raise exception 'FAIL stranger C sees receipts'; end if;
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails(format($q$update public.receipts set bytes = 1 where id = %L$q$, r5)) then raise exception 'FAIL a photo size was changed after the fact'; end if;
+  if not pg_temp.fails(format($q$update public.receipts set entry_id = %L where id = %L$q$, ep, r5)) then raise exception 'FAIL a photo was moved to another payment'; end if;
+  if not pg_temp.fails(format($q$update public.receipts set path = %L where id = %L$q$, a || '/other.jpg', r5)) then raise exception 'FAIL a photo path was changed'; end if;
+  update public.receipts set uploaded_at = now(), updated_at = now() + interval '2 minutes' where id = r5::uuid;
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL the owner could not mark a photo uploaded'; end if;
+  raise notice 'PASS the group sees photos on shared expenses, only the owner changes them, and what a photo is cannot be rewritten';
+
+  -- =========================================================================
+  -- 4. THE STORAGE BUCKET
+  -- =========================================================================
+  perform pg_temp.act_as(a);
+  execute format(objins, 'receipts', a || '/' || r1 || '.jpg');
+  if not pg_temp.fails(format(objins, 'receipts', a || '/undeclared.jpg')) then raise exception 'FAIL a file without a declared photo row was accepted'; end if;
+  if not pg_temp.fails(format(objins, 'receipts', b || '/' || rb || '.jpg')) then raise exception 'FAIL A uploaded into B folder'; end if;
+  if not pg_temp.fails(format(objins, 'avatars', a || '/' || r1 || '.jpg')) then raise exception 'FAIL the receipts rules opened up another bucket'; end if;
+  perform pg_temp.act_as(b);
+  execute format(objins, 'receipts', b || '/' || rb || '.jpg');
+  if not pg_temp.fails(format(objins, 'receipts', a || '/' || r2 || '.jpg')) then raise exception 'FAIL B uploaded into A folder'; end if;
+  if pg_temp.n(format('select 1 from storage.objects where name = %L', a || '/' || r1 || '.jpg')) <> 0 then raise exception 'FAIL B can read A file for a private payment'; end if;
+  perform pg_temp.act_as(a);
+  execute format(objins, 'receipts', a || '/' || r5 || '.jpg');
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from storage.objects where name = %L', a || '/' || r5 || '.jpg')) <> 1 then raise exception 'FAIL group member B cannot read the file of a shared expense'; end if;
+  perform pg_temp.act_as(c);
+  if pg_temp.n('select 1 from storage.objects') <> 0 then raise exception 'FAIL stranger C can read receipt files'; end if;
+  perform pg_temp.act_as(a);
+  if pg_temp.n(format('select 1 from storage.objects where name = %L', b || '/' || rb || '.jpg')) <> 0 then raise exception 'FAIL A can read the file of B private payment'; end if;
+  perform pg_temp.act_as(b);
+  delete from storage.objects where name = a || '/' || r5 || '.jpg';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL B deleted A file'; end if;
+  update storage.objects set name = b || '/stolen.jpg' where name = a || '/' || r5 || '.jpg';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL B renamed A file'; end if;
+  raise notice 'PASS storage: upload only into your own folder for a declared photo; read only your own or the group''s; remove only your own';
+
+  -- a shared expense made private again hides its photos from the group
+  perform pg_temp.act_as(a);
+  insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
+    values (es2::uuid, a::uuid, '2026-11-09', 'Taxi', 40, gid, a::uuid, jsonb_build_object(a, 20, b, 20));
+  execute format(rcpt, r6, es2, a, a || '/' || r6 || '.jpg', 1000);
+  execute format(objins, 'receipts', a || '/' || r6 || '.jpg');
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from public.receipts where id = %L', r6)) <> 1 or pg_temp.n(format('select 1 from storage.objects where name = %L', a || '/' || r6 || '.jpg')) <> 1 then
+    raise exception 'FAIL B should see the photo while the expense is shared'; end if;
+  perform pg_temp.act_as(a);
+  update public.entries set group_id = null, paid_by = null, shares = null, updated_at = now() + interval '10 minutes' where id = es2::uuid;
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from public.receipts where id = %L', r6)) <> 0 or pg_temp.n(format('select 1 from storage.objects where name = %L', a || '/' || r6 || '.jpg')) <> 0 then
+    raise exception 'FAIL B still sees the photo of an expense that is private again'; end if;
+  raise notice 'PASS making a shared expense private hides its photos from the group at once';
+
+  -- deleting a payment deletes its photos, and they stop being readable
+  perform pg_temp.act_as(a);
+  update public.entries set deleted_at = now(), updated_at = now() + interval '11 minutes' where id = es::uuid;
+  if (select deleted_at from public.receipts where id = r5::uuid) is null then raise exception 'FAIL deleting a payment did not delete its photo'; end if;
+  perform pg_temp.act_as(b);
+  -- the row stays visible, marked deleted, so every phone learns to drop the photo; the file itself is no longer readable
+  if (select deleted_at from public.receipts where id = r5::uuid) is null or pg_temp.n(format('select 1 from storage.objects where name = %L', a || '/' || r5 || '.jpg')) <> 0 then
+    raise exception 'FAIL B can still read the photo of a deleted payment'; end if;
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails(format($q$update public.receipts set purged_at = now(), updated_at = now() + interval '12 minutes' where id = %L$q$, r5)) then
+    raise exception 'FAIL a photo was marked purged while its file is still in storage (that would free quota without freeing space)'; end if;
+  delete from storage.objects where name = a || '/' || r5 || '.jpg';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL the owner could not remove the file of a deleted photo'; end if;
+  update public.receipts set purged_at = now(), updated_at = now() + interval '12 minutes' where id = r5::uuid;
+  if not pg_temp.fails(format(objins, 'receipts', a || '/' || r5 || '.jpg')) then raise exception 'FAIL a file was re-uploaded for a deleted photo'; end if;
+  raise notice 'PASS deleting a payment deletes its photos; the owner removes the files; nobody can upload to a deleted photo';
+
+  -- =========================================================================
+  -- 5. ACCOUNT CAP, AND NO WAY AROUND IT
+  -- The cap is on the NUMBER of photos (300): the database cannot see real file sizes, only what the phone declares.
+  -- =========================================================================
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  insert into public.entries (id, owner_id, entry_date, category, amount)
+    values (ex::uuid, x::uuid, '2026-11-09', 'Bulk', 1), (ex2::uuid, x::uuid, '2026-11-09', 'Fresh', 1);
+  alter table public.receipts disable trigger receipts_rules;
+  insert into public.receipts (id, entry_id, owner_id, path, bytes)
+    select ('60000000-0000-4000-8000-' || lpad(g::text, 12, '0'))::uuid, ex::uuid, x::uuid, x || '/60000000-0000-4000-8000-' || lpad(g::text, 12, '0') || '.jpg', 1
+      from generate_series(1, 300) g;   -- declared as 1 byte each: lying about the size gains nothing
+  alter table public.receipts enable trigger receipts_rules;
+  perform pg_temp.act_as(x);
+  if not pg_temp.fails(format(rcpt, '80000000-0000-4000-8000-000000000001', ex2, x, x || '/80000000-0000-4000-8000-000000000001.jpg', 1)) then
+    raise exception 'FAIL an account with 300 photos could add another (declaring 1 byte each must not help)'; end if;
+  update public.receipts set purged_at = now(), updated_at = now() + interval '1 minute' where id = '60000000-0000-4000-8000-000000000001';
+  execute format(rcpt, '80000000-0000-4000-8000-000000000001', ex2, x, x || '/80000000-0000-4000-8000-000000000001.jpg', 1);
+  raise notice 'PASS one account cannot hold more than 300 photos, whatever size it declares; removing a file frees room';
+
+  -- a payment cannot be hard-deleted while its photos' files may still be in storage (that would orphan the files and free the quota)
+  perform pg_temp.act_as(a);
+  insert into public.entries (id, owner_id, entry_date, category, amount) values (ey::uuid, a::uuid, '2026-11-09', 'Doomed', 10);
+  execute format(rcpt, '80000000-0000-4000-8000-0000000000a1', ey, a, a || '/80000000-0000-4000-8000-0000000000a1.jpg', 1000);
+  execute format(objins, 'receipts', a || '/80000000-0000-4000-8000-0000000000a1.jpg');
+  if not pg_temp.fails(format($q$delete from public.entries where id = %L$q$, ey)) then
+    raise exception 'FAIL a payment with a photo in storage was hard-deleted'; end if;
+  if pg_temp.n(format('select 1 from public.receipts where entry_id = %L', ey)) <> 1 then raise exception 'FAIL the photo row vanished'; end if;
+  update public.receipts set deleted_at = now(), updated_at = now() + interval '40 minutes' where id = '80000000-0000-4000-8000-0000000000a1';
+  if not pg_temp.fails(format($q$delete from public.entries where id = %L$q$, ey)) then
+    raise exception 'FAIL a payment whose photo is deleted but whose file is still stored was hard-deleted'; end if;
+  delete from storage.objects where name = a || '/80000000-0000-4000-8000-0000000000a1.jpg';
+  update public.receipts set purged_at = now(), updated_at = now() + interval '41 minutes' where id = '80000000-0000-4000-8000-0000000000a1';
+  delete from public.entries where id = ey::uuid;
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL the payment could not be deleted once its files were removed'; end if;
+  if pg_temp.n(format('select 1 from public.receipts where entry_id = %L', ey)) <> 0 then raise exception 'FAIL purged photo rows should go with the payment'; end if;
+  raise notice 'PASS a payment can be hard-deleted only after its photos'' files are removed (no orphaned files, no quota reset)';
+
+  -- =========================================================================
+  -- 6. EDIT HISTORY OF SHARED EXPENSES
+  -- =========================================================================
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from public.entry_history where entry_id = %L and kind = %L', es, 'created')) <> 1 then raise exception 'FAIL the creation of a shared expense is not in its history'; end if;
+  perform pg_temp.act_as(a);
+  update public.entries set amount = 120, shares = jsonb_build_object(a, 60, b, 60), note = 'with tip', updated_at = now() + interval '20 minutes' where id = es3::uuid; -- es3 does not exist yet: touches nothing
+  insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
+    values (es3::uuid, a::uuid, '2026-11-09', 'Lunch', 100, gid, a::uuid, jsonb_build_object(a, 50, b, 50));
+  update public.entries set amount = 120, shares = jsonb_build_object(a, 60, b, 60), updated_at = now() + interval '21 minutes' where id = es3::uuid;
+  update public.entries set exported_at = now(), updated_at = now() + interval '22 minutes' where id = es3::uuid; -- not something to show the group
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from public.entry_history where entry_id = %L', es3)) <> 2 then raise exception 'FAIL expected 2 history rows (created, edited), found %', pg_temp.n(format('select 1 from public.entry_history where entry_id = %L', es3)); end if;
+  if (select (changes #>> '{amount,from}')::numeric from public.entry_history where entry_id = es3::uuid and kind = 'edited') <> 100
+     or (select (changes #>> '{amount,to}')::numeric from public.entry_history where entry_id = es3::uuid and kind = 'edited') <> 120 then
+    raise exception 'FAIL the history does not say the amount went from 100 to 120'; end if;
+  if (select changed_by from public.entry_history where entry_id = es3::uuid and kind = 'edited') <> a::uuid then raise exception 'FAIL the history names the wrong person'; end if;
+  perform pg_temp.act_as(c);
+  if pg_temp.n('select 1 from public.entry_history') <> 0 then raise exception 'FAIL stranger C can read the edit history'; end if;
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$insert into public.entry_history (entry_id, group_id, changed_by, kind, changes) values (%L, %L, %L, 'edited', '{}')$q$, es3, gid, b)) then raise exception 'FAIL a member wrote history directly'; end if;
+  if not pg_temp.fails($q$update public.entry_history set kind = 'created'$q$) then raise exception 'FAIL a member rewrote history'; end if;
+  if not pg_temp.fails($q$delete from public.entry_history$q$) then raise exception 'FAIL a member erased history'; end if;
+  perform pg_temp.act_as(a);
+  if pg_temp.n(format('select 1 from public.entry_history where entry_id = %L', ep)) <> 0 then raise exception 'FAIL a private payment has history'; end if;
+  raise notice 'PASS shared expenses keep a history the group can read and nobody can write; exported marks are not history';
+
+  -- a group of one keeps no history (nobody else could read it, and it would only pile up rows); it starts with company
+  perform pg_temp.act_as(c);
+  gsolo := public.create_group('Just me', 'trip', 'Cee');
+  select i.code into csolo from public.group_invites i where i.group_id = gsolo;
+  insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
+    values (es4::uuid, c::uuid, '2026-11-09', 'Solo', 10, gsolo, c::uuid, jsonb_build_object(c, 10));
+  for i in 1..5 loop
+    update public.entries set note = 'solo ' || i, updated_at = now() + make_interval(mins => 50 + i) where id = es4::uuid;
+  end loop;
+  if pg_temp.n(format('select 1 from public.entry_history where entry_id = %L', es4)) <> 0 then raise exception 'FAIL a group of one kept history rows'; end if;
+  perform pg_temp.act_as(b);
+  perform public.join_group(csolo, 'Ravi');
+  perform pg_temp.act_as(c);
+  update public.entries set note = 'now with company', updated_at = now() + interval '60 minutes' where id = es4::uuid;
+  if pg_temp.n(format('select 1 from public.entry_history where entry_id = %L', es4)) <> 1 then raise exception 'FAIL history did not start once a second person joined'; end if;
+  raise notice 'PASS a group of one keeps no history; it starts once someone else is in the group';
+
+  -- made private: the group learns only that it moved out, never the values
+  perform pg_temp.act_as(b);
+  if (select changes from public.entry_history where entry_id = es2::uuid and kind = 'moved') is null then raise exception 'FAIL moving an expense out of the group left no trace'; end if;
+  if (select count(*) from public.entry_history h, jsonb_object_keys(h.changes) k where h.entry_id = es2::uuid and h.kind = 'moved' and k <> 'group_id') <> 0 then
+    raise exception 'FAIL the history of a private-again expense carries its values'; end if;
+  perform pg_temp.act_as(a);
+  update public.entries set amount = 41, shares = null, group_id = null, paid_by = null, updated_at = now() + interval '30 minutes' where id = es2::uuid;
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format($q$select 1 from public.entry_history h where h.entry_id = %L and h.kind <> 'created' and (jsonb_exists(h.changes, 'amount') or jsonb_exists(h.changes, 'shares'))$q$, es2)) <> 0
+     or pg_temp.n(format('select 1 from public.entry_history h where h.entry_id = %L', es2)) <> 2 then
+    raise exception 'FAIL a later private edit leaked into the group history (or the history of es2 is not just created + moved)'; end if;
+  -- deleting is recorded; history is capped at 100 per expense
+  perform pg_temp.act_as(a);
+  update public.entries set deleted_at = now(), updated_at = now() + interval '31 minutes' where id = es3::uuid;
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from public.entry_history where entry_id = %L and kind = %L', es3, 'deleted')) <> 1 then raise exception 'FAIL deleting a shared expense is not in its history'; end if;
+  perform pg_temp.act_as(a);
+  for i in 1..105 loop
+    update public.entries set note = 'edit ' || i, updated_at = now() + make_interval(mins => 40 + i) where id = es::uuid;
+  end loop;
+  perform pg_temp.act_as(b);
+  if pg_temp.n(format('select 1 from public.entry_history where entry_id = %L', es)) <> 100 then raise exception 'FAIL history should be capped at 100 rows, found %', pg_temp.n(format('select 1 from public.entry_history where entry_id = %L', es)); end if;
+  raise notice 'PASS a private-again expense leaves no values in the group history; deletes are recorded; history keeps the latest 100';
+
+  -- =========================================================================
+  -- 7. "MY SHARE" LINK, ANONYMOUS
+  -- =========================================================================
+  perform pg_temp.act_as(b);
+  insert into public.entries (id, owner_id, entry_date, category, amount, share_of) values (gen_random_uuid(), b::uuid, '2026-11-09', 'Dinner', 50, es3::uuid);
+  if (select count(*) from public.entries where owner_id = b::uuid and share_of = es3::uuid) <> 1 then raise exception 'FAIL the my-share link was not stored'; end if;
+  perform pg_temp.act_as(a);
+  if pg_temp.n(format('select 1 from public.entries where share_of = %L', es3)) <> 0 then raise exception 'FAIL B private my-share payment is visible to A'; end if;
+  perform pg_temp.act_as(null);
+  foreach tbl in array array['receipts', 'entry_history'] loop
+    if not pg_temp.fails('select 1 from public.' || tbl) then raise exception 'FAIL anon could select %', tbl; end if;
+  end loop;
+  perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+  set local role authenticated;
+  if pg_temp.n('select 1 from public.receipts') <> 0 or pg_temp.n('select 1 from public.entry_history') <> 0 or pg_temp.n('select 1 from storage.objects') <> 0 then
+    raise exception 'FAIL a token without a user id can read receipts, history or files'; end if;
+  raise notice 'PASS the my-share link stays private; anonymous visitors and user-less tokens get nothing';
+
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;
 
