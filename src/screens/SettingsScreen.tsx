@@ -301,7 +301,7 @@ function PlanCard() {
     <div className="card">
       <h2>Spreadsheet plan (optional)</h2>
       <p className="muted small">
-        The app works on its own: it has built-in categories and you can add your own and set budgets on the Month tab.
+        The app works on its own: it has built-in categories and you can add your own and set budgets under Month.
         If you also keep the spreadsheet, import its blocks here. The spreadsheet's categories, groups and planned amounts then
         take over for the months it covers, and nothing you logged changes.
       </p>

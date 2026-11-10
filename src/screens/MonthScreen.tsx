@@ -1,29 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../context.tsx';
 import { monthLabel } from '../format.ts';
+import { BudgetLine as Line } from '../components/BudgetLine.tsx';
 import { BudgetsDialog } from '../components/BudgetsDialog.tsx';
 import { planCovers, planForMonth } from '../categories.ts';
-import { GROUPS, budgetEntries, budgetState, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../logic.ts';
-import type { BudgetState, Group } from '../logic.ts';
-
-const stateClass: Record<BudgetState, string> = { over: 'bad', ok: 'good', short: 'bad', idle: 'idle' };
-
-function Line({ group, spent, planned, over, budgeted }: { group: Group; spent: number; planned: number; over: boolean; budgeted: boolean }) {
-  if (!budgeted) return <><div className="bar" aria-hidden="true"><i className="idle" style={{ width: '0%' }} /></div><span className="left idle">no budget</span></>;
-  const st = budgetState(group, spent, planned, over);
-  const saving = group === 'Saving';
-  const diff = planned - spent;
-  let text = '';
-  if (saving) text = spent >= planned && planned > 0 ? 'on track' : planned > 0 ? `${fmtINR(Math.max(0, diff))} to go` : '';
-  else text = diff >= 0 ? `${fmtINR(diff)} left` : `${fmtINR(-diff)} over`;
-  const pct = planned > 0 ? Math.min(100, (spent / planned) * 100) : spent > 0 ? 100 : 0;
-  return (
-    <>
-      <div className="bar" aria-hidden="true"><i className={stateClass[st]} style={{ width: `${pct}%` }} /></div>
-      <span className={`left ${stateClass[st]}`}>{text}</span>
-    </>
-  );
-}
+import { GROUPS, budgetEntries, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../logic.ts';
 
 export function MonthScreen() {
   const app = useApp();
