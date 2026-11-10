@@ -864,4 +864,8 @@ export const HI: Record<string, string> = {
   'Sync error · tap to retry': 'सिंक में गड़बड़ी · दोबारा कोशिश के लिए दबाएँ',
   'Synced': 'सिंक हुआ',
   'Synced {0}': '{0} सिंक हुआ',
+  '{0} finished or removed event{1} cancelled in it.': 'इसमें {0} पूरा या हटाया हुआ इवेंट रद्द किया गया।',
+  'Events for items you have since finished or removed are cancelled in the next file, so your calendar drops them ({0} now). This covers only events this phone put in a file.': 'जो चीज़ें आपने बाद में पूरी कीं या हटाईं, उनके इवेंट अगली फ़ाइल में रद्द हो जाते हैं, ताकि आपका कैलेंडर उन्हें हटा दे (अभी {0})। यह सिर्फ़ उन इवेंट पर लागू है जो इस फ़ोन ने किसी फ़ाइल में डाले थे।',
+  'New: calendar cancels': 'नया: कैलेंडर में रद्द',
+  'When you finish or remove a dated item, the next calendar file you make from Plan also cancels its event, so your phone\'s calendar drops it when you open the file. It only covers events this phone put in a file earlier.': 'जब आप तारीख़ वाली कोई चीज़ पूरी करते या हटाते हैं, तो प्लान से बनी अगली कैलेंडर फ़ाइल उसका इवेंट भी रद्द कर देती है, इसलिए फ़ाइल खोलने पर आपके फ़ोन का कैलेंडर उसे हटा देता है। यह सिर्फ़ उन इवेंट पर लागू है जो इस फ़ोन ने पहले किसी फ़ाइल में डाले थे।',
 };

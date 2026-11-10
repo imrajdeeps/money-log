@@ -285,7 +285,9 @@ like any other.
 one done (marks sync between your phones and survive re-importing the same list; the spreadsheet stays the plan, so
 tick items off there too). **Add to calendar** makes a calendar (`.ics`) file with an all-day event and an alert for each
 dated item that is not done; by default the alert is 2 days before at 9:00, and you can change both. Opening the file
-again later updates the same events instead of adding copies. Below it, **Net worth and goals** shows the imported
+again later updates the same events instead of adding copies. If you finished or removed an item after putting it in a
+calendar file, the next file also cancels its event (this phone remembers what it sent; a passed date alone does not cancel).
+How a calendar app treats a cancelled event in an imported file varies, and some ignore it. Below it, **Net worth and goals** shows the imported
 figures. They are the spreadsheet's numbers at the plan month shown; they do not change as you log payments.
 
 ## Add a payment from a bank message

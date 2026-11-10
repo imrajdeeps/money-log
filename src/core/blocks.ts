@@ -246,20 +246,32 @@ function hash(s: string): string {
   return h.toString(16).padStart(8, '0');
 }
 
+/** The calendar event's identity: it depends only on the item (its key and title), so opening the file again updates the same event. */
+export const icsUid = (item: { k: string; title: string }): string => `${hash(item.k)}${hash(item.k + item.title)}@money-log`;
+
+/** An event this phone put in the calendar earlier, as much of it as is needed to take it out again. */
+export interface SentEvent { uid: string; k: string; title: string; due: string; amount: number | null }
+
+const nextDay = (iso: string): string => {
+  const next = new Date(Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)) + 1));
+  return `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, '0')}${String(next.getUTCDate()).padStart(2, '0')}`;
+};
+
 // One all-day event per dated, unfinished item, each with a display alert. The UID depends only on the item, so
-// opening the file again updates the same events instead of adding copies.
-export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string): string {
+// opening the file again updates the same events instead of adding copies. `cancels` are events put in the calendar by an
+// earlier file whose item has since been finished, removed or renamed: they are written as CANCELLED, with a later SEQUENCE,
+// so the calendar app takes them out when the file is opened.
+export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string, cancels: readonly SentEvent[] = []): string {
   const stampUtc = nowIso.replace(/[-:]/g, '').replace(/\.\d+/, '').slice(0, 15) + 'Z';
   const lines: string[] = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Money Log//Due list//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
   for (const i of items) {
     if (!i.due || i.isDone) continue;
-    const next = new Date(Date.UTC(Number(i.due.slice(0, 4)), Number(i.due.slice(5, 7)) - 1, Number(i.due.slice(8, 10)) + 1));
-    const nextIso = `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, '0')}${String(next.getUTCDate()).padStart(2, '0')}`;
+    const nextIso = nextDay(i.due);
     const what = i.kind === 'oneoff' ? tr('One-off payment') : tr('To-do');
     const summary = i.amount ? `${i.title} (${fmtINR(i.amount)})` : i.title;
     lines.push(
       'BEGIN:VEVENT',
-      `UID:${hash(i.k)}${hash(i.k + i.title)}@money-log`,
+      `UID:${icsUid(i)}`,
       `DTSTAMP:${stampUtc}`,
       `DTSTART;VALUE=DATE:${icsDate(i.due)}`,
       `DTEND;VALUE=DATE:${nextIso}`,
@@ -271,6 +283,20 @@ export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string): s
       `DESCRIPTION:${icsText(summary)}`,
       `TRIGGER:${alertTrigger(prefs)}`,
       'END:VALARM',
+      'END:VEVENT',
+    );
+  }
+  for (const c of cancels) {
+    const summary = c.amount ? `${c.title} (${fmtINR(c.amount)})` : c.title;
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${c.uid}`,
+      `DTSTAMP:${stampUtc}`,
+      'SEQUENCE:1',
+      `DTSTART;VALUE=DATE:${icsDate(c.due)}`,
+      `DTEND;VALUE=DATE:${nextDay(c.due)}`,
+      `SUMMARY:${icsText(summary)}`,
+      'STATUS:CANCELLED',
       'END:VEVENT',
     );
   }

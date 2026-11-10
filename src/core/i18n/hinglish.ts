@@ -864,4 +864,8 @@ export const HINGLISH: Record<string, string> = {
   'Sync error · tap to retry': 'Sync mein gadbadi · dobara koshish ke liye dabayein',
   'Synced': 'Synced',
   'Synced {0}': '{0} synced',
+  '{0} finished or removed event{1} cancelled in it.': 'Isme {0} poora ya hataya hua event cancel kiya gaya.',
+  'Events for items you have since finished or removed are cancelled in the next file, so your calendar drops them ({0} now). This covers only events this phone put in a file.': 'Jo cheezein aapne baad mein poori kin ya hatayi, unke events agli file mein cancel ho jaate hain, taaki aapka calendar unhe hata de (abhi {0}). Yeh sirf un events par lagu hai jo is phone ne kisi file mein daale the.',
+  'New: calendar cancels': 'Naya: Calendar mein cancel',
+  'When you finish or remove a dated item, the next calendar file you make from Plan also cancels its event, so your phone\'s calendar drops it when you open the file. It only covers events this phone put in a file earlier.': 'Jab aap tareekh wali koi cheez poori karte ya hatate hain, to Plan se bani agli calendar file uska event bhi cancel kar deti hai, isliye file kholne par aapke phone ka calendar use hata deta hai. Yeh sirf un events par lagu hai jo is phone ne pehle kisi file mein daale the.',
 };
