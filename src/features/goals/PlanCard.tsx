@@ -16,7 +16,7 @@ export function PlanCard({ plan }: { plan: GoalPlan }) {
   return (
     <div className={ui.card()}>
       <h3>Plan</h3>
-      <p className="big-num mb-1.5">{fmtINR(plan.total)} <small className="text-muted">a month</small></p>
+      <p className="text-[22px] font-bold mt-0 mx-0 mb-1.5 tabular-nums">{fmtINR(plan.total)} <small className="text-muted">a month</small></p>
       <ul className={ui.list(true)}>
         {plan.rows.map((r) => (
           <li key={r.goal.id} className={ui.catLineFlush}><span>{r.goal.n}</span><span>{fmtINR(r.monthly)} <small className="text-muted">for {r.months} {r.months === 1 ? 'month' : 'months'}</small></span></li>

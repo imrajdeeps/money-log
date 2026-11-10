@@ -18,9 +18,9 @@ export function SummaryCard({ group, title, month, byDay, empty, extra }: { grou
 
   if (s.count === 0) return <div className={ui.card()}><h3>{title}</h3><p className="text-muted text-[13px]">{empty}</p></div>;
   return (
-    <div className="card groupsummary">
+    <div className={ui.card()}>
       <h3>{title}</h3>
-      <p className="big-num">{fmtINR(s.total)}</p>
+      <p className={ui.bigNum}>{fmtINR(s.total)}</p>
       <p className="text-muted text-[13px]">
         {s.count} {s.count === 1 ? 'expense' : 'expenses'}{extra ? extra(s.total) : ''}
       </p>

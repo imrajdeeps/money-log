@@ -8,6 +8,7 @@ import { METHODS, fmtINR } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from './payments.ts';
 import type { PaymentFilter } from './payments.ts';
+import * as ui from '../../ui/styles.ts';
 
 const ROW = 59; // a row is 58px tall plus the line between rows; the real height is measured once drawn
 
@@ -49,9 +50,9 @@ export function AllPayments() {
 
   return (
     <>
-      <div className="payfilters">
+      <div className={ui.payFilters}>
         <input type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Search note, category or amount" aria-label="Search payments" enterKeyHint="search" autoComplete="off" />
-        <div className="payselects">
+        <div className={ui.paySelects}>
           <select value={f.month} onChange={(e) => set({ month: e.target.value })} aria-label="Month">
             <option value="">Any month</option>
             {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
@@ -67,11 +68,11 @@ export function AllPayments() {
         </div>
         <p className="text-muted text-[13px]" role="status">
           {rows.length} {rows.length === 1 ? 'payment' : 'payments'} · {fmtINR(total)}
-          {isFiltered(f) && <> · <button type="button" className="linkbtn" onClick={() => setF(NO_FILTER)}>Clear filters</button></>}
+          {isFiltered(f) && <> · <button type="button" className={ui.linkBtn} onClick={() => setF(NO_FILTER)}>Clear filters</button></>}
         </p>
       </div>
       {rows.length === 0 && <p className="text-muted">Nothing matches. Try fewer words or clear the filters.</p>}
-      <ul ref={listRef} className="list virtual" style={{ height: rows.length === 0 ? 0 : virt.getTotalSize(), display: rows.length === 0 ? 'none' : undefined }}>
+      <ul ref={listRef} className={ui.list() + ' relative [&>li]:absolute [&>li]:top-0 [&>li]:left-0 [&>li]:w-full'} style={{ height: rows.length === 0 ? 0 : virt.getTotalSize(), display: rows.length === 0 ? 'none' : undefined }}>
         {virt.getVirtualItems().map((v) => (
           <li key={v.key} data-index={v.index} ref={virt.measureElement} style={{ transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}>
             <PaymentRow entry={rows[v.index]!} onOpen={setEditing} />

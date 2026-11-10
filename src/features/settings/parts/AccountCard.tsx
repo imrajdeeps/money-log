@@ -72,7 +72,7 @@ export function AccountCard() {
         <h2>{how === 'signup' ? 'Create an account' : 'Sign in to sync'}</h2>
         {app.authNotice && (
           <p className={ui.msg(app.authNotice.bad ? 'bad' : 'good')} role="alert">
-            {app.authNotice.text} <button type="button" className="linkbtn" onClick={app.dismissAuthNotice}>Dismiss</button>
+            {app.authNotice.text} <button type="button" className={ui.linkBtn} onClick={app.dismissAuthNotice}>Dismiss</button>
           </p>
         )}
         <p className="text-muted text-[13px]">Your payments are saved on this phone either way. Signing in only adds the cloud copy and your other devices.</p>
@@ -94,9 +94,9 @@ export function AccountCard() {
             <div className={ui.btnRow}>
               <button type="submit" className={ui.btn()} disabled={busy || !email.trim() || !password}>Sign in</button>
             </div>
-            <p className="text-muted text-[13px]"><button type="button" className="linkbtn" aria-expanded={forgot} onClick={() => { setForgot(!forgot); setResetNote(null); }}>Forgot your password?</button></p>
+            <p className="text-muted text-[13px]"><button type="button" className={ui.linkBtn} aria-expanded={forgot} onClick={() => { setForgot(!forgot); setResetNote(null); }}>Forgot your password?</button></p>
             {forgot && (
-              <div className="newcat" role="group" aria-label="Reset your password">
+              <div className={ui.newCat} role="group" aria-label="Reset your password">
                 <p className="text-[13px]">We will email {email.trim() ? <b>{email.trim()}</b> : 'the address above'} a link to choose a new password. Open it on this phone.</p>
                 <button type="button" className={ui.btn()} disabled={busy || !email.trim()} onClick={sendReset}>Email me a reset link</button>
                 {resetNote && <p className={ui.msg(resetNote.bad ? 'bad' : 'good')} role={resetNote.bad ? 'alert' : 'status'}>{resetNote.text}</p>}
@@ -145,7 +145,7 @@ export function AccountCard() {
         <button type="button" className={ui.btn('ghost')} aria-expanded={leaving} onClick={() => setLeaving(!leaving)}>Sign out</button>
       </div>
       {leaving && (
-        <div className="newcat" role="group" aria-label="Sign out">
+        <div className={ui.newCat} role="group" aria-label="Sign out">
           <p><b>Also erase this phone's copy of your data?</b></p>
           <p className="text-muted text-[13px]">
             Erase it before someone else uses this phone or you sign in with another account. Everything already in the cloud stays there

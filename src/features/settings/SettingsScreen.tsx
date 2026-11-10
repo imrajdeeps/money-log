@@ -41,9 +41,9 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
   return (
     <section aria-label="Settings">
       {open ? (
-        <button type="button" className="settings-back" onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
+        <button type="button" className={ui.backLink} onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />Settings</button>
       ) : (
-        <div className="pagehead"><h2>Settings</h2></div>
+        <div className={ui.pageHead}><h2>Settings</h2></div>
       )}
       <ul className={ui.list()} hidden={open !== undefined}>
         {sections.map((s) => (

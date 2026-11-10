@@ -124,7 +124,7 @@ function DueSection() {
 function Figure({ i }: { i: NetItem }) {
   const pct = i.unit === '%' ? Math.max(0, Math.min(100, i.value)) : null;
   return (
-    <li className="catrow">
+    <li className="px-3.5 py-3">
       <div className={ui.catLine}><span>{i.label}</span><b>{fmtNet(i)}</b></div>
       {pct !== null && <div className={ui.bar} aria-hidden="true"><i className={ui.barFill('good')} style={{ width: `${pct}%` }} /></div>}
     </li>

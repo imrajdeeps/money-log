@@ -123,7 +123,7 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
 
   return (
     <form onSubmit={save} noValidate autoComplete="off" className="quicklog" aria-label="Log a payment">
-      <details className="pastebox" open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
+      <details className={ui.pasteBox} open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
         <summary>Paste a payment message</summary>
         <p className="text-muted text-[13px]">Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.</p>
         <textarea
@@ -141,7 +141,7 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
         {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
       </details>
 
-      <label className="amount">
+      <label className={ui.amount}>
         <span aria-hidden="true">₹</span>
         <input
           ref={amountRef}

@@ -55,9 +55,9 @@ export function RecurringCard() {
         (you can edit the payment afterwards). A month the app was not opened is not added later. {app.syncEnabled ? 'Your other phones get the list when you sync.' : ''}
       </p>
       {items.length > 0 && (
-        <ul className="list recurlist">
+        <ul className={ui.list()}>
           {items.map((it) => (
-            <li key={it.id} className="row static">
+            <li key={it.id} className={ui.rowStatic}>
               <span className={ui.rowMain()}><b>{it.c}</b><small>{describeRecurring(it)}</small></span>
               <button type="button" className={ui.btn('ghost', 'small')} onClick={() => edit(it)}>Edit</button>
               <button type="button" className={ui.btn(removing === it.id ? 'danger' : 'ghost', 'small')} onClick={() => remove(it.id)}>{removing === it.id ? 'Tap to remove' : 'Remove'}</button>

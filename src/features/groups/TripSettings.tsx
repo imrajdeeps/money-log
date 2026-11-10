@@ -24,7 +24,7 @@ export function TripSettings({ group, isAdmin }: { group: Group; isAdmin: boolea
   return (
     <div className={ui.card()}>
       <h3>Trip</h3>
-      {closed && <p className="closedbanner">Closed on {shortDate(group.closed_at!.slice(0, 10))}. No new expenses or people; settling up still works.</p>}
+      {closed && <p className={ui.closedBanner}>Closed on {shortDate(group.closed_at!.slice(0, 10))}. No new expenses or people; settling up still works.</p>}
       {isAdmin && (
         <form onSubmit={saveDates} noValidate>
           <div className={ui.btnRow}>

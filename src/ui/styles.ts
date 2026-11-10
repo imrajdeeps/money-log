@@ -61,7 +61,7 @@ export function msg(tone?: 'bad' | 'good' | false | null) {
 }
 export const banner = 'bg-bad-bg text-bad px-3 py-2.5 rounded-[10px] mt-0 mx-0 mb-3 text-[14px] font-semibold';
 export function card(tone?: 'notice') {
-  return cx('border rounded-card p-4 mb-3.5', tone === 'notice' ? 'bg-warn-bg border-transparent' : 'bg-card border-line');
+  return cx('border rounded-card p-4 mb-3.5 [ul+&]:mt-3.5', tone === 'notice' ? 'bg-warn-bg border-transparent' : 'bg-card border-line');
 }
 /** a button that sits straight inside a card gets room above it and the card's width */
 export const inCard = 'mt-1.5 w-full';
@@ -76,6 +76,8 @@ const ROW_BASE =
   'flex w-full items-center gap-2.5 border-0 bg-transparent text-inherit text-left cursor-pointer [font-family:inherit] [font-size:inherit] [line-height:inherit] ' +
   '[&>svg]:flex-none [&>svg]:text-muted [@media(hover:hover)]:hover:bg-[color-mix(in_srgb,var(--bg)_70%,transparent)]';
 export const row = `${ROW_BASE} min-h-[58px] px-3.5 py-2.5`;
+/** a row that is not a button (no pointer) */
+export const rowStatic = `${ROW_BASE.replace('cursor-pointer', 'cursor-default')} min-h-[58px] px-3.5 py-2.5`;
 /** a row of the short list on the Overview: tighter, with rounded corners for the hover */
 export const rowCompact = `${ROW_BASE} min-h-[54px] p-2 rounded-xl`;
 const ROW_SMALL = '[&_small]:text-muted [&_small]:overflow-hidden [&_small]:text-ellipsis';
@@ -153,3 +155,59 @@ export const leftText = (tone?: 'good' | 'bad' | 'warn' | '') => cx('text-[13px]
 // ---- the page heading and the bits of a row ---------------------------------------------------------------------------
 export const pageHead = 'flex items-baseline justify-between gap-3 mt-0.5 mb-3.5 mx-0 [&_h2]:text-[24px] [&_h2]:m-0 [&_h2]:tracking-[-0.01em] [&_p]:m-0';
 export const dot = 'w-2.5 h-2.5 rounded-[50%] bg-warn flex-none';
+
+// ---- more shared pieces -----------------------------------------------------------------------------------------------
+export const backLink =
+  'inline-flex items-center gap-0.5 mt-0.5 mr-0 mb-3 -ml-1.5 py-2 pr-3 pl-1 border-0 bg-transparent text-accent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-semibold cursor-pointer [&>svg]:[transform:rotate(180deg)]';
+/** a button that looks like a link, inside a line of text */
+export const linkBtn = 'bg-transparent border-0 p-0 [font-family:inherit] [font-size:inherit] [font-weight:inherit] [line-height:inherit] text-brand underline cursor-pointer';
+/** the big figure of a small card */
+export const bigNum = 'text-[22px] font-bold m-0 tabular-nums';
+/** a dashed box that holds a small form (a new category, a password reset) */
+export const newCat = 'mt-2.5 px-3 pt-2.5 pb-0.5 border border-dashed border-line rounded-xl';
+/** a checkbox with its label */
+export const check = 'flex items-center gap-2.5 min-h-11 [&>input]:w-[22px] [&>input]:h-[22px] [&>input]:flex-none';
+/** a small card in a grid of two (the Month page's group tiles); `picked` outlines the one the page is filtered to */
+export const groupTile = (picked?: boolean) =>
+  cx('border rounded-card bg-card border-line m-0 px-3.5 py-3', picked && '[box-shadow:0_0_0_2px_var(--accent)]');
+
+// ---- groups -----------------------------------------------------------------------------------------------------------
+export const settleForm = 'mt-3 pt-1 border-t border-line';
+export const codeBox = 'text-[24px] font-bold tracking-[2px] text-center p-3 my-2 mx-0 border border-dashed border-line rounded-xl tabular-nums select-all';
+export const coupleLine = (tone: 'owed' | 'late' | 'muted') => cx('mt-0 mx-0 mb-1.5 text-[20px] font-bold tracking-[-0.01em]', tone === 'owed' ? 'text-good' : tone === 'late' ? 'text-bad' : 'text-muted');
+export const closedBanner = 'mt-0 mx-0 mb-3 px-3 py-2.5 rounded-xl bg-[var(--card-2,var(--bg))] border border-line text-[14px]';
+/** a fieldset of choice cards (the kinds of group); the legend is the label */
+export const kinds = 'border-0 p-0 mx-0 mt-3 mb-0 grid gap-2 [&>legend]:block [&>legend]:text-[13px] [&>legend]:text-muted [&>legend]:mb-1 [&>legend]:p-0';
+export const kindCard =
+  'flex flex-col items-start gap-0.5 w-full min-h-14 px-3.5 py-2.5 border border-line rounded-[14px] bg-card text-ink text-left cursor-pointer ' +
+  '[font-family:inherit] [font-size:inherit] [font-weight:inherit] [line-height:inherit] [&_span]:text-[13px] [&_span]:text-muted ' +
+  'aria-pressed:border-brand aria-pressed:[box-shadow:inset_0_0_0_2px_var(--brand)]';
+/** the who-pays and who-owes split of an expense */
+export const split = 'mt-3';
+export const splitRow = 'flex items-center gap-2.5 px-3 py-2';
+
+// ---- payments ---------------------------------------------------------------------------------------------------------
+/** the receipt photos of an expense: a label, the thumbnails, the add button */
+export const photoStrip = 'mt-3.5 [&+button]:mt-3 [&+p]:mt-3 [&+form]:mt-3';
+export const fieldLabel = 'text-[13px] text-muted mt-0 mx-0 mb-1.5';
+export const thumbs = 'flex flex-wrap gap-2 items-stretch';
+export const thumb =
+  'relative w-[84px] h-[84px] p-0 border border-line rounded-xl bg-card overflow-hidden cursor-pointer flex items-center justify-center text-center text-inherit ' +
+  '[font-family:inherit] [font-size:inherit] [font-weight:inherit] [line-height:inherit] [&>img]:w-full [&>img]:h-full [&>img]:object-cover [&>img]:block';
+export const thumbTag = 'absolute inset-x-0 bottom-0 px-1 py-0.5 text-[10px] font-bold bg-warn-bg text-warn';
+export const thumbX =
+  "absolute top-1 right-1 w-7 h-7 rounded-[50%] border-0 bg-[rgba(0,0,0,0.65)] text-[#fff] text-[14px] cursor-pointer after:content-[''] after:absolute after:-inset-2"; // the ::after makes a 44px target
+export const addPhoto = (busy: boolean) => btn('ghost', 'none', cx('relative min-h-[84px] w-auto px-3.5 py-0 m-0', busy ? 'opacity-50 disabled:opacity-50 pointer-events-none' : ''));
+/** the photo viewer and the camera dialog (the dialog's own box is the base dialog style) */
+export const viewer = 'max-w-[96vw] [&_img]:block [&_img]:w-full [&_img]:max-h-[70vh] [&_img]:object-contain [&_img]:rounded-[10px] [&_img]:bg-[#000] [&_img]:mb-2.5';
+export const camera = '[&_video]:block [&_video]:w-full [&_video]:max-h-[70vh] [&_video]:object-contain [&_video]:rounded-[10px] [&_video]:bg-[#000]';
+export const histRow = 'px-3 py-2.5 [&_p]:mt-0 [&_p]:mx-0 [&_p]:mb-0.5';
+export const pasteBox =
+  'mt-0 mx-0 mb-3.5 px-3.5 py-3 border border-line rounded-[14px] bg-card [&>summary]:min-h-7 [&>summary]:cursor-pointer [&>summary]:font-semibold [&>summary]:text-accent ' +
+  '[&_textarea]:w-full [&_textarea]:box-border [&_textarea]:mt-1';
+/** the big amount field of Add expense */
+export const amount =
+  'flex items-center gap-1.5 border border-line rounded-xl px-3.5 py-1 bg-bg focus-within:[outline:3px_solid_var(--accent)] focus-within:outline-offset-2 ' +
+  '[&_span]:text-[30px] [&_span]:text-muted [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[34px] [&_input]:font-bold [&_input]:min-h-[60px] [&_input]:p-0 [&_input:focus-visible]:outline-none';
+export const payFilters = 'mb-3 [&_p]:m-0';
+export const paySelects = 'grid grid-cols-3 gap-2 my-2 mx-0 [&_select]:px-2';

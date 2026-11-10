@@ -100,8 +100,8 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
         </label>
         <PhotoStrip entryId={entry.id} canEdit={!readOnly} />
         {shared && inGroup && entry.group_id && (
-          <div className="photostrip">
-            <p className="fieldlabel">History</p>
+          <div className={ui.photoStrip}>
+            <p className={ui.fieldLabel}>History</p>
             <HistoryList entryId={entry.id} groupId={entry.group_id} />
           </div>
         )}
@@ -111,7 +111,7 @@ export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => vo
           <button type="button" className={ui.btn('ghost')} onClick={close}>{readOnly ? 'Close' : 'Cancel'}</button>
         </div>
         {!readOnly && !frozen && (
-          <button type="button" className={ui.btn('danger')} onClick={remove}>
+          <button type="button" className={ui.btn('danger', 'md', 'w-full')} onClick={remove}>
             {confirmDelete ? 'Tap again to delete' : shared ? 'Delete shared expense' : 'Delete payment'}
           </button>
         )}

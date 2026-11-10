@@ -27,7 +27,7 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
 
   return (
     <section aria-label="Month against plan">
-      <div className="monthbar">
+      <div className="flex items-center justify-between mb-3 [&_h2]:m-0">
         <button type="button" className={ui.btn('ghost', 'sq')} aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><span className="inline-flex rotate-180"><Icon name="chevron" size={22} /></span></button>
         <h2 aria-live="polite">{monthLabel(month)}</h2>
         <button type="button" className={ui.btn('ghost', 'sq')} aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={22} /></button>
@@ -41,13 +41,13 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
       )}
       {app.plan && !planCovers(app.plan, month) && <p className="text-muted">Your spreadsheet plan covers {monthLabel(app.plan.months[0] ?? month)} to {monthLabel(app.plan.months[app.plan.months.length - 1] ?? month)}. This month uses the budgets set in the app.</p>}
 
-      <div className="groups">
+      <div className="grid grid-cols-2 gap-3 mb-3.5">
         {GROUPS.map((g) => {
           const t = s.groups[g];
           return (
-            <div key={g} className={`card group${g === group ? ' picked' : ''}`}>
+            <div key={g} className={ui.groupTile(g === group)}>
               <h3>{g}</h3>
-              <p className="big-num">{fmtINR(t.spent)}</p>
+              <p className={ui.bigNum}>{fmtINR(t.spent)}</p>
               <p className="text-muted text-[13px]">{t.budgeted ? `of ${fmtINR(t.planned)}` : '\u00a0'}</p>
               <Line group={g} spent={t.spent} planned={t.planned} over={monthIsOver} budgeted={t.budgeted} />
             </div>
@@ -57,7 +57,7 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
 
       {group && (
         <p className="text-muted text-[13px]" role="status">
-          Showing {group} only. <button type="button" className="linkbtn" onClick={() => onGroup(undefined)}>Show all categories</button>
+          Showing {group} only. <button type="button" className={ui.linkBtn} onClick={() => onGroup(undefined)}>Show all categories</button>
         </p>
       )}
       {group && shown.length === 0 && <p className="text-muted">No {group} categories have a budget or a payment this month.</p>}

@@ -10,7 +10,7 @@ export function CoupleSplit({ people, me, total, value, onChange }: { people: Me
   const name = partner.display_name;
   const choice = coupleChoiceOf(value.paidBy, value.included, me, partner.user_id);
   return (
-    <div className="split couplesplit">
+    <div className={ui.split}>
       <fieldset className={ui.chips}>
         <legend>Who paid, and who owes</legend>
         {COUPLE_CHOICES.map((c) => (

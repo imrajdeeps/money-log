@@ -45,7 +45,7 @@
   const clickText = (sel, text) => [...document.querySelectorAll(sel)].find((e) => e.textContent.includes(text))?.click();
   const SCENES = {
     'budgets dialog': async () => { await go('/month'); clickText('button', 'Categories and budgets'); await wait(450); },
-    'edit dialog': async () => { await go('/payments'); document.querySelector('main ul button')?.click(); await wait(450); },
+    'edit dialog': async () => { await go('/payments'); [...document.querySelectorAll('main ul button')].find((b) => b.getClientRects().length)?.click(); await wait(450); },
     'add category': async () => {
       await go('/add');
       const sel = [...document.querySelectorAll('select')].find((x) => [...x.options].some((o) => o.textContent.includes('New category')));

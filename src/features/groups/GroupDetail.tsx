@@ -83,7 +83,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
 
   return (
     <section aria-label={`Group ${group.name}`}>
-      <button type="button" className="btn ghost backbtn" onClick={onBack}><span className="inline-flex rotate-180"><Icon name="chevron" size={18} /></span> All groups</button>
+      <button type="button" className={ui.btn('ghost', 'md', 'w-auto mb-2')} onClick={onBack}><span className="inline-flex rotate-180"><Icon name="chevron" size={18} /></span> All groups</button>
       <h2>{group.name} <span className={ui.tag}>{kindLabel(group.kind)}</span>{closed && <> <span className={ui.tag}>Closed</span></>}</h2>
       {dates && <p className="text-muted text-[13px]">{dates}</p>}
       <p className="text-muted text-[13px]">
@@ -93,7 +93,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
 
       <div className={ui.card()}>
         {partner && group.kind === 'couple' ? (
-          <p className={`coupleline ${line.tone}`}>{line.text}</p>
+          <p className={ui.coupleLine(line.tone)}>{line.text}</p>
         ) : (
           <>
             <h3>Balances</h3>
@@ -121,7 +121,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
         ) : <p className="text-muted text-[13px]">Nobody owes anybody anything.</p>}
         {!settle && <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => setSettle({ dir: 'paid', other: people.find((m) => m.user_id !== me)?.user_id ?? '', amount: '', date: isoDate() })}>Record a payment</button>}
         {settle && (
-          <form onSubmit={record} noValidate className="settleform">
+          <form onSubmit={record} noValidate className={ui.settleForm}>
             <h3>Record a payment</h3>
             <p className="text-muted text-[13px]">Money never moves through this app: this only notes that it happened, outside it.</p>
             <fieldset className={ui.chips}>
@@ -192,7 +192,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
             <p className="text-muted text-[13px]">A {kindLabel(group.kind).toLowerCase()} group holds at most {kindMax(group.kind)} people and this one is full. If someone leaves, a new code can be made here.</p>
           ) : invite && Date.parse(invite.expires_at) > Date.now() ? (
             <>
-              <p className="codebox" aria-label="Join code">{formatCode(invite.code)}</p>
+              <p className={ui.codeBox} aria-label="Join code">{formatCode(invite.code)}</p>
               <p className="text-muted text-[13px]">Valid until {shortDate(invite.expires_at.slice(0, 10))}. Anyone with the code can join, so send it only to people you mean to add.</p>
               <div className={ui.btnRow}>
                 <button type="button" className={ui.btn()} onClick={() => { void copy(inviteLink(appRootUrl(window.location.href, BASEPATH), invite.code), 'Link'); }}>Copy link</button>
@@ -221,7 +221,7 @@ export function GroupDetail({ group, onBack }: { group: Group; onBack: () => voi
           })}
         </ul>
         {renaming !== null && (
-          <form className="settleform" onSubmit={(ev) => { ev.preventDefault(); if (renaming.trim()) void act.run(() => app.setDisplayName(group.id, renaming.trim()), 'Name changed').then((ok) => { if (ok) setRenaming(null); }); }}>
+          <form className={ui.settleForm} onSubmit={(ev) => { ev.preventDefault(); if (renaming.trim()) void act.run(() => app.setDisplayName(group.id, renaming.trim()), 'Name changed').then((ok) => { if (ok) setRenaming(null); }); }}>
             <label className={ui.field}><span>Your name in this group</span><input value={renaming} maxLength={40} onChange={(e) => setRenaming(e.target.value)} /></label>
             <div className={ui.btnRow}><button type="submit" className={ui.btn()} disabled={act.busy}>Save name</button><button type="button" className={ui.btn('ghost')} onClick={() => setRenaming(null)}>Cancel</button></div>
           </form>

@@ -68,11 +68,11 @@ export function UsualSplitCard({ group, people, isAdmin }: { group: Group; peopl
             <button type="button" className={ui.chip} aria-pressed={mode === 'percent'} onClick={() => setMode('percent')}>Percent</button>
           </fieldset>
           {mode === 'percent' && (
-            <ul className="list plainlist splitlist">
+            <ul className={ui.list(true, 'mt-2 mx-0 mb-0')}>
               {people.map((p) => (
-                <li key={p.user_id} className="splitrow">
-                  <span className="who">{who(p)}</span>
-                  <input className="num" inputMode="decimal" aria-label={`Percent for ${p.display_name}`} placeholder="%" value={values[p.user_id] ?? ''} onChange={(e) => { setValues({ ...values, [p.user_id]: e.target.value }); act.setError(''); }} />
+                <li key={p.user_id} className={ui.splitRow}>
+                  <span className="flex-1">{who(p)}</span>
+                  <input className="w-24 text-right" inputMode="decimal" aria-label={`Percent for ${p.display_name}`} placeholder="%" value={values[p.user_id] ?? ''} onChange={(e) => { setValues({ ...values, [p.user_id]: e.target.value }); act.setError(''); }} />
                 </li>
               ))}
             </ul>

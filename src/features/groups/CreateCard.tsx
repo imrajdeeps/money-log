@@ -35,10 +35,10 @@ export function CreateCard() {
     <form className={ui.card()} onSubmit={create} noValidate>
       <h2>New group</h2>
       <label className={ui.field}><span>Group name</span><input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="Home, or Goa trip" /></label>
-      <fieldset className="kinds">
+      <fieldset className={ui.kinds}>
         <legend>Kind</legend>
         {GROUP_KINDS.map((k) => (
-          <button key={k.id} type="button" className="kindcard" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
+          <button key={k.id} type="button" className={ui.kindCard} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
             <b>{k.label}</b>
             <span>{k.blurb}</span>
           </button>

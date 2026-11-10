@@ -49,7 +49,7 @@ export function ExpenseDialog({ entry, group, onClose }: { entry: Entry; group: 
       {share > 0 && (added ? (
         <p className={ui.msg('good')} role="status">Added to your budget: {fmtINR(added.amount)} under {added.category} on {shortDate(added.entry_date)}.</p>
       ) : adding ? (
-        <form onSubmit={save} noValidate className="settleform">
+        <form onSubmit={save} noValidate className={ui.settleForm}>
           <h3>Add my {fmtINR(share)} to my budget</h3>
           <p className="text-muted text-[13px]">This makes a payment of your own for your share. It does not change the group's balances.</p>
           <label className={ui.field} htmlFor="share-cat"><span>Category</span></label>

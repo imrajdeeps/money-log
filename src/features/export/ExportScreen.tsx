@@ -102,7 +102,7 @@ export function ExportScreen() {
             <option value="all">All payments</option>
           </select>
         </label>
-        <label className="check layoutcheck">
+        <label className={ui.check + ' mt-3'}>
           <input type="checkbox" checked={layout === 'column'} onChange={(e) => pickLayout(e.target.checked ? 'column' : 'note')} />
           <span>My spreadsheet's Log tab has a Method column</span>
         </label>
@@ -120,7 +120,7 @@ export function ExportScreen() {
             The spreadsheet only counts the categories on its Budget tab. If your list differs, import your plan in Settings and this screen will name the categories it is missing.
           </p>
         )}
-        <textarea className="preview" readOnly rows={8} value={tsv} aria-label="Rows to paste into the Log tab" placeholder="Nothing to export." />
+        <textarea className="whitespace-pre overflow-auto mt-2" readOnly rows={8} value={tsv} aria-label="Rows to paste into the Log tab" placeholder="Nothing to export." />
         <div className={ui.btnRow}>
           <button type="button" className={ui.btn()} disabled={n === 0} onClick={copy}>Copy for Excel</button>
           <button type="button" className={ui.btn('ghost')} disabled={n === 0} onClick={share}>Share CSV</button>

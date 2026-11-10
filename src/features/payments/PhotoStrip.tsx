@@ -32,9 +32,9 @@ function Thumb({ r, mine, onOpen }: { r: Receipt; mine: boolean; onOpen: () => v
   const { url, error } = usePicture(r);
   const waiting = mine && !r.uploaded_at;
   return (
-    <button type="button" className="thumb" onClick={onOpen} aria-label={`Receipt photo, ${sizeText(r.bytes)}${waiting ? ', waiting to upload' : ''}`}>
+    <button type="button" className={ui.thumb} onClick={onOpen} aria-label={`Receipt photo, ${sizeText(r.bytes)}${waiting ? ', waiting to upload' : ''}`}>
       {url ? <img src={url} alt="" /> : <span className="text-muted text-[13px]">{error || '…'}</span>}
-      {waiting && <span className="thumbtag">Waiting to upload</span>}
+      {waiting && <span className={ui.thumbTag}>Waiting to upload</span>}
     </button>
   );
 }
@@ -46,11 +46,11 @@ function Viewer({ r, mine, onClose }: { r: Receipt; mine: boolean; onClose: () =
   const [confirm, setConfirm] = useState(false);
   useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
   return (
-    <dialog ref={ref} className="viewer" onClose={onClose} onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }} aria-label="Receipt photo">
+    <dialog ref={ref} className={ui.viewer} onClose={onClose} onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }} aria-label="Receipt photo">
       {url ? <img src={url} alt="Receipt" /> : <p className="text-muted">{error || 'Loading…'}</p>}
       <div className={ui.btnRow}>
         {mine && (
-          <button type="button" className={ui.btn('danger')} onClick={() => { if (!confirm) { setConfirm(true); return; } void app.removeReceipt(r.id).then(() => ref.current?.close()); }}>
+          <button type="button" className={ui.btn('danger', 'md', 'w-full')} onClick={() => { if (!confirm) { setConfirm(true); return; } void app.removeReceipt(r.id).then(() => ref.current?.close()); }}>
             {confirm ? 'Tap again to delete' : 'Delete photo'}
           </button>
         )}
@@ -92,14 +92,14 @@ export function PhotoStrip({ entryId, canEdit }: { entryId: string; canEdit: boo
   if (!photos.length && !canEdit) return null;
   const shown = photos.find((p) => p.id === open);
   return (
-    <div className="photostrip">
-      <p className="fieldlabel">Receipt photos{photos.length ? ` (${photos.length} of ${MAX_PHOTOS})` : ''}</p>
-      <div className="thumbs">
+    <div className={ui.photoStrip}>
+      <p className={ui.fieldLabel}>Receipt photos{photos.length ? ` (${photos.length} of ${MAX_PHOTOS})` : ''}</p>
+      <div className={ui.thumbs}>
         {photos.map((r) => <Thumb key={r.id} r={r} mine={r.owner_id === app.me} onOpen={() => setOpen(r.id)} />)}
         {canEdit && room > 0 && (
           <>
             <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
-            <label className={`btn ghost addphoto${busy ? ' disabled' : ''}`}>
+            <label className={ui.addPhoto(busy)}>
               Choose photo
               <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
             </label>

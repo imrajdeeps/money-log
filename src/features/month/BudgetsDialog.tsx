@@ -80,7 +80,7 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
                     {c.source === 'plan' ? (
                       <span className="text-muted text-[13px]">set in the spreadsheet</span>
                     ) : (
-                      <label className="flex items-center gap-1 flex-none">
+                      <label className="flex items-center gap-1 flex-none [&_input]:w-[104px] [&_input]:text-right">
                         <span className="sr-only">Monthly budget for {c.name}, in rupees</span>
                         <span aria-hidden="true">₹</span>
                         <input

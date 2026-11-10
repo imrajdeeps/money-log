@@ -20,7 +20,6 @@ export const gear = 'lg:hidden';
 export const main = 'lg:pt-2.5';
 export const narrow = 'max-w-[600px] mx-auto';
 export const page = 'max-w-[720px] mx-auto';
-export const backLink =
   'inline-flex items-center gap-0.5 mt-0.5 mr-0 mb-3 -ml-1.5 py-2 pr-3 pl-1 border-0 bg-transparent text-accent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-semibold cursor-pointer [&>svg]:[transform:rotate(180deg)]';
 
 /** the bottom bar of a phone: Home, Month, the raised Add button, Plan, Groups */

@@ -46,7 +46,7 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
 function PageBody({ title, back, backLabel = 'Overview', onBack, children }: { title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }) {
   return (
     <section className={`${sh.page} animate-page-in`} aria-labelledby="page-title">
-      {back && <button type="button" className={sh.backLink} onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
+      {back && <button type="button" className={ui.backLink} onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
       <div className={ui.pageHead}><h2 id="page-title">{title}</h2></div>
       {children}
     </section>

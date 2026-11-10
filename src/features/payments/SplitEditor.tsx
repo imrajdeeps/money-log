@@ -41,7 +41,7 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
   const name = (m: Member) => (m.user_id === me ? `${m.display_name} (you)` : m.display_name);
 
   return (
-    <div className="split">
+    <div className={ui.split}>
       <label className={ui.field}>
         <span>Who paid</span>
         <select value={value.paidBy} onChange={(e) => set({ paidBy: e.target.value })}>
@@ -56,13 +56,13 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
         ))}
       </fieldset>
 
-      <ul className="list splitlist">
+      <ul className={ui.list(false, 'mt-2 mx-0 mb-0')}>
         {people.map((m) => {
           const share = result.shares?.[m.user_id];
           return (
-            <li key={m.user_id} className="splitrow">
+            <li key={m.user_id} className={ui.splitRow}>
               {value.mode === 'equal' ? (
-                <label className="check">
+                <label className={ui.check + ' flex-1'}>
                   <input
                     type="checkbox"
                     checked={value.included.includes(m.user_id)}
@@ -72,9 +72,9 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
                 </label>
               ) : (
                 <>
-                  <span className="who">{name(m)}</span>
+                  <span className="flex-1">{name(m)}</span>
                   <input
-                    className="num"
+                    className="w-24 text-right"
                     inputMode="decimal"
                     aria-label={`${value.mode === 'percent' ? 'Percent' : 'Amount'} for ${m.display_name}`}
                     placeholder={value.mode === 'percent' ? '%' : '₹'}
@@ -83,7 +83,7 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
                   />
                 </>
               )}
-              <span className="font-bold tabular-nums">{share !== undefined ? fmtINR(share) : '–'}</span>
+              <span className="font-bold tabular-nums min-w-[72px] text-right">{share !== undefined ? fmtINR(share) : '–'}</span>
             </li>
           );
         })}

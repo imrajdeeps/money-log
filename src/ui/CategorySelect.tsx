@@ -57,7 +57,7 @@ export function CategorySelect({ id, value, onChange }: Props) {
         <option value={NEW}>＋ New category…</option>
       </select>
       {adding && (
-        <div className="newcat">
+        <div className={ui.newCat}>
           <label className={ui.field}>
             <span>Name of the new category</span>
             <input

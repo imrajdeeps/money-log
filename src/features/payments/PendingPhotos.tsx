@@ -35,13 +35,13 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
   }
 
   return (
-    <div className="photostrip">
-      <p className="fieldlabel">Receipt photo (optional)</p>
-      <div className="thumbs">
+    <div className={ui.photoStrip}>
+      <p className={ui.fieldLabel}>Receipt photo (optional)</p>
+      <div className={ui.thumbs}>
         {photos.map((p, i) => (
-          <span key={urls[i]} className="thumb">
+          <span key={urls[i]} className={ui.thumb}>
             <img src={urls[i]} alt={`Photo ${i + 1}, ${sizeText(p.size)}`} />
-            <button type="button" className="thumbx" aria-label={`Remove photo ${i + 1}`} onClick={() => onChange(photos.filter((_, j) => j !== i))}>
+            <button type="button" className={ui.thumbX} aria-label={`Remove photo ${i + 1}`} onClick={() => onChange(photos.filter((_, j) => j !== i))}>
               <Icon name="close" size={14} />
             </button>
           </span>
@@ -49,7 +49,7 @@ export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: 
         {room > 0 && (
           <>
             <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
-            <label className={`btn ghost addphoto${busy ? ' disabled' : ''}`}>
+            <label className={ui.addPhoto(busy)}>
               Choose photo
               <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
             </label>

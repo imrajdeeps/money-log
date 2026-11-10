@@ -36,9 +36,9 @@ export function HistoryList({ entryId, groupId }: { entryId: string; groupId: st
   }
   if (!rows.length) return <p className="text-muted text-[13px]">No history kept for this expense yet.</p>;
   return (
-    <ul className="list history" aria-label="History">
+    <ul className={ui.list(false, 'my-2 mx-0')} aria-label="History">
       {rows.map((r) => (
-        <li key={r.id} className="histrow">
+        <li key={r.id} className={ui.histRow}>
           <p className="text-[13px]"><b>{name(r.changed_by)}</b> · <span className="text-muted">{new Date(r.changed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span></p>
           {describeHistory(r, name).map((line, i) => <p key={i} className="text-[13px]">{line}</p>)}
         </li>
