@@ -39,6 +39,7 @@ export const NEWS_STEPS: readonly TourStep[] = [
   { id: 'news-insights', since: '1.16.0', go: 'analytics', target: 'analytics', title: 'New: Insights', text: 'A new page with your spending in charts: month by month, by category, by day of the week, and where this month is likely to end. The Overview also has a smoother chart with a dashed line for the likely month end.' },
   { id: 'news-undo', since: '1.17.0', go: 'home', title: 'New: Undo', text: 'After you edit or delete one of your own payments, a message with an Undo button stays for a few seconds. Tap it and the payment is back as it was. (Shared group expenses and payments with receipt photos cannot be undone.)' },
   { id: 'news-repeat', since: '1.18.0', go: 'home', title: 'New: Repeat every month', text: 'When you add a payment, tick Repeat every month and it is also set up as a monthly payment: it comes up on the same day each month to log with one tap. You can change or remove it under Settings, Recurring payments.' },
+  { id: 'news-calendar-cancel', since: '1.19.0', go: 'plan', title: 'New: calendar cancels', text: 'When you finish or remove a dated item, the next calendar file you make from Plan also cancels its event, so your phone\'s calendar drops it when you open the file. It only covers events this phone put in a file earlier.' },
 ];
 
 /** a is later than b: positive; earlier: negative; same: 0. Versions are "1.13.0" (missing parts count as 0). */

@@ -8,12 +8,12 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 - Verify the WhatsApp number on the profile by sending a code on WhatsApp (skipped for now by the owner). Needs a provider (Meta WhatsApp Business API or Twilio via Supabase phone sign-in), per-message cost, a server-side secret, rate limits, and a privacy note.
 - Category trends, home-screen shortcuts.
 - Bank or UPI statement (CSV) import, and reading messages automatically (needs a native Android app).
-- Calendar: when an event is deleted in the app, also send a cancel for it in the calendar file, so the phone's calendar removes it when the file is opened again.
 - Splitting `data/sync.ts` and `data/context.tsx` further, only along a seam that does not need their shared state.
 
 ## Done
 
-### Versions 1.13 to 1.18 (done: on main)
+### Versions 1.13 to 1.19 (done: on main)
+- [x] **Calendar cancels** (from the ideas list, picked by the owner) — done in 1.19: the phone remembers which events it put in calendar files (on this phone only); when the item behind one is finished, removed or renamed, the next "Add N to calendar" file also carries a cancelled copy (`STATUS:CANCELLED`, `SEQUENCE:1`, same UID) so the calendar can drop it. A date that has simply passed does not cancel. **Not verified:** how each calendar app treats a cancelled event inside an imported file (Apple Calendar, Google Calendar, Outlook differ; some ignore it, in which case the event is deleted by hand). The file is still `METHOD:PUBLISH`, since no organiser or invitation is involved.
 - [x] **A "Repeat every month" tickbox in Add expense** (from the ideas list, picked by the owner) — done in 1.18: makes the payment also a recurring payment, first offered next month.
 - [x] **Undo after deleting or editing a payment** (from the ideas list, picked by the owner) — done in 1.17: an Undo button in the message for 8 seconds, for the person's own payments without receipt photos; shared group expenses are left out on purpose.
 - [x] **A button on the Month page for the picked category** — the owner's words: "on /month page on selected category show a button on top right btn which on click will ask set budget for this category or add expense for this category expense with prefilled category". When a category is picked on `/month`, show a button at the top right; it asks two things: set the budget for this category, or add an expense with this category already chosen. Needs: the Add expense page to take a category from the address, and the budgets dialog to open on one category.

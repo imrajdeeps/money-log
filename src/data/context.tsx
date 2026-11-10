@@ -27,6 +27,7 @@ import { createSync } from './sync.ts';
 import type { DueDone, GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
 import type { AppApi, Engine, ToastAction } from './appApi.ts';
 import { clearProfile } from './profile.ts';
+import { clearSent } from './calendar.ts';
 import { tr } from '../core/i18n.ts';
 export type { AppApi } from './appApi.ts';
 
@@ -623,6 +624,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const eraseAll = useCallback(async () => {
     await engRef.current?.sync.eraseAll();
     clearProfile(); // the name and the WhatsApp number are on this phone too
+    clearSent(); // so is the memory of what went into calendar files
     await reload();
     setLocked(false); // everything, the PIN included, is gone
   }, [reload]);
