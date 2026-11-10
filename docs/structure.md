@@ -43,6 +43,21 @@ therefore wins over a legacy rule where both apply, and a feature is converted b
 deleting its rules from the legacy file. There is no Tailwind preflight yet: the legacy base still does the resetting; it goes
 last, when the last legacy file is gone. Plain CSS still belongs in `tokens.css` and in `index.css` (keyframes, `@font-face`).
 
+### Motion
+
+Keyframes and `animate-*` utilities are defined in `index.css` (`--animate-page-in`, `--animate-rise`, `--animate-toast`); use the
+utility on a component (`animate-page-in`, `animate-rise`). Animations fill only backwards, so the finished state is the normal
+style and hover and press effects keep working. Dialogs, meters and button presses are in the small `base` layer at the end of
+`index.css` because they are elements, not components. The `prefers-reduced-motion` rule in `responsive.css` turns every
+animation and transition into nothing.
+
+### Checking the look after a CSS change
+
+There are no visual tests. `tests/support/style-snapshot.js` records the computed style of every visible element on every
+page (light and dark) and compares it later: serve a build (`npm run e2e:build`, copy the script to `dist-e2e/snap.js`,
+`npm run e2e:serve`), load the script in the page, run `await window.__snap('save', 'name')` at phone width and at desktop width,
+make the change, rebuild, and run `await window.__snap('compare', 'name')`. An empty list means the look did not change.
+
 ## Adding things
 
 - **A feature:** make `src/features/<name>/` with its screen, add `index.ts` exporting the screen, add one file in
