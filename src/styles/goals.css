@@ -7,3 +7,11 @@
 .goalstate.reached { color: var(--good); font-weight: 600; }
 .goalstate.passed { color: var(--bad); }
 .goalparts { margin: 4px 0 0; }
+
+/* Top-ups: the button, the little form and the list under a goal. */
+.goaltopups { padding: 0 14px 12px; }
+.goalrow + .goaltopups { margin-top: -2px; }
+.topupadd { min-height: 40px; padding: 0 14px; }
+.topupform { margin-top: 4px; }
+.topups .finished { margin: 8px 0 0; }
+.topuprow { display: flex; align-items: center; padding: 8px 12px; }

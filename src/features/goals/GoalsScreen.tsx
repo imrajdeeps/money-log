@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
-import { activeGoals, goalLine, goalProgress, goalTerm } from '../../core/goals.ts';
+import { activeGoals, goalLine, goalProgress, goalTerm, topUpsOf } from '../../core/goals.ts';
 import type { Goal } from '../../core/goals.ts';
 import { budgetEntries, isoDate } from '../../core/logic.ts';
 import { GoalForm } from './GoalForm.tsx';
@@ -15,7 +15,7 @@ export function GoalsScreen() {
   const entries = useMemo(() => budgetEntries(app.entries, app.me), [app.entries, app.me]);
   const rows = useMemo(() => goals.map((goal) => {
     const progress = goalProgress(goal, app.goals, entries);
-    return { goal, progress, line: goalLine(goal, progress, today), term: goalTerm(goal.d, today) };
+    return { goal, progress, line: goalLine(goal, progress, today), term: goalTerm(goal.d, today), topUps: topUpsOf(app.goals, goal.id) };
   }), [goals, app.goals, entries, today]);
 
   const list = (title: string, term: 'short' | 'long', hint: string) => {
@@ -26,7 +26,7 @@ export function GoalsScreen() {
         <h3 className="h2">{title} <small className="muted">{hint}</small></h3>
         <ul className="list">
           {mine.map((r) => (
-            <GoalRow key={r.goal.id} goal={r.goal} progress={r.progress} line={r.line}
+            <GoalRow key={r.goal.id} goal={r.goal} progress={r.progress} line={r.line} topUps={r.topUps}
               onEdit={() => setForm(r.goal)}
               onRemove={() => { void app.removeGoal(r.goal.id).then(() => app.toast(`Removed: ${r.goal.n}`)); }} />
           ))}
@@ -45,7 +45,7 @@ export function GoalsScreen() {
       {goals.length === 0 && !form && <p className="muted">No goals yet. Make one with a name, a target and a date, and see what to set aside each month.</p>}
       {list('Short term', 'short', 'due within 12 months')}
       {list('Long term', 'long', 'more than 12 months away')}
-      {goals.length > 0 && <p className="muted small">Slide a goal to the left to remove it. A goal moves from long term to short term by itself as its date gets close.</p>}
+      {goals.length > 0 && <p className="muted small">Slide a goal or a top-up to the left to remove it. A goal moves from long term to short term by itself as its date gets close.</p>}
     </section>
   );
 }

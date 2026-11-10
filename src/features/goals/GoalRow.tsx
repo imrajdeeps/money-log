@@ -1,5 +1,6 @@
 import { SwipeRow } from '../../ui/SwipeRow.tsx';
-import type { Goal, GoalLine, GoalProgress } from '../../core/goals.ts';
+import type { Goal, GoalLine, GoalProgress, TopUp } from '../../core/goals.ts';
+import { TopUps } from './TopUps.tsx';
 import { shortDate } from '../../core/format.ts';
 import { fmtINR } from '../../core/logic.ts';
 
@@ -10,7 +11,7 @@ function lineText(line: GoalLine): string {
 }
 
 // One goal: what is saved of the target, a bar, the date, and a line saying what it needs. Slide it left to remove it.
-export function GoalRow({ goal, progress, line, onEdit, onRemove }: { goal: Goal; progress: GoalProgress; line: GoalLine; onEdit: () => void; onRemove: () => void }) {
+export function GoalRow({ goal, progress, line, topUps, onEdit, onRemove }: { goal: Goal; progress: GoalProgress; line: GoalLine; topUps: TopUp[]; onEdit: () => void; onRemove: () => void }) {
   const parts = [
     progress.fromStart > 0 ? `${fmtINR(progress.fromStart)} at the start` : null,
     progress.fromTopUps > 0 ? `${fmtINR(progress.fromTopUps)} in top-ups` : null,
@@ -18,7 +19,8 @@ export function GoalRow({ goal, progress, line, onEdit, onRemove }: { goal: Goal
   ].filter(Boolean);
   const tone = line.state === 'reached' ? 'good' : line.state === 'passed' ? 'bad' : 'accent';
   return (
-    <SwipeRow className="goalrow" label={goal.n} onDelete={onRemove}>
+    <li>
+    <SwipeRow as="div" className="goalrow" label={goal.n} onDelete={onRemove}>
       <button type="button" className="goalhead" onClick={onEdit} aria-label={`Change goal: ${goal.n}`}>
         <span className="row-main"><b>{goal.n}</b><small>by {shortDate(goal.d)}</small></span>
         <span className="amt">{fmtINR(progress.saved)} <small className="muted">of {fmtINR(goal.a)}</small></span>
@@ -27,5 +29,7 @@ export function GoalRow({ goal, progress, line, onEdit, onRemove }: { goal: Goal
       <p className={`goalstate ${line.state}`}>{lineText(line)}</p>
       {parts.length > 0 && <p className="muted small goalparts">{parts.join(' · ')}</p>}
     </SwipeRow>
+    <div className="goaltopups"><TopUps goal={goal} topUps={topUps} /></div>
+    </li>
   );
 }
