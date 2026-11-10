@@ -123,6 +123,21 @@ category and method. It shows the count and your total for what is listed. Only 
 (TanStack Virtual), so thousands of payments scroll as smoothly as a few. A budget turns amber, with the words "nearly
 used", from 80% of it, and red once it is over.
 
+**Recurring payments** (Settings, Recurring payments): set rent, an SIP or a subscription once, with its day of the month
+(31 means the last day in a shorter month). From that day the Overview shows a *Recurring* tile with **Log** (adds the
+payment on its scheduled day; edit it afterwards if the amount differed) and **Skip** (nothing is logged this month).
+Only the current month is offered: a month the app was not opened in is not added later. The list syncs to your other
+phones as one more block, merged per item, and a month logged on one phone is never offered again on another. It needs
+one change to the database, once, run in the Supabase SQL Editor *before* the app version that has this feature is used:
+
+```sql
+alter table public.plan_blocks drop constraint if exists plan_blocks_block_known;
+alter table public.plan_blocks add constraint plan_blocks_block_known
+  check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring'));
+```
+
+(`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
+
 ## Light and dark, colours and type
 
 - **Light or dark:** the sun or moon button at the top switches between them. *Settings, Appearance* also has **Match my
