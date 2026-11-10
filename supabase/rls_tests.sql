@@ -3,7 +3,8 @@
 -- HOW TO RUN: after schema.sql, paste this whole file into the Supabase SQL Editor and Run.
 -- It creates throw-away users, groups and rows INSIDE a transaction and ends with ROLLBACK,
 -- so nothing is kept. Every check prints a NOTICE: PASS ...; the first failure stops the run
--- with an error that starts with FAIL. The last line printed must be: ALL ACCESS TESTS PASSED.
+-- with an error that starts with FAIL. A pass shows no error and ends with a result table holding the single word
+-- "ALL ACCESS TESTS PASSED" (Supabase's SQL Editor does not display NOTICE messages; psql prints them as well).
 --
 -- Two kinds of checks:
 --   1. Structure: the exact policies, grants and triggers exist (so a weakened rule is caught even where another
@@ -50,6 +51,21 @@ begin
   return c;
 end $$;
 grant execute on function pg_temp.n(text) to public;
+
+-- helper: remove a stored file the way Supabase's own Storage service does it. Supabase blocks plain SQL deletes on its storage
+-- tables (error 42501, "Use the Storage API instead"), unless the Storage service has set the switch below for that statement.
+-- The switch is set only around this one delete, and the delete still runs as the current user, so the receipts policy still
+-- decides which files that user may remove. Returns how many files were removed.
+create or replace function pg_temp.storage_delete(p_name text) returns int language plpgsql as $$
+declare removed int;
+begin
+  perform set_config('storage.allow_delete_query', 'true', true);
+  delete from storage.objects where name = p_name;
+  get diagnostics removed = row_count;
+  perform set_config('storage.allow_delete_query', 'false', true);
+  return removed;
+end $$;
+grant execute on function pg_temp.storage_delete(text) to public;
 
 do $$
 declare
@@ -961,8 +977,7 @@ begin
   perform pg_temp.act_as(a);
   if pg_temp.n(format('select 1 from storage.objects where name = %L', b || '/' || rb || '.jpg')) <> 0 then raise exception 'FAIL A can read the file of B private payment'; end if;
   perform pg_temp.act_as(b);
-  delete from storage.objects where name = a || '/' || r5 || '.jpg';
-  get diagnostics n = row_count;
+  n := pg_temp.storage_delete(a || '/' || r5 || '.jpg');
   if n <> 0 then raise exception 'FAIL B deleted A file'; end if;
   update storage.objects set name = b || '/stolen.jpg' where name = a || '/' || r5 || '.jpg';
   get diagnostics n = row_count;
@@ -996,8 +1011,7 @@ begin
   perform pg_temp.act_as(a);
   if not pg_temp.fails(format($q$update public.receipts set purged_at = now(), updated_at = now() + interval '12 minutes' where id = %L$q$, r5)) then
     raise exception 'FAIL a photo was marked purged while its file is still in storage (that would free quota without freeing space)'; end if;
-  delete from storage.objects where name = a || '/' || r5 || '.jpg';
-  get diagnostics n = row_count;
+  n := pg_temp.storage_delete(a || '/' || r5 || '.jpg');
   if n <> 1 then raise exception 'FAIL the owner could not remove the file of a deleted photo'; end if;
   update public.receipts set purged_at = now(), updated_at = now() + interval '12 minutes' where id = r5::uuid;
   if not pg_temp.fails(format(objins, 'receipts', a || '/' || r5 || '.jpg')) then raise exception 'FAIL a file was re-uploaded for a deleted photo'; end if;
@@ -1034,7 +1048,7 @@ begin
   update public.receipts set deleted_at = now(), updated_at = now() + interval '40 minutes' where id = '80000000-0000-4000-8000-0000000000a1';
   if not pg_temp.fails(format($q$delete from public.entries where id = %L$q$, ey)) then
     raise exception 'FAIL a payment whose photo is deleted but whose file is still stored was hard-deleted'; end if;
-  delete from storage.objects where name = a || '/80000000-0000-4000-8000-0000000000a1.jpg';
+  perform pg_temp.storage_delete(a || '/80000000-0000-4000-8000-0000000000a1.jpg');
   update public.receipts set purged_at = now(), updated_at = now() + interval '41 minutes' where id = '80000000-0000-4000-8000-0000000000a1';
   delete from public.entries where id = ey::uuid;
   get diagnostics n = row_count;
@@ -1132,3 +1146,6 @@ begin
 end $$;
 
 rollback;
+
+-- Reached only when every check above passed: any failed check raises an error and stops the run before this line.
+select 'ALL ACCESS TESTS PASSED' as result;
