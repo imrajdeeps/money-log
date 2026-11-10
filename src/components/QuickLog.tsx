@@ -7,6 +7,7 @@ import { PendingPhotos } from './PendingPhotos.tsx';
 import { SplitEditor, freshSplit } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
 import { activeMembers, computeShares } from '../groups.ts';
+import { alreadyAdded, noteFor, parseMessage, suggestCategory } from '../smsParse.ts';
 import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, parseAmount } from '../logic.ts';
 import type { Method, NewEntryInput } from '../logic.ts';
 
@@ -34,6 +35,9 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
   const [photos, setPhotos] = useState<Blob[]>([]);
   const [groupId, setGroupId] = useState(''); // '' = private
   const [split, setSplit] = useState<SplitState | null>(null);
+  const [message, setMessage] = useState(''); // a bank message pasted to fill the form from
+  const [readNote, setReadNote] = useState<{ text: string; bad: boolean } | null>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const today = isoDate();
   const people = useMemo(() => (groupId ? activeMembers(app.members, groupId) : []), [app.members, groupId]);
   const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
@@ -51,6 +55,34 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
   }
 
   const fail = (msg: string) => setError(msg);
+
+  // Fills the form from a pasted bank message. It only suggests: nothing is saved until Save is tapped.
+  function readMessage(text: string) {
+    const r = parseMessage(text, today);
+    if (!r.ok) { setReadNote({ text: r.problem, bad: true }); return; }
+    const p = r.payment;
+    const cat = suggestCategory(p.merchant, app.entries, app.categories);
+    setAmount(String(p.amount));
+    setDate(p.date && p.date !== today ? p.date : null);
+    if (p.method) pickMethod(p.method);
+    setNote(noteFor(p));
+    if (cat) setCategory(cat);
+    setError('');
+    const bits = [fmtINR(p.amount), p.merchant, cat].filter(Boolean).join(' · ');
+    const dup = alreadyAdded(app.entries, p.ref) ? ' A saved payment already has this reference, so save only if it is a different one.' : '';
+    setReadNote({ text: `Filled in: ${bits}.${cat ? '' : ' Pick a category.'} Check it, then save.${dup}`, bad: dup !== '' });
+  }
+
+  async function pasteAndRead() {
+    setPasteOpen(true);
+    try {
+      const text = await navigator.clipboard.readText();
+      setMessage(text);
+      readMessage(text);
+    } catch {
+      setReadNote({ text: 'The browser did not let Money Log read the clipboard. Paste the message into the box instead.', bad: true });
+    }
+  }
 
   async function save(ev: FormEvent) {
     ev.preventDefault();
@@ -75,6 +107,8 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
     }
     app.toast(toast);
     setPhotos([]);
+    setMessage('');
+    setReadNote(null);
     setAmount('');
     setNote('');
     setCategory('');
@@ -87,6 +121,24 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
 
   return (
     <form onSubmit={save} noValidate autoComplete="off" className="quicklog" aria-label="Log a payment">
+      <details className="pastebox" open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
+        <summary>Paste a payment message</summary>
+        <p className="muted small">Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.</p>
+        <textarea
+          rows={3}
+          value={message}
+          onChange={(e) => { setMessage(e.target.value); setReadNote(null); }}
+          placeholder="e.g. Rs 450.00 debited from A/c XX1234 to VPA swiggy@icici. UPI Ref 412345678901"
+          aria-label="Payment message"
+          spellCheck={false}
+        />
+        <div className="btnrow">
+          <button type="button" className="btn ghost" onClick={() => { void pasteAndRead(); }}>Paste and read</button>
+          <button type="button" className="btn" disabled={message.trim() === ''} onClick={() => readMessage(message)}>Read message</button>
+        </div>
+        {readNote && <p className={`msg${readNote.bad ? ' bad' : ''}`} role="status">{readNote.text}</p>}
+      </details>
+
       <label className="amount">
         <span aria-hidden="true">₹</span>
         <input
