@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useApp } from '../context.tsx';
 import { shrinkImage } from '../photo.ts';
+import { TakePhoto } from './TakePhoto.tsx';
 import { MAX_PHOTOS, liveFor, sizeText } from '../receipts.ts';
 import type { Receipt } from '../receipts.ts';
 
@@ -67,9 +68,8 @@ export function PhotoStrip({ entryId, canEdit }: { entryId: string; canEdit: boo
   const photos = liveFor(app.receipts, entryId);
   const room = MAX_PHOTOS - photos.length;
 
-  async function pick(ev: ChangeEvent<HTMLInputElement>) {
-    const files = [...(ev.target.files ?? [])].slice(0, room);
-    ev.target.value = '';
+  async function add(chosen: Blob[]) {
+    const files = chosen.slice(0, room);
     if (!files.length) return;
     setBusy(true);
     setError('');
@@ -82,6 +82,12 @@ export function PhotoStrip({ entryId, canEdit }: { entryId: string; canEdit: boo
     }
   }
 
+  function pickFiles(ev: ChangeEvent<HTMLInputElement>) {
+    const files = [...(ev.target.files ?? [])];
+    ev.target.value = '';
+    void add(files);
+  }
+
   if (!photos.length && !canEdit) return null;
   const shown = photos.find((p) => p.id === open);
   return (
@@ -91,13 +97,10 @@ export function PhotoStrip({ entryId, canEdit }: { entryId: string; canEdit: boo
         {photos.map((r) => <Thumb key={r.id} r={r} mine={r.owner_id === app.me} onOpen={() => setOpen(r.id)} />)}
         {canEdit && room > 0 && (
           <>
-            <label className={`btn ghost addphoto${busy ? ' disabled' : ''}`}>
-              {busy ? 'Working…' : 'Take photo'}
-              <input type="file" accept="image/*" capture="environment" onChange={pick} disabled={busy} />
-            </label>
+            <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
             <label className={`btn ghost addphoto${busy ? ' disabled' : ''}`}>
               Choose photo
-              <input type="file" accept="image/*" multiple onChange={pick} disabled={busy} />
+              <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
             </label>
           </>
         )}

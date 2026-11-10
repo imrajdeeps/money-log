@@ -661,3 +661,6 @@ html:has(dialog.drawer[open]) { overflow: hidden; }
 
 /* the pages of the tabs (Month, Plan, Groups, Export, All payments) */
 .page { max-width: 720px; margin: 0 auto; }
+
+/* the in-app camera (computers): the live picture, then Take photo and Cancel */
+dialog.camera video { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 10px; background: #000; }
