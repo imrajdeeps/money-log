@@ -7,7 +7,7 @@ import {
   parsePlanText, cleanPlan, summarizeMonth, budgetState,
   safeCell, exportNote, amountText, exportRows, toTSV, toCSV,
   cleanEntry, mergeRemote, frequentCategories, makeEntry, editEntry, softDelete,
-  newId, markExportedEntry, changedAfterExport,
+  newId, markExportedEntry, changedAfterExport, restoreEntry,
 } from '../../src/core/logic.ts';
 import { makeBackup, parseBackup } from '../../src/data/backup.ts';
 import type { Entry, PlanData } from '../../src/core/logic.ts';
@@ -355,4 +355,28 @@ test('a budget is "nearly used" from 80% up to and including 100%, never with no
   assert.equal(nearBudget(1001, 1000), false, 'over has its own state');
   assert.equal(nearBudget(500, 0), false);
   assert.equal(nearBudget(0, 0), false);
+});
+
+test('undo puts an edited or deleted payment back as it was, as a newer change', () => {
+  const made = makeEntry({ amount: 250, category: 'Groceries', method: 'UPI', note: 'milk', date: '2026-11-05' }, '2026-11-05T10:00:00.000Z');
+  const edited = editEntry(made, { amount: 999, category: 'Shopping', note: 'oops', date: '2026-11-06' }, '2026-11-05T10:01:00.000Z');
+  const back = restoreEntry(edited, made, '2026-11-05T10:01:05.000Z');
+  assert.equal(back.amount, 250);
+  assert.equal(back.category, 'Groceries');
+  assert.equal(back.note, 'milk');
+  assert.equal(back.entry_date, '2026-11-05');
+  assert.equal(back.id, made.id);
+  assert.equal(back.dirty, 1);
+  assert.ok(parseTs(back.updated_at) > parseTs(edited.updated_at), 'newer than the edit, so it wins when devices merge');
+
+  const gone = softDelete(made, '2026-11-05T11:00:00.000Z');
+  assert.notEqual(gone.deleted_at, null);
+  const alive = restoreEntry(gone, made, '2026-11-05T11:00:30.000Z');
+  assert.equal(alive.deleted_at, null);
+  assert.equal(alive.amount, 250);
+  assert.ok(parseTs(alive.updated_at) > parseTs(gone.updated_at), 'newer than the delete');
+
+  // even when the clock has not moved on (or went back), the restored copy is still later
+  const same = restoreEntry(gone, made, gone.updated_at);
+  assert.ok(parseTs(same.updated_at) > parseTs(gone.updated_at));
 });

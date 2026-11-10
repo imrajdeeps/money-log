@@ -15,7 +15,7 @@ import type { Receipt } from '../core/receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from '../core/groups.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
-import { editEntry, isMine, isoDate, makeEntry, markExportedEntry, parseTs, softDelete } from '../core/logic.ts';
+import { editEntry, isMine, isoDate, makeEntry, markExportedEntry, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
 import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from '../core/logic.ts';
 import { openStore } from './store.ts';
 import { BASEPATH, appRootUrl } from '../core/paths.ts';
@@ -25,7 +25,7 @@ import { addGoal as addGoalTo, addTopUp as addTopUpTo, editGoal as editGoalIn, m
 import type { GoalInput, Goals } from '../core/goals.ts';
 import { createSync } from './sync.ts';
 import type { DueDone, GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
-import type { AppApi, Engine } from './appApi.ts';
+import type { AppApi, Engine, ToastAction } from './appApi.ts';
 import { clearProfile } from './profile.ts';
 import { tr } from '../core/i18n.ts';
 export type { AppApi } from './appApi.ts';
@@ -82,6 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const linkHandled = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastAction, setToastAction] = useState<ToastAction | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const syncTimer = useRef<number | undefined>(undefined);
 
@@ -212,10 +213,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const getSnapshot = useMemo(() => () => (eng ? eng.sync.getState() : INITIAL), [eng]);
   const sync = useSyncExternalStore(subscribe, getSnapshot);
 
-  const toast = useCallback((msg: string) => {
+  // A message stays 3 seconds; one with a button (Undo) stays long enough to reach it.
+  const toast = useCallback((msg: string, action?: ToastAction) => {
     setToastMsg(msg);
+    setToastAction(action ?? null);
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToastMsg(null), 3200);
+    toastTimer.current = window.setTimeout(() => { setToastMsg(null); setToastAction(null); }, action ? 8000 : 3200);
   }, []);
 
   const scheduleSync = useCallback(() => {
@@ -257,6 +260,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const photos = (await e.store.allReceipts()).filter((r) => r.entry_id === id && !r.deleted_at).map((r) => r.id);
     await e.store.mutateReceipts(photos, (cur) => (cur ? markDeleted(cur, nowIso) : undefined));
     await e.store.deleteBlobs(photos);
+    await afterChange();
+  }, [afterChange]);
+
+  const undoEntry = useCallback(async (before: Entry) => {
+    const e = engRef.current;
+    if (!e) return;
+    const nowIso = new Date().toISOString();
+    await e.store.mutateEntries([before.id], (cur) => (cur ? restoreEntry(cur, before, nowIso) : undefined));
     await afterChange();
   }, [afterChange]);
 
@@ -632,11 +643,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     sync,
     syncEnabled,
     toastMsg,
+    toastAction,
     toast,
-    addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
+    addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, sync, toastMsg, toast, addEntry, updateEntry, removeEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

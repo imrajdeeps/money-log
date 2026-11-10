@@ -156,6 +156,9 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Undo (version 1.17)
+After you edit or delete one of your own payments, the message at the bottom has an **Undo** button for about eight seconds: tap it and the payment is back as it was. Not offered for a shared group expense (it is also other people's, and the group has rules about changing it afterwards) or for a payment that has receipt photos (deleting a payment removes its photos for good, and Undo cannot bring them back).
+
 ## Insights (version 1.16)
 The Insights page (Overview tile, the top menu on a wide screen, and a button on the Month page): your spending over the last 3, 6 or 12 months as bars, the categories that took the most with a small trend line and how this month compares with the same days of last month, this month by group, which days of the week cost most (last 90 days), your biggest payments this month, and how each goal is going. It also says where this month will probably end: it follows last month's shape (rent and EMIs come early), or the plain pace when there is no last month. Shared expenses count at your own share; what you put in a Saving category is not counted as spending. Everything is worked out on the phone from your payments: nothing is sent anywhere. The Overview's month chart got gridlines, a top-of-scale label and a dashed line for the likely month end.
 

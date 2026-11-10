@@ -154,6 +154,25 @@ export function softDelete(old: Entry, nowIso: string): Entry {
   return { ...old, deleted_at: t, updated_at: t, dirty: 1 };
 }
 
+// Undo: put a payment back as it was before an edit or a delete. Everything the person can change goes back; the payment is alive
+// again; and it counts as a new change (later than the edit or the delete), so every device ends up with the restored one.
+export function restoreEntry(current: Entry, before: Entry, nowIso: string): Entry {
+  return {
+    ...current,
+    amount: before.amount,
+    category: before.category,
+    method: before.method,
+    note: before.note,
+    entry_date: before.entry_date,
+    group_id: before.group_id,
+    paid_by: before.paid_by,
+    shares: before.shares ? { ...before.shares } : null,
+    deleted_at: before.deleted_at,
+    updated_at: laterThan(current.updated_at, nowIso),
+    dirty: 1,
+  };
+}
+
 // Marking as exported stamps exported_at and updated_at with the same instant, so any later edit or delete
 // is detectably newer than the export (see changedAfterExport).
 export function markExportedEntry(old: Entry, nowIso: string): Entry {
