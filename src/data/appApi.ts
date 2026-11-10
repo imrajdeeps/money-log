@@ -8,6 +8,7 @@ import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit 
 import type { GroupKind } from '../core/groupKinds.ts';
 import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from '../core/logic.ts';
 import type { Store } from './store.ts';
+import type { GoalInput, Goals } from '../core/goals.ts';
 import type { RecurInput, Recurring } from '../core/recurring.ts';
 import type { Sync, SyncState } from './sync.ts';
 import { syncEnabled } from './context.tsx';
@@ -48,6 +49,12 @@ export interface AppApi {
   editRecurring: (id: string, i: RecurInput) => Promise<string | null>;
   removeRecurring: (id: string) => Promise<void>;
   logRecurring: (id: string, how: 'log' | 'skip') => Promise<void>;
+  goals: Goals; // goals and their top-ups, removed ones included
+  addGoal: (i: GoalInput) => Promise<string | null>; // null when it worked, else what to tell the person
+  editGoal: (id: string, i: GoalInput) => Promise<string | null>;
+  removeGoal: (id: string) => Promise<void>;
+  addTopUp: (goalId: string, amount: number, date: string) => Promise<string | null>;
+  removeTopUp: (id: string) => Promise<void>;
   categories: CategoryInfo[]; // everything that can be picked: built-in, own and the imported plan's, merged
   sync: SyncState;
   syncEnabled: boolean;

@@ -148,8 +148,11 @@ one change to the database, once, run in the Supabase SQL Editor *before* the ap
 ```sql
 alter table public.plan_blocks drop constraint if exists plan_blocks_block_known;
 alter table public.plan_blocks add constraint plan_blocks_block_known
-  check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring'));
+  check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring', 'goals'));
 ```
+
+(The list now ends with `'goals'`, added in version 1.10 for goals; running the current `supabase/schema.sql` again does this and
+everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
@@ -278,6 +281,14 @@ Uber, electricity ...) and only if that category is in your list. Check it and t
   example and the reader can be taught it (`src/features/payments/smsParse.ts`, tests in `tests/features/payments/smsParse.test.ts`). The plan is in
   `docs/prd-paste-message.md`.
 
+## Goals and a plan (version 1.10, being built)
+
+Short-term and long-term goals made in the app, with a plan of what to set aside each month. Built in five steps (see
+`docs/prd-goals.md`); **step 1, the data, is in**: a goal is a name, a target amount and a target date (and an optional amount
+already saved); top-ups are items of their own, so two phones adding one at the same time keep both; goals sync as one more
+block (merged item by item, the latest change to each item wins), are in the backup file, and need the database line above.
+There is no screen for them yet: the Goals page is step 2.
+
 ## Receipt photos
 
 In *Add expense*, **Take photo** or **Choose photo** before saving, or add and remove them later when you edit a payment (up
@@ -385,7 +396,7 @@ exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go 
   other's chosen names. They never see your private payments, your plan, or your email address. Recording a payment
   between two people needs no confirmation from the other: this is meant for groups of people who trust each other.
 - Because the key is public and sign-ups are open while you invite people, each account is capped (20,000 payments and
-  2,000 recorded group payments; plan data only under six known names; at most 10 groups made and 20 people per group),
+  2,000 recorded group payments; plan data only under seven known names; at most 10 groups made and 20 people per group),
   so a stranger's account cannot fill the free database. For stricter control keep sign-ups off except when inviting.
 - Receipt photos: the Storage bucket `receipts` is private, JPEG only, 1 MB per file. A file can be uploaded only into your
   own folder and only for a photo you declared first; you can read your own files and those on shared expenses of groups you

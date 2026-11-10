@@ -63,6 +63,11 @@ again.
 4. The plan card: monthly amounts and the Saving-budget check, with its tests.
 5. The Overview tile, links from Plan, README, release number.
 
+## Decided while building
+- A goal's one-line state is **reached**, **date passed**, or **needs ₹X a month**. ("On track" was dropped: with no
+  schedule to compare against, it would have been a guess.)
+- A goal cannot be made with an amount already saved that equals or passes its target: it would already be reached.
+
 ## Open for the owner (defaults in bold, change any of them)
 - The page lives at **`/goals`**, reached from the Plan page and the Overview tile (not a new bottom-bar button).
 - **Twelve months** is the line between short and long term.

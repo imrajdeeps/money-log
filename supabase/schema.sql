@@ -52,10 +52,11 @@ create table if not exists public.plan_blocks (
   primary key (owner_id, block)
 );
 
--- Only the blocks the app uses can be stored, so one account holds at most six small rows here
--- (categories = the categories and budgets set in the app, Release 4; recurring = payments that repeat every month).
+-- Only the blocks the app uses can be stored, so one account holds at most seven small rows here
+-- (categories = the categories and budgets set in the app, Release 4; recurring = payments that repeat every month;
+-- goals = the goals and top-ups set in the app, version 1.10).
 alter table public.plan_blocks drop constraint if exists plan_blocks_block_known;
-alter table public.plan_blocks add constraint plan_blocks_block_known check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring'));
+alter table public.plan_blocks add constraint plan_blocks_block_known check (block in ('budget', 'due', 'networth', 'due_done', 'categories', 'recurring', 'goals'));
 
 -- ---------------------------------------------------------------------------------
 -- the shared ledger (Release 2)

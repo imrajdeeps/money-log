@@ -3,13 +3,15 @@ import { cleanDoneMap, cleanDue, cleanNet } from '../core/blocks.ts';
 import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from '../core/blocks.ts';
 import { cleanMine } from '../core/categories.ts';
 import type { Mine } from '../core/categories.ts';
+import { cleanGoals } from '../core/goals.ts';
+import type { Goals } from '../core/goals.ts';
 import { cleanRecurring } from '../core/recurring.ts';
 import type { Recurring } from '../core/recurring.ts';
 import { cleanEntry, cleanPlan, parseTs } from '../core/logic.ts';
 import type { Entry, Plan, PlanData } from '../core/logic.ts';
 
 // What a backup may hold beyond payments and the budget plan. Every field is optional, so a Release 1 backup still loads.
-export interface BackupExtras { due?: DueBlock | null; networth?: NetBlock | null; dueDone?: DoneMap; categories?: Mine; recurring?: Recurring }
+export interface BackupExtras { due?: DueBlock | null; networth?: NetBlock | null; dueDone?: DoneMap; categories?: Mine; recurring?: Recurring; goals?: Goals }
 
 export interface Backup {
   app: 'money-log';
@@ -22,6 +24,7 @@ export interface Backup {
   dueDone?: DoneMap;
   categories?: Mine; // the person's own categories and budgets
   recurring?: Recurring; // payments that repeat every month
+  goals?: Goals; // goals and their top-ups
 }
 
 // Only payments this account made go in: a backup is a copy of your own data, never of what others shared with you.
@@ -38,6 +41,7 @@ export function makeBackup(entries: Entry[], plan: Plan | null, nowIso: string, 
   if (extras.dueDone && Object.keys(extras.dueDone).length) out.dueDone = extras.dueDone;
   if (extras.categories && Object.keys(extras.categories).length) out.categories = extras.categories;
   if (extras.recurring && Object.keys(extras.recurring).length) out.recurring = extras.recurring;
+  if (extras.goals && Object.keys(extras.goals).length) out.goals = extras.goals;
   return out;
 }
 
@@ -51,6 +55,7 @@ export type BackupParse =
       dueDone: DoneMap;
       categories: Mine;
       recurring: Recurring;
+      goals: Goals;
       skipped: number;
     }
   | { ok: false; error: string };
@@ -79,6 +84,7 @@ export function parseBackup(text: string): BackupParse {
     dueDone: cleanDoneMap(j.dueDone),
     categories: cleanMine(j.categories),
     recurring: cleanRecurring(j.recurring),
+    goals: cleanGoals(j.goals),
     skipped,
   };
 }
