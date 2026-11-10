@@ -74,13 +74,14 @@ export function categoryList(plan: PlanData | null, mine: Mine): CategoryInfo[] 
 }
 
 // The budget view of one month as a plan with a single column, so the month summary needs no special case:
-// the spreadsheet's figure where the plan covers the month, otherwise the budget set in the app.
+// a budget set in the app wins for its category (so a spreadsheet figure can be changed in the app; clear it to go back to the
+// spreadsheet's); otherwise the spreadsheet's figure where the plan covers the month.
 export function planForMonth(plan: PlanData | null, mine: Mine, month: string): PlanData {
   const mi = plan ? plan.months.indexOf(month) : -1;
   const fromPlan = new Map((plan?.rows ?? []).map((r) => [catKey(r.c), r]));
   const rows = categoryList(plan, mine).map((c) => {
     const r = fromPlan.get(catKey(c.name));
-    if (r && mi >= 0) return { c: c.name, g: c.group, p: [r.p[mi] ?? 0] };
+    if (r && mi >= 0 && !(c.budget > 0)) return { c: c.name, g: c.group, p: [r.p[mi] ?? 0] };
     return c.budget > 0 ? { c: c.name, g: c.group, p: [c.budget] } : { c: c.name, g: c.group, p: [0], u: 1 as const };
   });
   return { v: 1, months: [month], rows };

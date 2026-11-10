@@ -26,6 +26,7 @@ import type { GoalInput, Goals } from '../core/goals.ts';
 import { createSync } from './sync.ts';
 import type { DueDone, GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
 import type { AppApi, Engine } from './appApi.ts';
+import { clearProfile } from './profile.ts';
 export type { AppApi } from './appApi.ts';
 
 // A link from a Supabase email brings its answer in the address bar. Read it once, when the page loads, and take it out of
@@ -609,6 +610,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => { await engRef.current?.sync.signOut(); setRecovering(false); }, []);
   const eraseAll = useCallback(async () => {
     await engRef.current?.sync.eraseAll();
+    clearProfile(); // the name and the WhatsApp number are on this phone too
     await reload();
     setLocked(false); // everything, the PIN included, is gone
   }, [reload]);

@@ -60,15 +60,20 @@ test('an imported plan merges: its group, spelling and amounts win, the rest sta
   assert.ok(l.some((c) => c.name === 'Bike EMI' && c.group === 'EMI'));
 });
 
-test('the plan decides the months it covers; the budget set in the app fills every other month', () => {
+test('a budget set in the app wins for its category; the plan decides the rest, and the app fills the months the plan lacks', () => {
   let m: Mine = {};
   const info = (name: string, plan: PlanData | null = PLAN) => categoryList(plan, m).find((c) => c.name === name)!;
   m = setBudget(m, info('Groceries'), 6000, T0);
-  m = setBudget(m, info('rent'), 1234, T0); // the plan covers this one in 2026-11
   const row = (month: string, name: string) => planForMonth(PLAN, m, month).rows.find((r) => r.c === name)?.p[0];
-  assert.equal(row('2026-11', 'rent'), 9000, 'the sheet wins where it has a figure');
-  assert.equal(row('2026-12', 'rent'), 9500);
+  assert.equal(row('2026-11', 'rent'), 9000, 'no app budget: the sheet has the figure');
+  m = setBudget(m, info('rent'), 1234, T0); // the plan covers this one in 2026-11
+  assert.equal(row('2026-11', 'rent'), 1234, 'a budget set in the app wins over the sheet');
+  assert.equal(row('2026-12', 'rent'), 1234);
   assert.equal(row('2027-03', 'rent'), 1234, 'outside the sheet the in-app budget applies');
+  m = setBudget(m, info('rent'), 0, T0);
+  assert.equal(row('2026-11', 'rent'), 9000, 'cleared: back to the sheet');
+  assert.equal(row('2026-12', 'rent'), 9500);
+  assert.equal(row('2027-03', 'rent'), 0);
   assert.equal(row('2026-11', 'Groceries'), 6000, 'a category the sheet lacks uses the app budget in every month');
   assert.equal(row('2026-11', 'Bike EMI'), 0);
   assert.equal(planCovers(PLAN, '2026-12'), true);
