@@ -11,8 +11,8 @@ import { dueOverview, exportOverview, groupsOverview, headlineNet, monthOverview
 import { monthLabel, shortDate } from '../format.ts';
 import { fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../logic.ts';
 
-// The sheets a tile can open (App.tsx owns them).
-export type Section = 'recent' | 'month' | 'plan' | 'groups' | 'export';
+// The pages a tile can open (App.tsx owns them; each has its own address).
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;
@@ -131,7 +131,7 @@ export function HomeScreen({ open, openAdd, goSettings, manageRecurring }: Props
         <BentoCard
           title="Recent payments"
           span={8}
-          action={app.entries.length > 0 ? <button type="button" className="seeall" aria-haspopup="dialog" onClick={() => open('recent')}>See all</button> : null}
+          action={app.entries.length > 0 ? <button type="button" className="seeall" onClick={() => open('payments')}>See all</button> : null}
         >
           <RecentList limit={5} plain empty={<BentoEmpty cta="Add your first expense" onCta={openAdd}>No payments yet. The latest ones show here.</BentoEmpty>} />
         </BentoCard>

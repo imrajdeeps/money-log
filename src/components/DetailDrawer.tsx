@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useImperativeHandle, useRef } from 'reac
 import type { ReactNode, Ref, RefObject } from 'react';
 import { Icon } from './Icon.tsx';
 
-export interface DrawerHandle { open: (anchor?: string) => void; close: () => void } // anchor: id of a part to scroll to
+export interface DrawerHandle { open: () => void; close: () => void }
 
 interface Props {
   ref?: Ref<DrawerHandle>;
@@ -15,8 +15,8 @@ interface Props {
 const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 const CLOSE_MS = 320; // a little longer than the closing animation in styles.css, in case its end is never reported
 
-// The detail layer behind every dashboard tile: a panel that slides in from the right on a wide screen and a sheet that
-// rises from the bottom on a phone (styles.css picks which). It is the native <dialog>, like the app's other dialogs, so
+// The Add expense sheet: a panel that slides in from the right on a wide screen and a sheet that rises from the bottom
+// on a phone (styles.css picks which). (The other tabs are pages of their own, see App.tsx.) It is the native <dialog>, like the app's other dialogs, so
 // the focus stays inside, the page behind is inert, and Escape (or Android's back gesture) closes it, as do the close
 // button and a tap on the dimmed page. It stays mounted while closed, so a half-filled form inside it is still there
 // when it opens again. Opening is a plain function call so a tap can focus a text field at once: on an iPhone the
@@ -46,7 +46,7 @@ export function DetailDrawer({ ref, title, initialFocus, onOpenChange, children 
     timer.current = window.setTimeout(finish, CLOSE_MS);
   }, [finish]);
 
-  const open = useCallback((anchor?: string) => {
+  const open = useCallback(() => {
     const d = dlg.current;
     const b = body.current;
     if (!d || !b) return;
@@ -58,9 +58,7 @@ export function DetailDrawer({ ref, title, initialFocus, onOpenChange, children 
     }
     opener.current = document.activeElement;
     d.showModal();
-    b.scrollTop = 0; // a closed dialog keeps its scroll position; start from the top, or from the part asked for
-    const part = anchor ? document.getElementById(anchor) : null;
-    if (part && b.contains(part)) b.scrollTop = part.getBoundingClientRect().top - b.getBoundingClientRect().top - 8;
+    b.scrollTop = 0; // a closed dialog keeps its scroll position; start from the top
     (initialFocus?.current ?? closeBtn.current)?.focus({ preventScroll: true });
     changed.current?.(true);
   }, [initialFocus]);

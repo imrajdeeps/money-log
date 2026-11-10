@@ -657,3 +657,6 @@ html:has(dialog.drawer[open]) { overflow: hidden; }
   *, *::before, *::after, ::backdrop { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .bento-card.is-action:hover, .bento-card.is-action:active, .fab:active .fab-circle { transform: none; }
 }
+
+/* the pages of the tabs (Month, Plan, Groups, Export, All payments) */
+.page { max-width: 720px; margin: 0 auto; }

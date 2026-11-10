@@ -11,6 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as ExportRouteImport } from './routes/export'
+import { Route as GroupsRouteImport } from './routes/groups'
+import { Route as MonthRouteImport } from './routes/month'
+import { Route as PaymentsRouteImport } from './routes/payments'
+import { Route as PlanRouteImport } from './routes/plan'
 import { Route as SettingsRouteImport } from './routes/settings'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +28,31 @@ const SplatRoute = SplatRouteImport.update({
   path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupsRoute = GroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonthRoute = MonthRouteImport.update({
+  id: '/month',
+  path: '/month',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentsRoute = PaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanRoute = PlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -32,30 +62,75 @@ const SettingsRoute = SettingsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/export': typeof ExportRoute
+  '/groups': typeof GroupsRoute
+  '/month': typeof MonthRoute
+  '/payments': typeof PaymentsRoute
+  '/plan': typeof PlanRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/export': typeof ExportRoute
+  '/groups': typeof GroupsRoute
+  '/month': typeof MonthRoute
+  '/payments': typeof PaymentsRoute
+  '/plan': typeof PlanRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/export': typeof ExportRoute
+  '/groups': typeof GroupsRoute
+  '/month': typeof MonthRoute
+  '/payments': typeof PaymentsRoute
+  '/plan': typeof PlanRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/settings'
+  fullPaths:
+    | '/'
+    | '/$'
+    | '/export'
+    | '/groups'
+    | '/month'
+    | '/payments'
+    | '/plan'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/settings'
-  id: '__root__' | '/' | '/$' | '/settings'
+  to:
+    | '/'
+    | '/$'
+    | '/export'
+    | '/groups'
+    | '/month'
+    | '/payments'
+    | '/plan'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/export'
+    | '/groups'
+    | '/month'
+    | '/payments'
+    | '/plan'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  ExportRoute: typeof ExportRoute
+  GroupsRoute: typeof GroupsRoute
+  MonthRoute: typeof MonthRoute
+  PaymentsRoute: typeof PaymentsRoute
+  PlanRoute: typeof PlanRoute
   SettingsRoute: typeof SettingsRoute
 }
 
@@ -75,6 +150,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groups': {
+      id: '/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof GroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/month': {
+      id: '/month'
+      path: '/month'
+      fullPath: '/month'
+      preLoaderRoute: typeof MonthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payments': {
+      id: '/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof PaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plan': {
+      id: '/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof PlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -88,6 +198,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  ExportRoute: ExportRoute,
+  GroupsRoute: GroupsRoute,
+  MonthRoute: MonthRoute,
+  PaymentsRoute: PaymentsRoute,
+  PlanRoute: PlanRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
