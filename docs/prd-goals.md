@@ -1,5 +1,7 @@
 # PRD: Goals and a plan
 
+**Status:** delivered in version 1.10, in the five steps below.
+
 ## Problem
 The Plan page shows a "Net worth and goals" block, but only figures imported from the spreadsheet. There is no way to make a
 goal in the app, see how far along it is, or ask "what do I need to set aside each month to get there?".
