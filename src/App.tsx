@@ -17,6 +17,7 @@ import { ExportScreen } from './screens/ExportScreen.tsx';
 import { GroupsScreen } from './screens/GroupsScreen.tsx';
 import { HomeScreen } from './screens/HomeScreen.tsx';
 import type { Section } from './screens/HomeScreen.tsx';
+import type { Group } from './logic.ts';
 import { MonthScreen } from './screens/MonthScreen.tsx';
 import { PlanScreen } from './screens/PlanScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
@@ -54,6 +55,7 @@ function Shell() {
   const routeId = useMatches({ select: (ms) => ms[ms.length - 1]?.routeId });
   const page: Page = routeId === '/settings' ? 'settings' : SECTIONS.find((s) => routeId === ROUTES[s]) ?? 'home';
   const section = useSearch({ from: '/settings', shouldThrow: false })?.s;
+  const group = useSearch({ from: '/month', shouldThrow: false })?.g; // the Month page shows just this group's categories
   const [adding, setAdding] = useState(false); // the Add expense sheet is open
   const amountRef = useRef<HTMLInputElement>(null);
   const addRef: RefObject<DrawerHandle | null> = useRef<DrawerHandle>(null);
@@ -64,6 +66,7 @@ function Shell() {
   const openAdd = useCallback(() => addRef.current?.open(), []);
   const goHome = useCallback(() => { closeAdd(); void navigate({ to: '/' }); }, [closeAdd, navigate]);
   const goPage = useCallback((to: Section, part?: string) => { closeAdd(); anchor.current = part; void navigate({ to: ROUTES[to] }); }, [closeAdd, navigate]);
+  const goMonth = useCallback((g?: Group) => { closeAdd(); void navigate({ to: '/month', search: g ? { g } : {} }); }, [closeAdd, navigate]);
   const goSettings = useCallback((to?: SettingsSection) => { closeAdd(); void navigate({ to: '/settings', search: to ? { s: to } : {} }); }, [closeAdd, navigate]);
   // Whichever way the address changed (a tap, the back button, a link), the sheet closes and the page starts at the top,
   // or at the part that was asked for.
@@ -72,7 +75,7 @@ function Shell() {
     const part = anchor.current ? document.getElementById(anchor.current) : null;
     anchor.current = undefined;
     if (part) part.scrollIntoView(); else window.scrollTo(0, 0);
-  }, [page, section, closeAdd]);
+  }, [page, section, group, closeAdd]);
 
   // A reset link was opened: the new password is chosen in Settings. A link that failed: a new one is asked for there.
   useEffect(() => {
@@ -124,11 +127,11 @@ function Shell() {
         </p>
       )}
       <main>
-        <div hidden={page !== 'home'}><HomeScreen open={goPage} openAdd={openAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
+        <div hidden={page !== 'home'}><HomeScreen open={goPage} openMonth={goMonth} openAdd={openAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
         <div hidden={page !== 'settings'} className="narrow">
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
-        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen /></PageBody>}
+        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} /></PageBody>}
         {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen openSettings={() => goSettings('account')} /></PageBody>}
         {page === 'export' && <PageBody title={TITLES.export}><ExportScreen /></PageBody>}

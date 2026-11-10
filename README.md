@@ -90,7 +90,7 @@ GitHub account, or give this app its own account, organisation, or custom domain
 
 The app opens on **Overview**, a dashboard of tiles. Each tile shows one figure; tap it and its details open on a page of
 its own: **Month**, **Plan**, **Groups**, **Export** and **All payments** each have their own address (`/month`, `/plan`,
-`/groups`, `/export`, `/payments`), so a refresh, the back button and a bookmark all land on the same page. The top bar
+`/groups`, `/export`, `/payments`; a group tile such as Saving opens Month with just that group's categories, `/month?g=Saving`), so a refresh, the back button and a bookmark all land on the same page. The top bar
 (wide screens) and the bottom bar (phones) switch between them. Only **+ Add expense** is still a small sheet, because it
 has to open straight from your tap so a phone shows its keyboard at once; close it with its ✕, by tapping the dimmed page,
 with Escape, or with Android's back gesture.

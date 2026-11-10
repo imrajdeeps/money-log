@@ -262,6 +262,7 @@ input[type='file'] { display: none; }
 .monthbar h2 { margin: 0; }
 .groups { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
 .group { margin: 0; padding: 12px 14px; }
+.group.picked { box-shadow: 0 0 0 2px var(--accent); }
 .big-num { font-size: 22px; font-weight: 700; margin: 0; font-variant-numeric: tabular-nums; }
 .bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 8px 0 4px; }
 .bar i { display: block; height: 100%; border-radius: 999px; background: var(--muted); }
