@@ -4,17 +4,20 @@ import { useApp } from '../../data/context.tsx';
 import { monthLabel } from '../../core/format.ts';
 import { BudgetLine as Line } from '../../ui/BudgetLine.tsx';
 import { BudgetsDialog } from './BudgetsDialog.tsx';
+import { CategoryActions } from './CategoryActions.tsx';
 import { planCovers, planForMonth } from '../../core/categories.ts';
 import type { Group } from '../../core/logic.ts';
 import { GROUPS, budgetEntries, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 
 // group: show only that group's categories (a tile on the Overview was tapped); onGroup() shows them all again.
-export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: Group) => void }) {
+export function MonthScreen({ group, onGroup, onAddExpense }: { group?: Group; onGroup: (g?: Group) => void; onAddExpense: (category: string) => void }) {
   const app = useApp();
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);
   const [editing, setEditing] = useState(false);
+  const [focusCat, setFocusCat] = useState<string | undefined>(undefined); // the budgets dialog opens on this category
+  const [picked, setPicked] = useState<string | null>(null); // the category whose button was tapped
   // Shared expenses count at this account's own share; other people's expenses never count. The budgets are the
   // spreadsheet plan's figures where it covers the month and the ones set in the app everywhere else.
   const s = useMemo(
@@ -65,9 +68,12 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
         <ul className={ui.list(false, 'mt-0 mx-0 mb-3.5')}>
           {shown.map((r) => (
             <li key={r.category} className="px-3.5 py-3">
-              <div className={ui.catLine}>
-                <b>{r.category}</b>
-                <span>{fmtINR(r.spent)}{r.planned > 0 ? <small className="text-muted"> / {fmtINR(r.planned)}</small> : null}</span>
+              <div className="flex items-start gap-2">
+                <div className={`${ui.catLine} flex-1 pt-2.5`}>
+                  <b>{r.category}</b>
+                  <span>{fmtINR(r.spent)}{r.planned > 0 ? <small className="text-muted"> / {fmtINR(r.planned)}</small> : null}</span>
+                </div>
+                <button type="button" className={ui.icoBtn} aria-label={`Actions for ${r.category}: set budget or add expense`} onClick={() => setPicked(r.category)}><Icon name="dots" size={20} /></button>
               </div>
               <Line group={r.group} spent={r.spent} planned={r.planned} over={monthIsOver} budgeted={r.budgeted} />
             </li>
@@ -88,7 +94,15 @@ export function MonthScreen({ group, onGroup }: { group?: Group; onGroup: (g?: G
 
       <p className="text-muted text-[13px]">{s.count} payment{s.count === 1 ? '' : 's'} this month · {fmtINR(s.totalSpent)} in total</p>
       <button type="button" className={ui.btn('ghost')} onClick={() => setEditing(true)}>Categories and budgets</button>
-      {editing && <BudgetsDialog onClose={() => setEditing(false)} />}
+      {picked && (
+        <CategoryActions
+          category={picked}
+          onBudget={() => { setFocusCat(picked); setEditing(true); }}
+          onAddExpense={() => onAddExpense(picked)}
+          onClose={() => setPicked(null)}
+        />
+      )}
+      {editing && <BudgetsDialog focus={focusCat} onClose={() => { setEditing(false); setFocusCat(undefined); }} />}
     </section>
   );
 }

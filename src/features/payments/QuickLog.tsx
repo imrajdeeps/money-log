@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, RefObject } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { CategorySelect } from '../../ui/CategorySelect.tsx';
@@ -26,7 +26,7 @@ function lastMethod(): Method | null {
 
 // The payment form behind the "+ Add expense" button. It lives in a sheet that stays mounted, so a half-typed payment
 // survives closing it; the sheet focuses the amount (amountRef) the moment it opens.
-export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void }) {
+export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string }) {
   const app = useApp();
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -40,6 +40,11 @@ export function QuickLog({ amountRef, onSaved }: { amountRef: RefObject<HTMLInpu
   const [message, setMessage] = useState(''); // a bank message pasted to fill the form from
   const [readNote, setReadNote] = useState<{ text: string; bad: boolean } | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
+  // Add expense was opened for one category (from the Month page): start with it, if it is one of the person's own
+  useEffect(() => {
+    const known = preset && app.categories.find((c) => catKey(c.name) === catKey(preset));
+    if (known) setCategory(known.name);
+  }, [preset, app.categories]);
   const today = isoDate();
   const people = useMemo(() => (groupId ? activeMembers(app.members, groupId) : []), [app.members, groupId]);
   const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';

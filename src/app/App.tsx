@@ -62,6 +62,7 @@ function Shell() {
   const section = cleanSection(params.part); // the part of Settings that is open, if any
   const groupId = params.groupId; // the group that is open, if any
   const group = useSearch({ from: '/month', shouldThrow: false })?.g; // the Month page shows just this group's categories
+  const addCategory = useSearch({ from: '/add', shouldThrow: false })?.category; // Add expense starts with this category
   // The start screen stays for at least a moment (not at all with reduced motion), then fades while the app appears under it.
   const [held, setHeld] = useState(false);
   const [splashGone, setSplashGone] = useState(false);
@@ -81,6 +82,7 @@ function Shell() {
 
   const goHome = useCallback(() => { void navigate({ to: '/' }); }, [navigate]);
   const goAdd = useCallback(() => { void navigate({ to: '/add' }); }, [navigate]);
+  const goAddFor = useCallback((category: string) => { void navigate({ to: '/add', search: { category } }); }, [navigate]);
   const goPage = useCallback((to: Section, part?: string) => { anchor.current = part; void navigate({ to: ROUTES[to] }); }, [navigate]);
   const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
   const goGroup = useCallback((id?: string) => { void navigate(id ? { to: '/groups/$groupId', params: { groupId: id } } : { to: '/groups' }); }, [navigate]);
@@ -143,9 +145,9 @@ function Shell() {
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
         <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
-          <PageBody title="Add expense" back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} /></PageBody>
+          <PageBody title="Add expense" back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} /></PageBody>
         </div>
-        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} /></PageBody>}
+        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} /></PageBody>}
         {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} openGoals={() => goPage('goals')} /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
         {page === 'goals' && <PageBody title={TITLES.goals} back backLabel="Plan" onBack={() => goPage('plan')}><GoalsScreen /></PageBody>}

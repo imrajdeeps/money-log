@@ -3,13 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { MAX_NAME } from '../../core/categories.ts';
-import { GROUPS, fmtINR, parseAmount } from '../../core/logic.ts';
+import { GROUPS, catKey, fmtINR, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
 import type { Group } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 
 // Where the person manages categories and monthly budgets without any spreadsheet: add or remove categories, and give
 // each a monthly amount that applies to every month. Categories from an imported plan show the plan's own figures.
-export function BudgetsDialog({ onClose }: { onClose: () => void }) {
+export function BudgetsDialog({ onClose, focus }: { onClose: () => void; focus?: string }) {
   const app = useApp();
   const ref = useRef<HTMLDialogElement>(null);
   const [text, setText] = useState<Record<string, string>>({});
@@ -21,7 +21,18 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();
-  }, []);
+    // opened for one category (from the Month page): put the cursor in its budget
+    if (d && focus) {
+      const input = [...d.querySelectorAll<HTMLInputElement>('input[data-cat]')].find((i) => i.dataset.cat === focus);
+      input?.scrollIntoView({ block: 'center' });
+      input?.focus({ preventScroll: true });
+    }
+  }, [focus]);
+  // what the spreadsheet plan says for this month, per category (shown as the figure a budget set here replaces)
+  const planNow = (() => {
+    const mi = app.plan ? app.plan.months.indexOf(monthOf(isoDate())) : -1;
+    return new Map((app.plan?.rows ?? []).map((r) => [catKey(r.c), mi >= 0 ? r.p[mi] ?? 0 : 0]));
+  })();
   const close = () => ref.current?.close();
 
   const shown = (n: string, budget: number) => text[n] ?? (budget > 0 ? String(budget) : '');
@@ -30,7 +41,6 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
     ev.preventDefault();
     const changes: { name: string; amount: number }[] = [];
     for (const c of app.categories) {
-      if (c.source === 'plan') continue;
       const t = shown(c.name, c.budget).replace(/[₹,\s]/g, '');
       if (t === '') { if (c.budget !== 0) changes.push({ name: c.name, amount: 0 }); continue; }
       const amt = parseAmount(t);
@@ -61,7 +71,7 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
         <h2 id="budgets-title">Categories and budgets</h2>
         <p className="text-muted text-[13px]">
           A budget is the amount you plan to spend in a month; it applies to every month. Leave it empty for none.
-          Categories from your spreadsheet plan keep the plan's figures for the months it covers.
+          A category from your spreadsheet plan uses the spreadsheet's figures until you type a budget here; then yours is used. Clear it to go back to the spreadsheet's.
         </p>
         {GROUPS.map((g) => {
           const items = app.categories.filter((c) => c.group === g);
@@ -74,23 +84,20 @@ export function BudgetsDialog({ onClose }: { onClose: () => void }) {
                   <li key={c.name} className="flex items-center gap-2.5 px-3 py-2">
                     <span className={ui.rowMain(true)}>
                       <b>{c.name}</b>
-                      {c.source === 'plan' && <small>from your spreadsheet</small>}
+                      {c.source === 'plan' && <small>{c.budget > 0 ? `yours replaces the spreadsheet's${planNow.get(catKey(c.name)) ? ` (${fmtINR(planNow.get(catKey(c.name))!)})` : ''}` : `from your spreadsheet${planNow.get(catKey(c.name)) ? `: ${fmtINR(planNow.get(catKey(c.name))!)} this month` : ''}`}</small>}
                       {c.source === 'mine' && <small>yours</small>}
                     </span>
-                    {c.source === 'plan' ? (
-                      <span className="text-muted text-[13px]">set in the spreadsheet</span>
-                    ) : (
-                      <label className="flex items-center gap-1 flex-none [&_input]:w-[104px] [&_input]:text-right">
-                        <span className="sr-only">Monthly budget for {c.name}, in rupees</span>
-                        <span aria-hidden="true">₹</span>
-                        <input
-                          inputMode="decimal"
-                          placeholder="none"
-                          value={shown(c.name, c.budget)}
-                          onChange={(e) => { setText({ ...text, [c.name]: e.target.value }); setError(''); }}
-                        />
-                      </label>
-                    )}
+                    <label className="flex items-center gap-1 flex-none [&_input]:w-[104px] [&_input]:text-right">
+                      <span className="sr-only">Monthly budget for {c.name}, in rupees</span>
+                      <span aria-hidden="true">₹</span>
+                      <input
+                        data-cat={c.name}
+                        inputMode="decimal"
+                        placeholder={c.source === 'plan' && planNow.get(catKey(c.name)) ? String(planNow.get(catKey(c.name))) : 'none'}
+                        value={shown(c.name, c.budget)}
+                        onChange={(e) => { setText({ ...text, [c.name]: e.target.value }); setError(''); }}
+                      />
+                    </label>
                     {c.source !== 'plan' && (
                       <button type="button" className={ui.icoBtn} aria-label={`Remove ${c.name}`} onClick={() => { void app.removeCategory(c.name); }}><Icon name="close" size={18} /></button>
                     )}
