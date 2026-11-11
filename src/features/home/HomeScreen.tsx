@@ -8,6 +8,7 @@ import { RecentList } from '../payments/index.ts';
 import { dueRelative } from '../../core/blocks.ts';
 import { netNow } from '../../core/goals.ts';
 import { planForMonth } from '../../core/categories.ts';
+import { cashFlow } from '../../core/income.ts';
 import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
 import { monthLabel, monthShort, shortDate } from '../../core/format.ts';
 import { averageOf, groupLookup, monthlyTotals, monthsEnding, projectedMonthEnd } from '../../core/analytics.ts';
@@ -18,13 +19,14 @@ import * as hs from '../../ui/tileStyles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
-export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'goals' | 'analytics' | 'notifications';
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'goals' | 'analytics' | 'cashflow' | 'notifications';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;
   openMonth: (group?: Group) => void; // the Month page, for one group's categories or for all
   openGroup: (id: string) => void; // one group's page
   openAdd: () => void;
+  openAddIncome: () => void; // Add, opened on Received
   goSettings: () => void;
   manageRecurring: () => void;
 }
@@ -33,8 +35,8 @@ const pct = (f: number): string => { const v = Math.abs(f * 100); return `${v < 
 const whole = (f: number): string => `${Math.round(f * 100)}%`;
 
 // The surface layer: one figure or picture per tile, every tile a door to its details. Everything shown is worked out from
-// what the app already holds; there is no tile for figures the app does not record (income, net worth over time).
-export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, manageRecurring }: Props) {
+// what the app already holds; there is no tile for figures the app does not record.
+export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome, goSettings, manageRecurring }: Props) {
   const app = useApp();
   const today = isoDate();
   const month = monthOf(today);
@@ -48,6 +50,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
   const couples = useMemo(() => coupleTiles(app.groups, app.members, app.groupEntries, app.settlements, app.me), [app.groups, app.members, app.groupEntries, app.settlements, app.me]);
   const goalTile = useMemo(() => nearestGoal(app.goals, budgetEntries(app.entries, app.me), today), [app.goals, app.entries, app.me, today]);
+
+  const flow = useMemo(() => cashFlow(app.entries, app.me, groupLookup(app.categories), month), [app.entries, app.me, app.categories, month]);
 
   const tiles = overviewGroups(ov.summary.groups);
   const tileSpan = (12 / tiles.length) as 3 | 4 | 6 | 12;
@@ -167,6 +171,18 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
             </BentoEmpty>
           </BentoCard>
         )}
+
+        <BentoCard title={tr('Cash flow')} span={4} onOpen={() => open('cashflow')} openLabel={tr('Open the cash flow for this month')}>
+          {flow.income === 0 && flow.out === 0 ? (
+            <BentoEmpty cta={tr('Add income')} onCta={openAddIncome}>{tr('Log what you receive (salary, refunds, cashback) to see what is left each month.')}</BentoEmpty>
+          ) : (
+            <>
+              <p className={hs.statNum()}>{fmtINR(flow.left)} <span className={hs.statUnit}>{tr('left this month')}</span></p>
+              <p className={ui.leftText(flow.left >= 0 ? 'good' : 'bad')}>{tr('{0} in · {1} out', fmtINR(flow.income), fmtINR(flow.out))}</p>
+              <p className={hs.noteFoot}>{flow.income === 0 ? tr('No income logged yet this month.') : tr('Savings are counted apart.')}</p>
+            </>
+          )}
+        </BentoCard>
 
         <BentoCard title={tr('Insights')} span={4} onOpen={() => open('analytics')} openLabel={tr('Open insights')}>
           {usual > 0 ? (

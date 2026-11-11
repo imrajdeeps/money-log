@@ -4,10 +4,12 @@
 // It is built for the common Indian formats ("Rs 450.00 debited from A/c XX1234 ... UPI Ref 4012..."), not for one bank. What
 // it cannot read it says so (see `problem`), so a miss is never a silently wrong payment.
 import { METHODS, catKey, parseAmount } from '../../core/logic.ts';
-import type { Method } from '../../core/logic.ts';
+import type { EntryKind, Method } from '../../core/logic.ts';
 import { tr } from '../../core/i18n.ts';
 
 export interface ParsedMessage {
+  kind: EntryKind; // 'in' for a message about money received (credited, refund, cashback)
+  incomeCategory: string | null; // for money in: the built-in income category the words point to (refund, cashback, salary, interest)
   amount: number;
   merchant: string | null;
   date: string | null; // YYYY-MM-DD, null = not in the message (today)
@@ -69,6 +71,22 @@ function findMerchant(text: string): string | null {
   return null;
 }
 
+// Money in names who it came from after "from" ("credited ... from rahul@okaxis", "received from Acme Pvt Ltd").
+function findSender(text: string): string | null {
+  const m = /\bfrom\s+(?:vpa\s+)?([A-Za-z0-9][A-Za-z0-9 &.'*_-]{1,40}?)(?=@|\s+(?:on|via|using|ref|upi|txn|trf|with|for|avl|bal|a\/c|ac)\b|[.,;(]|\s*$)/i.exec(text);
+  if (!m || /^(?:your|a\/c|ac|acct|account|bank|card)\b/i.test(m[1]!)) return null;
+  return tidy(m[1]!.replace(/[.\-_]?\d{5,}$/, ''));
+}
+
+// The words that point to one of the built-in income categories; null when none does (the person picks).
+const INCOME_HINTS: readonly (readonly [RegExp, string])[] = [
+  [/\brefund(?:ed)?\b|\breversal\b|\breversed\b/i, 'Refund'],
+  [/\bcash ?back\b/i, 'Cashback'],
+  [/\bsalary\b|\bsal\b|\bpayroll\b/i, 'Salary'],
+  [/\binterest\b|\bdividend\b/i, 'Interest & dividends'],
+];
+export const incomeHint = (text: string): string | null => INCOME_HINTS.find(([re]) => re.test(text))?.[1] ?? null;
+
 function findMethod(text: string): Method | null {
   const t = text.toLowerCase();
   let m: Method | null = null;
@@ -93,10 +111,10 @@ export function parseMessage(raw: string, today: string): MessageResult {
   if (amount === null) return { ok: false, problem: tr('No amount found in that message. Type the payment in below.') };
   const out = OUT.exec(text);
   const into = IN.exec(text);
-  if (into && (!out || into.index < out.index)) {
-    return { ok: false, problem: tr('That looks like money coming in. Money Log records spending, so nothing was filled in.') };
-  }
-  return { ok: true, payment: { amount, merchant: findMerchant(text), date: findDate(text, today), method: findMethod(text), ref: findRef(text) } };
+  const kind: EntryKind = into && (!out || into.index < out.index) ? 'in' : 'out';
+  const merchant = kind === 'in' ? (findSender(text) ?? findMerchant(text)) : findMerchant(text);
+  const incomeCategory = kind === 'in' ? incomeHint(text) : null;
+  return { ok: true, payment: { kind, incomeCategory, amount, merchant, date: findDate(text, today), method: findMethod(text), ref: findRef(text) } };
 }
 
 // ---------------------------------------------------------------- the note, and noticing the same message twice

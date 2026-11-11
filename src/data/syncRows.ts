@@ -14,6 +14,8 @@ export const toRow = (e: Entry, uid: string) => ({
   id: e.id,
   owner_id: uid,
   entry_date: e.entry_date,
+  // sent only for income: spending rows stay exactly as before, so a phone whose database has no `kind` column yet keeps syncing
+  ...(e.kind === 'in' ? { kind: 'in' as const } : {}),
   category: e.category,
   amount: e.amount,
   note: e.note,

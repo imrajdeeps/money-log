@@ -1295,3 +1295,14 @@ revoke all on function public.my_sessions()            from public, anon, authen
 revoke all on function public.my_sign_in_log(integer)  from public, anon, authenticated;
 grant execute on function public.my_sessions()           to authenticated;
 grant execute on function public.my_sign_in_log(integer) to authenticated;
+
+-- ---------------------------------------------------------------------------------
+-- income (version 1.26): an entry is money out (every entry until now) or money in
+-- ---------------------------------------------------------------------------------
+-- `kind` says which way the money went; the amount stays positive. Income is private to its owner: it cannot belong to a group and
+-- cannot record a share of a shared expense. The app sends `kind` only for income, so a phone keeps syncing spending before this runs.
+alter table public.entries add column if not exists kind text not null default 'out';
+alter table public.entries drop constraint if exists entries_kind_known;
+alter table public.entries add constraint entries_kind_known check (kind in ('out', 'in'));
+alter table public.entries drop constraint if exists entries_income_private;
+alter table public.entries add constraint entries_income_private check (kind = 'out' or (group_id is null and share_of is null));

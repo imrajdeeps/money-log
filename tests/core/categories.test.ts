@@ -28,7 +28,7 @@ const PLAN: PlanData = {
 test('without any plan the person gets the built-in categories, grouped, and nothing is required', () => {
   const l = categoryList({});
   assert.equal(l.length, BUILTIN.length);
-  assert.deepEqual(l.map((c) => c.group), ['Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'EMI', 'Family', 'Saving']);
+  assert.deepEqual(l.map((c) => c.group), ['Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'Spending', 'EMI', 'Family', 'Saving']);
   assert.ok(l.every((c) => c.source === 'builtin' && c.budget === 0));
   assert.ok(BUILTIN.every((b) => checkName(b.c) === null && normName(b.c) === b.c), 'built-in names are tidy');
   assert.equal(new Set(BUILTIN.map((b) => catKey(b.c))).size, BUILTIN.length, 'no two built-ins share a key');

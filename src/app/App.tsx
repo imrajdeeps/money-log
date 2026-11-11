@@ -10,6 +10,7 @@ import type { IconName } from '../ui/Icon.tsx';
 import { AllPayments, QuickLog } from '../features/payments/index.ts';
 import { SyncPill } from '../ui/SyncPill.tsx';
 import { AnalyticsScreen } from '../features/analytics/index.ts';
+import { CashFlowScreen } from '../features/cashflow/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
 import type { Section } from '../features/home/index.ts';
@@ -32,9 +33,9 @@ import { tr } from '../core/i18n.ts';
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', notifications: '/notifications' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', notifications: '/notifications' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', notifications: 'Notifications' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', notifications: 'Notifications' };
 
 const SPLASH_MS = 900; // how long the start screen stays, at least
 
@@ -64,7 +65,9 @@ function Shell() {
   const section = cleanSection(params.part); // the part of Settings that is open, if any
   const groupId = params.groupId; // the group that is open, if any
   const group = useSearch({ from: '/month', shouldThrow: false })?.g; // the Month page shows just this group's categories
-  const addCategory = useSearch({ from: '/add', shouldThrow: false })?.category; // Add expense starts with this category
+  const addSearch = useSearch({ from: '/add', shouldThrow: false });
+  const addCategory = addSearch?.category; // Add expense starts with this category
+  const addKind = addSearch?.kind; // or on Received
   // The start screen stays for at least a moment (not at all with reduced motion), then fades while the app appears under it.
   const [held, setHeld] = useState(false);
   const [splashGone, setSplashGone] = useState(false);
@@ -84,6 +87,7 @@ function Shell() {
 
   const goHome = useCallback(() => { void navigate({ to: '/' }); }, [navigate]);
   const goAdd = useCallback(() => { void navigate({ to: '/add' }); }, [navigate]);
+  const goAddIncome = useCallback(() => { void navigate({ to: '/add', search: { kind: 'in' } }); }, [navigate]);
   const goAddFor = useCallback((category: string) => { void navigate({ to: '/add', search: { category } }); }, [navigate]);
   const goPage = useCallback((to: Section, part?: string) => { anchor.current = part; void navigate({ to: ROUTES[to] }); }, [navigate]);
   const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
@@ -163,16 +167,17 @@ function Shell() {
         </p>
       )}
       <main className={sh.main}>
-        <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
+        <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} openAddIncome={goAddIncome} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
         <div hidden={page !== 'settings'} className={`${sh.narrow} animate-page-in`}>
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
         <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
-          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} /></PageBody>
+          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
+        {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}
