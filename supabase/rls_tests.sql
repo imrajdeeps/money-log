@@ -1306,6 +1306,24 @@ begin
   if (select count(*) from public.my_sessions()) <> 0 or (select count(*) from public.my_sign_in_log()) <> 0 then raise exception 'FAIL a token without a user id got sign-in data'; end if;
   raise notice 'PASS sign-in record: own sessions and events only, current session marked, no address, nothing for anonymous visitors';
 
+  -- =========================================================================
+  -- 10. INCOME: PRIVATE TO ITS OWNER, A KNOWN KIND, NEVER IN A GROUP
+  -- =========================================================================
+  reset role;
+  perform pg_temp.act_as(a);
+  insert into public.entries (id, owner_id, entry_date, category, amount, kind) values ('40000000-0000-4000-8000-000000000001', a::uuid, '2026-11-11', 'Salary', 50000, 'in');
+  if (select kind from public.entries where id = '40000000-0000-4000-8000-000000000001') <> 'in' then raise exception 'FAIL an income entry was not stored as income'; end if;
+  insert into public.entries (id, owner_id, entry_date, category, amount) values ('40000000-0000-4000-8000-000000000002', a::uuid, '2026-11-11', 'Rent', 100);
+  if (select kind from public.entries where id = '40000000-0000-4000-8000-000000000002') <> 'out' then raise exception 'FAIL an entry sent without a kind is not spending'; end if;
+  if not pg_temp.fails(format('insert into public.entries (owner_id, entry_date, category, amount, kind) values (%L, ''2026-11-11'', ''Salary'', 1, ''sideways'')', a)) then raise exception 'FAIL an unknown kind was accepted'; end if;
+  if not pg_temp.fails(format('insert into public.entries (owner_id, entry_date, category, amount, kind, share_of) values (%L, ''2026-11-11'', ''Refund'', 1, ''in'', %L)', a, e1)) then raise exception 'FAIL income recording a share of a shared expense was accepted'; end if;
+  if not exists (select 1 from pg_constraint where conrelid = 'public.entries'::regclass and conname = 'entries_income_private' and pg_get_constraintdef(oid) ilike '%group_id IS NULL%') then raise exception 'FAIL income is not barred from groups'; end if;
+  perform pg_temp.act_as(b);
+  if pg_temp.n('select 1 from public.entries where kind = ''in''') <> 0 then raise exception 'FAIL B can read A income'; end if;
+  perform pg_temp.act_as(null);
+  if not pg_temp.fails('select 1 from public.entries') then raise exception 'FAIL anon could read entries'; end if;
+  raise notice 'PASS income: private to its owner, a known kind, never in a group';
+
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;
 
