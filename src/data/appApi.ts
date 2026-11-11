@@ -68,7 +68,6 @@ export interface AppApi {
   updateEntry: (id: string, changes: Partial<NewEntryInput>) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
   undoEntry: (before: Entry) => Promise<void>; // puts a payment back as it was before an edit or a delete
-  markExported: (ids: string[]) => Promise<void>;
   addDue: (i: DueInput) => Promise<string | null>; // null when it worked, else what to tell the person
   editDue: (id: string, i: DueInput) => Promise<string | null>;
   toggleDone: (id: string, done: boolean) => Promise<void>;

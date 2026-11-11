@@ -20,7 +20,7 @@ export interface Entry {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  exported_at: string | null;
+  exported_at: string | null; // no longer set (payments used to be exported to the spreadsheet); kept so rows round-trip with the database
   group_id: string | null; // set = a shared expense of that group; null = private to its owner
   paid_by: string | null; // user id of whoever paid (shared expenses only)
   shares: Shares | null; // each person's share (shared expenses only)
@@ -171,23 +171,6 @@ export function restoreEntry(current: Entry, before: Entry, nowIso: string): Ent
     updated_at: laterThan(current.updated_at, nowIso),
     dirty: 1,
   };
-}
-
-// Marking as exported stamps exported_at and updated_at with the same instant, so any later edit or delete
-// is detectably newer than the export (see changedAfterExport).
-export function markExportedEntry(old: Entry, nowIso: string): Entry {
-  const t = laterThan(old.updated_at, nowIso);
-  return { ...old, exported_at: t, updated_at: t, dirty: 1 };
-}
-
-// Entries whose spreadsheet row is out of date: edited or deleted after they were exported.
-export function changedAfterExport(all: Entry[]): { entry: Entry; kind: 'edited' | 'deleted' }[] {
-  const out: { entry: Entry; kind: 'edited' | 'deleted' }[] = [];
-  for (const e of all) {
-    if (!e.exported_at || !(parseTs(e.updated_at) > parseTs(e.exported_at))) continue;
-    out.push({ entry: e, kind: e.deleted_at ? 'deleted' : 'edited' });
-  }
-  return out;
 }
 
 // Strict check for anything that arrives from outside (backup file, server row). Returns a clean entry or null.
@@ -368,67 +351,6 @@ export function budgetState(group: Group, spent: number, planned: number, monthI
 export const NEAR_BUDGET = 0.8;
 export function nearBudget(spent: number, planned: number): boolean {
   return planned > 0 && spent <= planned && spent >= planned * NEAR_BUDGET;
-}
-
-// ---------------------------------------------------------------- export to the spreadsheet's Log tab
-// Excel runs a pasted cell as a formula if it starts with = + - @, and treats a leading double quote as a text
-// qualifier (stripping it and then evaluating what follows). It also turns things like 1/2 or 00123 into a date or
-// a number. A leading space keeps all of these as plain text.
-export function safeCell(s: unknown): string {
-  const t = String(s ?? '').replace(/[\t\r\n]+/g, ' ').trim();
-  return /^[=+\-@"]/.test(t) || /^\d[\d\s./:,%-]*$/.test(t) ? ` ${t}` : t;
-}
-
-// Where the payment method goes in the spreadsheet's Log tab: 'note' = at the start of the note ("[UPI] lunch", the
-// original Log with four input columns), 'column' = a Method column of its own (five input columns).
-export type LogLayout = 'note' | 'column';
-
-// totalOfShared: for a shared expense, the full amount, so the note keeps it ("lunch, my share of 2,400").
-export function exportNote(e: Pick<Entry, 'note' | 'method'>, totalOfShared?: number, layout: LogLayout = 'note'): string {
-  const text = String(e.note || '').replace(/[\t\r\n]+/g, ' ').trim();
-  const note = totalOfShared === undefined ? text : [text, `my share of ${fmtINR(totalOfShared).replace(/[₹\s\u00a0]/g, '')}`].filter(Boolean).join(', ');
-  if (layout === 'column') return safeCell(note);
-  const m = e.method ? `[${e.method}]` : '';
-  return safeCell(m && note ? `${m} ${note}` : m || note);
-}
-
-export function amountText(n: number): string {
-  return round2(n).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
-}
-
-export interface ExportRow { id: string; date: string; category: string; amount: string; method: string; note: string }
-
-// Our own payments only; a shared expense is written at our share, with the full amount kept in the note, and one we
-// owe nothing on has nothing to put in the Log.
-export function exportRows(entries: Entry[], me: string | null = null, layout: LogLayout = 'note'): ExportRow[] {
-  return entries
-    .filter((e) => !e.deleted_at && isMine(e, me) && myShare(e, me) > 0)
-    .sort(byDate)
-    .map((e) => {
-      const share = myShare(e, me);
-      return {
-        id: e.id,
-        date: e.entry_date,
-        category: safeCell(e.category),
-        amount: amountText(share),
-        method: layout === 'column' ? e.method ?? '' : '',
-        note: exportNote(e, e.group_id && share !== e.amount ? e.amount : undefined, layout),
-      };
-    });
-}
-
-// The Log tab's input columns: Date, Category, Amount, Note, or with a Method column Date, Category, Amount, Method, Note.
-// (The columns after them are formulas and are never overwritten.)
-const cells = (r: ExportRow, layout: LogLayout): string[] => (layout === 'column' ? [r.date, r.category, r.amount, r.method, r.note] : [r.date, r.category, r.amount, r.note]);
-export const toTSV = (rows: ExportRow[], layout: LogLayout = 'note'): string => rows.map((r) => cells(r, layout).join('\t')).join('\n');
-
-function csvCell(s: string): string {
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-export function toCSV(rows: ExportRow[], layout: LogLayout = 'note'): string {
-  const head = layout === 'column' ? ['Date', 'Category', 'Amount', 'Method', 'Note'] : ['Date', 'Category', 'Amount', 'Note'];
-  const lines = [head, ...rows.map((r) => cells(r, layout))];
-  return '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }
 
 // How many days a month (YYYY-MM) has, leap years included.

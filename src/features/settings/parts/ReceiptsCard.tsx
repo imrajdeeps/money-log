@@ -20,7 +20,7 @@ export function ReceiptsCard() {
           {tr('{0} Delete old photos you no longer need, or upgrade the Supabase plan.', q.level === 'full' ? tr('The free storage is full.') : tr('The free storage is more than 80% full.'))}
         </p>
       )}
-      <p className="text-muted text-[13px]">{tr('Photos are not part of the backup file or the spreadsheet export.')}</p>
+      <p className="text-muted text-[13px]">{tr('Photos are not part of the backup file.')}</p>
     </div>
   );
 }

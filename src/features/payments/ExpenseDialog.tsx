@@ -13,7 +13,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // Someone else's shared expense, read-only: what it was, how it is split, its photos and history, and the one thing you
-// can do with it: record your own share as a payment of your own, so your Month view and Log export include it.
+// can do with it: record your own share as a payment of your own, so your Month view includes it.
 export function ExpenseDialog({ entry, group, onClose }: { entry: Entry; group: Group; onClose: () => void }) {
   const app = useApp();
   const ref = useRef<HTMLDialogElement>(null);

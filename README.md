@@ -1,8 +1,8 @@
 # Money Log
 
 A small installable web app (PWA) for logging payments in about five seconds and seeing the month against your
-spreadsheet plan. Release 1 is the quick log, month vs budget, cloud sync with sign-in, and export to the
-spreadsheet's Log tab. Release 2 adds shared groups (a family group, trip groups) with splits and settle-up, a due list
+budgets. Release 1 was the quick log, month vs budget, cloud sync with sign-in, and an export to a spreadsheet (removed in
+1.22: the backup file is the only file in and out). Release 2 adds shared groups (a family group, trip groups) with splits and settle-up, a due list
 with a calendar file, and a net worth and goals snapshot. Release 3 adds receipt photos, the edit history of shared
 expenses, a one-tap "add my share to my budget", an optional PIN lock, and a Method column for the spreadsheet's Log tab.
 Release 4 gives the app its own categories and budgets, so importing the spreadsheet is optional. Release 5 adds email and
@@ -94,7 +94,7 @@ its own. Every page has its own address, so a refresh, the back button and a boo
 |---|---|
 | Overview | `/` |
 | Month (a group tile such as Saving opens just that group's categories) | `/month`, `/month?g=Saving` |
-| Plan, Export, All payments | `/plan`, `/export`, `/payments` |
+| Plan, All payments | `/plan`, `/payments` |
 | Add expense | `/add` |
 | Groups, and one group | `/groups`, `/groups/<id>` |
 | Settings, and one part of it | `/settings`, `/settings/password` |
@@ -112,11 +112,10 @@ the field before its keyboard comes up).
 | Due soon | How many items are overdue or open, and the next two | Plan: the due list and the calendar file |
 | Where it went | This month's biggest categories (savings not counted) and their share | Month |
 | Groups | What you are owed or owe across your groups | **Groups** |
-| Export | How many payments wait to go to the spreadsheet, and any that changed after export | **Export** |
 
 **+ Add expense** (the round button in the middle of the bottom bar on a phone, the button at the top right on a wider
 screen) opens the payment form with the amount ready to type; saving closes it. The bottom bar on a phone also has Home,
-Month, Plan and Groups; Settings is the gear at the top right, and Export is its tile. On a wider screen all of them are
+Month, Plan and Groups; Settings is the gear at the top right. On a wider screen all of them are
 links at the top. The app shows no income, cash flow or net worth history, because it does not record them; tiles without
 data say where the data comes from instead.
 
@@ -217,24 +216,13 @@ across once, the first time the new version starts there (and the old copy is th
 - **Net worth** from the old snapshot was dropped in 1.20 (type it on Plan).
 
 An older backup file that holds these loads the same way. Every phone makes the same items from the same data, so two phones
-never end with copies. Export of payments to the spreadsheet's Log tab (next section) is still there for now.
+never end with copies.
 
-## Sending payments to the spreadsheet
+## The backup file is the only file in and out
 
-Open **Export** (its tile on Overview), **Copy for Excel**, then in the spreadsheet's **Log** tab click column A of the
-first empty row and paste. Then tap **Mark as exported**: it marks exactly the payments you just copied, so the next copy
-holds only new ones. If you later edit or delete a payment that was already exported, Export lists it under **Changed after export**,
-because its spreadsheet row is now out of date and has to be fixed by hand.
-
-The payment method is written at the start of the note, for example `[UPI] lunch`, unless your Log tab has a **Method
-column**: the current `Rajdeep - Money Plan v2.xlsx` does (Date, Category, Amount, Method, Note, then the Month and Group
-formulas). Tick *My spreadsheet's Log tab has a Method column* under Export and the copy becomes five columns, with
-the note free of the prefix. It is off by default, so an older Log tab with four input columns keeps working; paste only
-into a Log tab whose columns match the box. Text that Excel might misread (it starts with `=`, `+`, `-`, `@` or a quote, or
-looks like a date or number) gets a leading space so it stays plain text.
-
-A **shared expense** is exported at **your share**, with the full amount kept in the note: `[UPI] dinner, my share of
-1,800`. An expense you owe nothing on is not exported, and expenses other people made never are.
+Up to 1.21 payments could be copied into the spreadsheet's Log tab (*Export*, with *Mark as exported* and a list of payments
+*changed after export*). From 1.22 that is gone: the app makes everything itself and **Settings, Backup** is the one file that
+goes in and out (see *Backups* below). Payments carry an old `exported_at` mark in the database; nothing reads it any more.
 
 ## Groups, splits and settling up
 
@@ -256,7 +244,7 @@ A **shared expense** is exported at **your share**, with the full amount kept in
   nobody's balance changes behind their back. If the only admin wants to leave, they hand over admin first.
 - A shared expense must be one you paid or share in; nobody can record a debt between two other people.
 - **Add my share to my budget:** tap someone else's expense and the button logs your share as a payment of your own
-  (you pick the category), so your Month view and Log export include it. It does not change the group's balances, and
+  (you pick the category), so your Month view includes it. It does not change the group's balances, and
   the button is not offered twice for the same expense.
 - **History:** a shared expense keeps a list of who created, changed or deleted it and what changed (amount, split, payer,
   category, note, date). It is kept in the cloud (needs a connection to open), only for groups with two or more people,
@@ -340,7 +328,7 @@ private again or deleted. Deleting a payment deletes its photos, and the app the
 
 Limits: 3 photos per payment, 300 photos per account (each at most 1 MB, so at most 300 MB; the app counts photos because the
 database cannot see real file sizes), and the free plan's 1 GB for the whole project. Settings shows the space used by every
-photo you can see and warns at 80%. Photos are not in the backup file or the spreadsheet export. Because Storage files can
+photo you can see and warns at 80%. Photos are not in the backup file. Because Storage files can
 only be removed through the Storage service, a payment cannot be hard-deleted in the database while its photos' files remain,
 and deleting a user in the dashboard leaves their files behind (see the security notes).
 
