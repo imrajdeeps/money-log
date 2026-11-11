@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
+import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from '../../../src/features/payments/payments.ts';
 import { dueKey } from '../../../src/core/blocks.ts';
 import type { DueBlock } from '../../../src/core/blocks.ts';
@@ -133,18 +133,6 @@ test('groupsOverview adds up what I am owed and what I owe across groups', () =>
   const settle: Settlement = { id: U(20), group_id: G2, from_user: ME, to_user: OTHER, amount: 150, settle_date: '2026-11-02', created_by: ME, created_at: T0, updated_at: T0, deleted_at: null, dirty: 0 };
   assert.deepEqual(groupsOverview(groups, entries, [settle], ME), { owed: 500, owe: 0 });
   assert.deepEqual(groupsOverview(groups, entries, [], null), { owed: 0, owe: 0 });
-});
-
-test('headlineNet leads with the net worth line and the first percentage', () => {
-  const items = [
-    { label: 'Long-term target', value: 5000000, unit: '₹' as const },
-    { label: 'Net worth now (net of debt)', value: 450000, unit: '₹' as const },
-    { label: 'Progress to the long-term target', value: 9, unit: '%' as const },
-  ];
-  assert.equal(headlineNet(items).main?.value, 450000);
-  assert.equal(headlineNet(items).goal?.value, 9);
-  assert.equal(headlineNet(items.slice(0, 1)).main?.label, 'Long-term target', 'falls back to the first rupee line');
-  assert.deepEqual(headlineNet([{ label: 'Years', value: 3, unit: 'years' }]), { main: null, goal: null });
 });
 
 test('exportOverview counts what the Export screen offers', () => {

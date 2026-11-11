@@ -1,6 +1,6 @@
 // The blocks that travel as one row each: imported from the spreadsheet (replaced as a unit) and made in the app
 // (merged item by item). One table says how each is cleaned, merged and compared.
-import { cleanDoneMap, cleanDue, cleanNet, mergeDone, sameDone } from '../core/blocks.ts';
+import { cleanDoneMap, cleanDue, mergeDone, sameDone } from '../core/blocks.ts';
 import type { DoneMap } from '../core/blocks.ts';
 import { cleanMine, mergeMine, sameMine } from '../core/categories.ts';
 import type { Mine } from '../core/categories.ts';
@@ -12,11 +12,10 @@ import { cleanPlan } from '../core/logic.ts';
 
 // The plan blocks imported from the spreadsheet. Each is kept whole on the phone as { ...data, importedAt, dirty } and
 // replaced as a unit; the latest import wins. 'budget' keeps its Release 1 storage key.
-export type BlockName = 'budget' | 'due' | 'networth';
+export type BlockName = 'budget' | 'due';
 export const BLOCKS: Record<BlockName, { meta: string; clean: (p: unknown) => object | null }> = {
   budget: { meta: 'plan', clean: cleanPlan },
   due: { meta: 'block:due', clean: cleanDue },
-  networth: { meta: 'block:networth', clean: cleanNet },
 };
 export const BLOCK_NAMES = Object.keys(BLOCKS) as BlockName[];
 export const isBlock = (n: unknown): n is BlockName => typeof n === 'string' && Object.hasOwn(BLOCKS, n);

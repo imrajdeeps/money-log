@@ -1,7 +1,7 @@
 // Pure helpers behind the Home dashboard's tiles: no DOM, no storage, no network. They only add up what the other modules
 // already know; nothing here is new data. Kept separate so the Node test runner can check them.
 import { classifyDue } from '../../core/blocks.ts';
-import type { DoneMap, DueBlock, DueView, NetItem } from '../../core/blocks.ts';
+import type { DoneMap, DueBlock, DueView } from '../../core/blocks.ts';
 import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
 import type { Group as SharedGroup, Member, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
@@ -144,16 +144,6 @@ export function groupsOverview(groups: SharedGroup[], entries: Entry[], settleme
     else owe -= b;
   }
   return { owed: fromPaise(owed), owe: fromPaise(owe) };
-}
-
-// The figure to lead with from the imported snapshot: the rupee line that names net worth (else the first rupee line), and
-// the first percentage, which the spreadsheet uses for progress to a goal.
-export function headlineNet(items: NetItem[]): { main: NetItem | null; goal: NetItem | null } {
-  const rupees = items.filter((i) => i.unit === '₹');
-  return {
-    main: rupees.find((i) => /net\s*worth/i.test(i.label)) ?? rupees[0] ?? null,
-    goal: items.find((i) => i.unit === '%') ?? null,
-  };
 }
 
 // What the Export screen will offer: payments not exported yet (as "Not yet exported" counts them) and the ones that
