@@ -334,8 +334,12 @@ and deleting a user in the dashboard leaves their files behind (see the security
 
 ## App lock
 
-Settings, *App lock*: a 4 to 8 digit PIN. The app starts covered by a PIN screen and covers itself again when you come back
-after the time you choose (every time, after 1 minute, or after 5 minutes). After 4 wrong tries each further one makes you wait
+Settings, *App lock*: a 4-digit PIN (up to 1.22.0 it could be 4 to 8 digits; such a PIN still unlocks). The PIN screen submits by
+itself at the fourth digit. A PIN set before 1.22.1 does not know its length yet, so the first unlock after the update needs the
+Unlock button; the length is remembered after that. The app starts covered by a PIN screen and covers itself again when you come
+back after the time you choose (every time, after 1 minute, or after 5 minutes). *Away* means the app was in the background **or
+closed**: opening or refreshing it again inside that time does not ask for the PIN (the phone notes, every 10 seconds while the app
+is open and unlocked and when it is left, when it was last in use; the lock screen itself does not count). *Every time* always asks. After 4 wrong tries each further one makes you wait
 longer (30 seconds, then 1, 2, 4... up to 15 minutes). It is a privacy screen, **not encryption**: the data stays readable in
 this browser's storage to anyone who can open its developer tools, so your phone's own lock is what protects it. A forgotten PIN
 cannot be recovered: you erase this phone's copy and sign in again (what is in the cloud stays).

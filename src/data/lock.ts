@@ -12,6 +12,7 @@ export interface LockConfig {
   iterations: number;
   hash: string; // base64 of PBKDF2-SHA-256(pin, salt)
   timeoutSec: number; // lock again after the app has been in the background this long; 0 = every time
+  len?: number; // how many digits the PIN has, once known: the lock screen then submits by itself at that many digits
 }
 
 // What is remembered between attempts, so closing and reopening the app does not reset the delay.
@@ -23,7 +24,9 @@ export const LOCK_TIMEOUTS: { sec: number; label: string }[] = [
   { sec: 300, label: 'After 5 minutes away' },
 ];
 
-const PIN_RE = /^\d{4,8}$/;
+export const PIN_LENGTH = 4; // a new PIN has exactly this many digits
+const PIN_RE = /^\d{4}$/;
+const OLD_PIN_RE = /^\d{4,8}$/; // a PIN set before 1.23 could be 4 to 8 digits and must still unlock
 const ITERATIONS = 150_000;
 
 export const validPin = (pin: string): boolean => PIN_RE.test(pin);
@@ -42,14 +45,14 @@ async function derive(pin: string, salt: Uint8Array<ArrayBuffer>, iterations: nu
 }
 
 export async function makeLock(pin: string, timeoutSec: number): Promise<LockConfig> {
-  if (!validPin(pin)) throw new Error(tr('A PIN is 4 to 8 digits.'));
+  if (!validPin(pin)) throw new Error(tr('A PIN is 4 digits.'));
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  return { v: 1, salt: b64(salt), iterations: ITERATIONS, hash: b64(await derive(pin, salt, ITERATIONS)), timeoutSec };
+  return { v: 1, salt: b64(salt), iterations: ITERATIONS, hash: b64(await derive(pin, salt, ITERATIONS)), timeoutSec, len: PIN_LENGTH };
 }
 
 // Compares every byte, so the time taken does not reveal how much of the PIN was right.
 export async function checkPin(cfg: LockConfig, pin: string): Promise<boolean> {
-  if (!validPin(pin)) return false;
+  if (!OLD_PIN_RE.test(pin)) return false;
   const got = new Uint8Array(await derive(pin, unb64(cfg.salt), cfg.iterations));
   const want = unb64(cfg.hash);
   if (got.length !== want.length) return false;
@@ -64,7 +67,8 @@ export function cleanLock(x: any): LockConfig | null {
   if (!Number.isInteger(x.iterations) || x.iterations < 1000 || x.iterations > 5_000_000) return null;
   if (!Number.isInteger(x.timeoutSec) || x.timeoutSec < 0 || x.timeoutSec > 86400) return null;
   try { unb64(x.salt); unb64(x.hash); } catch { return null; }
-  return { v: 1, salt: x.salt, iterations: x.iterations, hash: x.hash, timeoutSec: x.timeoutSec };
+  const len = Number.isInteger(x.len) && x.len >= 4 && x.len <= 8 ? (x.len as number) : undefined;
+  return { v: 1, salt: x.salt, iterations: x.iterations, hash: x.hash, timeoutSec: x.timeoutSec, ...(len ? { len } : {}) };
 }
 
 // The first 4 wrong PINs cost nothing; after that each one makes the wait longer: 30 s, 1 min, 2 min, ... at most 15 min.
@@ -84,4 +88,12 @@ export const secondsToWait = (t: LockTries, nowMs: number): number => Math.max(0
 export function shouldLock(cfg: LockConfig | null, hiddenAtMs: number | null, nowMs: number): boolean {
   if (!cfg || hiddenAtMs === null) return false;
   return nowMs - hiddenAtMs >= cfg.timeoutSec * 1000;
+}
+
+// When the app starts (also after a refresh): cover it unless the person was using it a moment ago, inside the chosen time.
+// "Every time" (0) always covers; so does a start with no record, or a record from the future (the clock was set back).
+export function coverAtStart(cfg: LockConfig | null, lastActiveMs: number | null, nowMs: number): boolean {
+  if (!cfg) return false;
+  if (cfg.timeoutSec === 0 || lastActiveMs === null || lastActiveMs > nowMs) return true;
+  return nowMs - lastActiveMs >= cfg.timeoutSec * 1000;
 }

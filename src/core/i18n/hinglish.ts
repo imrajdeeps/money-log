@@ -125,7 +125,6 @@ export const HINGLISH: Record<string, string> = {
   'That PIN is not right.': 'Woh PIN sahi nahi hai.',
   'The app is still starting.': 'App abhi shuru ho raha hai.',
   'Too many wrong tries. Wait {0} seconds.': 'Bahut zyada galat koshishein. {0} second rukein.',
-  'A PIN is 4 to 8 digits.': 'PIN 4 se 8 ankon ka hota hai.',
   'After 1 minute away': '1 minute door rehne ke baad',
   'After 5 minutes away': '5 minute door rehne ke baad',
   'Every time I leave the app': 'Har baar app chhodne par',
@@ -650,7 +649,6 @@ export const HINGLISH: Record<string, string> = {
   'Ask for the PIN': 'PIN kab maange',
   'Current PIN (needed to change anything)': 'Maujooda PIN (kuch bhi badalne ke liye zaroori)',
   'encrypt the data stored on the phone, so your phone\'s own lock is still what protects it. If you forget the PIN, the only way back in is to erase this phone\'s copy and sign in again.': 'encrypt karti, isliye aapke phone ka apna lock hi uski raksha karta hai. PIN bhool jaayein toh wapas aane ka ekmaatra tareeka is phone ki copy mitakar phir sign in karna hai.',
-  'New PIN (4 to 8 digits)': 'Naya PIN (4 se 8 ank)',
   'New PIN (leave empty to keep the current one)': 'Naya PIN (maujooda rakhne ke liye khaali chhodein)',
   'not': 'nahi',
   'On.': 'Chalu.',
@@ -818,4 +816,7 @@ export const HINGLISH: Record<string, string> = {
   'New: one file in and out': 'Naya: aane-jaane ki sirf ek file',
   'The backup file is now the only file that goes in and out of the app. Export to the spreadsheet is gone, because everything is made in the app. Download a backup from Settings, Backup now and then.': 'Backup file ab app mein aane-jaane wali ekmaatra file hai. Spreadsheet mein export band ho gaya hai, kyunki sab kuch app mein hi banta hai. Samay-samay par Settings, Backup se ek backup download karein.',
   'A quick look round, nine short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.': 'Ek chhoti si jhalak, nau chhote kadam. Aapke payments isi phone par rehte hain, aur sign in karne se bas ek cloud copy banti hai. Aap abhi skip kar sakte hain aur baad mein Settings, About se tour phir dekh sakte hain.',
+  'A PIN is 4 digits.': 'PIN 4 digits ka hota hai.',
+  'Opening or refreshing the app again inside that time does not ask for the PIN. "Every time" asks whenever the app opens.': 'Us samay ke andar app phir kholne ya refresh karne par PIN nahi poochha jaata. "Har baar" chunne par app khulte hi har baar poochha jaata hai.',
+  'New PIN (4 digits)': 'Naya PIN (4 digits)',
 };
