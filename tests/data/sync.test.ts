@@ -1461,3 +1461,23 @@ test("another account never sees someone else's profile", async () => {
   await a.sync.sync(); await x.sync.sync();
   assert.equal(await profileOf(x), undefined);
 });
+
+// ------------------------------------------------------------------ notification dismissals and switches (items of the goals block)
+import { dismissNotice, dismissedKeys, enabledKinds, setNoticeKind } from '../../src/core/notifications.ts';
+
+test('a notification dismissed on one phone is hidden on the other, and so is a kind switched off', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeGoals(a, (g) => dismissNotice(g, 'due:abc:soon', iso(-3000)));
+  await changeGoals(b, (g) => dismissNotice(g, 'backup:2026-11', iso(-2000)));
+  await changeGoals(a, (g) => setNoticeKind(g, 'sync', false, iso(-1000)));
+  await a.sync.sync(); await b.sync.sync(); await a.sync.sync();
+  for (const d of [a, b]) {
+    const g = await goalsOf(d);
+    assert.deepEqual([...dismissedKeys(g)].sort(), ['backup:2026-11', 'due:abc:soon']);
+    assert.equal(enabledKinds(g).has('sync'), false);
+    assert.equal(enabledKinds(g).has('due'), true);
+  }
+  assert.equal(a.sync.getState().pending, 0);
+});

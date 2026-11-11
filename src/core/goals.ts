@@ -2,7 +2,9 @@
 // like categories.ts and recurring.ts, and synced the same way: one block, merged item by item, the latest change to
 // each item wins. Goals and top-ups are items of their own (not a list inside a goal), so two phones adding a top-up at
 // the same moment keep both. Removed items stay (marked) so the removal reaches the other phones.
-import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, newId, normName, parseTs, round2 } from './logic.ts';
+import { isNoticeKind } from './noticeKinds.ts';
+import type { NoticeKind } from './noticeKinds.ts';
+import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, newId, normName, parseTs, round2, uuidFromKey } from './logic.ts';
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';
 
@@ -11,6 +13,8 @@ export const MAX_TOPUPS = 500;
 export const MAX_NET_UPDATES = 400;
 export const MAX_DUE_ENTRIES = 400; // removed ones included
 export const MAX_DUE_TITLE = 120;
+export const MAX_DISMISSALS = 1000; // dismissals read back; the app itself keeps the newest 500
+export const MAX_NOTICE_KEY = 120;
 const NET_LIMIT = 1e12;
 export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is short term, later is long term
 
@@ -27,7 +31,13 @@ export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1;
 // a amount in rupees (0 = none; one-off payments only), f done, x removed. Kept in this block like net worth updates.
 export type DueEntryKind = 'oneoff' | 'todo';
 export interface DueEntry { id: string; k: 'd'; kind: DueEntryKind; n: string; d: string; a: number; f: 0 | 1; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp | NetUpdate | DueEntry;
+// A notification the person dismissed (key: what it refers to, see notifications.ts), and their switches for the kinds of notification
+// (off: the kinds they switched off; one item with a fixed id). Both live in this block like everything else made on Plan.
+export const NOTICE_SETTINGS_ID = uuidFromKey('notice-settings');
+export const noticeId = (key: string): string => uuidFromKey(`notice|${key}`);
+export interface DismissEntry { id: string; k: 'k'; key: string; x: 0 | 1; t: string }
+export interface NoticeSettings { id: string; k: 's'; off: NoticeKind[]; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -161,17 +171,22 @@ export function mergeGoals(local: Goals, remote: Goals): Goals {
   return out;
 }
 
+// Two copies of an item are the same when everything the person can change in it is.
+function sameItem(x: GoalItem, y: GoalItem | undefined): boolean {
+  if (x.k !== y?.k || x.x !== y.x || x.t !== y.t) return false;
+  switch (x.k) {
+    case 'g': return y.k === 'g' && x.n === y.n && x.a === y.a && x.d === y.d && x.s === y.s && x.c === y.c && x.b === y.b;
+    case 't': return y.k === 't' && x.g === y.g && x.a === y.a && x.d === y.d;
+    case 'n': return y.k === 'n' && x.a === y.a && x.d === y.d;
+    case 'd': return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.a === y.a && x.d === y.d && x.f === y.f;
+    case 'k': return y.k === 'k' && x.key === y.key;
+    default: return y.k === 's' && x.off.join() === y.off.join();
+  }
+}
+
 export function sameGoals(a: Goals, b: Goals): boolean {
   const ka = Object.keys(a);
-  return ka.length === Object.keys(b).length && ka.every((k) => {
-    const x = a[k]!;
-    const y = Object.hasOwn(b, k) ? b[k]! : undefined;
-    if (x.k !== y?.k || x.a !== y.a || x.d !== y.d || x.x !== y.x || x.t !== y.t) return false;
-    if (x.k === 'g') return y.k === 'g' && x.n === y.n && x.s === y.s && x.c === y.c && x.b === y.b;
-    if (x.k === 't') return y.k === 't' && x.g === y.g;
-    if (x.k === 'd') return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.f === y.f;
-    return true;
-  });
+  return ka.length === Object.keys(b).length && ka.every((k) => sameItem(a[k]!, Object.hasOwn(b, k) ? b[k] : undefined));
 }
 
 // Validate what comes from the server or a backup. Anything malformed is dropped, never repaired. Each kind of item has its own
@@ -205,11 +220,23 @@ function cleanDueItem(k: string, v: Raw): DueEntry | null {
   return { id: k, k: 'd', kind: v.kind, n: v.n, d: v.d, a: v.a, f: v.f, x: v.x, t: v.t };
 }
 
+function cleanDismissItem(k: string, v: Raw): DismissEntry | null {
+  if (typeof v.key !== 'string' || v.key === '' || v.key.length > MAX_NOTICE_KEY || k !== noticeId(v.key)) return null;
+  return { id: k, k: 'k', key: v.key, x: v.x, t: v.t };
+}
+
+function cleanNoticeSettingsItem(k: string, v: Raw): NoticeSettings | null {
+  if (k !== NOTICE_SETTINGS_ID || !Array.isArray(v.off) || !v.off.every(isNoticeKind)) return null;
+  return { id: k, k: 's', off: [...new Set<NoticeKind>(v.off)].sort((a, b) => a.localeCompare(b)), x: v.x, t: v.t };
+}
+
 const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => GoalItem | null }> = {
   g: { max: MAX_GOALS, clean: cleanGoalItem },
   t: { max: MAX_TOPUPS, clean: cleanTopUpItem },
   n: { max: MAX_NET_UPDATES, clean: cleanNetItem },
   d: { max: MAX_DUE_ENTRIES, clean: cleanDueItem },
+  k: { max: MAX_DISMISSALS, clean: cleanDismissItem },
+  s: { max: 1, clean: cleanNoticeSettingsItem },
 };
 
 const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id === k && (v.x === 0 || v.x === 1) && Number.isFinite(parseTs(v.t));

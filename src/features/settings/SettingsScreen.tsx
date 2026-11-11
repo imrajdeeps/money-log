@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../../ui/Icon.tsx';
+import { NotificationsCard } from '../notifications/index.ts';
 import { RecurringCard } from '../recurring/index.ts';
 import { useApp } from '../../data/context.tsx';
 import { SETTINGS_GROUPS, SETTINGS_SECTIONS } from './settingsSections.ts';
@@ -39,6 +40,7 @@ export function SettingsScreen({ section, onSection }: Readonly<{ section?: Sett
     password: <PasswordCard />,
     recurring: <RecurringCard />,
     appearance: <AppearanceCard />,
+    notifications: <NotificationsCard />,
     language: <LanguageCard />,
     receipts: <ReceiptsCard />,
     lock: <AppLockCard />,

@@ -11,6 +11,9 @@ import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import { config } from './config.ts';
 import { checkPin, cleanLock, coverAtStart, makeLock, registerFailure, secondsToWait, shouldLock } from './lock.ts';
 import { clearLastActive, loadLastActive, saveLastActive } from './lockSeen.ts';
+import { clearLastBackup } from './backupSeen.ts';
+import { dismissNotice as dismissNoticeIn, dismissedKeys, enabledKinds, setNoticeKind as setNoticeKindIn, showDismissedAgain } from '../core/notifications.ts';
+import type { NoticeKind } from '../core/noticeKinds.ts';
 import type { LockConfig, LockTries } from './lock.ts';
 import { MAX_ACCOUNT_PHOTOS, MAX_PHOTOS, liveFor, makeReceipt, markDeleted, photoRoom } from '../core/receipts.ts';
 import type { Receipt } from '../core/receipts.ts';
@@ -512,6 +515,13 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const removeGoal = useCallback((id: string) => changeGoals((items, nowIso) => removeGoalFrom(items, id, nowIso)), [changeGoals]);
   const addTopUp = useCallback((goalId: string, amount: number, date: string) => runGoals((items, nowIso) => addTopUpTo(items, goalId, amount, date, isoDate(), nowIso)), [runGoals]);
   const removeTopUp = useCallback((id: string) => changeGoals((items, nowIso) => removeTopUpFrom(items, id, nowIso)), [changeGoals]);
+  // Notification center: what the person dismissed and which kinds they switched off live in the goals block too.
+  const dismissNotice = useCallback((key: string) => changeGoals((items, nowIso) => dismissNoticeIn(items, key, nowIso)), [changeGoals]);
+  const setNoticeKind = useCallback((kind: NoticeKind, on: boolean) => changeGoals((items, nowIso) => setNoticeKindIn(items, kind, on, nowIso)), [changeGoals]);
+  const showDismissed = useCallback(() => changeGoals((items, nowIso) => showDismissedAgain(items, nowIso)), [changeGoals]);
+  const dismissed = useMemo(() => dismissedKeys(goals), [goals]);
+  const noticeKinds = useMemo(() => enabledKinds(goals), [goals]);
+
   const addNetWorth = useCallback((amount: number, date: string) => runGoals((items, nowIso) => addNetUpdateTo(items, amount, date, isoDate(), nowIso)), [runGoals]);
   const removeNetWorth = useCallback((id: string) => changeGoals((items, nowIso) => removeNetUpdateFrom(items, id, nowIso)), [changeGoals]);
 
@@ -601,6 +611,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     clearProfile(); // the name and the WhatsApp number are on this phone too
     clearSent(); // so is the memory of what went into calendar files
     clearLastActive(); // and when the app was last in use
+    clearLastBackup(); // and when a backup was last downloaded
     await reload();
     setLocked(false); // everything, the PIN included, is gone
   }, [reload]);
@@ -618,7 +629,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
     dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
-    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth,
+    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds,
     sync,
     syncEnabled,
     toastMsg,
@@ -627,7 +638,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

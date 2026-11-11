@@ -1,5 +1,6 @@
 import type { DueItem } from '../core/blocks.ts';
 import type { DueInput } from '../core/dueItems.ts';
+import type { NoticeKind } from '../core/noticeKinds.ts';
 import type { BackupParse } from './backup.ts';
 import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import type { HistoryRow } from '../core/history.ts';
@@ -57,6 +58,11 @@ export interface AppApi {
   removeTopUp: (id: string) => Promise<void>;
   addNetWorth: (amount: number, date: string) => Promise<string | null>; // a net worth update; the error text, or null
   removeNetWorth: (id: string) => Promise<void>;
+  dismissed: ReadonlySet<string>; // notifications the person dismissed (their keys)
+  noticeKinds: ReadonlySet<NoticeKind>; // the kinds of notification that are switched on
+  dismissNotice: (key: string) => Promise<void>;
+  setNoticeKind: (kind: NoticeKind, on: boolean) => Promise<void>;
+  showDismissed: () => Promise<void>; // bring every dismissed notification back
   categories: CategoryInfo[]; // everything that can be picked: built-in, own and the imported plan's, merged
   sync: SyncState;
   syncEnabled: boolean;

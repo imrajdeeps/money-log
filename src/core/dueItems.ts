@@ -6,7 +6,7 @@ import { isDone, isRemoved } from './blocks.ts';
 import type { DoneMap, DueItem } from './blocks.ts';
 import { MAX_DUE_ENTRIES, MAX_DUE_TITLE } from './goals.ts';
 import type { DueEntry, DueEntryKind, GoalResult, Goals } from './goals.ts';
-import { MAX_AMOUNT, isValidDate, newId, normName, parseTs, round2 } from './logic.ts';
+import { MAX_AMOUNT, isValidDate, newId, normName, parseTs, round2, uuidFromKey } from './logic.ts';
 import { tr } from './i18n.ts';
 
 export interface DueInput { kind: DueEntryKind; title: string; date: string; amount: number } // date '' = none, amount 0 = none
@@ -66,15 +66,7 @@ export const dueEntry = (items: Goals, id: string): DueEntry | null => {
 // ---------------------------------------------------------------- bringing an imported list across, once
 // The same id for the same imported item on every phone (so two phones migrating on their own never make copies) and the same
 // time stamp, so the result is identical; anything the person already changed in the app is newer and wins.
-function idOf(key: string): string {
-  const hex = [0x811c9dc5, 0x01000193, 0x9e3779b1, 0x85ebca6b].map((seed, r) => {
-    let h = seed >>> 0;
-    for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i) ^ r, 0x01000193) >>> 0;
-    return h.toString(16).padStart(8, '0');
-  }).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
-}
-export const migratedDueId = (key: string): string => idOf(`due|${key}`);
+export const migratedDueId = (key: string): string => uuidFromKey(`due|${key}`);
 
 // One imported item as an entry of the due list, or null when it was removed in the app or cannot be kept.
 function migratedEntry(it: DueItem, marks: DoneMap, importedAt: string): DueEntry | null {

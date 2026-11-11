@@ -15,6 +15,7 @@ import { Route as AddRouteImport } from './routes/add'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as MonthRouteImport } from './routes/month'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as GroupsIndexRouteImport } from './routes/groups.index'
@@ -50,6 +51,11 @@ const GoalsRoute = GoalsRouteImport.update({
 const MonthRoute = MonthRouteImport.update({
   id: '/month',
   path: '/month',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaymentsRoute = PaymentsRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
+  '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
+  '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
+  '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/goals'
     | '/month'
+    | '/notifications'
     | '/payments'
     | '/plan'
     | '/groups/$groupId'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/goals'
     | '/month'
+    | '/notifications'
     | '/payments'
     | '/plan'
     | '/groups/$groupId'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/goals'
     | '/month'
+    | '/notifications'
     | '/payments'
     | '/plan'
     | '/groups/$groupId'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   GoalsRoute: typeof GoalsRoute
   MonthRoute: typeof MonthRoute
+  NotificationsRoute: typeof NotificationsRoute
   PaymentsRoute: typeof PaymentsRoute
   PlanRoute: typeof PlanRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/month'
       fullPath: '/month'
       preLoaderRoute: typeof MonthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payments': {
@@ -282,6 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   GoalsRoute: GoalsRoute,
   MonthRoute: MonthRoute,
+  NotificationsRoute: NotificationsRoute,
   PaymentsRoute: PaymentsRoute,
   PlanRoute: PlanRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useApp } from '../../../data/context.tsx';
+import { saveLastBackup } from '../../../data/backupSeen.ts';
 import { makeBackup, parseBackup } from '../../../data/backup.ts';
 import { readTextFile, saveFile } from '../../../ui/files.ts';
 import { stamp } from '../../../core/format.ts';
@@ -15,7 +16,9 @@ export function BackupCard() {
   async function download() {
     const body = JSON.stringify(makeBackup(app.allEntries, new Date().toISOString(), { categories: app.mine, recurring: app.recurring, goals: app.goals }), null, 2);
     const r = await saveFile(`money-log-backup-${stamp()}.json`, body, 'application/json');
-    if (r !== 'cancelled') app.toast(r === 'shared' ? tr('Backup shared.') : tr('Backup downloaded.'));
+    if (r === 'cancelled') return;
+    saveLastBackup(Date.now());
+    app.toast(r === 'shared' ? tr('Backup shared.') : tr('Backup downloaded.'));
   }
 
   async function restore(ev: ChangeEvent<HTMLInputElement>) {

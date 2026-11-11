@@ -1,7 +1,9 @@
 # PRD: A notification center in the app
 
-**Status:** proposed (2026-11-11), decisions taken in a question round with the owner; waiting for the go-ahead to build. Planned as
-**version 1.24.0** (a new feature). Nothing is built yet.
+**Status:** built in version 1.24.0 (2026-11-11), from decisions taken in a question round with the owner.
+
+**As built:** the rules are as written below. One change: a notification is dismissed with a cross button (also reachable by keyboard)
+rather than by swiping left, because the swipe row's delete button says "Delete" and a dismissal deletes nothing.
 
 ## Problem
 Things that need attention are spread over the app: the due list is on Plan, budgets are on Month, goals on Plan, group balances on
