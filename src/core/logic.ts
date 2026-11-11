@@ -84,6 +84,16 @@ export function parseTs(s: unknown): number {
   return Date.parse(s.replace(/(\.\d{3})\d+/, '$1'));
 }
 
+/** The same id for the same text on every phone, in the form of a UUID (so two phones that make the same item make one). */
+export function uuidFromKey(key: string): string {
+  const hex = [0x811c9dc5, 0x01000193, 0x9e3779b1, 0x85ebca6b].map((seed, r) => {
+    let h = seed >>> 0;
+    for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i) ^ r, 0x01000193) >>> 0;
+    return h.toString(16).padStart(8, '0');
+  }).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
 // ---------------------------------------------------------------- amounts and money text
 /** A typed value as text: a string or a number as it is, anything else (nothing, an object) as empty. */
 export const asText = (v: unknown): string => (typeof v === 'string' || typeof v === 'number' ? String(v) : '');

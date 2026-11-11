@@ -115,9 +115,9 @@ export function dueRow(done?: boolean) {
 // ---- the page frame ---------------------------------------------------------------------------------------------------
 /** a square icon button in the header (44px) */
 export const iconBtn =
-  'inline-flex w-11 h-11 items-center justify-center border border-line rounded-xl bg-card text-ink cursor-pointer hover:bg-bg hover:text-ink aria-[current=page]:text-accent aria-[current=page]:border-accent';
+  'inline-flex w-10 h-10 lg:w-11 lg:h-11 items-center justify-center border border-line rounded-xl bg-card text-ink cursor-pointer hover:bg-bg hover:text-ink aria-[current=page]:text-accent aria-[current=page]:border-accent';
 const PILL =
-  'relative rounded-full px-3 py-1.5 min-h-[34px] text-[13px] font-semibold cursor-pointer border ' +
+  'relative rounded-full px-3 py-1.5 min-h-[34px] text-[13px] font-semibold cursor-pointer border max-lg:max-w-[7.5rem] max-lg:truncate ' +
   "after:content-[''] after:absolute after:-inset-x-0.5 after:-inset-y-[5px] " + // a 44px target without a taller pill
   'transition-[transform,background-color,border-color] duration-[120ms] active:scale-[0.97]';
 const PILL_TONE = {
