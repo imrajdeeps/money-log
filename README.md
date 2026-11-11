@@ -332,6 +332,20 @@ photo you can see and warns at 80%. Photos are not in the backup file. Because S
 only be removed through the Storage service, a payment cannot be hard-deleted in the database while its photos' files remain,
 and deleting a user in the dashboard leaves their files behind (see the security notes).
 
+## Profile
+
+Settings, *Profile*: a round picture with your initials, your name (it fills "your name in this group"), the email of the account, an
+optional **WhatsApp number** and what this phone holds. The number must be an **Indian mobile number**: `+91` is fixed beside the
+field and you type 10 digits starting with 6, 7, 8 or 9 (a pasted `+91 98765 43210`, `91...` or `0...` is accepted too). It is not
+verified and nothing is sent to it. A number saved before this rule (another country code) is kept until you save the profile again,
+and the screen says so; saving with the field empty removes it.
+
+Signed in, the name and number are also kept **in your account** (the `profiles` table: one row per account, readable and changeable
+only by that account, with the account's email copied beside them by the database) and follow you to your other phones; the latest
+change wins. The table is created by `supabase/schema.sql` (run it again after updating to 1.23); until it exists the rest of the
+app syncs as usual and the profile waits on the phone (the sync status counts it as one waiting item). A number that is not an
+Indian one is never sent: the row carries none.
+
 ## App lock
 
 Settings, *App lock*: a 4-digit PIN (up to 1.22.0 it could be 4 to 8 digits; such a PIN still unlocks). The PIN screen submits by

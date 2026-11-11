@@ -1201,3 +1201,53 @@ create policy receipts_update on public.receipts for update to authenticated
 drop policy if exists entry_history_select on public.entry_history;
 create policy entry_history_select on public.entry_history for select to authenticated
   using (public.is_group_member(group_id));
+
+-- ---------------------------------------------------------------------------------
+-- the profile (version 1.23): one row per account, so the name and the WhatsApp number follow the person to another phone
+-- ---------------------------------------------------------------------------------
+-- The email is not typed by the person: a trigger copies it from the sign-in, so the row always shows the account's own address.
+-- The number is an Indian mobile number only (+91 and 10 digits starting 6 to 9) or empty. The phone sends its change time in
+-- updated_at; the latest change wins (an older one is ignored, like entries). Not verified, and nothing is sent to it.
+create table if not exists public.profiles (
+  user_id     uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  name        text not null default '' check (char_length(name) <= 40),
+  email       text not null default '' check (char_length(email) <= 254),
+  whatsapp    text not null default '' check (whatsapp = '' or whatsapp ~ '^\+91[6-9][0-9]{9}$'),
+  updated_at  timestamptz not null default now()
+);
+
+create or replace function public.profile_email()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.email := coalesce((select u.email from auth.users u where u.id = new.user_id), '');
+  return new;
+end;
+$$;
+revoke all on function public.profile_email() from public, anon, authenticated;
+
+drop trigger if exists profiles_email on public.profiles;
+create trigger profiles_email before insert or update on public.profiles
+  for each row execute function public.profile_email();
+drop trigger if exists profiles_keep_latest_edit on public.profiles;
+create trigger profiles_keep_latest_edit before update on public.profiles
+  for each row execute function public.keep_latest_edit();
+
+alter table public.profiles enable row level security;
+alter table public.profiles force row level security;
+revoke all on public.profiles from anon, authenticated;
+grant select, insert, update on public.profiles to authenticated; -- no delete: the row goes with the account
+
+drop policy if exists profiles_select on public.profiles;
+drop policy if exists profiles_insert on public.profiles;
+drop policy if exists profiles_update on public.profiles;
+create policy profiles_select on public.profiles for select to authenticated
+  using (user_id = (select auth.uid()));
+create policy profiles_insert on public.profiles for insert to authenticated
+  with check (user_id = (select auth.uid()));
+create policy profiles_update on public.profiles for update to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));

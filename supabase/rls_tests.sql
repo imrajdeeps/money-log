@@ -1241,6 +1241,40 @@ begin
     raise exception 'FAIL a token without a user id can read receipts, history or files'; end if;
   raise notice 'PASS the my-share link stays private; anonymous visitors and user-less tokens get nothing';
 
+  -- =========================================================================
+  -- 8. PROFILES: OWN ROW ONLY, INDIAN NUMBERS ONLY, THE EMAIL COMES FROM THE ACCOUNT, LATEST CHANGE WINS
+  -- =========================================================================
+  reset role;
+  update auth.users set email = 'a@example.com' where id = a::uuid;
+  perform pg_temp.act_as(a);
+  insert into public.profiles (user_id, name, email, whatsapp, updated_at) values (a::uuid, 'Raj', 'spoofed@example.com', '+919876543210', '2026-11-11T10:00:00Z');
+  if (select email from public.profiles where user_id = a::uuid) <> 'a@example.com' then raise exception 'FAIL the profile email is not the account email'; end if;
+  perform pg_temp.act_as(b);
+  if pg_temp.n('select 1 from public.profiles') <> 0 then raise exception 'FAIL B can read A profile'; end if;
+  if not pg_temp.fails(format('insert into public.profiles (user_id, name) values (%L, %L)', a, 'x')) then raise exception 'FAIL B could write a profile row for A'; end if;
+  declare changed bigint;
+  begin
+    update public.profiles set name = 'hacked' where user_id = a::uuid;
+    get diagnostics changed = row_count;
+    if changed <> 0 then raise exception 'FAIL B could change A profile'; end if;
+  end;
+  insert into public.profiles (user_id, name) values (b::uuid, 'Bee');
+  if (select count(*) from public.profiles) <> 1 then raise exception 'FAIL B sees more than the own profile'; end if;
+  perform pg_temp.act_as(a);
+  foreach tbl in array array['+14155550123', '+91 98765 43210', '+915876543210', '9876543210', '+9198765432101', '+91987654321'] loop
+    if not pg_temp.fails(format('update public.profiles set whatsapp = %L where user_id = %L', tbl, a)) then raise exception 'FAIL profile accepted the number %', tbl; end if;
+  end loop;
+  if not pg_temp.fails(format('update public.profiles set name = %L where user_id = %L', repeat('x', 41), a)) then raise exception 'FAIL profile accepted a name over 40 characters'; end if;
+  update public.profiles set whatsapp = '' where user_id = a::uuid;
+  update public.profiles set name = 'Older', updated_at = '2026-11-11T09:00:00Z' where user_id = a::uuid;
+  if (select name from public.profiles where user_id = a::uuid) <> 'Raj' then raise exception 'FAIL an older profile change replaced a newer one'; end if;
+  update public.profiles set name = 'Newer', updated_at = '2026-11-11T11:00:00Z' where user_id = a::uuid;
+  if (select name from public.profiles where user_id = a::uuid) <> 'Newer' then raise exception 'FAIL a newer profile change was ignored'; end if;
+  if not pg_temp.fails(format('delete from public.profiles where user_id = %L', a)) then raise exception 'FAIL a profile row could be deleted by its owner'; end if;
+  perform pg_temp.act_as(null);
+  if not pg_temp.fails('select 1 from public.profiles') then raise exception 'FAIL anon could read profiles'; end if;
+  raise notice 'PASS profiles: own row only, +91 numbers only, email from the account, latest change wins';
+
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;
 
