@@ -332,6 +332,30 @@ photo you can see and warns at 80%. Photos are not in the backup file. Because S
 only be removed through the Storage service, a payment cannot be hard-deleted in the database while its photos' files remain,
 and deleting a user in the dashboard leaves their files behind (see the security notes).
 
+## Notifications
+
+The **bell** at the top (next to the sync pill, on every page) shows how many things need you now and opens the **Notifications**
+page. Nothing is sent from a server: the list is worked out on the phone from the data it already holds, so it works offline and on
+the free Supabase plan. It does not buzz the phone when the app is closed (that would need web push, which needs a server).
+
+| Kind | Shows when | Opens |
+| --- | --- | --- |
+| Due items | not done and overdue, due today, or due within 3 days | Plan, due list |
+| Recurring payments | this month's day has come and it is neither logged nor skipped | Settings, Recurring payments |
+| Budgets | a category (not Saving) has used 80 percent of its budget this month, or gone over | Month |
+| Goals | not reached and its date has passed or is within 30 days, or it is behind (the share of time gone is more than 25 points ahead of the share saved) | Plan, goals |
+| Group balances | in a group with company, you are owed or you owe at least ₹1 | that group |
+| Net worth | the latest update is more than 30 days old (nothing entered yet: no reminder) | Plan, net worth |
+| Backup | payments on the phone and no backup downloaded for 30 days | Settings, Backup |
+| Sync | the last sync failed, or changes have waited more than a day | Settings, Cloud sync |
+
+The page lists *Needs attention*, then *Coming up*, then *Reminders*. The cross on a row **dismisses** it for good, **on every phone**,
+until the situation changes (the key of a notification holds the stage or the month: a due item that goes from "soon" to "overdue", or
+a new month, brings it back). **Settings, Notifications** has one switch per kind and *Show dismissed notifications again*; the
+switches sync too. Dismissals and switches are items of the `goals` block (kinds `k` and `s`; the newest 500 dismissals are kept),
+in the backup file and with no new database line. When a backup was last downloaded is kept on the phone only. The rules are in
+`src/core/notifications.ts` and `docs/prd-notifications.md`.
+
 ## Profile
 
 Settings, *Profile*: a round picture with your initials, your name (it fills "your name in this group"), the email of the account, an

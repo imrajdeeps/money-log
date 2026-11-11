@@ -6,13 +6,13 @@ export const app = 'max-w-[1240px] mx-auto min-h-dvh px-4 pt-0 pb-[calc(100px+en
 /** the header stays at the top while the page scrolls; it has the page's own background so nothing shows through */
 export const top =
   'sticky top-0 z-[6] flex items-center justify-between gap-3 px-0 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 bg-bg [box-shadow:0_1px_0_var(--line)] lg:pt-5 lg:pb-3.5';
-export const brand = 'flex-1 min-w-0 lg:flex-none';
+export const brand = 'flex-1 min-w-0 whitespace-nowrap max-lg:[&_h1]:text-[17px] lg:flex-none';
 export const topNav = 'hidden lg:flex flex-1 justify-center gap-0.5';
 const NAV_BTN = 'min-h-11 px-3.5 py-0 [line-height:inherit] border-0 rounded-[10px] [font-family:inherit] text-[15px] font-semibold cursor-pointer';
 /** a section link in the header (wide screens only) */
 export const topNavBtn = (active: boolean) =>
   cx(NAV_BTN, active ? 'bg-card text-ink [box-shadow:inset_0_0_0_1px_var(--line)]' : 'bg-transparent text-muted hover:bg-card hover:text-ink');
-export const topActions = 'flex items-center gap-2';
+export const topActions = 'flex items-center gap-1.5 lg:gap-2';
 /** the Add expense button of the header (wide screens only); used with btn('solid', 'none', ...) */
 export const addBtn = 'max-lg:hidden gap-1.5 min-h-11 pl-3 pr-4 py-2';
 /** the Settings button of the header (a phone has its sections in the bottom bar) */

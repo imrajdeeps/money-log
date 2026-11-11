@@ -15,8 +15,10 @@ import { HomeScreen } from '../features/home/index.ts';
 import type { Section } from '../features/home/index.ts';
 import type { Group } from '../core/logic.ts';
 import { MonthScreen } from '../features/month/index.ts';
+import { NotificationBell, NotificationsScreen } from '../features/notifications/index.ts';
 import { PlanScreen } from '../features/plan/index.ts';
 import { TourHost } from '../features/tour/index.ts';
+import type { OpenTarget } from '../core/notifications.ts';
 import type { TourPage } from '../core/tour.ts';
 import { VERSION } from '../core/version.ts';
 import { useLang } from '../data/useLang.ts';
@@ -30,9 +32,9 @@ import { tr } from '../core/i18n.ts';
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', notifications: '/notifications' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', notifications: 'Notifications' };
 
 const SPLASH_MS = 900; // how long the start screen stays, at least
 
@@ -87,6 +89,13 @@ function Shell() {
   const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
   const goGroup = useCallback((id?: string) => { void navigate(id ? { to: '/groups/$groupId', params: { groupId: id } } : { to: '/groups' }); }, [navigate]);
   const goSettings = useCallback((to?: SettingsSection) => { void navigate(to ? { to: '/settings/$part', params: { part: to } } : { to: '/settings' }); }, [navigate]);
+  // a notification opens the screen it is about
+  const openNotice = useCallback((t: OpenTarget) => {
+    if (t.to === 'plan') goPage('plan', t.part);
+    else if (t.to === 'month') goMonth();
+    else if (t.to === 'group') goGroup(t.id);
+    else goSettings(t.part);
+  }, [goPage, goMonth, goGroup, goSettings]);
   // the tour moves the page behind its card
   const tourGo = useCallback((to: TourPage) => {
     if (to === 'home') goHome();
@@ -140,6 +149,7 @@ function Shell() {
         </nav>
         <div className={sh.topActions}>
           <SyncPill onOpenSettings={() => goSettings('account')} />
+          <NotificationBell onOpen={() => goPage('notifications')} current={page === 'notifications'} />
           <ThemeToggle />
           <button type="button" data-tour="add" className={ui.btn('solid', 'none', sh.addBtn)} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={20} />{tr('Add expense')}</button>
           <button type="button" data-tour="settings" className={`${ui.iconBtn} ${sh.gear}`} aria-label={tr('Settings')} aria-current={current('settings')} onClick={() => goSettings()}>
@@ -164,6 +174,7 @@ function Shell() {
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
+        {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}
       </main>
 
