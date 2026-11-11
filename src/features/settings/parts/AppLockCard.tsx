@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../../../data/context.tsx';
-import { LOCK_TIMEOUTS, validPin } from '../../../data/lock.ts';
+import { LOCK_TIMEOUTS, PIN_LENGTH, validPin } from '../../../data/lock.ts';
 import * as ui from '../../../ui/styles.ts';
 import { tr } from '../../../core/i18n.ts';
 
@@ -17,7 +17,7 @@ export function AppLockCard() {
   const fail = (text: string) => setMsg({ text, bad: true });
 
   async function turnOn() {
-    if (!validPin(pin)) return fail(tr('A PIN is 4 to 8 digits.'));
+    if (!validPin(pin)) return fail(tr('A PIN is 4 digits.'));
     if (pin !== pin2) return fail(tr('The two PINs are not the same.'));
     await app.setPin(pin, timeoutSec);
     clear();
@@ -25,7 +25,7 @@ export function AppLockCard() {
   }
 
   async function save() {
-    if (pin && !validPin(pin)) return fail(tr('A PIN is 4 to 8 digits.'));
+    if (pin && !validPin(pin)) return fail(tr('A PIN is 4 digits.'));
     if (pin && pin !== pin2) return fail(tr('The two new PINs are not the same.'));
     const err = await app.updateLock(cur, { ...(pin ? { pin } : {}), timeoutSec });
     if (err) return fail(err);
@@ -47,12 +47,13 @@ export function AppLockCard() {
       <select value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))}>
         {LOCK_TIMEOUTS.map((t) => <option key={t.sec} value={t.sec}>{tr(t.label)}</option>)}
       </select>
+      <small className="mt-1.5 block text-muted">{tr('Opening or refreshing the app again inside that time does not ask for the PIN. "Every time" asks whenever the app opens.')}</small>
     </label>
   );
   const pinFields = (label: string) => (
     <>
-      <label className={ui.field}><span>{label}</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={8} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} /></label>
-      <label className={ui.field}><span>{tr('Same PIN again')}</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={8} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} /></label>
+      <label className={ui.field}><span>{label}</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={PIN_LENGTH} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} /></label>
+      <label className={ui.field}><span>{tr('Same PIN again')}</span><input type="password" inputMode="numeric" autoComplete="new-password" maxLength={PIN_LENGTH} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} /></label>
     </>
   );
 
@@ -64,7 +65,7 @@ export function AppLockCard() {
       </p>
       {!on ? (
         <>
-          {pinFields(tr('New PIN (4 to 8 digits)'))}
+          {pinFields(tr('New PIN (4 digits)'))}
           {timeouts}
           {msg && <p className={ui.msg(msg.bad ? 'bad' : 'good')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
           <button type="button" className={ui.btn('solid', 'md', ui.inCard)} disabled={!pin} onClick={() => { void turnOn(); }}>{tr('Turn on PIN lock')}</button>

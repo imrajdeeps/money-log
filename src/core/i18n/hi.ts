@@ -125,7 +125,6 @@ export const HI: Record<string, string> = {
   'That PIN is not right.': 'वह PIN सही नहीं है।',
   'The app is still starting.': 'ऐप अभी शुरू हो रहा है।',
   'Too many wrong tries. Wait {0} seconds.': 'बहुत ज़्यादा ग़लत कोशिशें। {0} सेकंड रुकें।',
-  'A PIN is 4 to 8 digits.': 'PIN 4 से 8 अंकों का होता है।',
   'After 1 minute away': '1 मिनट दूर रहने के बाद',
   'After 5 minutes away': '5 मिनट दूर रहने के बाद',
   'Every time I leave the app': 'हर बार ऐप छोड़ने पर',
@@ -650,7 +649,6 @@ export const HI: Record<string, string> = {
   'Ask for the PIN': 'PIN कब माँगे',
   'Current PIN (needed to change anything)': 'मौजूदा PIN (कुछ भी बदलने के लिए ज़रूरी)',
   'encrypt the data stored on the phone, so your phone\'s own lock is still what protects it. If you forget the PIN, the only way back in is to erase this phone\'s copy and sign in again.': 'एन्क्रिप्ट करती, इसलिए आपके फ़ोन का अपना लॉक ही उसकी रक्षा करता है। PIN भूल जाएँ तो वापस आने का एकमात्र तरीक़ा इस फ़ोन की कॉपी मिटाकर फिर साइन इन करना है।',
-  'New PIN (4 to 8 digits)': 'नया PIN (4 से 8 अंक)',
   'New PIN (leave empty to keep the current one)': 'नया PIN (मौजूदा रखने के लिए ख़ाली छोड़ें)',
   'not': 'नहीं',
   'On.': 'चालू।',
@@ -818,4 +816,7 @@ export const HI: Record<string, string> = {
   'New: one file in and out': 'नया: आने-जाने की सिर्फ़ एक फ़ाइल',
   'The backup file is now the only file that goes in and out of the app. Export to the spreadsheet is gone, because everything is made in the app. Download a backup from Settings, Backup now and then.': 'बैकअप फ़ाइल अब ऐप में आने-जाने वाली एकमात्र फ़ाइल है। स्प्रेडशीट में एक्सपोर्ट बंद हो गया है, क्योंकि सब कुछ ऐप में ही बनता है। समय-समय पर सेटिंग्स, बैकअप से एक बैकअप डाउनलोड करें।',
   'A quick look round, nine short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.': 'एक छोटी सी झलक, नौ छोटे कदम। आपके भुगतान इसी फ़ोन पर रहते हैं, और साइन इन करने से बस एक क्लाउड कॉपी बनती है। आप अभी छोड़ सकते हैं और बाद में सेटिंग्स, अबाउट से टूर फिर देख सकते हैं।',
+  'A PIN is 4 digits.': 'PIN 4 अंकों का होता है।',
+  'Opening or refreshing the app again inside that time does not ask for the PIN. "Every time" asks whenever the app opens.': 'उस समय के भीतर ऐप फिर खोलने या रिफ़्रेश करने पर PIN नहीं पूछा जाता। "हर बार" चुनने पर ऐप खुलते ही हर बार पूछा जाता है।',
+  'New PIN (4 digits)': 'नया PIN (4 अंक)',
 };
