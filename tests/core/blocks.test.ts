@@ -4,12 +4,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   parseDueText, cleanDue, dueKey, setDone, mergeDone, sameDone, cleanDoneMap, pruneDone, isDone, isRemoved, removeDue, classifyDue, daysBetween, dueRelative,
-  alertTrigger, buildIcs, cleanAlert, DEFAULT_ALERT, parseNetText, cleanNet, fmtNet, parseBlockText,
+  alertTrigger, buildIcs, cleanAlert, DEFAULT_ALERT, parseBlockText,
 } from '../../src/core/blocks.ts';
 import type { DoneMap, DueData } from '../../src/core/blocks.ts';
 
 const due = readFileSync(new URL('../support/fixtures/due-block.tsv', import.meta.url), 'utf8');
-const net = readFileSync(new URL('../support/fixtures/networth-block.tsv', import.meta.url), 'utf8');
 const budget = readFileSync(new URL('../support/fixtures/plan-block.tsv', import.meta.url), 'utf8');
 const IMPORTED = '2026-11-09T10:00:00.000Z';
 const parsedDue = (): DueData => { const r = parseDueText(due); assert.ok(r.ok); return r.data; };
@@ -184,51 +183,15 @@ test('buildIcs honours Done marks made in the app', () => {
   assert.ok(!buildIcs(views, DEFAULT_ALERT, IMPORTED).includes('Annual fee'));
 });
 
-// ---------------------------------------------------------------- net worth and goals
-test('the net worth block imports figures, the plan month and units', () => {
-  const r = parseNetText(net);
-  assert.ok(r.ok);
-  assert.deepEqual(r.summary, { items: 6, asOf: '2026-11-01' });
-  assert.deepEqual(r.data.items.map((i) => [i.label, i.value, i.unit]), [
-    ['Net worth now (net of debt)', 450000, '₹'],
-    ['Long-term target', 5000000, '₹'],
-    ['Progress to the long-term target', 9, '%'],
-    ['Years to the long-term target', 12.5, 'years'],
-    ['Rainy-day fund balance', 30000, '₹'],
-    ['Gadget fund', 0, '₹'],
-  ]);
-  assert.deepEqual(r.data.items.slice(2, 4).map(fmtNet), ['9%', '12.5 years']);
-  assert.equal(fmtNet(r.data.items[0]!), '₹4,50,000');
-});
-
-test('the net worth block refuses bad rows', () => {
-  const bad = (t: string, re: RegExp) => { const r = parseNetText(t); assert.ok(!r.ok); assert.match(r.error, re); };
-  bad('Value\tUnit\n1\t₹', /Label, Value and Unit/);
-  bad('Label\tValue\tUnit\nNet worth\tabc\t₹', /not a valid number/);
-  bad('Label\tValue\tUnit\nNet worth\t5\tbtc', /must be ₹, %, years or date/);
-  bad('Label\tValue\tUnit\nAs of\t09/11/2026\tdate', /must look like/);
-  bad('Label\tValue\tUnit\nAs of\t2026-11-01\tdate', /No figures/);
-  bad('Label\tValue\tUnit\nBig\t1e15\t₹', /not a valid number/);
-});
-
-test('a negative net worth is allowed and cleanNet round-trips', () => {
-  const r = parseNetText('Label\tValue\tUnit\nNet worth now\t-₹12,000\t₹\n');
-  assert.ok(r.ok);
-  assert.equal(r.data.items[0]!.value, -12000);
-  assert.deepEqual(cleanNet(JSON.parse(JSON.stringify(r.data))), r.data);
-  assert.equal(cleanNet({ v: 1, asOf: 'x', items: r.data.items }), null);
-  assert.equal(cleanNet({ v: 1, asOf: null, items: [{ label: 'a', value: 1, unit: 'kg' }] }), null);
-  assert.equal(cleanNet({ v: 1, asOf: null, items: [] }), null);
-});
-
 // ---------------------------------------------------------------- telling the blocks apart
-test('parseBlockText tells the three blocks apart by their header', () => {
+test('parseBlockText tells the two blocks apart by their header, and no longer knows a net worth block', () => {
   assert.equal((parseBlockText(budget) as { kind: string }).kind, 'budget');
   assert.equal((parseBlockText(due) as { kind: string }).kind, 'due');
-  assert.equal((parseBlockText(net) as { kind: string }).kind, 'networth');
+  const oldNet = parseBlockText('Label\tValue\tUnit\nNet worth now\t450000\t₹');
+  assert.ok(!oldNet.ok, 'net worth is typed in the app now');
   const unknown = parseBlockText('Date\tAmount\n2026-11-09\t5');
   assert.ok(!unknown.ok);
-  assert.match(unknown.error, /Category, Kind or Label/);
+  assert.match(unknown.error, /Category or Kind/);
   const empty = parseBlockText('  \n\t\n');
   assert.ok(!empty.ok);
   assert.match(empty.error, /Nothing to import/);
@@ -238,15 +201,11 @@ test('parseBlockText tells the three blocks apart by their header', () => {
 
 // Contract check against the real spreadsheet export; see tests/logic.test.ts for MONEY_LOG_REAL_DIR.
 const REAL_DUE = process.env.MONEY_LOG_REAL_DIR ? join(process.env.MONEY_LOG_REAL_DIR, 'Money Log - due block.tsv') : '';
-const REAL_NET = process.env.MONEY_LOG_REAL_DIR ? join(process.env.MONEY_LOG_REAL_DIR, 'Money Log - net worth block.tsv') : '';
-test('the spreadsheet due and net worth blocks import cleanly', { skip: !REAL_DUE || !existsSync(REAL_DUE) || !existsSync(REAL_NET) }, () => {
+test('the spreadsheet due block imports cleanly', { skip: !REAL_DUE || !existsSync(REAL_DUE) }, () => {
   const d = parseDueText(readFileSync(REAL_DUE, 'utf8'));
   assert.ok(d.ok, d.ok ? '' : d.error);
   assert.ok(d.data.items.length >= 1);
-  const n = parseNetText(readFileSync(REAL_NET, 'utf8'));
-  assert.ok(n.ok, n.ok ? '' : n.error);
-  assert.ok(n.data.asOf);
-  console.log(`  real blocks: ${d.summary.oneoffs} one-offs, ${d.summary.todos} to-dos; ${n.summary.items} figures as of ${n.summary.asOf}`);
+  console.log(`  real due block: ${d.summary.oneoffs} one-offs, ${d.summary.todos} to-dos`);
 });
 
 test('a removed item leaves the list, the calendar file and the counts; importing again brings it back', () => {

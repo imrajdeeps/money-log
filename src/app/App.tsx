@@ -13,7 +13,6 @@ import { AllPayments } from '../features/payments/index.ts';
 import { SyncPill } from '../ui/SyncPill.tsx';
 import { ThemeToggle } from '../features/settings/index.ts';
 import { ExportScreen } from '../features/export/index.ts';
-import { GoalsScreen } from '../features/goals/index.ts';
 import { AnalyticsScreen } from '../features/analytics/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
@@ -168,9 +167,8 @@ function Shell() {
           <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
-        {page === 'plan' && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} openGoals={() => goPage('goals')} /></PageBody>}
+        {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen openSettings={() => goSettings('plan')} /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
-        {page === 'goals' && <PageBody title={TITLES.goals} back backLabel={tr('Plan')} onBack={() => goPage('plan')}><GoalsScreen /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
         {page === 'export' && <PageBody title={TITLES.export}><ExportScreen /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}

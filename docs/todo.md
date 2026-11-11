@@ -5,7 +5,7 @@ What is planned, in the order it will be picked up. **How it works:** anything t
 **Open items are first, finished ones are under Done at the end.**
 
 ## Open
-- [ ] **Everything in the app; the backup file is the only import** — the owner's words (2026-11-11): "remove the import feature for networth, user should be able to create the goal short term, long term and networth from same page", "the net worth page looks so messy, enhance the UI", "there should be only one sheet that can be exported and imported, that is the backup one, no extra import feature". PRD: `docs/prd-in-app-plan.md` (waiting for the owner's go-ahead). Planned as 1.20 (net worth and goals in the app, redesigned), 1.21 (due list and budgets in the app, plan import removed), 1.22 (Export removed, backup the only file).
+- [ ] **Everything in the app; the backup file is the only import** — the owner's words (2026-11-11): "remove the import feature for networth, user should be able to create the goal short term, long term and networth from same page", "the net worth page looks so messy, enhance the UI", "there should be only one sheet that can be exported and imported, that is the backup one, no extra import feature". PRD: `docs/prd-in-app-plan.md` (waiting for the owner's go-ahead). Planned as 1.20 (net worth and goals in the app, redesigned: **done**, on version/1.20), 1.21 (due list and budgets in the app, plan import removed), 1.22 (Export removed, backup the only file).
 
 ## Ideas that came up and are not scheduled
 - Verify the WhatsApp number on the profile by sending a code on WhatsApp (skipped for now by the owner). Needs a provider (Meta WhatsApp Business API or Twilio via Supabase phone sign-in), per-message cost, a server-side secret, rate limits, and a privacy note.

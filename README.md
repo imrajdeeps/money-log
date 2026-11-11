@@ -108,7 +108,7 @@ the field before its keyboard comes up).
 | --- | --- | --- |
 | This month | What you spent this month (savings not counted) against the budget for Spending, EMI and Family, the change from last month by the same day, and the month's spending by day | **Month**: the groups, every category against its budget, other months, *Categories and budgets* |
 | Spending, EMI, Family, Saving | Each group's total, its budget and what is left | Month |
-| Net worth | The net worth line from the imported snapshot, the first goal and two more figures | **Plan**, at *Net worth and goals* |
+| Net worth | The latest net worth you typed, how it moved since the update before, and when it was true | **Plan**, at *Net worth and goals* |
 | Recent payments | The last 5 payments; tap one to edit or delete it | *See all*: the last 20 |
 | Due soon | How many items are overdue or open, and the next two | Plan: the due list and the calendar file |
 | Where it went | This month's biggest categories (savings not counted) and their share | Month |
@@ -208,7 +208,7 @@ Transport & fuel, Bills, Shopping, Health, Other), **EMI** (Loan EMI), **Family*
 
 ## Getting the plan from the spreadsheet (optional)
 
-If you also keep the Money Plan v2 spreadsheet, its **App export** tab holds three blocks. Copy one, paste it in the app
+If you also keep the Money Plan v2 spreadsheet, its **App export** tab holds two blocks (budget and due list). Copy one, paste it in the app
 under Settings, Spreadsheet plan (or open a saved `.tsv` with *Choose a file*), check the preview, and import. The app
 recognises the block by its header row. Importing replaces that block only and never touches payments. Copy a block again
 after you change anything it depends on.
@@ -223,7 +223,6 @@ spreadsheet lacks stay as they are, with their app budgets, so a built-in such a
 | --- | --- | --- |
 | Budget | `A5` to `AL34` | The spreadsheet's categories, groups and planned amount per month (Month). |
 | Due list | `A38` to `E66` | One-off payments (Inputs section 6, Active = Yes) and to-dos, with dates (Plan, and the Due soon tile). |
-| Net worth and goals | `A70` to `C79` | The snapshot under Plan and on the Net worth tile, labelled with the plan month. |
 
 Keep such files out of this repository (`.gitignore` already skips `*.tsv`, `*.csv`, `*.xlsx` and backup files).
 
@@ -287,8 +286,9 @@ tick items off there too). **Add to calendar** makes a calendar (`.ics`) file wi
 dated item that is not done; by default the alert is 2 days before at 9:00, and you can change both. Opening the file
 again later updates the same events instead of adding copies. If you finished or removed an item after putting it in a
 calendar file, the next file also cancels its event (this phone remembers what it sent; a passed date alone does not cancel).
-How a calendar app treats a cancelled event in an imported file varies, and some ignore it. Below it, **Net worth and goals** shows the imported
-figures. They are the spreadsheet's numbers at the plan month shown; they do not change as you log payments.
+How a calendar app treats a cancelled event in an imported file varies, and some ignore it.
+
+Above the due list, **Net worth and goals** is made in the app (see the next section).
 
 ## Add a payment from a bank message
 
@@ -304,6 +304,20 @@ Uber, electricity ...) and only if that category is in your list. Check it and t
   example and the reader can be taught it (`src/features/payments/smsParse.ts`, tests in `tests/features/payments/smsParse.test.ts`). The plan is in
   `docs/prd-paste-message.md`.
 
+## Net worth and goals, on Plan (version 1.20)
+
+The top of the Plan page is *Net worth and goals*, both typed in the app (nothing is imported; the old net worth block from the
+spreadsheet's App export tab is gone).
+
+- **Net worth card:** the latest figure large, the day it was true, how much it went up or down since the update before, a line
+  through the last 12 updates, and **Update net worth** (an amount, which may be negative, and a day that is not in the future).
+  Every update is kept: **Earlier updates** lists them, slide one to the left to remove it. It is also the Overview's *Net worth* tile.
+- **Goals:** **Add a goal** is on the same page, right under the card, with the short-term and long-term lists and the monthly plan
+  described below. The old `/goals` address opens Plan; the Overview's *Goals* tile does too.
+- **Where it is stored:** net worth updates are items of their own (kind `n`: amount, day) in the same `goals` block as goals and
+  top-ups, so they sync (merged item by item, the latest change to each item wins), are in the backup file and need no new database
+  line. A backup made before 1.20 that still holds the imported net worth block loads fine; that block is ignored.
+
 ## Goals and a plan (version 1.10)
 
 Short-term and long-term goals made in the app, with a plan of what to set aside each month. Built in five steps (see
@@ -312,7 +326,7 @@ Short-term and long-term goals made in the app, with a plan of what to set aside
 - **The data** (step 1): a goal is a name, a target amount and a target date (and an optional amount already saved);
   top-ups are items of their own, so two phones adding one at the same time keep both; goals sync as one more block
   (merged item by item, the latest change to each item wins), are in the backup file, and need the database line above.
-- **The Goals page** (step 2, `/goals`, opened from the Plan page): goals in two lists, **short term** (due within 12 months)
+- **The goal lists** (step 2, now on the Plan page; `/goals` opens it): goals in two lists, **short term** (due within 12 months)
   and **long term**, moving from long to short by themselves as the date gets close. Each shows what is saved of the target, a
   bar, the date, and one line: *Needs ₹11,250 a month for 8 months* (rounded up to the rupee, counting this month), *Reached*,
   or *The date has passed*. Saved is the starting amount, plus top-ups, plus payments you log in the goal's linked
@@ -320,13 +334,13 @@ Short-term and long-term goals made in the app, with a plan of what to set aside
   slide it to the left and tap the trash to remove it.
 - **Top-ups** (step 3): **Add to this goal** takes an amount and a day (not in the future); the top-ups made are listed under the
   goal (*Top-ups (2) · ₹7,500*), and slide to the left removes one. They count towards the goal at once.
-- **The plan** (step 4, a card at the top of the Goals page): the monthly amount for each goal that still needs money (nearest
+- **The plan** (step 4, a card at the top of the goals): the monthly amount for each goal that still needs money (nearest
   date first), the total a month, and one sentence against this month's Saving budget (the Saving group's planned amounts): *covers
   it, with ₹X to spare*, *is ₹X a month short*, or that no Saving budget is set. A goal past its date is left out until the date is
   changed. It is plain division, with no interest or returns.
 - **The Overview tile** (step 5): *Goals* shows the nearest short-term goal that still needs money (else the nearest one that
   does, else the nearest), with its saved amount, a bar and what it needs a month; with no goals it invites you to make one. It
-  opens the Goals page.
+  opens the goals on the Plan page.
 
 ## Receipt photos
 

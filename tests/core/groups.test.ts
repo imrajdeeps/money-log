@@ -242,18 +242,18 @@ test('a backup holds the plan blocks and the Done marks, and an older backup wit
   const entry = makeEntry({ amount: 5, category: 'x', method: null, note: '', date: '2026-11-09' }, T0);
   const text = JSON.stringify(makeBackup([entry], null, T0, {
     due: { ...due.data, importedAt: T0, dirty: 0 },
-    networth: { v: 1, asOf: '2026-11-01', items: [{ label: 'Net worth', value: 5, unit: '₹' }], importedAt: T0, dirty: 0 },
     dueDone: { k: { d: 1, t: T0 } },
   }));
   const r = parseBackup(text);
   assert.ok(r.ok);
   assert.deepEqual(r.due!.items.map((i) => i.title), ['Renew']);
-  assert.equal(r.networth!.items[0]!.value, 5);
   assert.deepEqual(r.dueDone, { k: { d: 1, t: T0 } });
   assert.equal(r.entries.length, 1);
   const old = parseBackup(JSON.stringify({ app: 'money-log', v: 1, exportedAt: T0, entries: [], plan: null }));
   assert.ok(old.ok);
-  assert.deepEqual([old.due, old.networth, old.dueDone], [null, null, {}]);
+  assert.deepEqual([old.due, old.dueDone], [null, {}]);
+  const withOldNet = parseBackup(JSON.stringify({ app: 'money-log', v: 1, exportedAt: T0, entries: [], plan: null, networth: { v: 1, asOf: null, items: [{ label: 'Net worth', value: 5, unit: '₹' }], importedAt: T0 } }));
+  assert.ok(withOldNet.ok, 'a backup that still carries the old imported net worth block loads; the block is ignored');
   const tampered = parseBackup(JSON.stringify({ app: 'money-log', v: 1, exportedAt: T0, entries: [], plan: null, due: { v: 1, items: [{ k: 1 }], importedAt: T0 }, dueDone: { x: { d: 5, t: 'no' } } }));
   assert.ok(tampered.ok);
   assert.deepEqual([tampered.due, tampered.dueDone], [null, {}], 'invalid blocks and marks are dropped, not trusted');

@@ -304,88 +304,17 @@ export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string, ca
   return lines.flatMap(fold).join('\r\n') + '\r\n';
 }
 
-// ---------------------------------------------------------------- net worth and goals snapshot
-export type NetUnit = '₹' | '%' | 'years';
-export interface NetItem { label: string; value: number; unit: NetUnit }
-export interface NetData { v: 1; asOf: string | null; items: NetItem[] }
-export interface NetBlock extends NetData { importedAt: string; dirty: 0 | 1 }
-export interface NetSummary { items: number; asOf: string | null }
-
-export type NetParse = { ok: true; data: NetData; summary: NetSummary } | { ok: false; error: string };
-
-const MAX_NET = 40;
-const unitOf = (s: string): NetUnit | 'date' | null => {
-  const t = s.toLowerCase().replace(/\s/g, '');
-  if (t === '₹' || t === 'rs' || t === 'inr') return '₹';
-  if (t === '%' || t === 'percent') return '%';
-  if (t === 'years' || t === 'year' || t === 'yrs') return 'years';
-  return t === 'date' ? 'date' : null;
-};
-
-export function parseNetText(text: unknown): NetParse {
-  const fail = (error: string): NetParse => ({ ok: false, error });
-  const rows = readRows(text);
-  const head = (rows[0] ?? []).map((h) => h.toLowerCase());
-  const iLabel = head.indexOf('label');
-  const iValue = head.indexOf('value');
-  const iUnit = head.indexOf('unit');
-  if (iLabel < 0 || iValue < 0 || iUnit < 0) return fail('The header row must contain Label, Value and Unit. Copy from the header row (row 70) of the App export tab.');
-  const items: NetItem[] = [];
-  let asOf: string | null = null;
-  for (const c of rows.slice(1)) {
-    const label = c[iLabel] ?? '';
-    if (label === '') continue;
-    if (label.length > 80) return fail(`"${label.slice(0, 20)}…" is longer than 80 characters.`);
-    const unit = unitOf(c[iUnit] ?? '');
-    if (!unit) return fail(`"${label}": unit "${c[iUnit] ?? ''}" must be ₹, %, years or date.`);
-    const raw = c[iValue] ?? '';
-    if (unit === 'date') {
-      if (!isValidDate(raw)) return fail(`"${label}": the date "${raw}" must look like 2026-11-01.`);
-      asOf ??= raw;
-      continue;
-    }
-    const n = cellNumber(raw);
-    if (n === null || Math.abs(n) >= 1e12) return fail(`"${label}": "${raw}" is not a valid number.`);
-    items.push({ label, value: round2(n), unit });
-  }
-  if (!items.length) return fail('No figures found under the header.');
-  if (items.length > MAX_NET) return fail(`Too many rows (limit ${MAX_NET}).`);
-  return { ok: true, data: { v: 1, asOf, items }, summary: { items: items.length, asOf } };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function cleanNet(p: any): NetData | null {
-  if (!p || typeof p !== 'object' || p.v !== 1 || !Array.isArray(p.items) || !p.items.length || p.items.length > MAX_NET) return null;
-  if (p.asOf !== null && p.asOf !== undefined && !isValidDate(p.asOf)) return null;
-  const items: NetItem[] = [];
-  for (const i of p.items) {
-    if (!i || typeof i.label !== 'string' || !i.label || i.label.length > 80) return null;
-    if (i.unit !== '₹' && i.unit !== '%' && i.unit !== 'years') return null;
-    if (typeof i.value !== 'number' || !Number.isFinite(i.value) || Math.abs(i.value) >= 1e12) return null;
-    items.push({ label: i.label, value: i.value, unit: i.unit });
-  }
-  return { v: 1, asOf: p.asOf ?? null, items };
-}
-
-export function fmtNet(i: NetItem): string {
-  if (i.unit === '₹') return fmtINR(i.value);
-  if (i.unit === '%') return `${i.value}%`;
-  return `${i.value} ${i.value === 1 ? 'year' : 'years'}`;
-}
-
 // ---------------------------------------------------------------- one entry point for any pasted block
 export type BlockParse =
   | { ok: true; kind: 'budget'; plan: PlanData; summary: PlanSummary }
   | { ok: true; kind: 'due'; data: DueData; summary: DueSummary }
-  | { ok: true; kind: 'networth'; data: NetData; summary: NetSummary }
   | { ok: false; error: string };
 
-// The first header cell tells the blocks apart: Category (budget), Kind (due list), Label (net worth and goals).
+// The first header cell tells the blocks apart: Category (budget) or Kind (due list).
 export function parseBlockText(text: unknown): BlockParse {
   const first = (readRows(text)[0]?.[0] ?? '').toLowerCase();
   if (first === 'category') { const r = parsePlanText(text); return r.ok ? { ok: true, kind: 'budget', plan: r.plan, summary: r.summary } : r; }
   if (first === 'kind') { const r = parseDueText(text); return r.ok ? { ok: true, kind: 'due', data: r.data, summary: r.summary } : r; }
-  if (first === 'label') { const r = parseNetText(text); return r.ok ? { ok: true, kind: 'networth', data: r.data, summary: r.summary } : r; }
   if (first === '') return { ok: false, error: "Nothing to import. Copy a block from the spreadsheet's App export tab." };
-  return { ok: false, error: 'This does not look like one of the App export blocks. The first header cell must be Category, Kind or Label.' };
+  return { ok: false, error: 'This does not look like one of the App export blocks. The first header cell must be Category or Kind.' };
 }
