@@ -6,7 +6,6 @@ import { SETTINGS_GROUPS, SETTINGS_SECTIONS } from './settingsSections.ts';
 import type { SettingsSection } from './settingsSections.ts';
 import { BackupCard } from './parts/BackupCard.tsx';
 import { DangerCard } from './parts/DangerCard.tsx';
-import { PlanCard } from './parts/PlanCard.tsx';
 import { AppearanceCard } from './parts/AppearanceCard.tsx';
 import { PasswordCard } from './parts/PasswordCard.tsx';
 import { AccountCard } from './parts/AccountCard.tsx';
@@ -41,7 +40,6 @@ export function SettingsScreen({ section, onSection }: { section?: SettingsSecti
     recurring: <RecurringCard />,
     appearance: <AppearanceCard />,
     language: <LanguageCard />,
-    plan: <PlanCard />,
     receipts: <ReceiptsCard />,
     lock: <AppLockCard />,
     backup: <BackupCard />,

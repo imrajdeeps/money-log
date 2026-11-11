@@ -39,10 +39,10 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
   const today = isoDate();
   const month = monthOf(today);
   const ov = useMemo(() => monthOverview(
-    app.entries, app.me, planForMonth(app.plan, app.mine, month), planForMonth(app.plan, app.mine, shiftMonth(month, -1)), today,
-  ), [app.entries, app.me, app.plan, app.mine, month, today]);
+    app.entries, app.me, planForMonth(app.mine, month), planForMonth(app.mine, shiftMonth(month, -1)), today,
+  ), [app.entries, app.me, app.mine, month, today]);
   const cats = useMemo(() => topCategories(ov.summary), [ov]);
-  const due = useMemo(() => dueOverview(app.due, app.doneMap, today), [app.due, app.doneMap, today]);
+  const due = useMemo(() => dueOverview(app.dueItems, today), [app.dueItems, today]);
   const net = useMemo(() => netNow(app.goals), [app.goals]);
   // two more of the snapshot's figures for context; the Plan sheet lists them all
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
@@ -163,8 +163,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
           </BentoCard>
         ) : (
           <BentoCard title={tr('Due soon')} span={4}>
-            <BentoEmpty cta={tr('Import in Settings')} onCta={goSettings}>
-              {tr('One-off payments and to-dos come from your spreadsheet\'s App export tab. Nothing is imported yet.')}
+            <BentoEmpty cta={tr('Add an item')} onCta={() => open('plan', 'due')}>
+              {tr('Add one-off payments and to-dos, with a date, and see what is due soon.')}
             </BentoEmpty>
           </BentoCard>
         )}

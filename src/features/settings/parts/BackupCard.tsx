@@ -13,7 +13,7 @@ export function BackupCard() {
   const [msg, setMsg] = useState('');
 
   async function download() {
-    const body = JSON.stringify(makeBackup(app.allEntries, app.plan, new Date().toISOString(), { due: app.due, dueDone: app.doneMap, categories: app.mine, recurring: app.recurring, goals: app.goals }), null, 2);
+    const body = JSON.stringify(makeBackup(app.allEntries, new Date().toISOString(), { categories: app.mine, recurring: app.recurring, goals: app.goals }), null, 2);
     const r = await saveFile(`money-log-backup-${stamp()}.json`, body, 'application/json');
     if (r !== 'cancelled') app.toast(r === 'shared' ? tr('Backup shared.') : tr('Backup downloaded.'));
   }
@@ -27,7 +27,7 @@ export function BackupCard() {
       if (!r.ok) { setMsg(r.error); return; }
       if (!window.confirm(tr('Restore from this backup? It holds {0} payment{1}{2}. Payments already here stay unless the backup copy is newer.', r.entries.length, r.entries.length === 1 ? '' : 's', r.skipped ? tr(" ({0} that can't be read will be skipped)", r.skipped) : ''))) return;
       const res = await app.restoreBackup(r);
-      setMsg(tr('Restored: {0} added, {1} updated{2}.', res.added, res.updated, res.blocksReplaced ? tr(', {0} plan block{1} replaced', res.blocksReplaced, res.blocksReplaced === 1 ? '' : 's') : ''));
+      setMsg(tr('Restored: {0} added, {1} updated.', res.added, res.updated));
     } catch (e) { setMsg(errText(e)); }
   }
 

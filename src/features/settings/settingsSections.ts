@@ -8,7 +8,6 @@ export const SETTINGS_SECTIONS = [
   { id: 'account', group: 'Account', title: 'Cloud sync', blurb: 'Sign in, sync, sign out' },
   { id: 'password', group: 'Account', title: 'Password and sessions', blurb: 'Change it, sign out other devices' },
   { id: 'recurring', group: 'Money', title: 'Recurring payments', blurb: 'Rent, SIPs, subscriptions: log with one tap' },
-  { id: 'plan', group: 'Money', title: 'Spreadsheet plan', blurb: 'Import your monthly plan (optional)' },
   { id: 'backup', group: 'Money', title: 'Backup', blurb: 'Save or restore a copy of your data' },
   { id: 'lock', group: 'Privacy and security', title: 'App lock', blurb: 'A PIN for this phone' },
   { id: 'receipts', group: 'Privacy and security', title: 'Receipt photos', blurb: 'Storage used on this phone' },

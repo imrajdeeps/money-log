@@ -41,6 +41,7 @@ export const NEWS_STEPS: readonly TourStep[] = [
   { id: 'news-repeat', since: '1.18.0', go: 'home', title: 'New: Repeat every month', text: 'When you add a payment, tick Repeat every month and it is also set up as a monthly payment: it comes up on the same day each month to log with one tap. You can change or remove it under Settings, Recurring payments.' },
   { id: 'news-calendar-cancel', since: '1.19.0', go: 'plan', title: 'New: calendar cancels', text: 'When you finish or remove a dated item, the next calendar file you make from Plan also cancels its event, so your phone\'s calendar drops it when you open the file. It only covers events this phone put in a file earlier.' },
   { id: 'news-networth', since: '1.20.0', go: 'plan', target: 'plan', title: 'New: net worth and goals, in the app', text: 'On Plan you can now type your net worth yourself, update it whenever you like and see how it moves, and add short-term and long-term goals right below it. The spreadsheet net worth import is gone: nothing needs to be pasted any more.' },
+  { id: 'news-due', since: '1.21.0', go: 'plan', target: 'plan', title: 'New: the due list is made in the app', text: 'On Plan, tap Add an item to put a payment or a to-do on the due list, tap one to change it, and tick it when it is done. Budgets are set under Month. The spreadsheet plan import is gone; what you had imported has been brought across.' },
 ];
 
 /** a is later than b: positive; earlier: negative; same: 0. Versions are "1.13.0" (missing parts count as 0). */

@@ -207,26 +207,6 @@ test('data from a different account on this phone blocks sign-in', async () => {
   assert.equal(await d.store.getMeta('session'), undefined);
 });
 
-test('the plan travels between phones, and a newer unsynced local plan is not overwritten', async () => {
-  reset();
-  const a = device(); const b = device();
-  await a.signIn(); await b.signIn();
-  const plan: Plan = { v: 1, months: ['2026-11'], rows: [{ c: 'Rent', g: 'Spending', p: [9000] }], importedAt: iso(), dirty: 1 };
-  await a.store.setMeta('plan', plan);
-  await a.sync.sync();
-  assert.equal(mock.state.plans.size, 1);
-  await b.sync.sync();
-  const got = (await b.store.getMeta<Plan>('plan'))!;
-  assert.deepEqual(got.rows, plan.rows);
-  assert.equal(got.dirty, 0);
-  // B imports a different plan locally; a sync must push it, not replace it
-  const mine: Plan = { v: 1, months: ['2026-11'], rows: [{ c: 'Rent', g: 'Spending', p: [8000] }], importedAt: iso(5000), dirty: 1 };
-  await b.store.setMeta('plan', mine);
-  await b.sync.sync();
-  assert.equal((await b.store.getMeta<Plan>('plan'))!.rows[0]!.p[0], 8000);
-  assert.equal(mock.state.plans.values().next().value.payload.rows[0].p[0], 8000);
-});
-
 test('more than one page of entries is pulled completely', async () => {
   reset();
   const a = device();
@@ -424,194 +404,6 @@ test('a newer edit pushed by another phone mid-sync is not overwritten, and the 
   assert.equal((await a.store.getEntry(e.id))!.note, 'from B (newer)');
   assert.equal((await b.store.getEntry(e.id))!.note, 'from B (newer)');
   assert.equal(a.sync.getState().pending, 0);
-});
-
-// ------------------------------------------------------------------ Release 2: due list, Done marks
-import { cleanDoneMap, mergeDone, parseDueText, setDone } from '../../src/core/blocks.ts';
-import type { DoneMap, DueBlock } from '../../src/core/blocks.ts';
-import type { DueDone } from '../../src/data/sync.ts';
-
-const DUE_TEXT = 'Kind\tTitle\tDue\tAmount\tStatus\noneoff\tAnnual fee\t2027-03-31\t12000\tPlanned\ntodo\tRenew passport\t2026-12-15\t\tTo do\ntodo\tCall the bank\t2026-11-20\t\tTo do\n';
-const dueBlock = (text = DUE_TEXT, at = iso()): DueBlock => {
-  const r = parseDueText(text);
-  assert.ok(r.ok);
-  return { ...r.data, importedAt: at, dirty: 1 };
-};
-const marks = async (d: ReturnType<typeof device>): Promise<DoneMap> => (await d.store.getMeta<DueDone>('dueDone'))?.items ?? {};
-const mark = (d: ReturnType<typeof device>, key: string, done: boolean, at = iso()) =>
-  d.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: setDone(cur?.items ?? {}, key, done, at), dirty: 1 }));
-
-test('the due list and the Done marks travel between phones', async () => {
-  reset();
-  const a = device(); const b = device();
-  await a.signIn(); await b.signIn();
-  const due = dueBlock();
-  await a.store.setMeta('block:due', due);
-  await mark(a, due.items[1]!.k, true);
-  await a.sync.refreshPending();
-  assert.equal(a.sync.getState().pending, 2, 'the due list and the marks wait to upload');
-  await a.sync.sync();
-  assert.equal(a.sync.getState().pending, 0);
-  assert.equal((await a.store.getMeta<DueBlock>('block:due'))!.dirty, 0);
-  assert.equal((await a.store.getMeta<DueDone>('dueDone'))!.dirty, 0);
-
-  await b.sync.sync();
-  const got = await b.store.getMeta<DueBlock>('block:due');
-  assert.deepEqual(got!.items, due.items);
-  assert.equal(got!.dirty, 0);
-  assert.deepEqual(Object.keys(await marks(b)), [due.items[1]!.k]);
-  assert.equal(b.sync.getState().pending, 0);
-});
-
-test('Done marks made on two phones are merged, and the latest mark for an item wins', async () => {
-  reset();
-  const a = device(); const b = device();
-  await a.signIn(); await b.signIn();
-  const due = dueBlock();
-  await a.store.setMeta('block:due', due);
-  await a.sync.sync(); await b.sync.sync();
-  const [fee, passport, bank] = due.items.map((i) => i.k) as [string, string, string];
-
-  a.net.offline = true;
-  await mark(a, fee, true, iso(-5000));            // on A, offline
-  await mark(b, passport, true, iso(-4000));       // on B, online
-  await b.sync.sync();
-  a.net.offline = false;
-  await a.sync.sync();                              // A pulls B's mark, keeps its own, pushes the union
-  await b.sync.sync();
-  const want = [fee, passport].sort();
-  assert.deepEqual(Object.keys(await marks(a)).sort(), want);
-  assert.deepEqual(Object.keys(await marks(b)).sort(), want);
-
-  await mark(b, fee, false, iso(-1000));            // B un-does the item A marked, later
-  await b.sync.sync(); await a.sync.sync();
-  assert.equal((await marks(a))[fee]!.d, 0);
-  assert.equal((await marks(a))[passport]!.d, 1);
-
-  await mark(a, bank, true, iso(-3000));
-  await a.sync.sync(); await b.sync.sync();
-  assert.deepEqual(await marks(a), await marks(b), 'both phones end with the same marks');
-  assert.equal(a.sync.getState().pending, 0);
-  assert.equal(b.sync.getState().pending, 0);
-});
-
-test('a newer due list replaces an older one, and a newer unsynced local one is not overwritten', async () => {
-  reset();
-  const a = device(); const b = device();
-  await a.signIn(); await b.signIn();
-  await a.store.setMeta('block:due', dueBlock(DUE_TEXT, iso(-60000)));
-  await a.sync.sync(); await b.sync.sync();
-
-  const newer = dueBlock('Kind\tTitle\tDue\ntodo\tOnly item\t2027-01-01\n', iso(-1000));
-  await a.store.setMeta('block:due', newer);
-  await a.sync.sync(); await b.sync.sync();
-  assert.deepEqual((await b.store.getMeta<DueBlock>('block:due'))!.items.map((i) => i.title), ['Only item']);
-
-  const local = dueBlock('Kind\tTitle\tDue\ntodo\tLocal one\t2027-02-01\n', iso(5000)); // B imported after A, not yet pushed
-  await b.store.setMeta('block:due', local);
-  await a.store.setMeta('block:due', dueBlock('Kind\tTitle\tDue\ntodo\tStale one\t2027-02-02\n', iso(-500)));
-  await a.sync.sync();                               // pushes the stale one (older than B's local)
-  await b.sync.sync();                               // B keeps its newer local copy and pushes it
-  await a.sync.sync();
-  assert.deepEqual((await a.store.getMeta<DueBlock>('block:due'))!.items.map((i) => i.title), ['Local one']);
-});
-
-test('importing a new due list keeps the marks for items still on it and drops the rest', async () => {
-  const d = dueBlock();
-  const m: DoneMap = { [d.items[0]!.k]: { d: 1, t: iso() }, gone: { d: 1, t: iso() } };
-  const { pruneDone } = await import('../../src/core/blocks.ts');
-  assert.deepEqual(Object.keys(pruneDone(m, d.items)), [d.items[0]!.k]);
-});
-
-test('blocks from the server that are unknown or fail validation are ignored', async () => {
-  reset();
-  const a = device();
-  await a.signIn();
-  const uid = [...mock.state.users.values()][0]!;
-  const row = (block: string, payload: unknown) => mock.state.plans.set(`${uid}|${block}`, { block, imported_at: iso(), payload });
-  row('due', { v: 1, items: [{ k: 1, kind: 'loan' }] });
-  row('networth', { v: 1, items: [] });
-  row('constructor', { v: 1, items: [] });
-  row('__proto__', { v: 1 });
-  row('due_done', { garbage: true, items: { x: { d: 7, t: 'nope' }, ok: { d: 1, t: iso() } } });
-  await a.sync.sync();
-  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
-  assert.equal(await a.store.getMeta('block:due'), undefined);
-  assert.equal(await a.store.getMeta('block:networth'), undefined);
-  assert.deepEqual(Object.keys(await marks(a)), ['ok'], 'only the valid mark was kept');
-  assert.equal(({} as any).v, undefined, 'the object prototype was not touched');
-});
-
-test('another account cannot read these blocks or marks', async () => {
-  reset();
-  const a = device('a@example.com'); const x = device('x@example.com');
-  await a.signIn(); await x.signIn();
-  await a.store.setMeta('block:due', dueBlock());
-  await mark(a, 'k', true);
-  await a.sync.sync();
-  await x.sync.sync();
-  assert.equal(await x.store.getMeta('block:due'), undefined);
-  assert.deepEqual(await marks(x), {});
-});
-
-test('mergeDone and cleanDoneMap are exported helpers that agree with what sync stores', () => {
-  const x: DoneMap = { a: { d: 1, t: '2026-01-01T00:00:00.000Z' } };
-  assert.deepEqual(mergeDone(x, cleanDoneMap(x)), x);
-});
-
-test('a due list imported while the previous one is being pushed stays waiting and goes out next', async () => {
-  reset();
-  const a = device(); const b = device();
-  await a.signIn(); await b.signIn();
-  await a.store.setMeta('block:due', dueBlock(DUE_TEXT, iso(-2000)));
-  const second = dueBlock('Kind\tTitle\tDue\ntodo\tSecond import\t2027-05-05\n', iso(1000));
-  a.net.beforeBlockPost = async () => { await a.store.setMeta('block:due', second); };
-  await a.sync.sync();
-  assert.equal((await a.store.getMeta<DueBlock>('block:due'))!.dirty, 1, 'the newer import was not marked as uploaded');
-  assert.equal(a.sync.getState().pending, 1);
-  await a.sync.sync();
-  assert.equal(a.sync.getState().pending, 0);
-  await b.sync.sync();
-  assert.deepEqual((await b.store.getMeta<DueBlock>('block:due'))!.items.map((i) => i.title), ['Second import']);
-});
-
-test('a Done mark lost to another phone\'s push at the same moment is put back by the phone that made it', async () => {
-  reset();
-  const a = device(); const b = device();
-  await a.signIn(); await b.signIn();
-  const due = dueBlock();
-  await a.store.setMeta('block:due', due);
-  await a.sync.sync(); await b.sync.sync();
-  const [fee, passport] = due.items.map((i) => i.k) as [string, string];
-
-  await mark(b, passport, true, iso(-2000));
-  // B has pulled the cloud copy (which has no marks); before B pushes, A marks an item and pushes. B's push then replaces A's.
-  b.net.beforeBlockPost = async () => { await mark(a, fee, true, iso(-3000)); await a.sync.sync(); };
-  await b.sync.sync();
-  const cloud = () => [...mock.state.plans.values()].find((p) => p.block === 'due_done')!.payload.items as DoneMap;
-  assert.deepEqual(Object.keys(cloud()), [passport], "the cloud lost A's mark in the overlap");
-  await a.sync.sync();                                // A sees its mark is missing from the cloud and sends it again
-  assert.deepEqual(Object.keys(cloud()).sort(), [fee, passport].sort());
-  await b.sync.sync();
-  assert.deepEqual(Object.keys(await marks(b)).sort(), [fee, passport].sort());
-});
-
-test('a Done mark made while the marks are being pushed stays waiting and goes out next', async () => {
-  reset();
-  const a = device(); const b = device();
-  await a.signIn(); await b.signIn();
-  const due = dueBlock();
-  await a.store.setMeta('block:due', due);
-  await a.sync.sync(); await b.sync.sync();
-  const [fee, passport] = due.items.map((i) => i.k) as [string, string];
-  await mark(a, fee, true, iso(-2000));
-  a.net.beforeBlockPost = async () => { await mark(a, passport, true, iso(-1000)); };
-  await a.sync.sync();
-  assert.equal(a.sync.getState().pending, 1, 'the second mark was not counted as uploaded');
-  await a.sync.sync();
-  assert.equal(a.sync.getState().pending, 0);
-  await b.sync.sync();
-  assert.deepEqual(Object.keys(await marks(b)).sort(), [fee, passport].sort());
 });
 
 // ------------------------------------------------------------------ Release 2: groups, shared expenses, settlements
@@ -1020,11 +812,11 @@ const mineOf = async (d: ReturnType<typeof device>): Promise<Mine> => (await d.s
 const change = (d: ReturnType<typeof device>, f: (m: Mine) => Mine) =>
   d.store.mutateMeta<MineBlock>('mine', (cur) => ({ items: f(cur?.items ?? {}), dirty: 1 }));
 const add = (name: string, group: 'Spending' | 'Family' = 'Spending', at = iso()) => (m: Mine): Mine => {
-  const r = addCategory(m, categoryList(null, m), name, group, at);
+  const r = addCategory(m, categoryList(m), name, group, at);
   assert.ok(r.ok);
   return r.ok ? r.mine : m;
 };
-const budget = (name: string, amount: number, at = iso()) => (m: Mine): Mine => setBudget(m, categoryList(null, m).find((c) => c.name === name)!, amount, at);
+const budget = (name: string, amount: number, at = iso()) => (m: Mine): Mine => setBudget(m, categoryList(m).find((c) => c.name === name)!, amount, at);
 
 test('own categories and budgets travel between phones, and nothing is left waiting', async () => {
   reset();
@@ -1038,7 +830,7 @@ test('own categories and budgets travel between phones, and nothing is left wait
   assert.equal(a.sync.getState().pending, 0);
   assert.equal((await a.store.getMeta<MineBlock>('mine'))!.dirty, 0);
   await b.sync.sync();
-  const got = categoryList(null, await mineOf(b));
+  const got = categoryList(await mineOf(b));
   assert.ok(got.some((c) => c.name === 'Gym' && c.source === 'mine'));
   assert.equal(got.find((c) => c.name === 'Rent')?.budget, 9000);
   assert.equal((await b.store.getMeta<MineBlock>('mine'))!.dirty, 0);
@@ -1056,7 +848,7 @@ test('two phones adding different categories offline both keep both', async () =
   await b.sync.sync();   // B merges Gym in and sends Gym + Pets
   await a.sync.sync();
   for (const d of [a, b]) {
-    const names = categoryList(null, await mineOf(d)).map((c) => c.name);
+    const names = categoryList(await mineOf(d)).map((c) => c.name);
     assert.ok(names.includes('Gym') && names.includes('Pets'), 'both categories on both phones');
   }
   assert.equal(a.sync.getState().pending + b.sync.getState().pending, 0);
@@ -1071,10 +863,10 @@ test('the latest change to a category wins, and a removal reaches the other phon
   await a.sync.sync(); await b.sync.sync();
   await change(b, budget('Rent', 250, iso(-2000)));
   await change(a, budget('Rent', 175, iso(-6000)));   // older than B's change
-  await change(a, (m) => removeCategory(m, categoryList(null, m).find((c) => c.name === 'Gym')!, iso(-1000)));
+  await change(a, (m) => removeCategory(m, categoryList(m).find((c) => c.name === 'Gym')!, iso(-1000)));
   await b.sync.sync(); await a.sync.sync(); await b.sync.sync();
   for (const d of [a, b]) {
-    const l = categoryList(null, await mineOf(d));
+    const l = categoryList(await mineOf(d));
     assert.equal(l.find((c) => c.name === 'Rent')?.budget, 250, "B's later budget won on both phones");
     assert.ok(!l.some((c) => c.name === 'Gym'), 'the removal reached both phones');
   }
@@ -1483,4 +1275,100 @@ test('goals of another account, and malformed rows from the cloud, are never tak
   mock.state.plans.set(`${uid}|goals`, { block: 'goals', imported_at: iso(), payload: { v: 1, items: { [RID(1)]: { id: RID(1), k: 'g', n: 'Bad', a: -10, d: '2027-01-01', s: 0, c: '', b: '2026-11-10', x: 0, t: iso(5000) }, junk: 5 } } });
   await a.sync.sync();
   assert.equal((await goalsOf(a))[RID(1)]?.k === 'g' && ((await goalsOf(a))[RID(1)] as { a: number }).a, 100000, 'the bad copy was ignored; this phone keeps its good one');
+});
+
+// ------------------------------------------------------------------ the due list (items of the goals block) and the old imports
+import { addDueItem, dueItemsOf, removeDueItem, setDueItemDone } from '../../src/core/dueItems.ts';
+import { migrateLegacy } from '../../src/data/legacy.ts';
+
+const dueItem = (id: string, title: string, at: string) => (g: Goals): Goals => {
+  const x = addDueItem(g, { kind: 'todo', title, date: '2026-12-15', amount: 0 }, at, id);
+  assert.ok(x.ok);
+  return x.ok ? x.items : g;
+};
+
+test('due items made on two phones both arrive, and the latest change to an item wins', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeGoals(a, dueItem(RID(21), 'Renew passport', iso(-5000)));
+  await changeGoals(b, dueItem(RID(22), 'Call the bank', iso(-4000)));
+  await a.sync.sync(); await b.sync.sync(); await a.sync.sync();
+  for (const d of [a, b]) assert.deepEqual(dueItemsOf(await goalsOf(d)).map((i) => i.title).sort((x, y) => x.localeCompare(y)), ['Call the bank', 'Renew passport']);
+  await changeGoals(a, (g) => setDueItemDone(g, RID(21), true, iso(-3000)));
+  await a.sync.sync(); await b.sync.sync();
+  assert.equal(dueItemsOf(await goalsOf(b)).find((i) => i.k === RID(21))!.done, true, 'the tick reached the other phone');
+  await changeGoals(b, (g) => setDueItemDone(g, RID(21), false, iso(-1000))); // un-ticked later, so it wins
+  await b.sync.sync(); await a.sync.sync();
+  for (const d of [a, b]) assert.equal(dueItemsOf(await goalsOf(d)).find((i) => i.k === RID(21))!.done, false);
+  await changeGoals(b, (g) => removeDueItem(g, RID(22), iso(-500)));
+  await b.sync.sync(); await a.sync.sync();
+  assert.deepEqual(dueItemsOf(await goalsOf(a)).map((i) => i.title), ['Renew passport'], 'a removal reaches the other phone');
+  assert.equal(a.sync.getState().pending, 0);
+});
+
+test('a due item changed while the block is being pushed stays waiting and goes out next', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeGoals(a, dueItem(RID(23), 'First', iso(-3000)));
+  a.net.beforeBlockPost = async () => { await changeGoals(a, dueItem(RID(24), 'Second', iso(-1000))); };
+  await a.sync.sync();
+  assert.equal((await a.store.getMeta<GoalsBlock>('goals'))!.dirty, 1, 'the newer change was not marked as sent');
+  a.net.beforeBlockPost = undefined;
+  await a.sync.sync(); await b.sync.sync();
+  assert.deepEqual(dueItemsOf(await goalsOf(b)).map((i) => i.title).sort((x, y) => x.localeCompare(y)), ['First', 'Second']);
+});
+
+test('malformed due items from the cloud are ignored; the old imported blocks in the cloud are no longer taken in', async () => {
+  reset();
+  const a = device();
+  await a.signIn();
+  const uid = [...mock.state.users.values()][0]!;
+  const bad = { id: RID(25), k: 'd', kind: 'loan', n: 'Bad', d: '2027-01-01', a: 0, f: 0, x: 0, t: iso() };
+  const good = { id: RID(26), k: 'd', kind: 'todo', n: 'Good', d: '', a: 0, f: 0, x: 0, t: iso() };
+  mock.state.plans.set(`${uid}|goals`, { block: 'goals', imported_at: iso(), payload: { v: 1, items: { [RID(25)]: bad, [RID(26)]: good } } });
+  const row = (block: string, payload: unknown) => mock.state.plans.set(`${uid}|${block}`, { block, imported_at: iso(), payload });
+  row('due', { v: 1, items: [{ k: 'todo|2027-01-01|old', kind: 'todo', title: 'Old', due: '2027-01-01', amount: null, done: false }] });
+  row('budget', { v: 1, months: ['2026-11'], rows: [{ c: 'Rent', g: 'Spending', p: [1] }] });
+  row('due_done', { items: { x: { d: 1, t: iso() } } });
+  row('networth', { v: 1, items: [] });
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.deepEqual(dueItemsOf(await goalsOf(a)).map((i) => i.title), ['Good']);
+  for (const k of ['block:due', 'plan', 'dueDone', 'block:networth']) assert.equal(await a.store.getMeta(k), undefined, k);
+});
+
+test('an old imported due list and plan are brought into the app once, the same on every phone, and the old blocks are deleted', async () => {
+  reset();
+  const a = device(); const b = device();
+  const imported = '2026-11-01T00:00:00.000Z';
+  const old = {
+    due: { v: 1, importedAt: imported, dirty: 0, items: [
+      { k: 'todo|2026-12-15|renew passport', kind: 'todo', title: 'Renew passport', due: '2026-12-15', amount: null, done: false },
+      { k: 'oneoff|2027-03-31|annual fee', kind: 'oneoff', title: 'Annual fee', due: '2027-03-31', amount: 12000, done: false },
+      { k: 'todo||read the policy', kind: 'todo', title: 'Read the policy', due: null, amount: null, done: false },
+    ] },
+    marks: { items: { 'todo|2026-12-15|renew passport': { d: 1, t: '2026-11-05T00:00:00.000Z' }, 'oneoff|2027-03-31|annual fee': { d: 0, t: '2026-11-06T00:00:00.000Z', x: 1 } }, dirty: 0 },
+    plan: { v: 1, importedAt: imported, dirty: 0, months: ['2026-11', '2026-12'], rows: [{ c: 'Rent', g: 'Spending', p: [9000, 9500] }, { c: 'Bike EMI', g: 'EMI', p: [12554, 12554] }] },
+  };
+  for (const d of [a, b]) {
+    await d.store.setMeta('block:due', old.due);
+    await d.store.setMeta('dueDone', old.marks);
+    await d.store.setMeta('plan', old.plan);
+    await d.store.setMeta('block:networth', { v: 1, asOf: null, items: [{ label: 'Net worth', value: 5, unit: '₹' }], importedAt: imported, dirty: 0 });
+  }
+  const r = await migrateLegacy(a.store, '2026-11-11');
+  assert.deepEqual(r, { due: 2, budgets: 2 }, 'the removed annual fee is not brought across');
+  const items = dueItemsOf(await goalsOf(a));
+  assert.deepEqual(items.map((i) => [i.title, i.done]).sort((x, y) => String(x[0]).localeCompare(String(y[0]))), [['Read the policy', false], ['Renew passport', true]]);
+  for (const k of ['block:due', 'dueDone', 'plan', 'block:networth']) assert.equal(await a.store.getMeta(k), undefined, k);
+  assert.deepEqual(await migrateLegacy(a.store, '2026-11-11'), { due: 0, budgets: 0 }, 'a second run finds nothing');
+  await migrateLegacy(b.store, '2026-11-11');
+  assert.deepEqual(await goalsOf(a), await goalsOf(b), 'two phones migrating on their own make identical items');
+  await a.signIn(); await b.signIn();
+  await a.sync.sync(); await b.sync.sync(); await a.sync.sync();
+  assert.equal(dueItemsOf(await goalsOf(b)).length, 2, 'no copies after both phones sync');
+  const mine = (await a.store.getMeta<{ items: Record<string, { b: number }> }>('mine'))!.items;
+  assert.equal(Object.keys(mine).length, 2);
 });

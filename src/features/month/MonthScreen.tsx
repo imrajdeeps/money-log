@@ -5,7 +5,7 @@ import { monthLabel } from '../../core/format.ts';
 import { BudgetLine as Line } from '../../ui/BudgetLine.tsx';
 import { BudgetsDialog } from './BudgetsDialog.tsx';
 import { CategoryActions } from './CategoryActions.tsx';
-import { planCovers, planForMonth } from '../../core/categories.ts';
+import { planForMonth } from '../../core/categories.ts';
 import type { Group } from '../../core/logic.ts';
 import { GROUPS, budgetEntries, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
@@ -19,13 +19,12 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: { grou
   const [editing, setEditing] = useState(false);
   const [focusCat, setFocusCat] = useState<string | undefined>(undefined); // the budgets dialog opens on this category
   const [picked, setPicked] = useState<string | null>(null); // the category whose button was tapped
-  // Shared expenses count at this account's own share; other people's expenses never count. The budgets are the
-  // spreadsheet plan's figures where it covers the month and the ones set in the app everywhere else.
+  // Shared expenses count at this account's own share; other people's expenses never count. The budgets are the ones set in the app.
   const s = useMemo(
-    () => summarizeMonth(budgetEntries(app.entries, app.me), planForMonth(app.plan, app.mine, month), month),
-    [app.entries, app.me, app.plan, app.mine, month],
+    () => summarizeMonth(budgetEntries(app.entries, app.me), planForMonth(app.mine, month), month),
+    [app.entries, app.me, app.mine, month],
   );
-  const noBudgets = !app.plan && app.categories.every((c) => c.budget === 0);
+  const noBudgets = app.categories.every((c) => c.budget === 0);
   const monthIsOver = month < current;
   const shown = s.rows.filter((r) => (r.planned > 0 || r.spent > 0) && (!group || r.group === group));
 
@@ -43,7 +42,6 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: { grou
           <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => setEditing(true)}>{tr('Set budgets')}</button>
         </div>
       )}
-      {app.plan && !planCovers(app.plan, month) && <p className="text-muted">{tr('Your spreadsheet plan covers {0} to {1}. This month uses the budgets set in the app.', monthLabel(app.plan.months[0] ?? month), monthLabel(app.plan.months[app.plan.months.length - 1] ?? month))}</p>}
 
       <div className="grid grid-cols-2 gap-3 mb-3.5">
         {GROUPS.map((g) => {

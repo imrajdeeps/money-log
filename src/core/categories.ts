@@ -1,6 +1,6 @@
 // Pure helpers for the categories and budgets kept in the app itself (Release 4): the built-in list, the person's own
-// categories, an optional monthly budget per category, and how all of that merges with a plan imported from the
-// spreadsheet. No DOM, no storage, no network, so the browser and the Node test runner share this file.
+// categories and an optional monthly budget per category. (A plan imported from the spreadsheet is brought across once by
+// migratePlan; nothing is imported any more.) No DOM, no storage, no network, so the browser and the Node test runner share this file.
 import { GROUPS, catKey, laterThan, normName, parseTs, round2 } from './logic.ts';
 import type { Group, PlanData } from './logic.ts';
 import { tr } from './i18n.ts';
@@ -10,8 +10,7 @@ export const MAX_NAME = 60; // entries.category allows 80; this leaves room and 
 export const MAX_ITEMS = 300; // what one account may keep (built-ins with a budget or removed, own categories, removed ones)
 export const MAX_OWN = 100; // own categories shown at once
 
-// The categories every account starts with. Names are plain words; the spreadsheet's own list can differ, and the
-// Export screen says which names the spreadsheet does not know.
+// The categories every account starts with. Names are plain words.
 export const BUILTIN: readonly { c: string; g: Group }[] = [
   { c: 'Rent', g: 'Spending' },
   { c: 'Groceries', g: 'Spending' },
@@ -46,17 +45,17 @@ const builtinOf = (key: string) => BUILTIN.find((b) => catKey(b.c) === key);
 // A name such as "constructor" or "toString" must not find what every object inherits.
 const own = (m: Mine, key: string): MineItem | undefined => (Object.hasOwn(m, key) ? m[key] : undefined);
 
-export type Source = 'builtin' | 'mine' | 'plan';
+export type Source = 'builtin' | 'mine';
 export interface CategoryInfo {
   name: string;
   group: Group;
   source: Source;
-  budget: number; // the monthly budget set in the app; the plan's own figures take over in the months it covers
+  budget: number; // the monthly budget set in the app (0 = none)
 }
 
-// Every category the person can pick, grouped in the spreadsheet's order of groups. A category in the imported plan
-// keeps the plan's spelling, group and amounts; the built-ins and own categories stay beside it (merge, not replace).
-export function categoryList(plan: PlanData | null, mine: Mine): CategoryInfo[] {
+// Every category the person can pick, grouped in the spreadsheet's order of groups: the built-ins (less the removed ones) and
+// the person's own.
+export function categoryList(mine: Mine): CategoryInfo[] {
   const map = new Map<string, CategoryInfo>();
   for (const b of BUILTIN) {
     const k = catKey(b.c);
@@ -66,41 +65,46 @@ export function categoryList(plan: PlanData | null, mine: Mine): CategoryInfo[] 
   }
   const ownCats = Object.entries(mine).filter(([k, m]) => !m.x && !builtinOf(k)).sort((a, b) => a[1].n.localeCompare(b[1].n));
   for (const [k, m] of ownCats) map.set(k, { name: m.n, group: m.g, source: 'mine', budget: m.b });
-  for (const r of plan?.rows ?? []) {
-    const k = catKey(r.c);
-    map.set(k, { name: r.c, group: r.g, source: 'plan', budget: map.get(k)?.budget ?? own(mine, k)?.b ?? 0 });
-  }
   const all = [...map.values()];
   return GROUPS.flatMap((g) => all.filter((c) => c.group === g));
 }
 
-// The budget view of one month as a plan with a single column, so the month summary needs no special case:
-// a budget set in the app wins for its category (so a spreadsheet figure can be changed in the app; clear it to go back to the
-// spreadsheet's); otherwise the spreadsheet's figure where the plan covers the month.
-export function planForMonth(plan: PlanData | null, mine: Mine, month: string): PlanData {
-  const mi = plan ? plan.months.indexOf(month) : -1;
-  const fromPlan = new Map((plan?.rows ?? []).map((r) => [catKey(r.c), r]));
-  const rows = categoryList(plan, mine).map((c) => {
-    const r = fromPlan.get(catKey(c.name));
-    if (r && mi >= 0 && !(c.budget > 0)) return { c: c.name, g: c.group, p: [r.p[mi] ?? 0] };
-    return c.budget > 0 ? { c: c.name, g: c.group, p: [c.budget] } : { c: c.name, g: c.group, p: [0], u: 1 as const };
-  });
+// The budget view of one month as a plan with a single column, so the month summary needs no special case: each category's
+// monthly budget, or "not budgeted" (u) where none is set.
+export function planForMonth(mine: Mine, month: string): PlanData {
+  const rows = categoryList(mine).map((c) => (c.budget > 0 ? { c: c.name, g: c.group, p: [c.budget] } : { c: c.name, g: c.group, p: [0], u: 1 as const }));
   return { v: 1, months: [month], rows };
 }
 
-export const planCovers = (plan: PlanData | null, month: string): boolean => Boolean(plan?.months.includes(month));
-
-// Categories (case-insensitively) that a plan imported from the spreadsheet does not list. Empty when no plan is imported,
-// because then the app has no way to know what the spreadsheet holds.
-export function missingFromPlan(names: Iterable<string>, plan: PlanData | null): string[] {
-  if (!plan) return [];
-  const known = new Set(plan.rows.map((r) => catKey(r.c)));
-  const out = new Map<string, string>();
-  for (const n of names) {
-    const k = catKey(n);
-    if (!known.has(k) && !out.has(k)) out.set(k, normName(n));
+// ---------------------------------------------------------------- bringing an imported plan across, once
+// For each category the old spreadsheet plan listed: its amount for the month nearest to `month` becomes the app's monthly budget,
+// and a category the app did not have becomes one of the person's own. A category the person already has an item for (a budget,
+// an own category, a removal) is left alone: what was set in the app wins. The time stamp is the import's, so every phone
+// that migrates on its own makes the same items.
+export function migratePlan(plan: PlanData | null, mine: Mine, month: string): { mine: Mine; added: number } {
+  if (!plan || plan.months.length === 0) return { mine, added: 0 };
+  const near = (() => {
+    const i = plan.months.indexOf(month);
+    if (i >= 0) return i;
+    return month < (plan.months[0] ?? '') ? 0 : plan.months.length - 1;
+  })();
+  const stamp = (plan as { importedAt?: string }).importedAt;
+  const t = typeof stamp === 'string' && Number.isFinite(parseTs(stamp)) ? stamp : new Date(0).toISOString();
+  const out: Mine = { ...mine };
+  let added = 0;
+  for (const r of plan.rows) {
+    const name = normName(r.c);
+    const k = catKey(name);
+    if (checkName(name) !== null || own(out, k)) continue;
+    const amount = round2(r.p[near] ?? 0);
+    const b = builtinOf(k);
+    if (b && !(amount > 0)) continue; // a built-in with no figure needs no item
+    if (Object.keys(out).length >= MAX_ITEMS) break;
+    if (!b && Object.values(out).filter((m) => !m.x && !builtinOf(catKey(m.n))).length >= MAX_OWN) break;
+    out[k] = { n: b ? b.c : name, g: b ? b.g : r.g, b: amount, x: 0, t };
+    added++;
   }
-  return [...out.values()].sort((a, b) => a.localeCompare(b));
+  return { mine: out, added };
 }
 
 // ---------------------------------------------------------------- changes (each returns a new map)

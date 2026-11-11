@@ -10,6 +10,8 @@ import { tr } from './i18n.ts';
 export const MAX_GOALS = 30; // what one account may keep, removed ones included
 export const MAX_TOPUPS = 500;
 export const MAX_NET_UPDATES = 400;
+export const MAX_DUE_ENTRIES = 400; // removed ones included
+export const MAX_DUE_TITLE = 120;
 const NET_LIMIT = 1e12;
 export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is short term, later is long term
 
@@ -22,7 +24,11 @@ export interface TopUp { id: string; k: 't'; g: string; a: number; d: string; x:
 // A net worth update: what the person's net worth was on a day (a number that may be negative). Kept in the same block as the goals
 // (so it syncs and is backed up with them, with no new database block), one item per update so two phones never overwrite each other.
 export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp | NetUpdate;
+// An item on the due list (a one-off payment or a to-do) made in the app; the logic is in dueItems.ts. n title, d due day ('' = no date),
+// a amount in rupees (0 = none; one-off payments only), f done, x removed. Kept in this block like net worth updates.
+export type DueEntryKind = 'oneoff' | 'todo';
+export interface DueEntry { id: string; k: 'd'; kind: DueEntryKind; n: string; d: string; a: number; f: 0 | 1; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate | DueEntry;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -43,7 +49,7 @@ export function checkGoalInput(i: GoalInput): string | null {
 
 export type GoalResult = { ok: true; items: Goals } | { ok: false; error: string };
 
-const count = (items: Goals, k: 'g' | 't' | 'n') => Object.values(items).filter((x) => x.k === k).length;
+const count = (items: Goals, k: 'g' | 't' | 'n' | 'd') => Object.values(items).filter((x) => x.k === k).length;
 
 export function addGoal(items: Goals, i: GoalInput, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
   const error = checkGoalInput(i);
@@ -164,6 +170,7 @@ export function sameGoals(a: Goals, b: Goals): boolean {
     if (!y || x.k !== y.k || x.a !== y.a || x.d !== y.d || x.x !== y.x || x.t !== y.t) return false;
     if (x.k === 'g') return y.k === 'g' && x.n === y.n && x.s === y.s && x.c === y.c && x.b === y.b;
     if (x.k === 't') return y.k === 't' && x.g === y.g;
+    if (x.k === 'd') return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.f === y.f;
     return true;
   });
 }
@@ -176,6 +183,7 @@ export function cleanGoals(p: any): Goals {
   let goals = 0;
   let topups = 0;
   let nets = 0;
+  let dues = 0;
   for (const [k, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!UUID_RE.test(k) || !v || v.id !== k || (v.x !== 0 && v.x !== 1) || !Number.isFinite(parseTs(v.t))) continue;
     if (v.k === 'g') {
@@ -192,6 +200,13 @@ export function cleanGoals(p: any): Goals {
       if (nets >= MAX_NET_UPDATES || !netOk(v.a) || typeof v.d !== 'string' || !isValidDate(v.d)) continue;
       out[k] = { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
       nets++;
+    } else if (v.k === 'd') {
+      if (dues >= MAX_DUE_ENTRIES || (v.kind !== 'oneoff' && v.kind !== 'todo') || (v.f !== 0 && v.f !== 1)) continue;
+      if (typeof v.n !== 'string' || normName(v.n) !== v.n || v.n === '' || v.n.length > MAX_DUE_TITLE) continue;
+      if (typeof v.d !== 'string' || (v.d !== '' && !isValidDate(v.d))) continue;
+      if (!amountOk(v.a, 'zero') || (v.kind === 'todo' && v.a !== 0)) continue;
+      out[k] = { id: k, k: 'd', kind: v.kind, n: v.n, d: v.d, a: v.a, f: v.f, x: v.x, t: v.t };
+      dues++;
     }
   }
   return out;
