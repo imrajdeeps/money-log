@@ -6,7 +6,7 @@ import {
   normalizeCode, formatCode, codeLooksValid, inviteLink, joinCodeFromHash,
 } from '../../src/core/groups.ts';
 import type { Member, Settlement } from '../../src/core/groups.ts';
-import { budgetEntries, cleanEntry, editEntry, exportRows, isMine, makeEntry, myShare, softDelete, summarizeMonth, toTSV } from '../../src/core/logic.ts';
+import { budgetEntries, cleanEntry, editEntry, isMine, makeEntry, myShare, softDelete, summarizeMonth } from '../../src/core/logic.ts';
 import type { Entry, Shares } from '../../src/core/logic.ts';
 import { makeBackup, parseBackup } from '../../src/data/backup.ts';
 
@@ -219,19 +219,8 @@ test('the budget and the export count a shared expense at the account\'s own sha
   assert.equal(sum.totalSpent, 1100);
   assert.equal(sum.count, 2);
 
-  const rows = exportRows(all, A);
-  assert.equal(rows.length, 2);
-  const tsv = toTSV(rows).split('\n');
-  assert.ok(tsv.includes('2026-11-03\tGroceries\t500\t[Cash]'));
-  assert.ok(tsv.includes('2026-11-09\tEating out\t600\t[UPI] dinner, my share of 1,800'), tsv.join(' | '));
-  assert.deepEqual(exportRows([forOthers, theirs], A), []);
   // before the phone knows the account (no sign-in yet) shared expenses cannot be counted
   assert.deepEqual(budgetEntries([dinner], null), []);
-});
-
-test('a shared expense paid by the account for itself alone has no "my share" note', () => {
-  const solo = shared(A, { [A]: 40 }, { note: 'snack' });
-  assert.equal(toTSV(exportRows([solo], A)), '2026-11-09\tDinner\t40\t[UPI] snack');
 });
 
 // ---------------------------------------------------------------- backup

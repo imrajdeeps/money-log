@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
+import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from '../../../src/features/payments/payments.ts';
 import { planForMonth, setBudget, categoryList } from '../../../src/core/categories.ts';
 import type { Mine } from '../../../src/core/categories.ts';
-import { daysInMonth, makeEntry, markExportedEntry, softDelete, summarizeMonth } from '../../../src/core/logic.ts';
+import { daysInMonth, makeEntry, softDelete, summarizeMonth } from '../../../src/core/logic.ts';
 import type { Entry } from '../../../src/core/logic.ts';
 import type { Settlement } from '../../../src/core/groups.ts';
 
@@ -126,15 +126,6 @@ test('groupsOverview adds up what I am owed and what I owe across groups', () =>
   const settle: Settlement = { id: U(20), group_id: G2, from_user: ME, to_user: OTHER, amount: 150, settle_date: '2026-11-02', created_by: ME, created_at: T0, updated_at: T0, deleted_at: null, dirty: 0 };
   assert.deepEqual(groupsOverview(groups, entries, [settle], ME), { owed: 500, owe: 0 });
   assert.deepEqual(groupsOverview(groups, entries, [], null), { owed: 0, owe: 0 });
-});
-
-test('exportOverview counts what the Export screen offers', () => {
-  const a = mk(100, 'Rent', '2026-11-01');
-  const b = markExportedEntry(mk(200, 'Rent', '2026-11-02'), T0);
-  const changed = { ...b, amount: 250, updated_at: '2026-11-11T00:00:00.000Z' };
-  const owedNothing = mk(300, 'Rent', '2026-11-03', { group_id: U(9), paid_by: OTHER, shares: { [OTHER]: 300 } });
-  assert.deepEqual(exportOverview([a, b, owedNothing], [a, b, owedNothing], ME), { waiting: 1, changed: 0 });
-  assert.deepEqual(exportOverview([a, changed], [a, changed], ME), { waiting: 1, changed: 1 });
 });
 
 test('the overview shows all four groups until a budget is set, then only the groups that have one', () => {

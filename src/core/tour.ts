@@ -18,14 +18,13 @@ export interface TourStep {
 
 // The walk through the whole app, in order.
 export const FIRST_STEPS: readonly TourStep[] = [
-  { id: 'welcome', go: 'home', title: 'Welcome to Money Log', text: 'A quick look round, ten short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.' },
+  { id: 'welcome', go: 'home', title: 'Welcome to Money Log', text: 'A quick look round, nine short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.' },
   { id: 'home', go: 'home', target: 'home', title: 'Overview', text: 'The first page: this month at a glance. What you spent against your budgets, your goals, what is due, and who owes whom. Tap a tile to open it.' },
   { id: 'add', go: 'home', target: 'add', title: 'Log a payment', text: 'Tap Add to log a payment in a few seconds: the amount, a category, done. You can also paste a bank message and let the form fill itself, and attach a receipt photo.' },
   { id: 'month', go: 'month', target: 'month', title: 'Month', text: 'Every category against its budget. Tap the three dots on a category to set its budget, or to add an expense that already has the category.' },
   { id: 'plan', go: 'plan', target: 'plan', title: 'Plan', text: 'Your net worth and your goals, both typed in here, with a monthly plan that says how much to put aside for each goal; below them, what is due soon (swipe a row to delete it).' },
   { id: 'insights', go: 'analytics', target: 'analytics', title: 'Insights', text: 'Your spending in charts: month by month, by category and by day of the week, and where this month is likely to end. It is all worked out on this phone, and nothing is sent anywhere.' },
   { id: 'groups', go: 'groups', target: 'groups', title: 'Groups', text: 'Share expenses with family, on a trip, with flatmates or a partner, and see who should pay whom. Groups need you to sign in.' },
-  { id: 'export', go: 'home', target: 'export', title: 'Export', text: 'Send your payments to a spreadsheet when you want them there. The Export page keeps track of what is already exported.' },
   { id: 'settings', go: 'settings', target: 'settings', title: 'Settings', text: 'Your profile, cloud sync, recurring payments like rent, a backup, a PIN for this phone, and the look of the app.' },
   { id: 'done', go: 'home', title: 'That is it', text: 'Start by adding your first payment. To see this tour again, open Settings, About.' },
 ];
@@ -42,6 +41,7 @@ export const NEWS_STEPS: readonly TourStep[] = [
   { id: 'news-calendar-cancel', since: '1.19.0', go: 'plan', title: 'New: calendar cancels', text: 'When you finish or remove a dated item, the next calendar file you make from Plan also cancels its event, so your phone\'s calendar drops it when you open the file. It only covers events this phone put in a file earlier.' },
   { id: 'news-networth', since: '1.20.0', go: 'plan', target: 'plan', title: 'New: net worth and goals, in the app', text: 'On Plan you can now type your net worth yourself, update it whenever you like and see how it moves, and add short-term and long-term goals right below it. The spreadsheet net worth import is gone: nothing needs to be pasted any more.' },
   { id: 'news-due', since: '1.21.0', go: 'plan', target: 'plan', title: 'New: the due list is made in the app', text: 'On Plan, tap Add an item to put a payment or a to-do on the due list, tap one to change it, and tick it when it is done. Budgets are set under Month. The spreadsheet plan import is gone; what you had imported has been brought across.' },
+  { id: 'news-backup-only', since: '1.22.0', go: 'settings', target: 'settings', title: 'New: one file in and out', text: 'The backup file is now the only file that goes in and out of the app. Export to the spreadsheet is gone, because everything is made in the app. Download a backup from Settings, Backup now and then.' },
 ];
 
 /** a is later than b: positive; earlier: negative; same: 0. Versions are "1.13.0" (missing parts count as 0). */

@@ -1,6 +1,6 @@
 # PRD: Everything in the app, the backup file as the only import
 
-**Status:** 1.20 and 1.21 built (2026-11-11); 1.22 is still to do.
+**Status:** 1.20, 1.21 and 1.22 built (2026-11-11).
 
 ## Problem
 The Plan page's "Net worth and goals" block can only be filled by pasting a block from the spreadsheet's App export tab, so it cannot
@@ -55,7 +55,9 @@ block rows are ignored. The Overview tile shows the latest net worth.
   into the app's budgets** (this month's amount per category, my proposal), then the import and the "set in the spreadsheet" wording go.
 - Needs a plan-block change only if the due list's stored shape changes: decided when 1.21 starts, with the SQL given to the owner to run.
 
-## 1.22: backup is the only file
+## 1.22: backup is the only file (built)
+
+**As built:** the Export page, route, bottom-bar and top-menu item, Overview tile, `markExported`, the export rows/TSV/CSV code and its tests, and the tour step are removed; Settings text says the backup is the only file. The `exported_at` field stays in the model and the database so rows round-trip; nothing reads it.
 - Remove the Export screen, its tile and the "N to export" counter; the `exported_at` column stays in the database but nothing reads it.
 - Settings: *Spreadsheet plan* and *Export* disappear; Backup stays (Download backup, Restore), and the README says it is the only file.
 - The backup file's contents are checked so it holds everything that is in the app by then (goals, top-ups, recurring payments, due

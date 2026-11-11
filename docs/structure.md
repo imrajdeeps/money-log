@@ -12,7 +12,7 @@ src/
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
               the sync pill, file helpers.
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
-    home/  payments/  recurring/  month/  plan/  goals/  export/  groups/  settings/  tour/  analytics/
+    home/  payments/  recurring/  month/  plan/  goals/  groups/  settings/  tour/  analytics/
       index.ts    the only file other code may import from this folder
   app/        starts the app: main.tsx, the page frame (App.tsx), the router.
   routes/     one small file per address (TanStack Router reads this folder). routeTree.gen.ts is generated.

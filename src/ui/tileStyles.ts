@@ -12,7 +12,6 @@ export const statUnit = 'text-[14px] font-semibold text-muted tracking-[0]';
 export const status = (tone?: 'bad' | 'warn' | '') => cx('text-[15px] font-semibold m-0', tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : '');
 export const delta = (tone?: 'bad' | 'good' | '') =>
   cx('inline-block px-2.5 py-[5px] rounded-full text-[13px] font-bold whitespace-nowrap', tone === 'bad' ? 'bg-bad-bg text-bad' : tone === 'good' ? 'bg-good-bg text-good' : 'bg-bg text-muted');
-export const warnText = 'text-warn font-semibold text-[13px] mt-1 mb-0';
 export const goal = 'mt-2.5';
 export const netFacts =
   'list-none mt-3 mx-0 mb-0 p-0 text-[14px] [&>li]:flex [&>li]:justify-between [&>li]:gap-3 [&>li]:py-1.5 [&>li]:px-0 [&>li]:border-t [&>li]:border-line [&_span]:text-muted [&_span]:min-w-0 [&_b]:font-semibold [&_b]:whitespace-nowrap';
