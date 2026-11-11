@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, RefObject } from 'react';
 import { useApp } from '../../data/context.tsx';
-import { CategorySelect } from '../../ui/CategorySelect.tsx';
+import { KindCategory } from './KindCategory.tsx';
+import { KindSwitch } from './KindSwitch.tsx';
 import { MethodChips } from './MethodChips.tsx';
 import { PendingPhotos } from './PendingPhotos.tsx';
 import { CoupleSplit } from './CoupleSplit.tsx';
@@ -12,7 +13,7 @@ import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse
 import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
 import { checkRecurInput } from '../../core/recurring.ts';
 import { ordinal } from '../../core/format.ts';
-import type { Method, NewEntryInput } from '../../core/logic.ts';
+import type { EntryKind, Method, NewEntryInput } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -27,9 +28,14 @@ function lastMethod(): Method | null {
   }
 }
 
+const saveLabel = (isIn: boolean, shared: boolean): string => {
+  if (isIn) return tr('Save income');
+  return shared ? tr('Save shared expense') : tr('Save payment');
+};
+
 // The payment form behind the "+ Add expense" button. It lives in a sheet that stays mounted, so a half-typed payment
 // survives closing it; the sheet focuses the amount (amountRef) the moment it opens.
-export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string }>) {
+export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string; kind?: EntryKind }>) {
   const app = useApp();
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -44,10 +50,14 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
   const [readNote, setReadNote] = useState<{ text: string; bad: boolean } | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [repeat, setRepeat] = useState(false); // also make it a payment that repeats every month
+  const [kind, setKind] = useState<EntryKind>('out'); // Spent or Received (income is private and has its own categories)
+  const isIn = kind === 'in';
+  // Add was opened on Received (from the cash flow page or the Home card)
+  useEffect(() => { if (startKind === 'in') setKind('in'); }, [startKind]);
   // Add expense was opened for one category (from the Month page): start with it, if it is one of the person's own
   useEffect(() => {
     const known = preset && app.categories.find((c) => catKey(c.name) === catKey(preset));
-    if (known) setCategory(known.name);
+    if (known) { setKind('out'); setCategory(known.name); }
   }, [preset, app.categories]);
   const today = isoDate();
   const people = useMemo(() => (groupId ? activeMembers(app.members, groupId) : []), [app.members, groupId]);
@@ -55,10 +65,22 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
 
   const frequent = useMemo(() => {
     // shown under the list's spelling, so a plan that spells "rent" differently from older payments ("Rent") still counts
-    const canonical = new Map(app.categories.map((c) => [catKey(c.name), c.name]));
-    const names = frequentCategories(app.entries, Date.now(), 12).flatMap((c) => canonical.get(catKey(c)) ?? []);
-    return [...new Set(names)].slice(0, 6);
-  }, [app.entries, app.categories]);
+    const names = isIn ? app.incomeCats : app.categories.map((c) => c.name);
+    const canonical = new Map(names.map((n) => [catKey(n), n]));
+    const used = frequentCategories(app.entries, Date.now(), 12, 90, kind).flatMap((c) => canonical.get(catKey(c)) ?? []);
+    return [...new Set(used)].slice(0, 6);
+  }, [app.entries, app.categories, app.incomeCats, isIn, kind]);
+
+  // Switching between Spent and Received starts the category again and drops what only spending has (group, photos, repeat).
+  function pickKind(next: EntryKind) {
+    setKind(next);
+    setCategory('');
+    setGroupId('');
+    setSplit(null);
+    setPhotos([]);
+    setRepeat(false);
+    setError('');
+  }
 
   function pickMethod(m: Method | null) {
     setMethod(m);
@@ -72,7 +94,8 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
     const r = parseMessage(text, today);
     if (!r.ok) { setReadNote({ text: r.problem, bad: true }); return; }
     const p = r.payment;
-    const cat = suggestCategory(p.merchant, app.entries, app.categories);
+    setKind(p.kind);
+    const cat = p.kind === 'in' ? p.incomeCategory : suggestCategory(p.merchant, app.entries, app.categories);
     setAmount(String(p.amount));
     setDate(p.date && p.date !== today ? p.date : null);
     if (p.method) pickMethod(p.method);
@@ -95,6 +118,29 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
     }
   }
 
+  // Money received: always private, no photos, no split, no repeat. Everything else is cleared as after a payment.
+  async function saveIncome(amt: number, d: string) {
+    await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, kind: 'in' });
+    app.toast(tr('Received {0} · {1}', fmtINR(amt), category));
+    clearForm();
+  }
+
+  function clearForm() {
+    setPhotos([]);
+    setMessage('');
+    setReadNote(null);
+    setAmount('');
+    setNote('');
+    setCategory('');
+    setDate(null);
+    setRepeat(false);
+    setGroupId(''); // the next payment is private unless chosen otherwise
+    setSplit(null);
+    setKind('out'); // the next one is spending unless chosen otherwise
+    setError('');
+    onSaved();
+  }
+
   async function save(ev: FormEvent) {
     ev.preventDefault();
     const amt = parseAmount(amount);
@@ -103,6 +149,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
     const d = date ?? today;
     if (!isValidDate(d)) return fail(tr('Pick a valid date.'));
     if (d > today) return fail(tr('The date cannot be in the future.'));
+    if (isIn) return saveIncome(amt, d);
     let group: NewEntryInput['group'] = null;
     if (groupId) {
       if (!app.me || !split) return fail(tr('Sign in to share an expense with a group.'));
@@ -125,18 +172,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
       try { await app.addReceipts(id, photos); } catch (e) { toast += tr('. The photo could not be attached: {0}', e instanceof Error ? e.message : String(e)); }
     }
     app.toast(toast);
-    setPhotos([]);
-    setMessage('');
-    setReadNote(null);
-    setAmount('');
-    setNote('');
-    setCategory('');
-    setDate(null);
-    setRepeat(false);
-    setGroupId(''); // the next payment is private unless chosen otherwise
-    setSplit(null);
-    setError('');
-    onSaved();
+    clearForm();
   }
 
   return (
@@ -158,6 +194,8 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
         </div>
         {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
       </details>
+
+      <KindSwitch value={kind} onChange={pickKind} />
 
       <label className={ui.amount}>
         <span aria-hidden="true">₹</span>
@@ -183,7 +221,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
       )}
 
       <label className={ui.field} htmlFor="log-cat"><span>{tr('Category')}</span></label>
-      <CategorySelect id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
+      <KindCategory kind={kind} id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
 
       <MethodChips value={method} onChange={pickMethod} options={METHODS} />
 
@@ -197,9 +235,9 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
         <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
       </label>
 
-      {app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
+      {!isIn && app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
 
-      {app.groups.some((g) => !g.closed_at) && (
+      {!isIn && app.groups.some((g) => !g.closed_at) && (
         <label className={ui.field}>
           <span>{tr('Share with')}</span>
           <select
@@ -225,7 +263,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
         </>
       )}
 
-      {!groupId && (
+      {!groupId && !isIn && (
         <>
           <label className={ui.check + ' mt-3'}>
             <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
@@ -236,7 +274,7 @@ export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ am
       )}
 
       <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
-      <button type="submit" className={ui.btn('solid', 'big')}>{groupId ? tr('Save shared expense') : tr('Save payment')}</button>
+      <button type="submit" className={ui.btn('solid', 'big')}>{saveLabel(isIn, groupId !== '')}</button>
     </form>
   );
 }

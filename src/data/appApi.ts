@@ -12,6 +12,7 @@ import type { GroupKind } from '../core/groupKinds.ts';
 import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
 import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
+import type { IncomeCatResult } from '../core/income.ts';
 import type { RecurInput, Recurring } from '../core/recurring.ts';
 import type { Sync, SyncState } from './sync.ts';
 
@@ -61,6 +62,9 @@ export interface AppApi {
   removeTopUp: (id: string) => Promise<void>;
   addNetWorth: (amount: number, date: string) => Promise<string | null>; // a net worth update; the error text, or null
   removeNetWorth: (id: string) => Promise<void>;
+  incomeCats: string[]; // what can be picked for income: built-in, then the person's own
+  addIncomeCategory: (name: string) => Promise<IncomeCatResult>;
+  removeIncomeCategory: (name: string) => Promise<void>; // one of the person's own only
   sessions: SessionInfo[] | null; // where the account is signed in now (null: not known)
   dismissed: ReadonlySet<string>; // notifications the person dismissed (their keys)
   noticeKinds: ReadonlySet<NoticeKind>; // the kinds of notification that are switched on

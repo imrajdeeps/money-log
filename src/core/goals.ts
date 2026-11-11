@@ -15,6 +15,8 @@ export const MAX_DUE_ENTRIES = 400; // removed ones included
 export const MAX_DUE_TITLE = 120;
 export const MAX_DISMISSALS = 1000; // dismissals read back; the app itself keeps the newest 500
 export const MAX_NOTICE_KEY = 120;
+export const MAX_INCOME_CATS = 50; // the person's own income categories, removed ones included
+export const incomeCatId = (name: string): string => uuidFromKey(`incomecat|${catKey(name)}`);
 const NET_LIMIT = 1e12;
 export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is short term, later is long term
 
@@ -37,7 +39,10 @@ export const NOTICE_SETTINGS_ID = uuidFromKey('notice-settings');
 export const noticeId = (key: string): string => uuidFromKey(`notice|${key}`);
 export interface DismissEntry { id: string; k: 'k'; key: string; x: 0 | 1; t: string }
 export interface NoticeSettings { id: string; k: 's'; off: NoticeKind[]; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings;
+// An income category of the person's own (n its name; the id comes from the name, so two phones adding the same one make one item).
+// Lives in this block like the rest; the logic is in income.ts.
+export interface IncomeCat { id: string; k: 'i'; n: string; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -180,6 +185,7 @@ function sameItem(x: GoalItem, y: GoalItem | undefined): boolean {
     case 'n': return y.k === 'n' && x.a === y.a && x.d === y.d;
     case 'd': return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.a === y.a && x.d === y.d && x.f === y.f;
     case 'k': return y.k === 'k' && x.key === y.key;
+    case 'i': return y.k === 'i' && x.n === y.n;
     default: return y.k === 's' && x.off.join() === y.off.join();
   }
 }
@@ -225,6 +231,11 @@ function cleanDismissItem(k: string, v: Raw): DismissEntry | null {
   return { id: k, k: 'k', key: v.key, x: v.x, t: v.t };
 }
 
+function cleanIncomeCatItem(k: string, v: Raw): IncomeCat | null {
+  if (!isTidy(v.n) || v.n === '' || v.n.length > 60 || k !== incomeCatId(v.n)) return null;
+  return { id: k, k: 'i', n: v.n, x: v.x, t: v.t };
+}
+
 function cleanNoticeSettingsItem(k: string, v: Raw): NoticeSettings | null {
   if (k !== NOTICE_SETTINGS_ID || !Array.isArray(v.off) || !v.off.every(isNoticeKind)) return null;
   return { id: k, k: 's', off: [...new Set<NoticeKind>(v.off)].sort((a, b) => a.localeCompare(b)), x: v.x, t: v.t };
@@ -237,6 +248,7 @@ const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => Go
   d: { max: MAX_DUE_ENTRIES, clean: cleanDueItem },
   k: { max: MAX_DISMISSALS, clean: cleanDismissItem },
   s: { max: 1, clean: cleanNoticeSettingsItem },
+  i: { max: MAX_INCOME_CATS, clean: cleanIncomeCatItem },
 };
 
 const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id === k && (v.x === 0 || v.x === 1) && Number.isFinite(parseTs(v.t));

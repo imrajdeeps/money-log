@@ -43,3 +43,30 @@ export function Sparkline({ values, label }: Readonly<{ values: number[]; label:
     </svg>
   );
 }
+
+export interface FlowBar { key: string; label: string; income: number; out: number; partial?: boolean }
+
+/** Two bars per month on one shared scale: money in (good colour) and money out (accent). A `partial` month is drawn lighter. */
+export function FlowBars({ items, label, inLabel, outLabel, height = 132 }: Readonly<{ items: FlowBar[]; label: string; inLabel: string; outLabel: string; height?: number }>) {
+  const max = Math.max(1, ...items.flatMap((i) => [i.income, i.out]));
+  const h = (v: number) => `${Math.max(v > 0 ? 3 : 0, (v / max) * 100)}%`;
+  return (
+    <div role="img" aria-label={`${label}: ${items.map((i) => `${i.label} ${inLabel} ${fmtINR(i.income)}, ${outLabel} ${fmtINR(i.out)}`).join('; ')}`}>
+      <div className="flex items-stretch gap-2" style={{ height }} aria-hidden="true">
+        {items.map((i) => (
+          <div key={i.key} className={`flex-1 min-w-0 flex items-end gap-0.5 ${i.partial ? 'opacity-60' : ''}`}>
+            <div className="flex-1 rounded-t-md bg-good" style={{ height: h(i.income) }} />
+            <div className="flex-1 rounded-t-md bg-accent" style={{ height: h(i.out) }} />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2 mt-1" aria-hidden="true">
+        {items.map((i) => <span key={i.key} className="flex-1 min-w-0 text-center text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap">{i.label}</span>)}
+      </div>
+      <p className="flex gap-4 mt-2 mb-0 text-[12px] text-muted" aria-hidden="true">
+        <span><i className="inline-block size-2.5 rounded-sm bg-good align-middle mr-1" />{inLabel}</span>
+        <span><i className="inline-block size-2.5 rounded-sm bg-accent align-middle mr-1" />{outLabel}</span>
+      </p>
+    </div>
+  );
+}

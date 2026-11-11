@@ -6,7 +6,7 @@ import { PaymentRow } from './RecentList.tsx';
 import { monthLabel } from '../../core/format.ts';
 import { METHODS, fmtINR } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
-import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from './payments.ts';
+import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalReceived, totalShare } from './payments.ts';
 import type { PaymentFilter } from './payments.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -26,6 +26,7 @@ export function AllPayments() {
   const categories = useMemo(() => paymentCategories(app.entries), [app.entries]);
   const rows = useMemo(() => filterPayments(app.entries, f, app.me), [app.entries, f, app.me]);
   const total = useMemo(() => totalShare(rows, app.me), [rows, app.me]);
+  const received = useMemo(() => totalReceived(rows), [rows]);
   const set = (patch: Partial<PaymentFilter>) => setF((cur) => ({ ...cur, ...patch }));
 
   const hasAny = app.entries.length > 0;
@@ -68,7 +69,7 @@ export function AllPayments() {
           </select>
         </div>
         <p className="text-muted text-[13px]" role="status">
-          {tr('{0} payments · {1}', rows.length, fmtINR(total))}
+          {received > 0 ? tr('{0} entries · {1} spent · {2} received', rows.length, fmtINR(total), fmtINR(received)) : tr('{0} payments · {1}', rows.length, fmtINR(total))}
           {isFiltered(f) && <> · <button type="button" className={ui.linkBtn} onClick={() => setF(NO_FILTER)}>{tr('Clear filters')}</button></>}
         </p>
       </div>

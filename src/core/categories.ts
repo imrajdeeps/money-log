@@ -19,6 +19,7 @@ export const BUILTIN: readonly { c: string; g: Group }[] = [
   { c: 'Bills', g: 'Spending' },
   { c: 'Shopping', g: 'Spending' },
   { c: 'Health', g: 'Spending' },
+  { c: 'Lent to someone', g: 'Spending' },
   { c: 'Other', g: 'Spending' },
   { c: 'Family support', g: 'Family' },
   { c: 'Loan EMI', g: 'EMI' },

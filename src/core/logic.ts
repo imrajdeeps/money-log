@@ -9,10 +9,14 @@ export type Method = (typeof METHODS)[number];
 // What each person owes for one shared expense: user id -> rupees. The shares add up to the expense's amount.
 export type Shares = Record<string, number>;
 
+// Which way the money went: out (spending, what every entry was before 1.26) or in (income, always private).
+export type EntryKind = 'out' | 'in';
+
 export interface Entry {
   id: string;
   owner_id: string | null;
   entry_date: string; // YYYY-MM-DD, the day the payment happened
+  kind: EntryKind; // an entry saved before 1.26 has none on this phone: read it through isIncome, which treats that as out
   category: string;
   amount: number; // rupees, at most 2 decimals, > 0
   note: string;
@@ -121,6 +125,7 @@ export interface NewEntryInput {
   date: string;
   group?: { group_id: string; paid_by: string; shares: Shares } | null; // null or absent = private
   shareOf?: string | null; // a private payment that records this account's share of that shared expense
+  kind?: EntryKind; // absent = out
 }
 
 export function makeEntry(input: NewEntryInput, nowIso: string): Entry {
@@ -128,6 +133,7 @@ export function makeEntry(input: NewEntryInput, nowIso: string): Entry {
     id: newId(),
     owner_id: null,
     entry_date: input.date,
+    kind: input.kind ?? 'out',
     category: input.category,
     amount: input.amount,
     note: input.note,
@@ -172,6 +178,7 @@ export function softDelete(old: Entry, nowIso: string): Entry {
 export function restoreEntry(current: Entry, before: Entry, nowIso: string): Entry {
   return {
     ...current,
+    kind: before.kind ?? 'out',
     amount: before.amount,
     category: before.category,
     method: before.method,
@@ -255,10 +262,13 @@ export function cleanEntry(e: any): Entry | null {
   if (amount === null) return null;
   const group = cleanGroupFields(e, amount);
   if (!group) return null;
+  const kind: EntryKind = e.kind === 'in' ? 'in' : 'out';
+  if (kind === 'in' && (group.groupId !== null || group.shareOf !== null)) return null; // income is private to its owner
   return {
     id: e.id.toLowerCase(),
     owner_id: isUuid(e.owner_id) ? e.owner_id.toLowerCase() : null,
     entry_date: e.entry_date,
+    kind,
     category: e.category,
     amount,
     note: e.note ?? '',
@@ -292,26 +302,35 @@ export function myShare(e: Entry, me: string | null): number {
   return (me && e.shares?.[me]) || 0;
 }
 
+// Income, as opposed to spending. An entry saved before 1.26 has no kind, and is spending.
+export const isIncome = (e: Pick<Entry, 'kind'>): boolean => e.kind === 'in';
+
 // Our live entries as the budget sees them: shared expenses count at our share, and ones we owe nothing on are left out.
+// INCOME IS LEFT OUT HERE, and every total of spending (month, budgets, goals, insights, notifications) is built from this list, so
+// income can never be counted as spending. The cash flow reads the income through incomeEntries instead.
 export function budgetEntries(entries: Entry[], me: string | null): Entry[] {
   const out: Entry[] = [];
   for (const e of entries) {
-    if (e.deleted_at || !isMine(e, me)) continue;
+    if (e.deleted_at || !isMine(e, me) || isIncome(e)) continue;
     const a = myShare(e, me);
     if (a > 0) out.push(a === e.amount ? e : { ...e, amount: a });
   }
   return out;
 }
 
+// Our live income entries (private by rule, so only the owner's own).
+export const incomeEntries = (entries: readonly Entry[], me: string | null): Entry[] =>
+  entries.filter((e) => !e.deleted_at && isIncome(e) && isMine(e, me));
+
 export const byRecent = (a: Entry, b: Entry): number => parseTs(b.created_at) - parseTs(a.created_at);
 export const byDate = (a: Entry, b: Entry): number =>
   a.entry_date < b.entry_date ? -1 : a.entry_date > b.entry_date ? 1 : parseTs(a.created_at) - parseTs(b.created_at);
 
-export function frequentCategories(entries: Entry[], nowMs: number, n = 6, days = 90): string[] {
+export function frequentCategories(entries: Entry[], nowMs: number, n = 6, days = 90, kind: EntryKind = 'out'): string[] {
   const since = nowMs - days * 86400000;
   const count = new Map<string, number>();
   for (const e of entries) {
-    if (e.deleted_at || parseTs(e.created_at) < since) continue;
+    if (e.deleted_at || parseTs(e.created_at) < since || isIncome(e) !== (kind === 'in')) continue;
     count.set(e.category, (count.get(e.category) ?? 0) + 1);
   }
   return [...count].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, n).map(([c]) => c);
