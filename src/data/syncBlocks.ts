@@ -13,6 +13,8 @@ import type { Recurring } from '../core/recurring.ts';
 export interface MineBlock { items: Mine; dirty: 0 | 1 }
 export interface RecurBlock { items: Recurring; dirty: 0 | 1 }
 export interface GoalsBlock { items: Goals; dirty: 0 | 1 }
+// The profile (one row per account, not a plan block): the phone's copy, when it last changed (t) and whether it still has to go up.
+export interface ProfileBlock { name: string; whatsapp: string; t: string; dirty: 0 | 1 }
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type Items = Record<string, any>;
 export const MERGED: { block: string; meta: string; clean: (p: unknown) => Items; merge: (a: Items, b: Items) => Items; same: (a: Items, b: Items) => boolean }[] = [

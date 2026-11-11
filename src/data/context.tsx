@@ -26,10 +26,10 @@ import type { RecurInput, Recurring } from '../core/recurring.ts';
 import { addGoal as addGoalTo, addNetUpdate as addNetUpdateTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeNetUpdate as removeNetUpdateFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import { createSync } from './sync.ts';
-import type { GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
+import type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock, Sync, SyncState } from './sync.ts';
 import { migrateLegacy } from './legacy.ts';
 import type { AppApi, Engine, ToastAction } from './appApi.ts';
-import { clearProfile } from './profile.ts';
+import { clearProfile, loadProfile, setLocalProfile, setProfileSaveListener } from './profile.ts';
 import { clearSent } from './calendar.ts';
 import { tr } from '../core/i18n.ts';
 export type { AppApi } from './appApi.ts';
@@ -86,6 +86,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toastTimer = useRef<number | undefined>(undefined);
   const syncTimer = useRef<number | undefined>(undefined);
 
+  // The profile shown on screen (localStorage) and its copy that syncs (the store) are kept the same: a copy that arrived from the
+  // account is shown; a profile saved before it had a copy is given one, to go up on the next sync.
+  const reconcileProfile = useCallback(async (store: Engine['store']) => {
+    const copy = await store.getMeta<ProfileBlock>('profile');
+    const shown = loadProfile();
+    if (copy) {
+      if (copy.name !== shown.name || copy.whatsapp !== shown.whatsapp) setLocalProfile({ name: copy.name, whatsapp: copy.whatsapp });
+    } else if (shown.name || shown.whatsapp) {
+      await store.setMeta('profile', { ...shown, t: new Date().toISOString(), dirty: 1 } satisfies ProfileBlock);
+    }
+  }, []);
+
   const reload = useCallback(async () => {
     const e = engRef.current;
     if (!e) return;
@@ -102,6 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       e.store.allReceipts(),
       e.store.getMeta<unknown>('lock'),
     ]);
+    await reconcileProfile(e.store);
     const cfg = cleanLock(lk);
     lockRef.current = cfg;
     setLockCfg(cfg);
@@ -115,7 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMine(mn?.items ?? {});
     setRecurring(rcr?.items ?? {});
     setGoals(gl?.items ?? {});
-  }, []);
+  }, [reconcileProfile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +253,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await reload();
     scheduleSync();
   }, [reload, scheduleSync]);
+
+  // Saving the profile (on its own screen or when a group remembers the name) also keeps the copy that syncs.
+  useEffect(() => setProfileSaveListener((p) => {
+    const e = engRef.current;
+    if (!e) return;
+    void e.store.setMeta('profile', { name: p.name, whatsapp: p.whatsapp, t: new Date().toISOString(), dirty: 1 } satisfies ProfileBlock).then(afterChange);
+  }), [afterChange]);
 
   const addEntry = useCallback(async (input: NewEntryInput): Promise<string> => {
     const e = engRef.current;
