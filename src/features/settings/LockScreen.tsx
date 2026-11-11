@@ -4,7 +4,7 @@ import { useApp } from '../../data/context.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
-// Covers the whole app until the right PIN is typed. It is a privacy screen, not encryption (see src/lock.ts).
+// Covers the whole app until the right PIN is typed. It is a privacy screen, not encryption (see data/lock.ts).
 export function LockScreen() {
   const app = useApp();
   const input = useRef<HTMLInputElement>(null);
@@ -19,17 +19,27 @@ export function LockScreen() {
     return () => window.clearInterval(t);
   }, [wait > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function submit(ev: FormEvent) {
-    ev.preventDefault();
-    if (busy || wait > 0 || !pin) return;
+  async function attempt(value: string) {
+    if (busy || wait > 0 || !value) return;
     setBusy(true);
-    const r = await app.unlock(pin);
+    const r = await app.unlock(value);
     setBusy(false);
     if (r.ok) return;
     setPin('');
     setWait(r.waitSec);
     setMsg(r.waitSec > 0 ? tr('Too many wrong tries.') : tr('That PIN is not right.'));
     input.current?.focus();
+  }
+
+  const submit = (ev: FormEvent) => { ev.preventDefault(); void attempt(pin); };
+
+  // Once the PIN's length is known (every PIN set or used since 1.23), it unlocks by itself at that many digits.
+  const len = app.lock?.len;
+  function typed(raw: string) {
+    const value = raw.replace(/\D/g, '');
+    setPin(value);
+    setMsg('');
+    if (len !== undefined && value.length === len) void attempt(value);
   }
 
   async function forgot() {
@@ -47,14 +57,14 @@ export function LockScreen() {
           type="password"
           inputMode="numeric"
           autoComplete="off"
-          maxLength={8}
+          maxLength={len ?? 8}
           className="text-center text-[28px] tracking-[8px] min-h-[60px] mt-3 mx-0 mb-1"
           aria-label="PIN"
           value={pin}
-          onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setMsg(''); }}
+          onChange={(e) => typed(e.target.value)}
         />
         <p className={ui.msg('bad')} role="alert" hidden={!msg}>{msg}{wait > 0 ? ' ' + tr('Try again in {0} second{1}.', wait, wait === 1 ? '' : 's') : ''}</p>
-        <button type="submit" className={ui.btn('solid', 'big')} disabled={busy || wait > 0 || pin.length < 4}>{tr('Unlock')}</button>
+        <button type="submit" className={ui.btn('solid', 'big')} disabled={busy || wait > 0 || pin.length < (len ?? 4)}>{tr('Unlock')}</button>
         <details className="mt-6 text-left [&>summary]:cursor-pointer [&>summary]:text-muted">
           <summary>{tr('Forgot your PIN?')}</summary>
           <p className="text-muted text-[13px]">{tr('The PIN cannot be recovered. You can erase this phone\'s copy of your data and sign in again; what is in the cloud stays.')}</p>

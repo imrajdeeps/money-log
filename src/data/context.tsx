@@ -9,7 +9,8 @@ import type { BackupParse } from './backup.ts';
 import { addCategory as addCategoryTo, categoryList, mergeMine, migratePlan, removeCategory as removeCategoryFrom, setBudget } from '../core/categories.ts';
 import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import { config } from './config.ts';
-import { checkPin, cleanLock, makeLock, registerFailure, secondsToWait, shouldLock } from './lock.ts';
+import { checkPin, cleanLock, coverAtStart, makeLock, registerFailure, secondsToWait, shouldLock } from './lock.ts';
+import { clearLastActive, loadLastActive, saveLastActive } from './lockSeen.ts';
 import type { LockConfig, LockTries } from './lock.ts';
 import { MAX_ACCOUNT_PHOTOS, MAX_PHOTOS, liveFor, makeReceipt, markDeleted, photoRoom } from '../core/receipts.ts';
 import type { Receipt } from '../core/receipts.ts';
@@ -127,7 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       engRef.current = e;
       await migrateLegacy(store, isoDate()).catch(() => undefined); // an old imported plan or due list becomes the app's own, once
       await reload();
-      if (lockRef.current) setLocked(true); // a PIN is set: the app starts covered
+      if (lockRef.current) setLocked(coverAtStart(lockRef.current, loadLastActive(), Date.now())); // a PIN is set: the app starts covered, unless it was in use a moment ago
       setEng(e);
       setLoaded(true);
       void navigator.storage?.persist?.().catch(() => undefined); // ask the browser not to clear our data under storage pressure
@@ -175,6 +176,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
+
+  // While the app is open and unlocked, note the time now and then (and when it is left), so a refresh within the chosen time
+  // does not ask for the PIN again. The lock screen itself never counts as use.
+  useEffect(() => {
+    if (!lockCfg || locked) return undefined;
+    const note = () => saveLastActive(Date.now());
+    note();
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') note(); }, 10_000);
+    document.addEventListener('visibilitychange', note);
+    window.addEventListener('pagehide', note);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', note);
+      window.removeEventListener('pagehide', note);
+    };
+  }, [lockCfg, locked]);
 
   // A join link opened while the app is already running.
   useEffect(() => {
@@ -367,13 +384,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const cfg = lockRef.current;
     if (!cfg || (await checkPin(cfg, pin))) {
       await e.store.setMeta('lockTries', { fails: 0, until: 0 });
+      // A PIN set before 1.23 does not know its length yet: remember it now, so the lock screen can submit by itself next time.
+      if (cfg && cfg.len === undefined) { await e.store.setMeta('lock', { ...cfg, len: pin.length }); await reload(); }
+      saveLastActive(Date.now());
       setLocked(false);
       return { ok: true };
     }
     const next = registerFailure(tries, Date.now());
     await e.store.setMeta('lockTries', next);
     return { ok: false, waitSec: secondsToWait(next, Date.now()) };
-  }, []);
+  }, [reload]);
 
   // Changes to the categories and budgets are read-modify-write on the stored map, so two quick taps never lose one.
   const changeMine = useCallback(async (f: (m: Mine, list: CategoryInfo[], nowIso: string) => Mine) => {
@@ -560,6 +580,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await engRef.current?.sync.eraseAll();
     clearProfile(); // the name and the WhatsApp number are on this phone too
     clearSent(); // so is the memory of what went into calendar files
+    clearLastActive(); // and when the app was last in use
     await reload();
     setLocked(false); // everything, the PIN included, is gone
   }, [reload]);
