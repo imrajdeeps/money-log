@@ -14,6 +14,7 @@ const dayMonth = () => fmt('dm', { day: 'numeric', month: 'short' });
 const dayMonthYear = () => fmt('dmy', { day: 'numeric', month: 'short', year: 'numeric' });
 const monthYear = () => fmt('my', { month: 'long', year: 'numeric' });
 const clock = () => fmt('clock', { hour: '2-digit', minute: '2-digit' });
+const dateTime = () => fmt('dt', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 function parts(iso: string): [number, number, number] {
   const [y = 1970, m = 1, d = 1] = iso.split('-').map(Number);
@@ -29,6 +30,11 @@ export function shortDate(iso: string): string {
 export function monthLabel(key: string): string {
   const [y, m] = parts(`${key}-01`);
   return monthYear().format(new Date(y, m - 1, 1));
+}
+
+/** A moment as "11 Nov, 4:12 pm", in the chosen language. */
+export function dateTimeLabel(ms: number): string {
+  return dateTime().format(new Date(ms));
 }
 
 export function clockLabel(ms: number): string {

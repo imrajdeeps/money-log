@@ -9,6 +9,7 @@ import { BackupCard } from './parts/BackupCard.tsx';
 import { DangerCard } from './parts/DangerCard.tsx';
 import { AppearanceCard } from './parts/AppearanceCard.tsx';
 import { PasswordCard } from './parts/PasswordCard.tsx';
+import { LoginHistoryCard } from './parts/LoginHistoryCard.tsx';
 import { AccountCard } from './parts/AccountCard.tsx';
 import { ReceiptsCard } from './parts/ReceiptsCard.tsx';
 import { AboutCard } from './parts/AboutCard.tsx';
@@ -37,7 +38,7 @@ export function SettingsScreen({ section, onSection }: Readonly<{ section?: Sett
   const parts: Record<SettingsSection, ReactNode> = {
     profile: <ProfileCard />,
     account: <AccountCard />,
-    password: <PasswordCard />,
+    password: <><PasswordCard /><LoginHistoryCard /></>,
     recurring: <RecurringCard />,
     appearance: <AppearanceCard />,
     notifications: <NotificationsCard />,
@@ -56,7 +57,7 @@ export function SettingsScreen({ section, onSection }: Readonly<{ section?: Sett
         <div className={ui.pageHead}><h2>{tr('Settings')}</h2></div>
       )}
       <div hidden={open !== undefined}>
-        {signedIn && <SessionCard onSwitched={() => onSection('account')} />}
+        {signedIn && <SessionCard />}
         {SETTINGS_GROUPS.map((g, gi) => {
           const items = sections.filter((s) => s.group === g);
           if (!items.length) return null;

@@ -20,6 +20,7 @@ import type { Session, SyncOptions, SyncState } from './syncTypes.ts';
 import { MERGED } from './syncBlocks.ts';
 import type { Items, ProfileBlock } from './syncBlocks.ts';
 import { cleanName, isIndianNumber } from '../core/profile.ts';
+import { parseSessions, parseSignInLog } from '../core/signins.ts';
 import { isRefusal, pushable, toReceiptRow, toRow, toSettlementRow } from './syncRows.ts';
 import { tr } from '../core/i18n.ts';
 
@@ -664,6 +665,18 @@ export function createSync(opts: SyncOptions) {
   const setGroupClosed = (groupId: string, closed: boolean) => rpc<null>('set_group_closed', { p_group: groupId, p_closed: closed });
   const setUsualSplit = (groupId: string, split: UsualSplit | null) => rpc<null>('set_usual_split', { p_group: groupId, p_split: split });
 
+  // The sign-in record: where the account is signed in now, and what happened to it (the two read-only functions of version 1.25).
+  // They answer 404 until the database has them; the caller says "not available yet" then.
+  async function fetchSessions() {
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
+    return parseSessions(await request('/rest/v1/rpc/my_sessions', { method: 'POST', body: {} }));
+  }
+
+  async function fetchSignInLog(limit = 30) {
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
+    return parseSignInLog(await request('/rest/v1/rpc/my_sign_in_log', { method: 'POST', body: { p_limit: limit } }));
+  }
+
   async function init(): Promise<void> {
     const s = await getSession();
     const last = await store.getMeta<number>('lastSync');
@@ -690,7 +703,7 @@ export function createSync(opts: SyncOptions) {
     sync,
     refreshPending,
     createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
-    receiptBlob, fetchHistory,
+    receiptBlob, fetchHistory, fetchSessions, fetchSignInLog,
   };
 }
 
