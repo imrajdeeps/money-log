@@ -8,7 +8,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The trip's own settings: its dates, and closing it once everything is settled. Admins change them; everyone sees them.
-export function TripSettings({ group, isAdmin }: { group: Group; isAdmin: boolean }) {
+export function TripSettings({ group, isAdmin }: Readonly<{ group: Group; isAdmin: boolean }>) {
   const app = useApp();
   const act = useAction();
   const [starts, setStarts] = useState(group.starts_on ?? '');

@@ -5,7 +5,7 @@ import { fmtINR } from '../../core/logic.ts';
 import { tr } from '../../core/i18n.ts';
 
 // A trip at a glance, over its whole life; with dates it also says how many days and what that is a day.
-export function TripSummary({ group }: { group: Group }) {
+export function TripSummary({ group }: Readonly<{ group: Group }>) {
   const days = tripLength(group.starts_on, group.ends_on);
   return (
     <SummaryCard

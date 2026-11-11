@@ -13,7 +13,7 @@ function lineText(line: GoalLine): string {
 }
 
 // One goal: what is saved of the target, a bar, the date, and a line saying what it needs. Slide it left to remove it.
-export function GoalRow({ goal, progress, line, topUps, onEdit, onRemove }: { goal: Goal; progress: GoalProgress; line: GoalLine; topUps: TopUp[]; onEdit: () => void; onRemove: () => void }) {
+export function GoalRow({ goal, progress, line, topUps, onEdit, onRemove }: Readonly<{ goal: Goal; progress: GoalProgress; line: GoalLine; topUps: TopUp[]; onEdit: () => void; onRemove: () => void }>) {
   const parts = [
     progress.fromStart > 0 ? tr('{0} at the start', fmtINR(progress.fromStart)) : null,
     progress.fromTopUps > 0 ? tr('{0} in top-ups', fmtINR(progress.fromTopUps)) : null,

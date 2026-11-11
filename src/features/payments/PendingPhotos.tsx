@@ -8,7 +8,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // Photos chosen while a payment is being logged, before it is saved (they are attached to it when it is).
-export function PendingPhotos({ photos, onChange }: { photos: Blob[]; onChange: (next: Blob[]) => void }) {
+export function PendingPhotos({ photos, onChange }: Readonly<{ photos: Blob[]; onChange: (next: Blob[]) => void }>) {
   const urls = useMemo(() => photos.map((p) => URL.createObjectURL(p)), [photos]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
   const [busy, setBusy] = useState(false);

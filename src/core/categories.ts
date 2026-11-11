@@ -44,6 +44,8 @@ export type Mine = Record<string, MineItem>;
 const builtinOf = (key: string) => BUILTIN.find((b) => catKey(b.c) === key);
 // A name such as "constructor" or "toString" must not find what every object inherits.
 const own = (m: Mine, key: string): MineItem | undefined => (Object.hasOwn(m, key) ? m[key] : undefined);
+// How many categories of the person's own (not built-in, not removed) there are.
+const ownCount = (m: Mine): number => Object.values(m).filter((x) => !x.x && !builtinOf(catKey(x.n))).length;
 
 export type Source = 'builtin' | 'mine';
 export interface CategoryInfo {
@@ -81,15 +83,23 @@ export function planForMonth(mine: Mine, month: string): PlanData {
 // and a category the app did not have becomes one of the person's own. A category the person already has an item for (a budget,
 // an own category, a removal) is left alone: what was set in the app wins. The time stamp is the import's, so every phone
 // that migrates on its own makes the same items.
-export function migratePlan(plan: PlanData | null, mine: Mine, month: string): { mine: Mine; added: number } {
-  if (!plan || plan.months.length === 0) return { mine, added: 0 };
-  const near = (() => {
-    const i = plan.months.indexOf(month);
-    if (i >= 0) return i;
-    return month < (plan.months[0] ?? '') ? 0 : plan.months.length - 1;
-  })();
+// The column of the plan nearest to `month`: the month itself, else the first column (a month before the plan) or the last (after it).
+const nearestColumn = (plan: PlanData, month: string): number => {
+  const i = plan.months.indexOf(month);
+  if (i >= 0) return i;
+  return month < (plan.months[0] ?? '') ? 0 : plan.months.length - 1;
+};
+
+// The import's own time stamp, or the beginning of time when it has none.
+function planStamp(plan: PlanData): string {
   const stamp = (plan as { importedAt?: string }).importedAt;
-  const t = typeof stamp === 'string' && Number.isFinite(parseTs(stamp)) ? stamp : new Date(0).toISOString();
+  return typeof stamp === 'string' && Number.isFinite(parseTs(stamp)) ? stamp : new Date(0).toISOString();
+}
+
+export function migratePlan(plan: PlanData | null, mine: Mine, month: string): { mine: Mine; added: number } {
+  if (!plan?.months.length) return { mine, added: 0 };
+  const near = nearestColumn(plan, month);
+  const t = planStamp(plan);
   const out: Mine = { ...mine };
   let added = 0;
   for (const r of plan.rows) {
@@ -99,8 +109,7 @@ export function migratePlan(plan: PlanData | null, mine: Mine, month: string): {
     const amount = round2(r.p[near] ?? 0);
     const b = builtinOf(k);
     if (b && !(amount > 0)) continue; // a built-in with no figure needs no item
-    if (Object.keys(out).length >= MAX_ITEMS) break;
-    if (!b && Object.values(out).filter((m) => !m.x && !builtinOf(catKey(m.n))).length >= MAX_OWN) break;
+    if (Object.keys(out).length >= MAX_ITEMS || (!b && ownCount(out) >= MAX_OWN)) break;
     out[k] = { n: b ? b.c : name, g: b ? b.g : r.g, b: amount, x: 0, t };
     added++;
   }
@@ -127,7 +136,7 @@ export function addCategory(mine: Mine, visible: CategoryInfo[], rawName: string
   if (!(GROUPS as readonly string[]).includes(group)) return { ok: false, error: tr('Pick a group.') };
   const prev = own(mine, k);
   if (!prev && Object.keys(mine).length >= MAX_ITEMS) return { ok: false, error: tr('Too many categories.') };
-  if (!builtinOf(k) && Object.values(mine).filter((m) => !m.x && !builtinOf(catKey(m.n))).length >= MAX_OWN) {
+  if (!builtinOf(k) && ownCount(mine) >= MAX_OWN) {
     return { ok: false, error: tr('You can keep at most {0} categories of your own.', MAX_OWN) };
   }
   const b = builtinOf(k);

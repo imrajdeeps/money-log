@@ -2,8 +2,7 @@
 // like categories.ts and recurring.ts, and synced the same way: one block, merged item by item, the latest change to
 // each item wins. Goals and top-ups are items of their own (not a list inside a goal), so two phones adding a top-up at
 // the same moment keep both. Removed items stay (marked) so the removal reaches the other phones.
-import { daysInMonth, isValidDate } from './logic.ts';
-import { MAX_AMOUNT, UUID_RE, catKey, newId, normName, parseTs, round2 } from './logic.ts';
+import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, newId, normName, parseTs, round2 } from './logic.ts';
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';
 
@@ -61,7 +60,7 @@ export function addGoal(items: Goals, i: GoalInput, todayIso: string, nowIso: st
 
 export function editGoal(items: Goals, id: string, i: GoalInput, nowIso: string): GoalResult {
   const cur = items[id];
-  if (!cur || cur.k !== 'g' || cur.x) return { ok: false, error: tr('That goal is gone.') };
+  if (cur?.k !== 'g' || cur.x) return { ok: false, error: tr('That goal is gone.') };
   const error = checkGoalInput(i);
   if (error) return { ok: false, error };
   return { ok: true, items: { ...items, [id]: { ...cur, n: normName(i.name), a: i.target, d: i.date, s: i.saved, c: normName(i.category), t: nowIso } } };
@@ -70,7 +69,7 @@ export function editGoal(items: Goals, id: string, i: GoalInput, nowIso: string)
 // Removing a goal marks it and its top-ups.
 export function removeGoal(items: Goals, id: string, nowIso: string): Goals {
   const cur = items[id];
-  if (!cur || cur.k !== 'g' || cur.x) return items;
+  if (cur?.k !== 'g' || cur.x) return items;
   const out: Goals = { ...items, [id]: { ...cur, x: 1, t: nowIso } };
   for (const [k, v] of Object.entries(items)) if (v.k === 't' && v.g === id && !v.x) out[k] = { ...v, x: 1, t: nowIso };
   return out;
@@ -78,7 +77,7 @@ export function removeGoal(items: Goals, id: string, nowIso: string): Goals {
 
 export function addTopUp(items: Goals, goalId: string, amount: number, date: string, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
   const goal = items[goalId];
-  if (!goal || goal.k !== 'g' || goal.x) return { ok: false, error: tr('That goal is gone.') };
+  if (goal?.k !== 'g' || goal.x) return { ok: false, error: tr('That goal is gone.') };
   if (!amountOk(amount, 'above')) return { ok: false, error: tr('Enter an amount above zero, with at most two decimals.') };
   if (!isValidDate(date) || date > todayIso) return { ok: false, error: tr('Pick a date that is today or earlier.') };
   if (count(items, 't') >= MAX_TOPUPS) return { ok: false, error: tr('That is the most top-ups one account can keep.') };
@@ -87,7 +86,7 @@ export function addTopUp(items: Goals, goalId: string, amount: number, date: str
 
 export function removeTopUp(items: Goals, id: string, nowIso: string): Goals {
   const cur = items[id];
-  return !cur || cur.k !== 't' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
+  return cur?.k !== 't' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
 }
 
 // ---------------------------------------------------------------- net worth updates
@@ -95,7 +94,7 @@ const netOk = (n: unknown): n is number => typeof n === 'number' && Number.isFin
 
 /** What a person types as their net worth: digits with optional commas, a rupee sign and a leading minus (or brackets), up to two decimals. null if it is not one. */
 export function parseNetAmount(text: unknown): number | null {
-  let s = String(text ?? '').replace(/[₹\s,]/g, '');
+  let s = asText(text).replace(/[₹\s,]/g, '');
   let neg = false;
   if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
   if (s.startsWith('-') || s.startsWith('−')) { neg = !neg; s = s.slice(1); }
@@ -113,7 +112,7 @@ export function addNetUpdate(items: Goals, amount: number, date: string, todayIs
 
 export function removeNetUpdate(items: Goals, id: string, nowIso: string): Goals {
   const cur = items[id];
-  return !cur || cur.k !== 'n' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
+  return cur?.k !== 'n' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
 }
 
 /** The updates still kept, newest day first (on one day, the one entered last first). */
@@ -167,7 +166,7 @@ export function sameGoals(a: Goals, b: Goals): boolean {
   return ka.length === Object.keys(b).length && ka.every((k) => {
     const x = a[k]!;
     const y = Object.hasOwn(b, k) ? b[k]! : undefined;
-    if (!y || x.k !== y.k || x.a !== y.a || x.d !== y.d || x.x !== y.x || x.t !== y.t) return false;
+    if (x.k !== y?.k || x.a !== y.a || x.d !== y.d || x.x !== y.x || x.t !== y.t) return false;
     if (x.k === 'g') return y.k === 'g' && x.n === y.n && x.s === y.s && x.c === y.c && x.b === y.b;
     if (x.k === 't') return y.k === 't' && x.g === y.g;
     if (x.k === 'd') return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.f === y.f;
@@ -175,42 +174,62 @@ export function sameGoals(a: Goals, b: Goals): boolean {
   });
 }
 
-// Validate what comes from the server or a backup. Anything malformed is dropped, never repaired.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function cleanGoals(p: any): Goals {
+// Validate what comes from the server or a backup. Anything malformed is dropped, never repaired. Each kind of item has its own
+// check and its own cap (removed items count); anything of an unknown kind is dropped.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type Raw = any;
+const isDay = (d: unknown): d is string => typeof d === 'string' && isValidDate(d);
+const isTidy = (n: unknown): n is string => typeof n === 'string' && normName(n) === n;
+
+function cleanGoalItem(k: string, v: Raw): Goal | null {
+  if (!isTidy(v.n) || !isTidy(v.c) || !isDay(v.b)) return null;
+  if (checkGoalInput({ name: v.n, target: v.a, date: v.d, saved: v.s, category: v.c }) !== null) return null;
+  return { id: k, k: 'g', n: v.n, a: v.a, d: v.d, s: v.s, c: v.c, b: v.b, x: v.x, t: v.t };
+}
+
+function cleanTopUpItem(k: string, v: Raw): TopUp | null {
+  if (typeof v.g !== 'string' || !UUID_RE.test(v.g) || !amountOk(v.a, 'above') || !isDay(v.d)) return null;
+  return { id: k, k: 't', g: v.g, a: v.a, d: v.d, x: v.x, t: v.t };
+}
+
+function cleanNetItem(k: string, v: Raw): NetUpdate | null {
+  if (!netOk(v.a) || !isDay(v.d)) return null;
+  return { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
+}
+
+function cleanDueItem(k: string, v: Raw): DueEntry | null {
+  if ((v.kind !== 'oneoff' && v.kind !== 'todo') || (v.f !== 0 && v.f !== 1)) return null;
+  if (!isTidy(v.n) || v.n === '' || v.n.length > MAX_DUE_TITLE) return null;
+  if (v.d !== '' && !isDay(v.d)) return null;
+  if (!amountOk(v.a, 'zero') || (v.kind === 'todo' && v.a !== 0)) return null;
+  return { id: k, k: 'd', kind: v.kind, n: v.n, d: v.d, a: v.a, f: v.f, x: v.x, t: v.t };
+}
+
+const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => GoalItem | null }> = {
+  g: { max: MAX_GOALS, clean: cleanGoalItem },
+  t: { max: MAX_TOPUPS, clean: cleanTopUpItem },
+  n: { max: MAX_NET_UPDATES, clean: cleanNetItem },
+  d: { max: MAX_DUE_ENTRIES, clean: cleanDueItem },
+};
+
+const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id === k && (v.x === 0 || v.x === 1) && Number.isFinite(parseTs(v.t));
+
+export function cleanGoals(p: Raw): Goals {
   const out: Goals = {};
   if (!p || typeof p !== 'object') return out;
-  let goals = 0;
-  let topups = 0;
-  let nets = 0;
-  let dues = 0;
-  for (const [k, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (!UUID_RE.test(k) || !v || v.id !== k || (v.x !== 0 && v.x !== 1) || !Number.isFinite(parseTs(v.t))) continue;
-    if (v.k === 'g') {
-      if (goals >= MAX_GOALS || typeof v.n !== 'string' || normName(v.n) !== v.n || typeof v.c !== 'string' || normName(v.c) !== v.c) continue;
-      if (typeof v.b !== 'string' || !isValidDate(v.b)) continue;
-      if (checkGoalInput({ name: v.n, target: v.a, date: v.d, saved: v.s, category: v.c }) !== null) continue;
-      out[k] = { id: k, k: 'g', n: v.n, a: v.a, d: v.d, s: v.s, c: v.c, b: v.b, x: v.x, t: v.t };
-      goals++;
-    } else if (v.k === 't') {
-      if (topups >= MAX_TOPUPS || typeof v.g !== 'string' || !UUID_RE.test(v.g) || !amountOk(v.a, 'above') || typeof v.d !== 'string' || !isValidDate(v.d)) continue;
-      out[k] = { id: k, k: 't', g: v.g, a: v.a, d: v.d, x: v.x, t: v.t };
-      topups++;
-    } else if (v.k === 'n') {
-      if (nets >= MAX_NET_UPDATES || !netOk(v.a) || typeof v.d !== 'string' || !isValidDate(v.d)) continue;
-      out[k] = { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
-      nets++;
-    } else if (v.k === 'd') {
-      if (dues >= MAX_DUE_ENTRIES || (v.kind !== 'oneoff' && v.kind !== 'todo') || (v.f !== 0 && v.f !== 1)) continue;
-      if (typeof v.n !== 'string' || normName(v.n) !== v.n || v.n === '' || v.n.length > MAX_DUE_TITLE) continue;
-      if (typeof v.d !== 'string' || (v.d !== '' && !isValidDate(v.d))) continue;
-      if (!amountOk(v.a, 'zero') || (v.kind === 'todo' && v.a !== 0)) continue;
-      out[k] = { id: k, k: 'd', kind: v.kind, n: v.n, d: v.d, a: v.a, f: v.f, x: v.x, t: v.t };
-      dues++;
-    }
+  const counts: Record<string, number> = {};
+  for (const [k, v] of Object.entries(p as Record<string, Raw>)) {
+    if (!hasCommonFields(k, v)) continue;
+    const kind = Object.hasOwn(ITEM_KINDS, v.k) ? ITEM_KINDS[v.k] : undefined;
+    if (!kind || (counts[v.k] ?? 0) >= kind.max) continue;
+    const item = kind.clean(k, v);
+    if (!item) continue;
+    out[k] = item;
+    counts[v.k] = (counts[v.k] ?? 0) + 1;
   }
   return out;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ---------------------------------------------------------------- progress and what a goal needs
 

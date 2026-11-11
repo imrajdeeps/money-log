@@ -23,7 +23,7 @@ function loadAlert(): AlertPrefs {
 
 const hourLabel = (h: number) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'am' : 'pm'}`;
 
-function DueRow({ v, onToggle, onEdit, onCalendar, onDelete }: { v: DueView; onToggle: () => void; onEdit: () => void; onCalendar: (() => void) | null; onDelete: () => void }) {
+function DueRow({ v, onToggle, onEdit, onCalendar, onDelete }: Readonly<{ v: DueView; onToggle: () => void; onEdit: () => void; onCalendar: (() => void) | null; onDelete: () => void }>) {
   const what = v.kind === 'oneoff' ? tr('One-off payment') : tr('To-do');
   const when = v.due ? `${shortDate(v.due)} · ${dueRelative(v.days)}` : tr('No date');
   return (

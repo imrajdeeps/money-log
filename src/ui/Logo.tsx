@@ -1,6 +1,6 @@
 // The mark of the app: a coin ring with a gradient rupee. It is the app icon without its square, so it can sit on any green.
 // (index.html carries the same drawing as plain markup for the start screen, which shows before any script has run.)
-export function Logo({ size = 96, className }: { size?: number; className?: string }) {
+export function Logo({ size = 96, className }: Readonly<{ size?: number; className?: string }>) {
   return (
     <svg className={className} width={size} height={size} viewBox="64 64 384 384" aria-hidden="true" focusable="false">
       <defs>

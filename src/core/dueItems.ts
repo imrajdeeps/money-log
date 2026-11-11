@@ -36,7 +36,7 @@ export function addDueItem(items: Goals, i: DueInput, nowIso: string, id: string
 
 export function editDueItem(items: Goals, id: string, i: DueInput, nowIso: string): GoalResult {
   const cur = items[id];
-  if (!cur || cur.k !== 'd' || cur.x) return { ok: false, error: tr('That item is gone.') };
+  if (cur?.k !== 'd' || cur.x) return { ok: false, error: tr('That item is gone.') };
   const error = checkDueInput(i);
   if (error) return { ok: false, error };
   return { ok: true, items: { ...items, [id]: entryOf(i, id, cur.f, nowIso) } };
@@ -44,13 +44,13 @@ export function editDueItem(items: Goals, id: string, i: DueInput, nowIso: strin
 
 export function setDueItemDone(items: Goals, id: string, done: boolean, nowIso: string): Goals {
   const cur = items[id];
-  if (!cur || cur.k !== 'd' || cur.x || cur.f === (done ? 1 : 0)) return items;
+  if (cur?.k !== 'd' || cur.x || cur.f === (done ? 1 : 0)) return items;
   return { ...items, [id]: { ...cur, f: done ? 1 : 0, t: nowIso } };
 }
 
 export function removeDueItem(items: Goals, id: string, nowIso: string): Goals {
   const cur = items[id];
-  return !cur || cur.k !== 'd' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
+  return cur?.k !== 'd' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
 }
 
 /** The entries still kept, as the due list's items (the key is the entry's id), ready for classifyDue with no marks. */
@@ -76,20 +76,27 @@ function idOf(key: string): string {
 }
 export const migratedDueId = (key: string): string => idOf(`due|${key}`);
 
+// One imported item as an entry of the due list, or null when it was removed in the app or cannot be kept.
+function migratedEntry(it: DueItem, marks: DoneMap, importedAt: string): DueEntry | null {
+  if (isRemoved(it, marks, importedAt)) return null;
+  const title = normName(it.title);
+  if (title === '' || title.length > MAX_DUE_TITLE) return null;
+  const mark = marks[it.k];
+  const stamp = mark && parseTs(mark.t) > parseTs(importedAt) ? mark.t : importedAt;
+  const id = migratedDueId(it.k);
+  return { id, k: 'd', kind: it.kind, n: title, d: it.due ?? '', a: it.kind === 'oneoff' ? (it.amount ?? 0) : 0, f: isDone(it, marks, importedAt) ? 1 : 0, x: 0, t: stamp };
+}
+
 export function migrateDue(block: { items: DueItem[]; importedAt: string } | null, marks: DoneMap, existing: Goals): { items: Goals; added: number } {
   if (!block) return { items: existing, added: 0 };
   const out: Goals = { ...existing };
   let added = 0;
   for (const it of block.items) {
-    if (isRemoved(it, marks, block.importedAt)) continue;
-    const id = migratedDueId(it.k);
-    if (Object.hasOwn(out, id)) continue;
+    if (Object.hasOwn(out, migratedDueId(it.k))) continue;
     if (dueCount(out) >= MAX_DUE_ENTRIES) break;
-    const m = marks[it.k];
-    const stamp = m && parseTs(m.t) > parseTs(block.importedAt) ? m.t : block.importedAt;
-    const title = normName(it.title);
-    if (title === '' || title.length > MAX_DUE_TITLE) continue;
-    out[id] = { id, k: 'd', kind: it.kind, n: title, d: it.due ?? '', a: it.kind === 'oneoff' ? (it.amount ?? 0) : 0, f: isDone(it, marks, block.importedAt) ? 1 : 0, x: 0, t: stamp };
+    const entry = migratedEntry(it, marks, block.importedAt);
+    if (!entry) continue;
+    out[entry.id] = entry;
     added++;
   }
   return { items: out, added };

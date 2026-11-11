@@ -85,8 +85,11 @@ export function parseTs(s: unknown): number {
 }
 
 // ---------------------------------------------------------------- amounts and money text
+/** A typed value as text: a string or a number as it is, anything else (nothing, an object) as empty. */
+export const asText = (v: unknown): string => (typeof v === 'string' || typeof v === 'number' ? String(v) : '');
+
 export function parseAmount(text: unknown): number | null {
-  const s = String(text ?? '').replace(/[₹\s,]/g, '');
+  const s = asText(text).replace(/[₹\s,]/g, '');
   if (s === '' || s === '.' || !/^\d*\.?\d{0,2}$/.test(s)) return null;
   const n = round2(Number.parseFloat(s));
   return n > 0 && n < MAX_AMOUNT ? n : null;
@@ -174,57 +177,90 @@ export function restoreEntry(current: Entry, before: Entry, nowIso: string): Ent
 }
 
 // Strict check for anything that arrives from outside (backup file, server row). Returns a clean entry or null.
+const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID_RE.test(v);
+
+// null: not there; undefined: there but not a good id
+function optionalUuid(v: unknown): string | null | undefined {
+  if (v === null || v === undefined) return null;
+  return isUuid(v) ? v : undefined;
+}
+
+function cleanAmount(v: unknown): number | null {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 && n < MAX_AMOUNT && round2(n) === n ? n : null;
+}
+
+// The id, day, category, note and method.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function validText(e: any): boolean {
+  if (!isUuid(e.id) || !isValidDate(e.entry_date)) return false;
+  if (typeof e.category !== 'string' || e.category.length < 1 || e.category.length > 80) return false;
+  const note = e.note ?? '';
+  if (typeof note !== 'string' || note.length > 500) return false;
+  return e.method == null || (METHODS as readonly string[]).includes(e.method);
+}
+
+// created_at and updated_at must be times; deleted_at and exported_at may be missing.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function validStamps(e: any): boolean {
+  if (!['created_at', 'updated_at'].every((k) => Number.isFinite(parseTs(e[k])))) return false;
+  return ['deleted_at', 'exported_at'].every((k) => e[k] == null || Number.isFinite(parseTs(e[k])));
+}
+
+// The shares of a shared expense: at most 30 people, each a user id with a non-negative amount, adding up to the amount.
+// null: no shares; undefined: not good.
+function cleanShares(raw: unknown, amount: number): Shares | null | undefined {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const entries = Object.entries(raw as Record<string, unknown>);
+  if (entries.length > 30) return undefined;
+  const shares: Shares = {};
+  let sum = 0;
+  for (const [uid, v] of entries) {
+    if (!UUID_RE.test(uid) || typeof v !== 'number' || !Number.isFinite(v) || v < 0 || round2(v) !== v) return undefined;
+    shares[uid.toLowerCase()] = v;
+    sum = round2(sum + v);
+  }
+  return sum === amount ? shares : undefined;
+}
+
+// A private payment carries no group, payer or shares; a shared one carries all three, and the shares add up.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanGroupFields(e: any, amount: number): { groupId: string | null; paidBy: string | null; shares: Shares | null; shareOf: string | null } | null {
+  const groupId = optionalUuid(e.group_id);
+  const paidBy = optionalUuid(e.paid_by);
+  const shareOf = optionalUuid(e.share_of);
+  const shares = cleanShares(e.shares, amount);
+  if (groupId === undefined || paidBy === undefined || shareOf === undefined || shares === undefined) return null;
+  const consistent = groupId === null ? paidBy === null && shares === null : paidBy !== null && shares !== null;
+  return consistent ? { groupId, paidBy, shares, shareOf } : null;
+}
+
+const lower = (v: string | null): string | null => (v === null ? null : v.toLowerCase());
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanEntry(e: any): Entry | null {
-  if (!e || typeof e !== 'object') return null;
-  if (typeof e.id !== 'string' || !UUID_RE.test(e.id)) return null;
-  if (!isValidDate(e.entry_date)) return null;
-  if (typeof e.category !== 'string' || e.category.length < 1 || e.category.length > 80) return null;
-  const amount = typeof e.amount === 'string' ? Number(e.amount) : e.amount;
-  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount >= MAX_AMOUNT || round2(amount) !== amount) return null;
-  const note = e.note == null ? '' : e.note;
-  if (typeof note !== 'string' || note.length > 500) return null;
-  if (e.method != null && !(METHODS as readonly string[]).includes(e.method)) return null;
-  for (const k of ['created_at', 'updated_at']) if (!Number.isFinite(parseTs(e[k]))) return null;
-  for (const k of ['deleted_at', 'exported_at']) if (e[k] != null && !Number.isFinite(parseTs(e[k]))) return null;
-  // A private payment carries no group, payer or shares; a shared one carries all three, and the shares add up.
-  const groupId = e.group_id ?? null;
-  const paidBy = e.paid_by ?? null;
-  if (groupId !== null && (typeof groupId !== 'string' || !UUID_RE.test(groupId))) return null;
-  if (paidBy !== null && (typeof paidBy !== 'string' || !UUID_RE.test(paidBy))) return null;
-  let shares: Shares | null = null;
-  if (e.shares != null) {
-    if (typeof e.shares !== 'object' || Array.isArray(e.shares)) return null;
-    const entries = Object.entries(e.shares as Record<string, unknown>);
-    if (entries.length > 30) return null;
-    shares = {};
-    let sum = 0;
-    for (const [uid, v] of entries) {
-      if (!UUID_RE.test(uid) || typeof v !== 'number' || !Number.isFinite(v) || v < 0 || round2(v) !== v) return null;
-      shares[uid.toLowerCase()] = v;
-      sum = round2(sum + v);
-    }
-    if (sum !== amount) return null;
-  }
-  if (groupId === null ? paidBy !== null || shares !== null : paidBy === null || shares === null) return null;
-  const shareOf = e.share_of ?? null;
-  if (shareOf !== null && (typeof shareOf !== 'string' || !UUID_RE.test(shareOf))) return null;
+  if (!e || typeof e !== 'object' || !validText(e) || !validStamps(e)) return null;
+  const amount = cleanAmount(e.amount);
+  if (amount === null) return null;
+  const group = cleanGroupFields(e, amount);
+  if (!group) return null;
   return {
     id: e.id.toLowerCase(),
-    owner_id: typeof e.owner_id === 'string' && UUID_RE.test(e.owner_id) ? e.owner_id.toLowerCase() : null,
+    owner_id: isUuid(e.owner_id) ? e.owner_id.toLowerCase() : null,
     entry_date: e.entry_date,
     category: e.category,
     amount,
-    note,
+    note: e.note ?? '',
     method: e.method ?? null,
     created_at: e.created_at,
     updated_at: e.updated_at,
     deleted_at: e.deleted_at ?? null,
     exported_at: e.exported_at ?? null,
-    group_id: groupId === null ? null : groupId.toLowerCase(),
-    paid_by: paidBy === null ? null : paidBy.toLowerCase(),
-    shares,
-    share_of: shareOf === null ? null : shareOf.toLowerCase(),
+    group_id: lower(group.groupId),
+    paid_by: lower(group.paidBy),
+    shares: group.shares,
+    share_of: lower(group.shareOf),
     dirty: e.dirty ? 1 : 0,
   };
 }

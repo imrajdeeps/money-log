@@ -16,7 +16,7 @@ const H = 100;
 // It stretches to the tile's width; styles.css keeps the lines 2px and the end dot round whatever the stretch.
 export function PaceChart({ daily, lastDaily, days, budget, projected = null, label }: Props) {
   const last = lastDaily.slice(0, days);
-  const top = Math.max(budget, daily[daily.length - 1] ?? 0, last[last.length - 1] ?? 0, projected ?? 0) || 1;
+  const top = Math.max(budget, daily.at(-1) ?? 0, last.at(-1) ?? 0, projected ?? 0) || 1;
   const x = (i: number) => (days > 1 ? (i / (days - 1)) * W : 0);
   const y = (v: number) => H - (v / top) * (H - 8);
   const path = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('');

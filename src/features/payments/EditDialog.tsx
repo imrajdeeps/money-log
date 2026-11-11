@@ -13,7 +13,7 @@ import type { SplitState } from './SplitEditor.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
-export function EditDialog({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose: () => void }>) {
   const app = useApp();
   const ref = useRef<HTMLDialogElement>(null);
   const [amount, setAmount] = useState(String(entry.amount));

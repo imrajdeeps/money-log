@@ -63,7 +63,7 @@ export async function checkPin(cfg: LockConfig, pin: string): Promise<boolean> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanLock(x: any): LockConfig | null {
-  if (!x || x.v !== 1 || typeof x.salt !== 'string' || typeof x.hash !== 'string') return null;
+  if (x?.v !== 1 || typeof x.salt !== 'string' || typeof x.hash !== 'string') return null;
   if (!Number.isInteger(x.iterations) || x.iterations < 1000 || x.iterations > 5_000_000) return null;
   if (!Number.isInteger(x.timeoutSec) || x.timeoutSec < 0 || x.timeoutSec > 86400) return null;
   try { unb64(x.salt); unb64(x.hash); } catch { return null; }

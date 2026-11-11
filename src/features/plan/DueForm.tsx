@@ -8,7 +8,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // Making a due item, or changing one: a payment (with an optional amount) or a to-do, and an optional date.
-export function DueForm({ item, onDone }: { item?: DueItem; onDone: () => void }) {
+export function DueForm({ item, onDone }: Readonly<{ item?: DueItem; onDone: () => void }>) {
   const app = useApp();
   const [kind, setKind] = useState<DueEntryKind>(item?.kind ?? 'oneoff');
   const [title, setTitle] = useState(item?.title ?? '');

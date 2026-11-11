@@ -3,7 +3,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // What to do with one category of the Month page: set its budget, or add an expense that already has this category.
-export function CategoryActions({ category, onBudget, onAddExpense, onClose }: { category: string; onBudget: () => void; onAddExpense: () => void; onClose: () => void }) {
+export function CategoryActions({ category, onBudget, onAddExpense, onClose }: Readonly<{ category: string; onBudget: () => void; onAddExpense: () => void; onClose: () => void }>) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;

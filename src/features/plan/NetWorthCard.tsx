@@ -15,12 +15,12 @@ const H = 56;
 const PAD = 6;
 
 // A small line through the last updates, oldest on the left. One shared scale, so a fall looks like a fall.
-function Spark({ values, label }: { values: number[]; label: string }) {
+function Spark({ values, label }: Readonly<{ values: number[]; label: string }>) {
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const span = hi - lo || 1;
   const pts = values.map((v, i) => [PAD + (i * (W - PAD * 2)) / Math.max(1, values.length - 1), H - PAD - ((v - lo) / span) * (H - PAD * 2)] as const);
-  const last = pts[pts.length - 1]!;
+  const last = pts.at(-1)!;
   return (
     <svg className="mt-3 block h-14 w-full text-accent" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
       <polyline points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
@@ -29,7 +29,7 @@ function Spark({ values, label }: { values: number[]; label: string }) {
   );
 }
 
-function Change({ by, since }: { by: number; since: string }) {
+function Change({ by, since }: Readonly<{ by: number; since: string }>) {
   if (by === 0) return <p className="m-0 text-[14px] text-muted">{tr('No change since {0}', since)}</p>;
   return (
     <p className={`m-0 text-[14px] font-semibold ${by > 0 ? 'text-good' : 'text-bad'}`}>
@@ -39,7 +39,7 @@ function Change({ by, since }: { by: number; since: string }) {
 }
 
 // Typing a new figure: the amount (it can be negative: debts can outweigh what you own) and the day it was true.
-function UpdateForm({ onDone }: { onDone: () => void }) {
+function UpdateForm({ onDone }: Readonly<{ onDone: () => void }>) {
   const app = useApp();
   const today = isoDate();
   const [amount, setAmount] = useState('');
@@ -80,7 +80,7 @@ function UpdateForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function History({ updates }: { updates: NetUpdate[] }) {
+function History({ updates }: Readonly<{ updates: NetUpdate[] }>) {
   const app = useApp();
   return (
     <details className="mt-3.5 border-t border-line pt-3">

@@ -25,18 +25,18 @@ test('a chosen theme wins over the phone; "system" follows the phone', () => {
 
 // public/theme-init.js runs before the app does, so it cannot import src/theme.ts: run it for real and compare.
 function runInit(stored: unknown, phoneDark: boolean, opts: { storageThrows?: boolean; noMatchMedia?: boolean } = {}) {
-  const attrs: Record<string, string> = {};
+  const dataset: Record<string, string> = {};
   const metaAttrs: Record<string, string> = {};
   const sandbox: Record<string, unknown> = {
     localStorage: { getItem: (k: string) => { if (opts.storageThrows) throw new Error('blocked'); return k === THEME_KEY ? stored : null; } },
     document: {
-      documentElement: { setAttribute: (k: string, v: string) => { attrs[k] = v; } },
+      documentElement: { dataset },
       querySelector: (sel: string) => (sel === 'meta[name="theme-color"]' ? { setAttribute: (k: string, v: string) => { metaAttrs[k] = v; } } : null),
     },
   };
   if (!opts.noMatchMedia) sandbox.matchMedia = () => ({ matches: phoneDark });
   runInNewContext(read('public/theme-init.js'), sandbox);
-  return { theme: attrs['data-theme'], color: metaAttrs.content };
+  return { theme: dataset.theme, color: metaAttrs.content };
 }
 
 test('the early script and the app resolve the theme the same way, whatever is stored', () => {

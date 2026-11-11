@@ -7,7 +7,7 @@ import { fmtINR } from '../../core/logic.ts';
 export interface Bar { key: string; label: string; value: number; partial?: boolean }
 
 /** Bars side by side, tallest = the biggest value. A `partial` bar (the month that is not over) is drawn lighter. */
-export function BarChart({ items, label, values = true, height = 132 }: { items: Bar[]; label: string; values?: boolean; height?: number }) {
+export function BarChart({ items, label, values = true, height = 132 }: Readonly<{ items: Bar[]; label: string; values?: boolean; height?: number }>) {
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
     <div role="img" aria-label={`${label}: ${items.map((i) => `${i.label} ${fmtINR(i.value)}`).join(', ')}`}>
@@ -29,7 +29,7 @@ export function BarChart({ items, label, values = true, height = 132 }: { items:
 }
 
 /** A tiny line of a few values, for a row of a table. */
-export function Sparkline({ values, label }: { values: number[]; label: string }) {
+export function Sparkline({ values, label }: Readonly<{ values: number[]; label: string }>) {
   const W = 60;
   const H = 18;
   const max = Math.max(1, ...values);
@@ -39,7 +39,7 @@ export function Sparkline({ values, label }: { values: number[]; label: string }
   return (
     <svg className="block flex-none text-accent" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
       <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      {values.length > 0 && <circle cx={x(values.length - 1)} cy={y(values[values.length - 1] ?? 0)} r="2" fill="currentColor" />}
+      {values.length > 0 && <circle cx={x(values.length - 1)} cy={y(values.at(-1) ?? 0)} r="2" fill="currentColor" />}
     </svg>
   );
 }

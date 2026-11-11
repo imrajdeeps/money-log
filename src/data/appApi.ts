@@ -12,7 +12,6 @@ import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import type { RecurInput, Recurring } from '../core/recurring.ts';
 import type { Sync, SyncState } from './sync.ts';
-import { syncEnabled } from './context.tsx';
 
 export interface Engine { store: Store; sync: Sync }
 

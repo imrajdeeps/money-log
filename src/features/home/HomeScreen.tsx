@@ -60,7 +60,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
     const prev = monthlyTotals(budgetEntries(app.entries, app.me), groupLookup(app.categories), monthsEnding(shiftMonth(month, -1), 3));
     return averageOf(prev.filter((t) => t.spent > 0).map((t) => t.spent));
   }, [app.entries, app.me, app.categories, month]);
-  const toDate = ov.daily[ov.daily.length - 1] ?? 0;
+  const toDate = ov.daily.at(-1) ?? 0;
   const left = ov.budget - ov.spent;
   const paceLabel = tr('Spending this month by day: {0} by {1} {2}; last month {3} by the same day', fmtINR(toDate), ov.day, mon, fmtINR(ov.lastToDate))
     + (ov.budgeted ? tr('; budget {0}.', fmtINR(ov.budget)) : '.');
@@ -88,7 +88,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
           <p className={hs.status(ov.budgeted && left < 0 ? 'bad' : ov.budgeted && nearBudget(ov.spent, ov.budget) ? 'warn' : '')}>
             {!ov.budgeted ? tr('No budgets yet: open to set them.') : left >= 0 ? tr('{0} left this month{1}', fmtINR(left), nearBudget(ov.spent, ov.budget) ? tr(', budget nearly used') : '') : tr('{0} over budget', fmtINR(-left))}
           </p>
-          {toDate === 0 && (ov.lastDaily[ov.lastDaily.length - 1] ?? 0) === 0 ? (
+          {toDate === 0 && (ov.lastDaily.at(-1) ?? 0) === 0 ? (
             // nothing to draw yet: a flat line at zero would say less than these words
             <BentoEmpty cta={tr('Add expense')} onCta={openAdd}>{tr('No spending logged this month or last (savings are not counted here). Your spending by day shows here once you log a payment.')}</BentoEmpty>
           ) : (

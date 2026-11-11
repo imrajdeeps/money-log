@@ -10,7 +10,7 @@ import { tr } from '../../core/i18n.ts';
 
 // What has been set aside for a goal by hand: add a top-up (an amount and a day), and see or remove the ones made.
 // Slide a top-up to the left and tap the trash to remove it.
-export function TopUps({ goal, topUps }: { goal: Goal; topUps: TopUp[] }) {
+export function TopUps({ goal, topUps }: Readonly<{ goal: Goal; topUps: TopUp[] }>) {
   const app = useApp();
   const today = isoDate();
   const [open, setOpen] = useState(false);
