@@ -1,6 +1,6 @@
 # PRD: Everything in the app, the backup file as the only import
 
-**Status:** proposed (2026-11-11), waiting for the owner's go-ahead. Nothing is built yet.
+**Status:** 1.20 built (2026-11-11); 1.21 and 1.22 are still to do.
 
 ## Problem
 The Plan page's "Net worth and goals" block can only be filled by pasting a block from the spreadsheet's App export tab, so it cannot
@@ -36,9 +36,12 @@ be set in the app, and it is a long list of rows that looks messy. More widely t
 **Removed:** the *Net worth and goals* paste block in Settings → Spreadsheet plan, the parser and the long figure list. Figures already
 imported are not shown any more.
 
-**Data:** net worth is stored in the existing `networth` plan block with a new payload `{ v: 2, updates: [{ id, d, a }] }`, merged item by
-item (latest change to each update wins, like top-ups). **No new SQL for the database.** The old `v: 1` payload is ignored and
-overwritten on the first update. The tile on the Overview shows the latest net worth.
+**Data (as built):** net worth updates are items of kind `n` (`{ id, k: 'n', a: amount, d: day, x, t }`) in the existing `goals` block next to
+goals and top-ups, merged item by item like top-ups, so sync, backup and the database need **no change** (changed from the first
+idea of a new payload in the `networth` block: the goals block already has the merge, backup and sync machinery). The old `networth`
+block rows are ignored. The Overview tile shows the latest net worth.
+
+**Also built:** the Goals page is folded into Plan (one page, one place to add goals); `/goals` opens Plan.
 
 **Not in 1.20:** a net worth history chart (the Insights page may take it later), assets and debts as separate lists.
 

@@ -9,6 +9,8 @@ import { tr } from './i18n.ts';
 
 export const MAX_GOALS = 30; // what one account may keep, removed ones included
 export const MAX_TOPUPS = 500;
+export const MAX_NET_UPDATES = 400;
+const NET_LIMIT = 1e12;
 export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is short term, later is long term
 
 // A goal. id is also its key. n name, a target amount (rupees), d target date, s the amount already saved when it was made
@@ -17,7 +19,10 @@ export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is sh
 export interface Goal { id: string; k: 'g'; n: string; a: number; d: string; s: number; c: string; b: string; x: 0 | 1; t: string }
 // A top-up towards goal g: an amount and the day it was set aside.
 export interface TopUp { id: string; k: 't'; g: string; a: number; d: string; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp;
+// A net worth update: what the person's net worth was on a day (a number that may be negative). Kept in the same block as the goals
+// (so it syncs and is backed up with them, with no new database block), one item per update so two phones never overwrite each other.
+export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -38,7 +43,7 @@ export function checkGoalInput(i: GoalInput): string | null {
 
 export type GoalResult = { ok: true; items: Goals } | { ok: false; error: string };
 
-const count = (items: Goals, k: 'g' | 't') => Object.values(items).filter((x) => x.k === k).length;
+const count = (items: Goals, k: 'g' | 't' | 'n') => Object.values(items).filter((x) => x.k === k).length;
 
 export function addGoal(items: Goals, i: GoalInput, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
   const error = checkGoalInput(i);
@@ -79,6 +84,46 @@ export function removeTopUp(items: Goals, id: string, nowIso: string): Goals {
   return !cur || cur.k !== 't' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
 }
 
+// ---------------------------------------------------------------- net worth updates
+const netOk = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < NET_LIMIT && round2(n) === n;
+
+/** What a person types as their net worth: digits with optional commas, a rupee sign and a leading minus (or brackets), up to two decimals. null if it is not one. */
+export function parseNetAmount(text: unknown): number | null {
+  let s = String(text ?? '').replace(/[₹\s,]/g, '');
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+  if (s.startsWith('-') || s.startsWith('−')) { neg = !neg; s = s.slice(1); }
+  if (!/^(\d+\.?\d{0,2}|\.\d{1,2})$/.test(s)) return null;
+  const n = round2(Number.parseFloat(s)) * (neg ? -1 : 1);
+  return netOk(n) ? n + 0 : null; // + 0: no negative zero
+}
+
+export function addNetUpdate(items: Goals, amount: number, date: string, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
+  if (!netOk(amount)) return { ok: false, error: tr('Enter your net worth as a number, with at most two decimals. It can be negative.') };
+  if (!isValidDate(date) || date > todayIso) return { ok: false, error: tr('Pick a date that is today or earlier.') };
+  if (count(items, 'n') >= MAX_NET_UPDATES) return { ok: false, error: tr('That is the most net worth updates one account can keep. Remove some old ones.') };
+  return { ok: true, items: { ...items, [id]: { id, k: 'n', a: amount, d: date, x: 0, t: nowIso } } };
+}
+
+export function removeNetUpdate(items: Goals, id: string, nowIso: string): Goals {
+  const cur = items[id];
+  return !cur || cur.k !== 'n' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
+}
+
+/** The updates still kept, newest day first (on one day, the one entered last first). */
+export const netUpdates = (items: Goals): NetUpdate[] =>
+  Object.values(items).filter((x): x is NetUpdate => x.k === 'n' && !x.x).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : parseTs(b.t) - parseTs(a.t)));
+
+export interface NetNow { value: number; date: string; previous: { value: number; date: string } | null; change: number | null }
+
+/** The latest figure and how it moved since the one before it; null before the first update. */
+export function netNow(items: Goals): NetNow | null {
+  const all = netUpdates(items);
+  const [last, before] = all;
+  if (!last) return null;
+  return { value: last.a, date: last.d, previous: before ? { value: before.a, date: before.d } : null, change: before ? round2(last.a - before.a) : null };
+}
+
 export const activeGoals = (items: Goals): Goal[] =>
   Object.values(items).filter((x): x is Goal => x.k === 'g' && !x.x).sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : a.n.localeCompare(b.n)));
 
@@ -117,7 +162,9 @@ export function sameGoals(a: Goals, b: Goals): boolean {
     const x = a[k]!;
     const y = Object.hasOwn(b, k) ? b[k]! : undefined;
     if (!y || x.k !== y.k || x.a !== y.a || x.d !== y.d || x.x !== y.x || x.t !== y.t) return false;
-    return x.k === 'g' ? y.k === 'g' && x.n === y.n && x.s === y.s && x.c === y.c && x.b === y.b : y.k === 't' && x.g === y.g;
+    if (x.k === 'g') return y.k === 'g' && x.n === y.n && x.s === y.s && x.c === y.c && x.b === y.b;
+    if (x.k === 't') return y.k === 't' && x.g === y.g;
+    return true;
   });
 }
 
@@ -128,6 +175,7 @@ export function cleanGoals(p: any): Goals {
   if (!p || typeof p !== 'object') return out;
   let goals = 0;
   let topups = 0;
+  let nets = 0;
   for (const [k, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!UUID_RE.test(k) || !v || v.id !== k || (v.x !== 0 && v.x !== 1) || !Number.isFinite(parseTs(v.t))) continue;
     if (v.k === 'g') {
@@ -140,6 +188,10 @@ export function cleanGoals(p: any): Goals {
       if (topups >= MAX_TOPUPS || typeof v.g !== 'string' || !UUID_RE.test(v.g) || !amountOk(v.a, 'above') || typeof v.d !== 'string' || !isValidDate(v.d)) continue;
       out[k] = { id: k, k: 't', g: v.g, a: v.a, d: v.d, x: v.x, t: v.t };
       topups++;
+    } else if (v.k === 'n') {
+      if (nets >= MAX_NET_UPDATES || !netOk(v.a) || typeof v.d !== 'string' || !isValidDate(v.d)) continue;
+      out[k] = { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
+      nets++;
     }
   }
   return out;

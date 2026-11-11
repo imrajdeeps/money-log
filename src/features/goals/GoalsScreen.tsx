@@ -47,16 +47,16 @@ export function GoalsScreen() {
   };
 
   return (
-    <section aria-label={tr('Goals')}>
-      {form ? (
-        <GoalForm key={form === 'new' ? 'new' : form.id} goal={form === 'new' ? undefined : form} onDone={() => setForm(null)} />
-      ) : (
-        <button type="button" className={ui.btn()} onClick={() => setForm('new')}>{tr('Add a goal')}</button>
-      )}
+    <section aria-label={tr('Goals')} id="goals">
+      <div className="mt-5 mb-2 flex items-center justify-between gap-3">
+        <h3 className="m-0 text-[16px]">{tr('Goals')}</h3>
+        {!form && <button type="button" className={ui.btn('solid', 'small')} onClick={() => setForm('new')}>{tr('Add a goal')}</button>}
+      </div>
+      {form && <GoalForm key={form === 'new' ? 'new' : form.id} goal={form === 'new' ? undefined : form} onDone={() => setForm(null)} />}
       {goals.length === 0 && !form && <p className="text-muted">{tr('No goals yet. Make one with a name, a target and a date, and see what to set aside each month.')}</p>}
       {goals.length > 0 && <PlanCard plan={plan} />}
       {list(tr('Short term'), 'short', tr('due within 12 months'))}
-      {list(tr('Long term'), 'long', 'more than 12 months away')}
+      {list(tr('Long term'), 'long', tr('more than 12 months away'))}
       {goals.length > 0 && <p className="text-muted text-[13px]">{tr('Slide a goal or a top-up to the left to remove it. A goal moves from long term to short term by itself as its date gets close.')}</p>}
     </section>
   );

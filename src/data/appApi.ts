@@ -1,4 +1,4 @@
-import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from '../core/blocks.ts';
+import type { DoneMap, DueBlock, DueData } from '../core/blocks.ts';
 import type { BackupParse } from './backup.ts';
 import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import type { HistoryRow } from '../core/history.ts';
@@ -44,7 +44,6 @@ export interface AppApi {
   clearJoinCode: () => void;
   plan: Plan | null;
   due: DueBlock | null;
-  net: NetBlock | null;
   doneMap: DoneMap;
   mine: Mine; // the categories and budgets set in the app
   recurring: Recurring; // payments that repeat every month, removed ones included
@@ -58,6 +57,8 @@ export interface AppApi {
   removeGoal: (id: string) => Promise<void>;
   addTopUp: (goalId: string, amount: number, date: string) => Promise<string | null>;
   removeTopUp: (id: string) => Promise<void>;
+  addNetWorth: (amount: number, date: string) => Promise<string | null>; // a net worth update; the error text, or null
+  removeNetWorth: (id: string) => Promise<void>;
   categories: CategoryInfo[]; // everything that can be picked: built-in, own and the imported plan's, merged
   sync: SyncState;
   syncEnabled: boolean;
@@ -71,7 +72,6 @@ export interface AppApi {
   markExported: (ids: string[]) => Promise<void>;
   applyPlan: (data: PlanData) => Promise<void>;
   applyDue: (data: DueData) => Promise<void>;
-  applyNet: (data: NetData) => Promise<void>;
   toggleDone: (key: string, done: boolean) => Promise<void>;
   removeDue: (key: string) => Promise<void>; // take an item off the due list (swipe to delete)
   addCategory: (name: string, group: Cat) => Promise<AddResult>;

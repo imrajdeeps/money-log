@@ -426,9 +426,9 @@ test('a newer edit pushed by another phone mid-sync is not overwritten, and the 
   assert.equal(a.sync.getState().pending, 0);
 });
 
-// ------------------------------------------------------------------ Release 2: due list, net worth, Done marks
-import { cleanDoneMap, mergeDone, parseDueText, parseNetText, setDone } from '../../src/core/blocks.ts';
-import type { DoneMap, DueBlock, NetBlock } from '../../src/core/blocks.ts';
+// ------------------------------------------------------------------ Release 2: due list, Done marks
+import { cleanDoneMap, mergeDone, parseDueText, setDone } from '../../src/core/blocks.ts';
+import type { DoneMap, DueBlock } from '../../src/core/blocks.ts';
 import type { DueDone } from '../../src/data/sync.ts';
 
 const DUE_TEXT = 'Kind\tTitle\tDue\tAmount\tStatus\noneoff\tAnnual fee\t2027-03-31\t12000\tPlanned\ntodo\tRenew passport\t2026-12-15\t\tTo do\ntodo\tCall the bank\t2026-11-20\t\tTo do\n';
@@ -437,25 +437,19 @@ const dueBlock = (text = DUE_TEXT, at = iso()): DueBlock => {
   assert.ok(r.ok);
   return { ...r.data, importedAt: at, dirty: 1 };
 };
-const netBlock = (at = iso()): NetBlock => {
-  const r = parseNetText('Label\tValue\tUnit\nPlan month (as of)\t2026-11-01\tdate\nNet worth now\t₹4,50,000\t₹\n');
-  assert.ok(r.ok);
-  return { ...r.data, importedAt: at, dirty: 1 };
-};
 const marks = async (d: ReturnType<typeof device>): Promise<DoneMap> => (await d.store.getMeta<DueDone>('dueDone'))?.items ?? {};
 const mark = (d: ReturnType<typeof device>, key: string, done: boolean, at = iso()) =>
   d.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: setDone(cur?.items ?? {}, key, done, at), dirty: 1 }));
 
-test('the due list, the net worth figures and the Done marks travel between phones', async () => {
+test('the due list and the Done marks travel between phones', async () => {
   reset();
   const a = device(); const b = device();
   await a.signIn(); await b.signIn();
   const due = dueBlock();
   await a.store.setMeta('block:due', due);
-  await a.store.setMeta('block:networth', netBlock());
   await mark(a, due.items[1]!.k, true);
   await a.sync.refreshPending();
-  assert.equal(a.sync.getState().pending, 3, 'two blocks and the marks wait to upload');
+  assert.equal(a.sync.getState().pending, 2, 'the due list and the marks wait to upload');
   await a.sync.sync();
   assert.equal(a.sync.getState().pending, 0);
   assert.equal((await a.store.getMeta<DueBlock>('block:due'))!.dirty, 0);
@@ -465,7 +459,6 @@ test('the due list, the net worth figures and the Done marks travel between phon
   const got = await b.store.getMeta<DueBlock>('block:due');
   assert.deepEqual(got!.items, due.items);
   assert.equal(got!.dirty, 0);
-  assert.equal((await b.store.getMeta<NetBlock>('block:networth'))!.items[0]!.value, 450000);
   assert.deepEqual(Object.keys(await marks(b)), [due.items[1]!.k]);
   assert.equal(b.sync.getState().pending, 0);
 });
@@ -1416,7 +1409,7 @@ test('recurring payments of another account, and malformed rows from the cloud, 
 });
 
 // ------------------------------------------------------------------ goals (a merged block of goals and top-ups)
-import { addGoal, addTopUp, topUpsOf } from '../../src/core/goals.ts';
+import { addGoal, addTopUp, netNow, topUpsOf } from '../../src/core/goals.ts';
 import type { Goals } from '../../src/core/goals.ts';
 import type { GoalsBlock } from '../../src/data/sync.ts';
 
@@ -1460,6 +1453,23 @@ test('top-ups added on two phones at once are both kept', async () => {
   await changeGoals(b, topUp(RID(1), RID(3), 200, iso(-1000)));
   await a.sync.sync(); await b.sync.sync(); await a.sync.sync();
   for (const d of [a, b]) assert.deepEqual(topUpsOf(await goalsOf(d), RID(1)).map((t) => t.a).sort((x, y) => x - y), [100, 200]);
+});
+
+test('net worth updates made on two phones travel with the goals and both are kept', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  const upd = (id: string, amount: number, day: string, at: string) => (items: Goals): Goals => ({ ...items, [id]: { id, k: 'n', a: amount, d: day, x: 0, t: at } });
+  await changeGoals(a, upd(RID(10), 600000, '2026-11-01', iso(-3000)));
+  await changeGoals(b, upd(RID(11), 621302, '2026-11-10', iso(-1000)));
+  await a.sync.sync(); await b.sync.sync(); await a.sync.sync();
+  for (const d of [a, b]) {
+    const got = await goalsOf(d);
+    assert.deepEqual(Object.keys(got).sort(), [RID(10), RID(11)].sort());
+    assert.equal(netNow(got)!.value, 621302);
+    assert.equal(netNow(got)!.change, 21302);
+  }
+  assert.equal(a.sync.getState().pending, 0);
 });
 
 test('goals of another account, and malformed rows from the cloud, are never taken in', async () => {

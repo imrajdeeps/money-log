@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { cleanDoneMap, mergeDone, pruneDone, removeDue as removeDueMark, setDone } from '../core/blocks.ts';
-import type { DoneMap, DueBlock, DueData, NetBlock, NetData } from '../core/blocks.ts';
+import type { DoneMap, DueBlock, DueData } from '../core/blocks.ts';
 import { parseAuthHash } from './authlink.ts';
 import type { AuthLink } from './authlink.ts';
 import type { BackupParse } from './backup.ts';
@@ -21,7 +21,7 @@ import { openStore } from './store.ts';
 import { BASEPATH, appRootUrl } from '../core/paths.ts';
 import { addRecurring as addRecurringTo, editRecurring as editRecurringIn, markHandled, mergeRecurring, removeRecurring as removeRecurringFrom, scheduledDate } from '../core/recurring.ts';
 import type { RecurInput, Recurring } from '../core/recurring.ts';
-import { addGoal as addGoalTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
+import { addGoal as addGoalTo, addNetUpdate as addNetUpdateTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeNetUpdate as removeNetUpdateFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import { createSync } from './sync.ts';
 import type { DueDone, GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
@@ -62,7 +62,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [all, setAll] = useState<Entry[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [due, setDue] = useState<DueBlock | null>(null);
-  const [net, setNet] = useState<NetBlock | null>(null);
   const [doneMap, setDoneMap] = useState<DoneMap>({});
   const [mine, setMine] = useState<Mine>({});
   const [recurring, setRecurring] = useState<Recurring>({});
@@ -90,11 +89,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     const e = engRef.current;
     if (!e) return;
-    const [entries, p, d, n, dd, mn, rcr, gl, g, m, i, st, owner, rc, lk] = await Promise.all([
+    const [entries, p, d, dd, mn, rcr, gl, g, m, i, st, owner, rc, lk] = await Promise.all([
       e.store.allEntries(),
       e.store.getMeta<Plan>('plan'),
       e.store.getMeta<DueBlock>('block:due'),
-      e.store.getMeta<NetBlock>('block:networth'),
       e.store.getMeta<DueDone>('dueDone'),
       e.store.getMeta<MineBlock>('mine'),
       e.store.getMeta<RecurBlock>('recurring'),
@@ -119,7 +117,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMe(owner ?? null);
     setPlan(p ?? null);
     setDue(d ?? null);
-    setNet(n ?? null);
     setDoneMap(dd?.items ?? {});
     setMine(mn?.items ?? {});
     setRecurring(rcr?.items ?? {});
@@ -410,13 +407,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await afterChange();
   }, [afterChange]);
 
-  const applyNet = useCallback(async (data: NetData) => {
-    const e = engRef.current;
-    if (!e) return;
-    await e.store.setMeta('block:networth', { ...data, importedAt: new Date().toISOString(), dirty: 1 } satisfies NetBlock);
-    await afterChange();
-  }, [afterChange]);
-
   const toggleDone = useCallback(async (key: string, done: boolean) => {
     const e = engRef.current;
     if (!e) return;
@@ -532,6 +522,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removeGoal = useCallback((id: string) => changeGoals((items, nowIso) => removeGoalFrom(items, id, nowIso)), [changeGoals]);
   const addTopUp = useCallback((goalId: string, amount: number, date: string) => runGoals((items, nowIso) => addTopUpTo(items, goalId, amount, date, isoDate(), nowIso)), [runGoals]);
   const removeTopUp = useCallback((id: string) => changeGoals((items, nowIso) => removeTopUpFrom(items, id, nowIso)), [changeGoals]);
+  const addNetWorth = useCallback((amount: number, date: string) => runGoals((items, nowIso) => addNetUpdateTo(items, amount, date, isoDate(), nowIso)), [runGoals]);
+  const removeNetWorth = useCallback((id: string) => changeGoals((items, nowIso) => removeNetUpdateFrom(items, id, nowIso)), [changeGoals]);
 
   const removeRecurring = useCallback((id: string) => changeRecurring((items, nowIso) => removeRecurringFrom(items, id, nowIso)), [changeRecurring]);
 
@@ -588,7 +580,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     await newer<Plan>('plan', b.plan);
     await newer<DueBlock>('block:due', b.due);
-    await newer<NetBlock>('block:networth', b.networth);
     if (Object.keys(b.dueDone).length) {
       await e.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: mergeDone(cur?.items ?? {}, cleanDoneMap(b.dueDone)), dirty: 1 }));
     }
@@ -640,17 +631,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     allEntries: own,
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
-    plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
-    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp,
+    plan, due, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
+    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth,
     sync,
     syncEnabled,
     toastMsg,
     toastAction,
     toast,
-    addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
+    addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, net, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, applyNet, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

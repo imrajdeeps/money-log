@@ -5,9 +5,10 @@ import { BudgetLine } from '../../ui/BudgetLine.tsx';
 import { PaceChart } from './PaceChart.tsx';
 import { RecurringTile } from '../recurring/index.ts';
 import { RecentList } from '../payments/index.ts';
-import { dueRelative, fmtNet } from '../../core/blocks.ts';
+import { dueRelative } from '../../core/blocks.ts';
+import { netNow } from '../../core/goals.ts';
 import { planForMonth } from '../../core/categories.ts';
-import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, headlineNet, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
+import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
 import { monthLabel, monthShort, shortDate } from '../../core/format.ts';
 import { averageOf, groupLookup, monthlyTotals, monthsEnding, projectedMonthEnd } from '../../core/analytics.ts';
 import type { Group } from '../../core/logic.ts';
@@ -42,9 +43,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
   ), [app.entries, app.me, app.plan, app.mine, month, today]);
   const cats = useMemo(() => topCategories(ov.summary), [ov]);
   const due = useMemo(() => dueOverview(app.due, app.doneMap, today), [app.due, app.doneMap, today]);
-  const net = useMemo(() => (app.net ? headlineNet(app.net.items) : null), [app.net]);
+  const net = useMemo(() => netNow(app.goals), [app.goals]);
   // two more of the snapshot's figures for context; the Plan sheet lists them all
-  const netFacts = useMemo(() => (app.net?.items ?? []).filter((i) => i !== net?.main && i !== net?.goal).slice(0, 2), [app.net, net]);
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
   const couples = useMemo(() => coupleTiles(app.groups, app.members, app.groupEntries, app.settlements, app.me), [app.groups, app.members, app.groupEntries, app.settlements, app.me]);
   const goalTile = useMemo(() => nearestGoal(app.goals, budgetEntries(app.entries, app.me), today), [app.goals, app.entries, app.me, today]);
@@ -106,27 +106,18 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
           )}
         </BentoCard>
 
-        {app.net ? (
+        {net ? (
           <BentoCard title={tr('Net worth')} span={4} onOpen={() => open('plan', 'networth')} openLabel={tr('Open net worth and goals')}>
-            <p className={hs.statNum()}>{net?.main ? fmtNet(net.main) : app.net.items[0] ? fmtNet(app.net.items[0]) : ''}</p>
-            <p className={hs.note}>{net?.main?.label ?? app.net.items[0]?.label}</p>
-            {net?.goal && (
-              <div className={hs.goal}>
-                <div className={ui.meter('good')} aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, net.goal.value))}%` }} /></div>
-                <span className={ui.leftText()}>{net.goal.label}: {fmtNet(net.goal)}</span>
-              </div>
+            <p className={hs.statNum()}>{fmtINR(net.value)}</p>
+            {net.change !== null && net.change !== 0 && net.previous && (
+              <p className={ui.leftText(net.change > 0 ? 'good' : 'bad')}>{net.change > 0 ? '▲ ' + tr('Up {0} since {1}', fmtINR(net.change), shortDate(net.previous.date)) : '▼ ' + tr('Down {0} since {1}', fmtINR(Math.abs(net.change)), shortDate(net.previous.date))}</p>
             )}
-            {netFacts.length > 0 && (
-              <ul className={hs.netFacts}>{netFacts.map((i) => <li key={i.label}><span>{i.label}</span><b>{fmtNet(i)}</b></li>)}</ul>
-            )}
-            <p className={hs.noteFoot}>
-              {tr('{0} · a snapshot from your spreadsheet', app.net.asOf ? tr('Plan month {0}', monthLabel(app.net.asOf.slice(0, 7))) : tr('Imported {0}', shortDate(app.net.importedAt.slice(0, 10))))}
-            </p>
+            <p className={hs.noteFoot}>{tr('As of {0}', shortDate(net.date))}</p>
           </BentoCard>
         ) : (
           <BentoCard title={tr('Net worth')} span={4}>
-            <BentoEmpty cta={tr('Import in Settings')} onCta={goSettings}>
-              {tr('Net worth and goals come from your spreadsheet\'s App export tab. Nothing is imported yet.')}
+            <BentoEmpty cta={tr('Add your net worth')} onCta={() => open('plan', 'networth')}>
+              {tr('Add what you own minus what you owe, and update it now and then to see it move.')}
             </BentoEmpty>
           </BentoCard>
         )}
@@ -240,7 +231,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
         )}
 
         {goalTile ? (
-          <BentoCard title={tr('Goals')} span={4} onOpen={() => open('goals')} openLabel={tr('Open your goals and the plan')}>
+          <BentoCard title={tr('Goals')} span={4} onOpen={() => open('plan', 'goals')} openLabel={tr('Open your goals and the plan')}>
             <p className={hs.statNum()}>{fmtINR(goalTile.progress.saved)} <span className={hs.statUnit}>{tr('of {0}', fmtINR(goalTile.goal.a))}</span></p>
             <p className={hs.note}>{goalTile.goal.n} · {goalTile.term === 'short' ? tr('short term') : tr('long term')}{goalTile.count > 1 ? tr(' · {0} goals', goalTile.count) : ''}</p>
             <div className={ui.meter(goalTile.line.state === 'reached' ? 'good' : goalTile.line.state === 'passed' ? 'bad' : 'accent')} aria-hidden="true"><i style={{ width: `${Math.round(goalTile.progress.fraction * 100)}%` }} /></div>
@@ -248,7 +239,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
           </BentoCard>
         ) : (
           <BentoCard title={tr('Goals')} span={4}>
-            <BentoEmpty cta={tr('Make a goal')} onCta={() => open('goals')}>{tr('No goals yet. Set a target and a date, and see what to set aside each month.')}</BentoEmpty>
+            <BentoEmpty cta={tr('Make a goal')} onCta={() => open('plan', 'goals')}>{tr('No goals yet. Set a target and a date, and see what to set aside each month.')}</BentoEmpty>
           </BentoCard>
         )}
 

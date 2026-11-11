@@ -1,13 +1,15 @@
 import { Icon } from '../../ui/Icon.tsx';
+import { GoalsScreen } from '../goals/index.ts';
+import { NetWorthCard } from './NetWorthCard.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
-import { DEFAULT_ALERT, buildIcs, classifyDue, cleanAlert, dueRelative, fmtNet } from '../../core/blocks.ts';
-import type { AlertPrefs, DueView, NetItem, SentEvent } from '../../core/blocks.ts';
+import { DEFAULT_ALERT, buildIcs, classifyDue, cleanAlert, dueRelative } from '../../core/blocks.ts';
+import type { AlertPrefs, DueView, SentEvent } from '../../core/blocks.ts';
 import { afterExport, toCancel } from '../../core/calendar.ts';
 import { loadSent, saveSent } from '../../data/calendar.ts';
 import { saveFile } from '../../ui/files.ts';
 import { SwipeRow } from '../../ui/SwipeRow.tsx';
-import { monthLabel, shortDate, stamp } from '../../core/format.ts';
+import { shortDate, stamp } from '../../core/format.ts';
 import { fmtINR, isoDate } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -130,49 +132,21 @@ function DueSection() {
   );
 }
 
-function Figure({ i }: { i: NetItem }) {
-  const pct = i.unit === '%' ? Math.max(0, Math.min(100, i.value)) : null;
-  return (
-    <li className="px-3.5 py-3">
-      <div className={ui.catLine}><span>{i.label}</span><b>{fmtNet(i)}</b></div>
-      {pct !== null && <div className={ui.bar} aria-hidden="true"><i className={ui.barFill('good')} style={{ width: `${pct}%` }} /></div>}
-    </li>
-  );
-}
-
-function SnapshotSection() {
-  const app = useApp();
-  const n = app.net;
-  if (!n) return null;
-  const imported = new Date(n.importedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  return (
-    <section aria-label={tr('Net worth and goals')} id="networth">
-      <h2 className="text-[16px] mt-5 mb-2">{tr('Net worth and goals')}</h2>
-      <p className="text-muted text-[13px]">
-        {tr('{0}Imported {1}. These are the spreadsheet\'s figures at that time; they do not change as you log payments.', n.asOf ? tr('Plan month {0}. ', monthLabel(n.asOf.slice(0, 7))) : '', imported)}
-      </p>
-      <ul className={ui.list()}>{n.items.map((i) => <Figure key={i.label} i={i} />)}</ul>
-    </section>
-  );
-}
-
-export function PlanScreen({ openSettings, openGoals }: { openSettings: () => void; openGoals: () => void }) {
+export function PlanScreen({ openSettings }: { openSettings: () => void }) {
   const app = useApp();
   return (
     <div>
-      <div className={ui.card()}>
-        <h3>{tr('Goals')}</h3>
-        <p className="text-muted text-[13px]">{tr('Make short-term and long-term goals, see how far along each one is, and what to set aside each month.')}</p>
-        <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={openGoals}>{tr('Open goals')}</button>
-      </div>
-      {!app.due && !app.net && (
+      <section aria-label={tr('Net worth and goals')}>
+        <NetWorthCard />
+        <GoalsScreen />
+      </section>
+      {!app.due && (
         <div className={ui.card('notice')}>
-          <p><strong>{tr('Nothing imported yet.')}</strong>{' '}{tr('The due list and the net worth and goals figures come from the spreadsheet\'s App export tab.')}</p>
+          <p><strong>{tr('No due list yet.')}</strong>{' '}{tr('The due list comes from the spreadsheet\'s App export tab.')}</p>
           <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={openSettings}>{tr('Go to Settings')}</button>
         </div>
       )}
       <DueSection />
-      <SnapshotSection />
     </div>
   );
 }
