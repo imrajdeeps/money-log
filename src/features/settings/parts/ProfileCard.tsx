@@ -3,20 +3,22 @@ import type { FormEvent } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { saveProfile } from '../../../data/profile.ts';
 import { useProfile } from '../../../data/useProfile.ts';
-import { MAX_PROFILE_NAME, cleanName, formatWhatsapp, initials, normalizeWhatsapp } from '../../../core/profile.ts';
+import { COUNTRY_PREFIX, MAX_PROFILE_NAME, cleanName, initials, isIndianNumber, localDigits, normalizeWhatsapp } from '../../../core/profile.ts';
 import * as ui from '../../../ui/styles.ts';
 import { tr } from '../../../core/i18n.ts';
 
 // Who this phone belongs to: a round picture with initials, the name (it fills "your name in this group"), the email of the
-// account, an optional WhatsApp number, and what this phone holds. The profile is kept on this phone only; the number is not
-// verified and nothing is sent to it.
+// account, an optional Indian WhatsApp number (+91 is fixed, the person types 10 digits), and what this phone holds. Signed in,
+// the name and number are kept in the account too and follow the person to another phone; the number is not verified and
+// nothing is sent to it.
 export function ProfileCard() {
   const app = useApp();
   const profile = useProfile();
   const email = app.sync.email;
   const [name, setName] = useState(profile.name);
-  const [number, setNumber] = useState(formatWhatsapp(profile.whatsapp));
+  const [number, setNumber] = useState(localDigits(profile.whatsapp));
   const [note, setNote] = useState<{ text: string; bad: boolean } | null>(null);
+  const oldNumber = profile.whatsapp !== '' && !isIndianNumber(profile.whatsapp); // saved before only Indian numbers were allowed
 
   function save(ev: FormEvent) {
     ev.preventDefault();
@@ -24,8 +26,8 @@ export function ProfileCard() {
     if (!n.ok) return setNote({ text: n.error, bad: true });
     saveProfile({ name: cleanName(name), whatsapp: n.value });
     setName(cleanName(name));
-    setNumber(formatWhatsapp(n.value));
-    setNote({ text: tr('Saved on this phone.'), bad: false });
+    setNumber(localDigits(n.value));
+    setNote({ text: email ? tr('Saved. It follows you to your other phones.') : tr('Saved on this phone.'), bad: false });
   }
 
   const stat = (value: number, label: string) => (
@@ -52,11 +54,15 @@ export function ProfileCard() {
           <span>{tr('Your name')}</span>
           <input value={name} maxLength={MAX_PROFILE_NAME} autoComplete="name" onChange={(e) => { setName(e.target.value); setNote(null); }} placeholder={tr('What others see you as in groups')} />
         </label>
-        <label className={ui.field}>
+        <div className={ui.field}>
           <span>{tr('WhatsApp number (optional)')}</span>
-          <input value={number} inputMode="tel" autoComplete="tel" onChange={(e) => { setNumber(e.target.value); setNote(null); }} placeholder="+91 98765 43210" />
-        </label>
-        <p className="text-muted text-[13px]">{tr('Kept on this phone only. It is not verified, and nothing is sent to it.')}</p>
+          <div className="flex gap-2">
+            <span className="inline-flex min-h-12 flex-none items-center rounded-xl border border-line bg-card px-3.5 font-semibold" aria-hidden="true">{COUNTRY_PREFIX}</span>
+            <input value={number} inputMode="tel" autoComplete="tel-national" maxLength={20} aria-label={tr('10-digit mobile number after +91')} onChange={(e) => { setNumber(e.target.value); setNote(null); }} placeholder="98765 43210" />
+          </div>
+        </div>
+        {oldNumber && <p className={ui.msg('bad')} role="status">{tr('The number saved here, {0}, is not an Indian number. Only Indian numbers are accepted now: type a 10-digit number, or leave the field empty and save to remove it.', profile.whatsapp)}</p>}
+        <p className="text-muted text-[13px]">{email ? tr('Kept on this phone and in your account, where only you can see it. It is not verified, and nothing is sent to it.') : tr('Kept on this phone. Sign in and it also follows you to your other phones. It is not verified, and nothing is sent to it.')}</p>
         {note && <p className={ui.msg(note.bad ? 'bad' : 'good')} role={note.bad ? 'alert' : 'status'}>{note.text}</p>}
         <button type="submit" className={ui.btn('solid', 'md', 'w-full mt-1.5')}>{tr('Save profile')}</button>
       </form>

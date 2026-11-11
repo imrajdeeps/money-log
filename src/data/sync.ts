@@ -18,14 +18,15 @@ import type { Receipt } from '../core/receipts.ts';
 import { PAGE, PUSH_CHUNK, OVERLAP_MS, SyncError } from './syncTypes.ts';
 import type { Session, SyncOptions, SyncState } from './syncTypes.ts';
 import { MERGED } from './syncBlocks.ts';
-import type { Items } from './syncBlocks.ts';
+import type { Items, ProfileBlock } from './syncBlocks.ts';
+import { cleanName, isIndianNumber } from '../core/profile.ts';
 import { isRefusal, pushable, toReceiptRow, toRow, toSettlementRow } from './syncRows.ts';
 import { tr } from '../core/i18n.ts';
 
 // Everything other files used to import from here still comes from here.
 export type { SyncConfig, SyncMode, SyncOptions, SyncState } from './syncTypes.ts';
 export { SyncError } from './syncTypes.ts';
-export type { GoalsBlock, MineBlock, RecurBlock } from './syncBlocks.ts';
+export type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock } from './syncBlocks.ts';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function createSync(opts: SyncOptions) {
@@ -282,6 +283,7 @@ export function createSync(opts: SyncOptions) {
     pending += (await store.allSettlements()).filter((x) => x.dirty && pushable({ owner_id: x.created_by, group_id: x.group_id }, uid, active)).length;
     pending += (await store.allReceipts()).filter((r) => r.owner_id === uid && (r.dirty || needsUpload(r, uid) || needsPurge(r, uid))).length;
     for (const m of MERGED) if ((await store.getMeta<{ dirty: 0 | 1 }>(m.meta))?.dirty) pending++;
+    if ((await store.getMeta<ProfileBlock>('profile'))?.dirty) pending++;
     set({ pending });
   }
 
@@ -561,6 +563,35 @@ export function createSync(opts: SyncOptions) {
     }
   }
 
+  // ------------------------------------------------------------ the profile (one row per account)
+  // The latest change wins, like an entry. Only an Indian number goes up (the table refuses any other): a number saved before that
+  // rule stays on the phone, and the row simply carries none. A part that must never stop the rest: if the profiles table is not
+  // there yet (the database has not had the version 1.23 SQL) the answer is 404 and the profile waits.
+  async function profilePart(f: () => Promise<void>): Promise<void> {
+    try { await f(); } catch (e) { if (!(e instanceof SyncError && e.kind === 'http' && e.status === 404)) throw e; }
+  }
+
+  async function pullProfile(uid: string): Promise<void> {
+    const rows: any[] = (await request(`/rest/v1/profiles?select=name,whatsapp,updated_at&user_id=eq.${uid}`)) ?? [];
+    const row = rows[0];
+    if (!row || !Number.isFinite(parseTs(row.updated_at)) || typeof row.whatsapp !== 'string' || (row.whatsapp !== '' && !isIndianNumber(row.whatsapp))) return;
+    const when = row.updated_at as string;
+    await store.mutateMeta<ProfileBlock>('profile', (cur) =>
+      cur && parseTs(when) <= parseTs(cur.t) ? undefined : { name: cleanName(row.name), whatsapp: row.whatsapp as string, t: when, dirty: 0 });
+  }
+
+  async function pushProfile(uid: string): Promise<void> {
+    const cur = await store.getMeta<ProfileBlock>('profile');
+    if (!cur?.dirty) return;
+    await request('/rest/v1/profiles?on_conflict=user_id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: [{ user_id: uid, name: cur.name, whatsapp: isIndianNumber(cur.whatsapp) ? cur.whatsapp : '', updated_at: cur.t }],
+    });
+    // Clear the flag only if the profile was not changed again while the request was in flight.
+    await store.mutateMeta<ProfileBlock>('profile', (c) => (c && c.t === cur.t ? { ...c, dirty: 0 } : undefined));
+  }
+
   // ------------------------------------------------------------ one sync run (never two at once)
   let running: Promise<void> | null = null;
   let again = false;
@@ -576,7 +607,9 @@ export function createSync(opts: SyncOptions) {
       await pullEntries();
       await pullSettlements();
       await pullReceipts();
+      await profilePart(() => pullProfile(s.user_id));
       await pushBlocks(s.user_id);
+      await profilePart(() => pushProfile(s.user_id));
       await pushEntries(s.user_id);
       await pushSettlements(s.user_id);
       await pushReceipts(s.user_id);

@@ -32,6 +32,8 @@ export interface MockState {
   refresh: Map<string, { uid: string; email: string; sid: string }>;
   entries: Map<string, any>;
   plans: Map<string, any>;
+  profiles: Map<string, { user_id: string; name: string; email: string; whatsapp: string; updated_at: string }>; // by user id
+  profilesTableMissing: boolean; // the database has not had the version 1.23 SQL: PostgREST answers 404
   groups: Map<string, any>;
   members: Map<string, any>; // `${group}|${user}`
   invites: Map<string, any>; // by group
@@ -48,7 +50,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     otp: '123456', accessTtlSec: 3600,
     users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true, recoveries: [],
     access: new Map(), refresh: new Map(),
-    entries: new Map(), plans: new Map(), groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
+    entries: new Map(), plans: new Map(), profiles: new Map(), profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
     receipts: new Map(), objects: new Map(), history: [],
     requests: [], failNext: null,
   };
@@ -302,7 +304,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       const path = url.pathname;
       const isApi = path.startsWith('/auth/v1/') || path.startsWith('/rest/v1/') || path.startsWith('/storage/v1/') || path === '/__state';
       if (!isApi) return serveStatic(url, res);
-      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], receipts: [...state.receipts.values()], objects: [...state.objects.entries()].map(([path, o]) => ({ path, bytes: o.bytes, owner: o.owner })), history: state.history, recoveries: state.recoveries, requests: state.requests.length });
+      if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], profiles: [...state.profiles.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], receipts: [...state.receipts.values()], objects: [...state.objects.entries()].map(([path, o]) => ({ path, bytes: o.bytes, owner: o.owner })), history: state.history, recoveries: state.recoveries, requests: state.requests.length });
       state.requests.push(`${req.method} ${path}${url.search}`);
       if (req.headers.apikey !== API_KEY) return send(res, 401, { message: 'No API key found in request' });
       if (state.failNext) { const f = state.failNext; state.failNext = null; return send(res, f.status, f.body); }
@@ -508,6 +510,29 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
           if (objPath.split('/')[0] !== uid || !state.objects.has(objPath)) return send(res, 404, { statusCode: '404', error: 'not_found', message: 'Object not found' });
           state.objects.delete(objPath);
           return send(res, 200, { message: 'Successfully deleted' });
+        }
+      }
+
+      if (path === '/rest/v1/profiles') {
+        if (state.profilesTableMissing) return send(res, 404, { code: 'PGRST205', message: "Could not find the table 'public.profiles' in the schema cache" });
+        if (req.method === 'GET') {
+          const own = state.profiles.get(uid);
+          return send(res, 200, own ? [{ name: own.name, whatsapp: own.whatsapp, updated_at: own.updated_at, email: own.email, user_id: own.user_id }] : []);
+        }
+        if (req.method === 'POST') {
+          const rows: any[] = await body(req);
+          for (const r of rows) if (r.user_id !== uid) return send(res, 403, rls('profiles'));
+          for (const r of rows) {
+            if (typeof r.name !== 'string' || r.name.length > 40) return send(res, 400, { code: '23514', message: 'new row for relation "profiles" violates check constraint "profiles_name_check"' });
+            if (typeof r.whatsapp !== 'string' || (r.whatsapp !== '' && !/^\+91[6-9][0-9]{9}$/.test(r.whatsapp))) return send(res, 400, { code: '23514', message: 'new row for relation "profiles" violates check constraint "profiles_whatsapp_check"' });
+          }
+          for (const r of rows) {
+            const old = state.profiles.get(uid);
+            if (old && Date.parse(r.updated_at) < Date.parse(old.updated_at)) continue; // the latest change wins
+            const email = [...state.users.entries()].find(([, id]) => id === uid)?.[0] ?? '';
+            state.profiles.set(uid, { user_id: uid, name: r.name, email, whatsapp: r.whatsapp, updated_at: r.updated_at });
+          }
+          return send(res, 201);
         }
       }
 

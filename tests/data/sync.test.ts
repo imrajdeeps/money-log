@@ -40,7 +40,7 @@ function device(email = 'me@example.com', cfg?: { supabaseUrl: string; supabaseK
 const iso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
 const entry = (over: Partial<Parameters<typeof makeEntry>[0]> = {}): Entry =>
   makeEntry({ amount: 100, category: 'Rent', method: 'UPI', note: 'n', date: '2026-11-09', ...over }, iso());
-const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.recoveries.length = 0; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
+const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.profiles.clear(); mock.state.profilesTableMissing = false; mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.recoveries.length = 0; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
 
 test('without a Supabase URL and key the app stays local and never touches the network', async () => {
   reset();
@@ -1371,4 +1371,93 @@ test('an old imported due list and plan are brought into the app once, the same 
   assert.equal(dueItemsOf(await goalsOf(b)).length, 2, 'no copies after both phones sync');
   const mine = (await a.store.getMeta<{ items: Record<string, { b: number }> }>('mine'))!.items;
   assert.equal(Object.keys(mine).length, 2);
+});
+
+// ------------------------------------------------------------------ the profile (a row of its own, one per account)
+import type { ProfileBlock } from '../../src/data/sync.ts';
+
+const profileOf = async (d: ReturnType<typeof device>) => d.store.getMeta<ProfileBlock>('profile');
+const saveProfileOn = (d: ReturnType<typeof device>, name: string, whatsapp: string, at: string) =>
+  d.store.setMeta('profile', { name, whatsapp, t: at, dirty: 1 } satisfies ProfileBlock);
+
+test('the profile goes up with the account email beside it, and arrives on the other phone', async () => {
+  reset();
+  const a = device('raj@example.com'); const b = device('raj@example.com');
+  await a.signIn(); await b.signIn();
+  await saveProfileOn(a, 'Raj', '+919876543210', iso(-2000));
+  await a.sync.refreshPending();
+  assert.equal(a.sync.getState().pending, 1, 'the profile waits to go up');
+  await a.sync.sync();
+  assert.equal(a.sync.getState().pending, 0);
+  const row = [...mock.state.profiles.values()][0]!;
+  assert.deepEqual([row.name, row.whatsapp, row.email], ['Raj', '+919876543210', 'raj@example.com']);
+  assert.equal((await profileOf(a))!.dirty, 0);
+  await b.sync.sync();
+  const got = (await profileOf(b))!;
+  assert.deepEqual([got.name, got.whatsapp, got.dirty], ['Raj', '+919876543210', 0]);
+  assert.equal(b.sync.getState().pending, 0);
+});
+
+test('the latest profile change wins on both phones, whichever phone pushes first', async () => {
+  reset();
+  const a = device('raj@example.com'); const b = device('raj@example.com');
+  await a.signIn(); await b.signIn();
+  await saveProfileOn(a, 'Raj', '', iso(-5000));
+  await a.sync.sync(); await b.sync.sync();
+  await saveProfileOn(b, 'Raj Singh', '+919876543210', iso(-1000)); // the later change, made on B
+  await saveProfileOn(a, 'Rajdeep', '', iso(-3000)); // an earlier change made offline on A
+  await a.sync.sync(); // A pushes its older change first: it is accepted only if it is newer than the cloud's (it is not)
+  await b.sync.sync(); await a.sync.sync();
+  for (const d of [a, b]) assert.deepEqual([(await profileOf(d))!.name, (await profileOf(d))!.whatsapp], ['Raj Singh', '+919876543210']);
+  assert.equal([...mock.state.profiles.values()][0]!.name, 'Raj Singh');
+});
+
+test('a number saved before only Indian numbers were allowed stays on the phone and never goes up', async () => {
+  reset();
+  const a = device('raj@example.com');
+  await a.signIn();
+  await saveProfileOn(a, 'Raj', '+442079460958', iso(-2000));
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.equal([...mock.state.profiles.values()][0]!.whatsapp, '', 'the row carries no number');
+  assert.equal((await profileOf(a))!.whatsapp, '+442079460958', 'the phone still has it');
+  await a.sync.sync();
+  assert.equal((await profileOf(a))!.whatsapp, '+442079460958', 'a pull does not wipe it');
+});
+
+test('a profile row from the cloud with a bad number is ignored', async () => {
+  reset();
+  const a = device('raj@example.com');
+  await a.signIn();
+  const uid = [...mock.state.users.values()][0]!;
+  mock.state.profiles.set(uid, { user_id: uid, name: 'Raj', email: 'raj@example.com', whatsapp: '+14155550123', updated_at: iso(-1000) });
+  await a.sync.sync();
+  assert.equal(await profileOf(a), undefined);
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+});
+
+test('without the profiles table in the database everything else still syncs and the profile waits', async () => {
+  reset();
+  mock.state.profilesTableMissing = true;
+  const a = device('raj@example.com');
+  await a.signIn();
+  await a.store.putEntries([entry()]);
+  await saveProfileOn(a, 'Raj', '', iso(-2000));
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.equal(mock.state.entries.size, 1, 'the payment went up');
+  assert.equal((await profileOf(a))!.dirty, 1, 'the profile is still waiting');
+  mock.state.profilesTableMissing = false;
+  await a.sync.sync();
+  assert.equal((await profileOf(a))!.dirty, 0, 'it goes up once the table exists');
+  assert.equal([...mock.state.profiles.values()][0]!.name, 'Raj');
+});
+
+test("another account never sees someone else's profile", async () => {
+  reset();
+  const a = device('a@example.com'); const x = device('x@example.com');
+  await a.signIn(); await x.signIn();
+  await saveProfileOn(a, 'Raj', '+919876543210', iso(-1000));
+  await a.sync.sync(); await x.sync.sync();
+  assert.equal(await profileOf(x), undefined);
 });
