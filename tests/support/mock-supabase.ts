@@ -33,6 +33,9 @@ export interface MockState {
   entries: Map<string, any>;
   plans: Map<string, any>;
   profiles: Map<string, { user_id: string; name: string; email: string; whatsapp: string; updated_at: string }>; // by user id
+  sessions: { id: string; uid: string; created_at: string; refreshed_at: string; user_agent: string }[]; // the server's live sessions
+  signIns: { uid: string; at: string; action: string }[]; // the server's sign-in record
+  signInFunctionsMissing: boolean; // the database has not had the version 1.25 SQL: PostgREST answers 404
   profilesTableMissing: boolean; // the database has not had the version 1.23 SQL: PostgREST answers 404
   groups: Map<string, any>;
   members: Map<string, any>; // `${group}|${user}`
@@ -50,7 +53,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     otp: '123456', accessTtlSec: 3600,
     users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true, recoveries: [],
     access: new Map(), refresh: new Map(),
-    entries: new Map(), plans: new Map(), profiles: new Map(), profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
+    entries: new Map(), plans: new Map(), profiles: new Map(), sessions: [], signIns: [], signInFunctionsMissing: false, profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
     receipts: new Map(), objects: new Map(), history: [],
     requests: [], failNext: null,
   };
@@ -65,7 +68,17 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
   };
   const rls = (table: string) => ({ code: '42501', details: null, hint: null, message: `new row violates row-level security policy for table "${table}"` });
 
-  function newSession(uid: string, email: string, sid: string = randomUUID()) {
+  function newSession(uid: string, email: string, sid?: string) {
+    const fresh = sid === undefined;
+    sid ??= randomUUID();
+    const nowIso = new Date().toISOString();
+    if (fresh) {
+      state.sessions.push({ id: sid, uid, created_at: nowIso, refreshed_at: nowIso, user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/150.0 Safari/537.36' });
+      state.signIns.push({ uid, at: nowIso, action: 'login' });
+    } else {
+      const row = state.sessions.find((x) => x.id === sid);
+      if (row) row.refreshed_at = nowIso;
+    }
     const access_token = `at-${randomUUID()}`;
     const refresh_token = `rt-${randomUUID()}`;
     const expires_at = Math.floor(Date.now() / 1000) + state.accessTtlSec;
@@ -302,8 +315,17 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     try {
       const url = new URL(req.url ?? '/', 'http://x');
       const path = url.pathname;
-      const isApi = path.startsWith('/auth/v1/') || path.startsWith('/rest/v1/') || path.startsWith('/storage/v1/') || path === '/__state';
+      const isApi = path.startsWith('/auth/v1/') || path.startsWith('/rest/v1/') || path.startsWith('/storage/v1/') || path === '/__state' || path === '/__seed-session';
       if (!isApi) return serveStatic(url, res);
+      if (path === '/__seed-session' && req.method === 'POST') { // a browser check can add a session on "another device"
+        const b = (await body(req)) ?? {};
+        const seeded = state.users.get(String(b.email ?? ''));
+        if (!seeded) return send(res, 404, { message: 'unknown email' });
+        const at = typeof b.created_at === 'string' ? b.created_at : new Date().toISOString();
+        state.sessions.push({ id: randomUUID(), uid: seeded, created_at: at, refreshed_at: at, user_agent: String(b.user_agent ?? '') });
+        state.signIns.push({ uid: seeded, at, action: 'login' });
+        return send(res, 201);
+      }
       if (path === '/__state') return send(res, 200, { entries: [...state.entries.values()], plans: [...state.plans.values()], profiles: [...state.profiles.values()], groups: [...state.groups.values()], members: [...state.members.values()], invites: [...state.invites.values()], settlements: [...state.settlements.values()], receipts: [...state.receipts.values()], objects: [...state.objects.entries()].map(([path, o]) => ({ path, bytes: o.bytes, owner: o.owner })), history: state.history, recoveries: state.recoveries, requests: state.requests.length });
       state.requests.push(`${req.method} ${path}${url.search}`);
       if (req.headers.apikey !== API_KEY) return send(res, 401, { message: 'No API key found in request' });
@@ -438,6 +460,15 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (path === '/rest/v1/group_members' && req.method === 'GET') return send(res, 200, [...state.members.values()].filter((m) => active(m.group_id, uid)));
       if (path === '/rest/v1/group_invites' && req.method === 'GET') {
         return send(res, 200, [...state.invites.values()].filter((i) => active(i.group_id, uid) && member(i.group_id, uid).role === 'admin'));
+      }
+      if ((path === '/rest/v1/rpc/my_sessions' || path === '/rest/v1/rpc/my_sign_in_log') && req.method === 'POST') {
+        if (state.signInFunctionsMissing) return send(res, 404, { code: 'PGRST202', message: 'Could not find the function in the schema cache' });
+        if (path.endsWith('my_sessions')) {
+          const sid = state.access.get(/^Bearer (.+)$/.exec(String(req.headers.authorization ?? ''))?.[1] ?? '')?.sid;
+          return send(res, 200, state.sessions.filter((x) => x.uid === uid).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 20).map((x) => ({ id: x.id, created_at: x.created_at, refreshed_at: x.refreshed_at, user_agent: x.user_agent, is_current: x.id === sid })));
+        }
+        const limit = Math.min(100, Math.max(1, Number((await body(req))?.p_limit ?? 30)));
+        return send(res, 200, state.signIns.filter((x) => x.uid === uid).sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit).map((x) => ({ at: x.at, action: x.action })));
       }
       if (path.startsWith('/rest/v1/rpc/') && req.method === 'POST') {
         const out = rpc(path.slice('/rest/v1/rpc/'.length), (await body(req)) ?? {}, uid);

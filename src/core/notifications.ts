@@ -10,6 +10,8 @@ import { NOTICE_KINDS } from './noticeKinds.ts';
 import type { NoticeKind } from './noticeKinds.ts';
 import { tr } from './i18n.ts';
 import { catKey, fmtINR, nearBudget, parseTs } from './logic.ts';
+import { agoText, deviceName } from './signins.ts';
+import type { SessionInfo } from './signins.ts';
 import type { MonthRow } from './logic.ts';
 import type { RecurDue } from './recurring.ts';
 
@@ -18,7 +20,7 @@ export type OpenTarget =
   | { to: 'plan'; part: 'due' | 'goals' | 'networth' }
   | { to: 'month' }
   | { to: 'group'; id: string }
-  | { to: 'settings'; part: 'recurring' | 'backup' | 'account' };
+  | { to: 'settings'; part: 'recurring' | 'backup' | 'account' | 'password' };
 
 export interface Notice { key: string; kind: NoticeKind; tone: Tone; title: string; detail: string; open: OpenTarget }
 
@@ -35,12 +37,14 @@ export interface NoticeInput {
   lastBackupMs: number | null; // when a backup was last downloaded on this phone
   hasPayments: boolean;
   sync: { mode: string; pending: number; lastSync: number | null; error: string | null };
+  sessions: SessionInfo[] | null; // where the account is signed in now (null: not known: not signed in, offline, or the database has no such function yet)
 }
 
 export const DUE_LEAD_DAYS = 3; // a due item shows this many days before its date
 export const GOAL_LEAD_DAYS = 30; // a goal shows this many days before its date
 export const GOAL_BEHIND = 0.25; // a goal is behind when the share of time gone is this far ahead of the share saved
 export const STALE_DAYS = 30; // net worth and backup reminders
+export const SIGNIN_DAYS = 7; // a sign-in on another device is news for this many days
 const DAY_MS = 86_400_000;
 
 const month = (i: NoticeInput): string => i.today.slice(0, 7);
@@ -152,9 +156,21 @@ function syncNotices(i: NoticeInput): Notice[] {
   return [{ key, kind: 'sync', tone: 'attention', title: tr('Changes are not reaching the cloud'), detail: tr('{0} change{1} waiting for more than a day.', s.pending, plural(s.pending)), open }];
 }
 
+// A session on another device that began recently. This phone's own session never produces one.
+function signInNotices(i: NoticeInput): Notice[] {
+  return (i.sessions ?? [])
+    .filter((s) => !s.isCurrent && i.nowMs - s.createdMs <= SIGNIN_DAYS * DAY_MS)
+    .map((s): Notice => ({
+      key: `signin:${s.id}`, kind: 'signin', tone: 'attention',
+      title: tr('Signed in on another device'),
+      detail: `${deviceName(s.userAgent)} · ${agoText(i.nowMs, s.createdMs)}`,
+      open: { to: 'settings', part: 'password' },
+    }));
+}
+
 const RULES: Record<NoticeKind, (i: NoticeInput) => Notice[]> = {
   due: dueNotices, recurring: recurringNotices, budget: budgetNotices, goal: goalNotices,
-  group: groupNotices, networth: netWorthNotices, backup: backupNotices, sync: syncNotices,
+  group: groupNotices, networth: netWorthNotices, backup: backupNotices, sync: syncNotices, signin: signInNotices,
 };
 
 const TONE_RANK: Record<Tone, number> = { attention: 0, soon: 1, reminder: 2 };

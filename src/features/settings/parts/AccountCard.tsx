@@ -146,7 +146,7 @@ export function AccountCard() {
         <button type="button" className={ui.btn()} onClick={app.syncNow} disabled={s.mode === 'syncing'}>{tr('Sync now')}</button>
         <button type="button" className={ui.btn('ghost')} aria-expanded={leaving} onClick={() => setLeaving(!leaving)}>{tr('Sign out')}</button>
       </div>
-      {leaving && <SignOutPanel kind="out" onCancel={() => setLeaving(false)} />}
+      {leaving && <SignOutPanel onCancel={() => setLeaving(false)} />}
     </div>
   );
 }

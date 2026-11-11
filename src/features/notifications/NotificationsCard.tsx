@@ -14,7 +14,8 @@ function describe(kind: NoticeKind): { name: string; example: string } {
     case 'group': return { name: tr('Group balances'), example: tr('Trip: you are owed ₹1,200') };
     case 'networth': return { name: tr('Net worth reminder'), example: tr('Update your net worth, after 30 days') };
     case 'backup': return { name: tr('Backup reminder'), example: tr('Download a backup, after 30 days') };
-    default: return { name: tr('Sync problems'), example: tr('Changes are not reaching the cloud') };
+    case 'sync': return { name: tr('Sync problems'), example: tr('Changes are not reaching the cloud') };
+    default: return { name: tr('Sign-ins on other devices'), example: tr('Signed in on another device') };
   }
 }
 

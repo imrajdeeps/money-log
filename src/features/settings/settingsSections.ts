@@ -6,7 +6,7 @@ export type SettingsGroup = (typeof SETTINGS_GROUPS)[number];
 export const SETTINGS_SECTIONS = [
   { id: 'profile', group: 'Account', title: 'Profile', blurb: 'Your name and WhatsApp number' },
   { id: 'account', group: 'Account', title: 'Cloud sync', blurb: 'Sign in, sync, sign out' },
-  { id: 'password', group: 'Account', title: 'Password and sessions', blurb: 'Change it, sign out other devices' },
+  { id: 'password', group: 'Account', title: 'Password and sessions', blurb: 'Change it, see sign-ins, sign out other devices' },
   { id: 'recurring', group: 'Money', title: 'Recurring payments', blurb: 'Rent, SIPs, subscriptions: log with one tap' },
   { id: 'backup', group: 'Money', title: 'Backup', blurb: 'Save or restore a copy of your data' },
   { id: 'lock', group: 'Privacy and security', title: 'App lock', blurb: 'A PIN for this phone' },

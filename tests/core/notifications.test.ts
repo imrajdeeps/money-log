@@ -18,7 +18,7 @@ const NONE = new Set<string>();
 
 const empty = (): NoticeInput => ({
   today: TODAY, nowMs: NOW, dueItems: [], recurring: [], budgetRows: [], goals: [], groups: [], netWorth: null, lastBackupMs: null, hasPayments: false,
-  sync: { mode: 'idle', pending: 0, lastSync: NOW, error: null },
+  sync: { mode: 'idle', pending: 0, lastSync: NOW, error: null }, sessions: null,
 });
 const run = (over: Partial<NoticeInput>, kinds: ReadonlySet<NoticeKind> = ALL, dismissed: ReadonlySet<string> = NONE) => buildNotices({ ...empty(), ...over }, kinds, dismissed);
 const due = (k: string, title: string, date: string | null, done = false, amount: number | null = null) => ({ k, kind: 'todo' as const, title, due: date, amount, done });
@@ -120,6 +120,19 @@ test('a sync problem shows when the last sync failed, or changes have waited mor
   assert.deepEqual(run({ sync: sync({ pending: 0, lastSync: NOW - 9 * DAY }) }), [], 'nothing waiting');
   const failing = run({ sync: sync({ mode: 'error', error: 'Server said no' }) });
   assert.deepEqual([failing[0]!.title, failing[0]!.detail, failing[0]!.tone], ['Sync is not working', 'Server said no', 'attention']);
+});
+
+test('a sign-in on another device shows for a week; this phone, older ones and a phone that cannot ask never do', () => {
+  const session = (id: string, ago: number, isCurrent = false, userAgent = 'Mozilla/5.0 (Windows NT 10.0) Firefox/140.0') => ({ id, createdMs: NOW - ago, lastMs: NOW - ago, userAgent, isCurrent });
+  const r = run({ sessions: [session('mine', 60_000, true), session('new', 3 * 3_600_000), session('edge', 7 * DAY), session('old', 7 * DAY + 1)] });
+  assert.deepEqual(r.map((n) => n.key).sort(), ['signin:edge', 'signin:new']);
+  const n = r.find((x) => x.key === 'signin:new')!;
+  assert.deepEqual([n.tone, n.title, n.detail], ['attention', 'Signed in on another device', 'Firefox on Windows · 3 h ago']);
+  assert.deepEqual(n.open, { to: 'settings', part: 'password' });
+  assert.deepEqual(run({ sessions: null }), []);
+  assert.deepEqual(run({ sessions: [] }), []);
+  assert.equal(run({ sessions: [session('new', 1000)] }, new Set<NoticeKind>(['due'])).length, 0, 'switched off');
+  assert.equal(run({ sessions: [session('new', 1000)] }, ALL, new Set(['signin:new'])).length, 0, 'dismissed');
 });
 
 test('the list is sorted needs attention, then coming up, then reminders, and kinds that are off or dismissed are left out', () => {

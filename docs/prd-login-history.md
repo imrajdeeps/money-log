@@ -1,7 +1,7 @@
 # PRD: Login history, and no more "Switch account"
 
-**Status:** proposed (2026-11-11), decisions taken in a question round with the owner; waiting for the go-ahead to build. Planned as
-**version 1.25.0** (a new feature, with a feature removed). Nothing is built yet.
+**Status:** built in version 1.25.0 (2026-11-11), from decisions taken in two question rounds with the owner. The SQL was tested on a
+local Postgres with stand-ins for the `auth` tables; running it on the real project is the owner's go-ahead.
 
 ## Problem
 There is no way to see who has signed in to the account, and from where. And "Switch account" does nothing that "Sign out and erase this
