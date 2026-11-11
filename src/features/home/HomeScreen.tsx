@@ -8,7 +8,7 @@ import { RecentList } from '../payments/index.ts';
 import { dueRelative } from '../../core/blocks.ts';
 import { netNow } from '../../core/goals.ts';
 import { planForMonth } from '../../core/categories.ts';
-import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
+import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
 import { monthLabel, monthShort, shortDate } from '../../core/format.ts';
 import { averageOf, groupLookup, monthlyTotals, monthsEnding, projectedMonthEnd } from '../../core/analytics.ts';
 import type { Group } from '../../core/logic.ts';
@@ -18,7 +18,7 @@ import * as hs from '../../ui/tileStyles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
-export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'export' | 'goals' | 'analytics';
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'goals' | 'analytics';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;
@@ -48,7 +48,6 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
   const couples = useMemo(() => coupleTiles(app.groups, app.members, app.groupEntries, app.settlements, app.me), [app.groups, app.members, app.groupEntries, app.settlements, app.me]);
   const goalTile = useMemo(() => nearestGoal(app.goals, budgetEntries(app.entries, app.me), today), [app.goals, app.entries, app.me, today]);
-  const ex = useMemo(() => exportOverview(app.entries, app.allEntries, app.me), [app.entries, app.allEntries, app.me]);
 
   const tiles = overviewGroups(ov.summary.groups);
   const tileSpan = (12 / tiles.length) as 3 | 4 | 6 | 12;
@@ -243,16 +242,6 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, goSettings, ma
           </BentoCard>
         )}
 
-        <BentoCard title={tr('Export')} span={4} onOpen={() => open('export')} openLabel={tr('Open export to the spreadsheet')}>
-          <p className={hs.statNum()}>{app.entries.length === 0 ? tr('Nothing yet') : ex.waiting === 0 ? tr('All exported') : tr('{0} to export', ex.waiting)}</p>
-          {ex.changed > 0 ? (
-            <p className={hs.warnText}>{tr('{0} changed after export: fix {1} in the spreadsheet', ex.changed, ex.changed === 1 ? 'that row' : 'those rows')}</p>
-          ) : (
-            <p className={hs.note}>
-              {app.entries.length === 0 ? tr('Payments you log can be copied into the spreadsheet\'s Log tab') : ex.waiting > 0 ? tr('Copy them into the spreadsheet\'s Log tab') : tr('Nothing new since the last copy')}
-            </p>
-          )}
-        </BentoCard>
       </BentoGrid>
     </section>
   );

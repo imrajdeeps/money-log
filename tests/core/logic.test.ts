@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 import {
   parseAmount, fmtINR, isValidDate, shiftMonth, parseTs, isoDate, monthOf,
   cleanPlan, summarizeMonth, budgetState,
-  safeCell, exportNote, amountText, exportRows, toTSV, toCSV,
   cleanEntry, mergeRemote, frequentCategories, makeEntry, editEntry, softDelete,
-  newId, markExportedEntry, changedAfterExport, restoreEntry,
+  newId, restoreEntry,
 } from '../../src/core/logic.ts';
 import { makeBackup, parseBackup } from '../../src/data/backup.ts';
 import type { Entry, PlanData } from '../../src/core/logic.ts';
@@ -92,36 +91,6 @@ test('budgetState judges spending and saving differently', () => {
   assert.equal(budgetState('Saving', 50000, 50000, false), 'ok');
   assert.equal(budgetState('Saving', 10, 50000, false), 'idle'); // month still running
   assert.equal(budgetState('Saving', 10, 50000, true), 'short'); // month finished, saved too little
-});
-
-test('exports are safe to paste into Excel', () => {
-  assert.equal(safeCell('=SUM(A1)'), ' =SUM(A1)');
-  assert.equal(safeCell('+1'), ' +1');
-  assert.equal(safeCell('@cmd'), ' @cmd');
-  assert.equal(safeCell('-2'), ' -2');
-  assert.equal(safeCell('a\tb\nc'), 'a b c');
-  assert.equal(exportNote({ note: 'lunch', method: 'UPI' }), '[UPI] lunch');
-  assert.equal(exportNote({ note: '', method: 'Cash' }), '[Cash]');
-  assert.equal(exportNote({ note: 'x', method: null }), 'x');
-  assert.equal(exportNote({ note: '=1+1', method: null }), ' =1+1');
-  assert.equal(amountText(1200.5), '1200.5');
-  assert.equal(amountText(9000), '9000');
-  assert.equal(amountText(0.1 + 0.2), '0.3');
-  assert.equal(amountText(12.05), '12.05');
-});
-
-test('export rows are ordered, skip deleted entries, and format as TSV and CSV', () => {
-  const rows = exportRows([
-    mk({ id: newId(), entry_date: '2026-11-03', category: 'Groceries', amount: 250.5, note: 'milk, eggs', method: 'UPI' }),
-    mk({ id: newId(), entry_date: '2026-11-01', category: 'Rent', amount: 9000, note: '' , method: null }),
-    mk({ id: newId(), entry_date: '2026-11-02', category: 'Rent', amount: 1, deleted_at: T0 }),
-  ]);
-  assert.equal(rows.length, 2);
-  assert.equal(toTSV(rows), '2026-11-01\tRent\t9000\t\n2026-11-03\tGroceries\t250.5\t[UPI] milk, eggs');
-  const csv = toCSV(rows);
-  assert.ok(csv.startsWith('﻿Date,Category,Amount,Note\r\n'));
-  assert.ok(csv.includes('2026-11-03,Groceries,250.5,"[UPI] milk, eggs"\r\n'));
-  assert.equal(toTSV([]), '');
 });
 
 test('cleanEntry refuses anything malformed', () => {
@@ -214,55 +183,6 @@ test('an edit always sorts after the version it was based on, even when this pho
   assert.ok(parseTs(gone.updated_at) > parseTs(ahead.updated_at));
   assert.equal(gone.deleted_at, gone.updated_at);
   assert.equal(mergeRemote(ahead, edited).note, 'x'); // so the edit survives the merge
-});
-
-test('marking as exported is detectably older than any later edit or delete', () => {
-  const e = mk({ id: newId(), dirty: 0 });
-  const t1 = '2026-11-10T00:00:00.000Z';
-  const exported = markExportedEntry(e, t1);
-  assert.equal(exported.exported_at, exported.updated_at);
-  assert.equal(exported.dirty, 1);
-  assert.deepEqual(changedAfterExport([exported]), []); // freshly exported: nothing to flag
-  assert.deepEqual(changedAfterExport([e]), []); // never exported: nothing to flag
-  const edited = editEntry(exported, { amount: 5 }, t1); // same clock instant, still sorts later
-  assert.deepEqual(changedAfterExport([edited]).map((c) => c.kind), ['edited']);
-  const deleted = softDelete(exported, '2026-11-11T00:00:00.000Z');
-  assert.deepEqual(changedAfterExport([deleted]).map((c) => c.kind), ['deleted']);
-  assert.deepEqual(changedAfterExport([markExportedEntry(edited, '2026-11-12T00:00:00.000Z')]), []); // acknowledged again
-});
-
-test('Excel-hostile text gets a leading space: formulas, a leading quote, dates and numbers', () => {
-  assert.equal(safeCell('"=1+1"'), ' "=1+1"');
-  assert.equal(safeCell('"'), ' "');
-  assert.equal(safeCell('1/2'), ' 1/2');
-  assert.equal(safeCell('00123'), ' 00123');
-  assert.equal(safeCell('12-11'), ' 12-11');
-  assert.equal(safeCell('lunch 1/2'), 'lunch 1/2'); // has words, so Excel leaves it alone
-  assert.equal(safeCell('Rent'), 'Rent');
-  assert.equal(exportNote({ note: '1/2', method: null }), ' 1/2');
-  assert.equal(exportNote({ note: '1/2', method: 'UPI' }), '[UPI] 1/2'); // the method prefix already makes it text
-});
-
-// ---------------------------------------------------------------- Log layout with a Method column, and the my-share link
-test('with a Method column the export has five input columns and the note carries no [UPI] prefix', () => {
-  const upi = mk({ entry_date: '2026-11-03', category: 'Groceries', amount: 500, method: 'UPI', note: 'weekly shop' });
-  const none = mk({ entry_date: '2026-11-04', category: 'Rent', amount: 9000, method: null, note: '' });
-  const eq = mk({ entry_date: '2026-11-05', category: 'Misc', amount: 10, method: 'Cash', note: '=1+1' });
-  const rows = exportRows([upi, none, eq], null, 'column');
-  assert.equal(toTSV(rows, 'column'), ['2026-11-03\tGroceries\t500\tUPI\tweekly shop', '2026-11-04\tRent\t9000\t\t', '2026-11-05\tMisc\t10\tCash\t =1+1'].join('\n'));
-  assert.equal(toTSV(exportRows([upi, none, eq]), 'note').split('\n')[0], '2026-11-03\tGroceries\t500\t[UPI] weekly shop', 'the default layout is unchanged');
-  assert.equal(toTSV(exportRows([upi])), '2026-11-03\tGroceries\t500\t[UPI] weekly shop', 'toTSV without a layout is the original four columns');
-  assert.ok(toCSV(rows, 'column').startsWith('﻿Date,Category,Amount,Method,Note\r\n'));
-  assert.ok(toCSV(rows).startsWith('﻿Date,Category,Amount,Note\r\n'));
-  assert.equal(exportNote({ note: 'x', method: 'UPI' }, undefined, 'column'), 'x');
-  assert.equal(exportNote({ note: 'x', method: 'UPI' }), '[UPI] x');
-});
-
-test('a shared expense keeps its "my share of" note in the Method-column layout too', () => {
-  const me = '00000000-0000-4000-8000-0000000000aa';
-  const other = '00000000-0000-4000-8000-0000000000bb';
-  const e: Entry = { ...mk({ amount: 1800, method: 'UPI', note: 'dinner', category: 'Eating out' }), owner_id: me, group_id: '10000000-0000-4000-8000-000000000001', paid_by: me, shares: { [me]: 600, [other]: 1200 } };
-  assert.equal(toTSV(exportRows([e], me, 'column'), 'column'), '2026-11-09\tEating out\t600\tUPI\tdinner, my share of 1,800');
 });
 
 test('the link from a private payment to the shared expense it records is kept and checked', () => {

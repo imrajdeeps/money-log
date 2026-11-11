@@ -16,7 +16,7 @@ import type { Receipt } from '../core/receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from '../core/groups.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
-import { editEntry, isMine, isoDate, makeEntry, markExportedEntry, monthOf, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
+import { editEntry, isMine, isoDate, makeEntry, monthOf, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
 import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
 import { openStore } from './store.ts';
 import { BASEPATH, appRootUrl } from '../core/paths.ts';
@@ -260,14 +260,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!e) return;
     const nowIso = new Date().toISOString();
     await e.store.mutateEntries([before.id], (cur) => (cur ? restoreEntry(cur, before, nowIso) : undefined));
-    await afterChange();
-  }, [afterChange]);
-
-  const markExported = useCallback(async (ids: string[]) => {
-    const e = engRef.current;
-    if (!e) return;
-    const nowIso = new Date().toISOString();
-    await e.store.mutateEntries(ids, (cur) => (cur ? markExportedEntry(cur, nowIso) : undefined));
     await afterChange();
   }, [afterChange]);
 
@@ -591,10 +583,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toastMsg,
     toastAction,
     toast,
-    addEntry, updateEntry, removeEntry, undoEntry, markExported, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
+    addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, markExported, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

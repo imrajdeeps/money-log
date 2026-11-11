@@ -7,7 +7,7 @@ import type { Group as SharedGroup, Member, Settlement } from '../../core/groups
 import { coupleLine } from '../../core/couple.ts';
 import { activeGoals, goalLine, goalProgress, goalTerm } from '../../core/goals.ts';
 import type { Goal, GoalLine, GoalProgress, Goals } from '../../core/goals.ts';
-import { GROUPS, budgetEntries, catKey, changedAfterExport, daysInMonth, exportRows, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
+import { GROUPS, budgetEntries, catKey, daysInMonth, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from '../../core/logic.ts';
 
 // Which of the four groups get a tile on the Overview: once any group has a budget, only those; with none set, all four.
@@ -146,11 +146,3 @@ export function groupsOverview(groups: SharedGroup[], entries: Entry[], settleme
   return { owed: fromPaise(owed), owe: fromPaise(owe) };
 }
 
-// What the Export screen will offer: payments not exported yet (as "Not yet exported" counts them) and the ones that
-// changed after they were exported. `entries` are this account's live payments, `all` includes deleted ones.
-export function exportOverview(entries: Entry[], all: Entry[], me: string | null): { waiting: number; changed: number } {
-  return {
-    waiting: exportRows(entries.filter((e) => !e.exported_at), me).length,
-    changed: changedAfterExport(all).length,
-  };
-}

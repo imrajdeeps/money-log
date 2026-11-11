@@ -34,7 +34,7 @@ export function BackupCard() {
   return (
     <div className={ui.card()}>
       <h2>{tr('Backup')}</h2>
-      <p className="text-muted text-[13px]">{tr('A file with all your payments and the plan. Keep one somewhere safe (iCloud Drive, for example) from time to time.')}</p>
+      <p className="text-muted text-[13px]">{tr('The one file that goes in and out of the app: your payments, categories and budgets, recurring payments, goals, net worth and due list. Keep one somewhere safe (iCloud Drive, for example) from time to time.')}</p>
       <div className={ui.btnRow}>
         <button type="button" className={ui.btn()} onClick={download}>{tr('Download backup')}</button>
         <label className={ui.btn('ghost', 'md', 'mt-0')}>
