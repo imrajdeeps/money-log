@@ -83,8 +83,7 @@ GitHub account, or give this app its own account, organisation, or custom domain
 2. **Settings:** *Create account* with your email and a password (at least 10 characters; a few words in a row work well), or
    sign in. If you once tried an email-code sign-in with the same address, delete that unfinished user first (Supabase,
    Authentication, Users, the three dots, Delete user) and then create the account here.
-3. Start logging. Nothing has to be imported: the app has its own categories (see below). If you also keep the
-   spreadsheet, **Settings, Spreadsheet plan:** paste its blocks (see "Getting the plan from the spreadsheet").
+3. Start logging. The app has its own categories, budgets, due list, goals and net worth (see below); nothing is imported.
 
 ## Finding your way around
 
@@ -206,31 +205,19 @@ Transport & fuel, Bills, Shopping, Health, Other), **EMI** (Loan EMI), **Family*
   category with no budget shows "no budget" instead of "over".
 - Your categories and budgets sync between your phones (the latest change to each category wins) and are in the backup file.
 
-## Getting the plan from the spreadsheet (optional)
+## What older versions imported from the spreadsheet
 
-If you also keep the Money Plan v2 spreadsheet, its **App export** tab holds two blocks (budget and due list). Copy one, paste it in the app
-under Settings, Spreadsheet plan (or open a saved `.tsv` with *Choose a file*), check the preview, and import. The app
-recognises the block by its header row. Importing replaces that block only and never touches payments. Copy a block again
-after you change anything it depends on.
+Versions up to 1.20 could import blocks of the spreadsheet's *App export* tab (the budget plan, the due list and the net worth
+snapshot). From 1.21 nothing is imported any more; the app makes all of it itself. What a phone had already imported is brought
+across once, the first time the new version starts there (and the old copy is then deleted from the phone):
 
-**The budget block merges with what is in the app, it does not replace it.** A category the spreadsheet lists keeps the
-spreadsheet's spelling, group and planned amount for the months the spreadsheet covers (the amount you set in the app is
-ignored for that category in those months, and used again for months the spreadsheet does not cover). Categories the
-spreadsheet lacks stay as they are, with their app budgets, so a built-in such as "Eating out" can sit beside the sheet's
-"Eating out / food orders": remove the one you do not want.
+- **The due list** becomes due items on Plan, with their ticks (an item you had removed stays removed).
+- **The budget plan** becomes the app's budgets: each category's amount for the month nearest to this one is its monthly budget,
+  and a category the app did not have becomes one of your own. A budget you had set in the app is kept as it is.
+- **Net worth** from the old snapshot was dropped in 1.20 (type it on Plan).
 
-| Block | Copy | What it gives the app |
-| --- | --- | --- |
-| Budget | `A5` to `AL34` | The spreadsheet's categories, groups and planned amount per month (Month). |
-| Due list | `A38` to `E66` | One-off payments (Inputs section 6, Active = Yes) and to-dos, with dates (Plan, and the Due soon tile). |
-
-Keep such files out of this repository (`.gitignore` already skips `*.tsv`, `*.csv`, `*.xlsx` and backup files).
-
-**Names must match for Export.** The spreadsheet adds payments up by the categories on its Budget tab (its Inputs tab
-holds the list); its Log shows NOT IN LIST for any other name and Budget and Tracker leave that payment out. After you
-import the budget block, Export names the categories in the rows it is about to copy that the spreadsheet does not
-have, so you can add them there or change the payment's category. Without an imported plan the app cannot know what the
-spreadsheet holds and only reminds you of this.
+An older backup file that holds these loads the same way. Every phone makes the same items from the same data, so two phones
+never end with copies. Export of payments to the spreadsheet's Log tab (next section) is still there for now.
 
 ## Sending payments to the spreadsheet
 
@@ -280,9 +267,9 @@ like any other.
 
 ## Due list and calendar
 
-*Plan* (bottom bar, or the Due soon and Net worth tiles). **Due soon** lists the imported one-off payments and to-dos: overdue first, then by date, with a tick to mark
-one done (marks sync between your phones and survive re-importing the same list; the spreadsheet stays the plan, so
-tick items off there too). **Add to calendar** makes a calendar (`.ics`) file with an all-day event and an alert for each
+*Plan* (bottom bar, or the Due soon and Net worth tiles). **Due soon** is made in the app: **Add an item** takes a payment (with an optional amount) or a to-do and an optional date;
+tap an item to change it, tick it when it is done, slide it left to remove it. Overdue first, then by date. Items sync
+between your phones (the latest change to each item wins) and are in the backup file. **Add to calendar** makes a calendar (`.ics`) file with an all-day event and an alert for each
 dated item that is not done; by default the alert is 2 days before at 9:00, and you can change both. Opening the file
 again later updates the same events instead of adding copies. If you finished or removed an item after putting it in a
 calendar file, the next file also cancels its event (this phone remembers what it sent; a passed date alone does not cancel).
@@ -425,9 +412,6 @@ how to add a feature, and a test keeps it that way.
 `tests/support/mock-supabase.ts` is a small stand-in for the Supabase sign-in, REST and group-function endpoints the app uses.
 It records how those APIs are understood to behave; it is not the real service. `npm run e2e:build` plus
 `npm run e2e:serve` serve a build that talks to the stand-in, for checking in a browser.
-
-Tests against your real spreadsheet export are skipped unless you point `MONEY_LOG_REAL_DIR` at the folder holding the
-exported blocks (`MONEY_LOG_REAL_DIR=~/Finance npm test`); those files never go in the repository.
 
 ## Security notes
 

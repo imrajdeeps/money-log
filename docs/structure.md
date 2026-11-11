@@ -5,10 +5,10 @@ ones after. `tests/app/structure.test.ts` checks these rules on every test run.
 
 ```
 src/
-  core/       shared plain TypeScript: the data models and rules (entries, groups, plan blocks, categories,
-              recurring, receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
+  core/       shared plain TypeScript: the data models and rules (entries, groups, categories and budgets,
+              recurring, goals with net worth updates and the due list (`goals.ts`, `dueItems.ts`), receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
   data/       keeping and syncing: the on-phone store, cloud sync, backup, sign-in helpers, PIN lock, the app state
-              (context.tsx) that every screen reads.
+              (context.tsx) that every screen reads. `legacy.ts` brings what older versions imported from the spreadsheet into the app's own data, once.
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
               the sync pill, file helpers.
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
@@ -19,7 +19,7 @@ src/
   styles/     tokens.css (the colours for the light and dark themes) and index.css (the Tailwind theme, the plain element
               rules, and the two things a class says badly: see Styling).
   assets/     fonts.
-tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds the stand-in Supabase server and fixtures.
+tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds the stand-in Supabase server and the style snapshot tool.
 ```
 
 ## Rules

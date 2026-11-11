@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { cleanDoneMap, mergeDone, pruneDone, removeDue as removeDueMark, setDone } from '../core/blocks.ts';
-import type { DoneMap, DueBlock, DueData } from '../core/blocks.ts';
+import type { DueItem } from '../core/blocks.ts';
+import { addDueItem, dueItemsOf, editDueItem, migrateDue, removeDueItem, setDueItemDone } from '../core/dueItems.ts';
+import type { DueInput } from '../core/dueItems.ts';
 import { parseAuthHash } from './authlink.ts';
 import type { AuthLink } from './authlink.ts';
 import type { BackupParse } from './backup.ts';
-import { addCategory as addCategoryTo, categoryList, mergeMine, removeCategory as removeCategoryFrom, setBudget } from '../core/categories.ts';
+import { addCategory as addCategoryTo, categoryList, mergeMine, migratePlan, removeCategory as removeCategoryFrom, setBudget } from '../core/categories.ts';
 import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import { config } from './config.ts';
 import { checkPin, cleanLock, makeLock, registerFailure, secondsToWait, shouldLock } from './lock.ts';
@@ -15,8 +16,8 @@ import type { Receipt } from '../core/receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from '../core/groups.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
-import { editEntry, isMine, isoDate, makeEntry, markExportedEntry, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
-import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from '../core/logic.ts';
+import { editEntry, isMine, isoDate, makeEntry, markExportedEntry, monthOf, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
+import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
 import { openStore } from './store.ts';
 import { BASEPATH, appRootUrl } from '../core/paths.ts';
 import { addRecurring as addRecurringTo, editRecurring as editRecurringIn, markHandled, mergeRecurring, removeRecurring as removeRecurringFrom, scheduledDate } from '../core/recurring.ts';
@@ -24,7 +25,8 @@ import type { RecurInput, Recurring } from '../core/recurring.ts';
 import { addGoal as addGoalTo, addNetUpdate as addNetUpdateTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeNetUpdate as removeNetUpdateFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import { createSync } from './sync.ts';
-import type { DueDone, GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
+import type { GoalsBlock, MineBlock, RecurBlock, Sync, SyncState } from './sync.ts';
+import { migrateLegacy } from './legacy.ts';
 import type { AppApi, Engine, ToastAction } from './appApi.ts';
 import { clearProfile } from './profile.ts';
 import { clearSent } from './calendar.ts';
@@ -60,9 +62,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [eng, setEng] = useState<Engine | null>(null);
   const engRef = useRef<Engine | null>(null);
   const [all, setAll] = useState<Entry[]>([]);
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [due, setDue] = useState<DueBlock | null>(null);
-  const [doneMap, setDoneMap] = useState<DoneMap>({});
   const [mine, setMine] = useState<Mine>({});
   const [recurring, setRecurring] = useState<Recurring>({});
   const [goals, setGoals] = useState<Goals>({});
@@ -89,11 +88,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     const e = engRef.current;
     if (!e) return;
-    const [entries, p, d, dd, mn, rcr, gl, g, m, i, st, owner, rc, lk] = await Promise.all([
+    const [entries, mn, rcr, gl, g, m, i, st, owner, rc, lk] = await Promise.all([
       e.store.allEntries(),
-      e.store.getMeta<Plan>('plan'),
-      e.store.getMeta<DueBlock>('block:due'),
-      e.store.getMeta<DueDone>('dueDone'),
       e.store.getMeta<MineBlock>('mine'),
       e.store.getMeta<RecurBlock>('recurring'),
       e.store.getMeta<GoalsBlock>('goals'),
@@ -115,9 +111,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setInvites(i ?? []);
     setSettlements(st);
     setMe(owner ?? null);
-    setPlan(p ?? null);
-    setDue(d ?? null);
-    setDoneMap(dd?.items ?? {});
     setMine(mn?.items ?? {});
     setRecurring(rcr?.items ?? {});
     setGoals(gl?.items ?? {});
@@ -132,6 +125,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       const e = { store, sync };
       engRef.current = e;
+      await migrateLegacy(store, isoDate()).catch(() => undefined); // an old imported plan or due list becomes the app's own, once
       await reload();
       if (lockRef.current) setLocked(true); // a PIN is set: the app starts covered
       setEng(e);
@@ -277,14 +271,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await afterChange();
   }, [afterChange]);
 
-  const applyPlan = useCallback(async (data: PlanData) => {
-    const e = engRef.current;
-    if (!e) return;
-    const p: Plan = { ...data, importedAt: new Date().toISOString(), dirty: 1 };
-    await e.store.setMeta('plan', p);
-    await afterChange();
-  }, [afterChange]);
-
   const addSettlement = useCallback(async (input: NewSettlementInput) => {
     const e = engRef.current;
     const owner = await e?.store.getMeta<string>('localOwner');
@@ -397,42 +383,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { ok: false, waitSec: secondsToWait(next, Date.now()) };
   }, []);
 
-  const applyDue = useCallback(async (data: DueData) => {
-    const e = engRef.current;
-    if (!e) return;
-    const importedAt = new Date().toISOString();
-    await e.store.setMeta('block:due', { ...data, importedAt, dirty: 1 } satisfies DueBlock);
-    // Marks for items that are no longer on the list are dropped; the rest carry over to the new import.
-    await e.store.mutateMeta<DueDone>('dueDone', (cur) => (cur ? { items: pruneDone(cur.items, data.items), dirty: 1 } : undefined));
-    await afterChange();
-  }, [afterChange]);
-
-  const toggleDone = useCallback(async (key: string, done: boolean) => {
-    const e = engRef.current;
-    if (!e) return;
-    const nowIso = new Date().toISOString();
-    await e.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: setDone(cur?.items ?? {}, key, done, nowIso), dirty: 1 }));
-    await afterChange();
-  }, [afterChange]);
-
-  // Takes an item off the due list (the swipe-to-delete). It stays in the imported data, marked removed like a Done mark.
-  const removeDue = useCallback(async (key: string) => {
-    const e = engRef.current;
-    if (!e) return;
-    const nowIso = new Date().toISOString();
-    await e.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: removeDueMark(cur?.items ?? {}, key, nowIso), dirty: 1 }));
-    await afterChange();
-  }, [afterChange]);
-
   // Changes to the categories and budgets are read-modify-write on the stored map, so two quick taps never lose one.
   const changeMine = useCallback(async (f: (m: Mine, list: CategoryInfo[], nowIso: string) => Mine) => {
     const e = engRef.current;
     if (!e) return;
-    const plan = (await e.store.getMeta<Plan>('plan')) ?? null;
     const nowIso = new Date().toISOString();
     await e.store.mutateMeta<MineBlock>('mine', (cur) => {
       const before = cur?.items ?? {};
-      const next = f(before, categoryList(plan, before), nowIso);
+      const next = f(before, categoryList(before), nowIso);
       return next === before ? undefined : { items: next, dirty: 1 };
     });
     await afterChange();
@@ -448,7 +406,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [changeMine]);
 
   const removeCategory = useCallback((name: string) => changeMine((m, list, nowIso) => {
-    const info = list.find((c) => c.name === name && c.source !== 'plan');
+    const info = list.find((c) => c.name === name);
     return info ? removeCategoryFrom(m, info, nowIso) : m;
   }), [changeMine]);
 
@@ -525,6 +483,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addNetWorth = useCallback((amount: number, date: string) => runGoals((items, nowIso) => addNetUpdateTo(items, amount, date, isoDate(), nowIso)), [runGoals]);
   const removeNetWorth = useCallback((id: string) => changeGoals((items, nowIso) => removeNetUpdateFrom(items, id, nowIso)), [changeGoals]);
 
+  // The due list lives in the goals block (kind 'd'): the same read-modify-write as goals, so two quick taps never lose one.
+  const addDue = useCallback((i: DueInput) => runGoals((items, nowIso) => addDueItem(items, i, nowIso)), [runGoals]);
+  const editDue = useCallback((id: string, i: DueInput) => runGoals((items, nowIso) => editDueItem(items, id, i, nowIso)), [runGoals]);
+  const toggleDone = useCallback((id: string, done: boolean) => changeGoals((items, nowIso) => setDueItemDone(items, id, done, nowIso)), [changeGoals]);
+  const removeDue = useCallback((id: string) => changeGoals((items, nowIso) => removeDueItem(items, id, nowIso)), [changeGoals]);
+
   const removeRecurring = useCallback((id: string) => changeRecurring((items, nowIso) => removeRecurringFrom(items, id, nowIso)), [changeRecurring]);
 
   // One tap on the Overview: mark this month handled first (so a double tap cannot log twice), then add the payment on its
@@ -558,7 +522,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const restoreBackup = useCallback(async (b: Extract<BackupParse, { ok: true }>) => {
     const e = engRef.current;
-    if (!e) return { added: 0, updated: 0, blocksReplaced: 0 };
+    if (!e) return { added: 0, updated: 0 };
     let added = 0;
     let updated = 0;
     const byId = new Map(b.entries.map((x) => [x.id, x]));
@@ -568,21 +532,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (parseTs(x.updated_at) > parseTs(cur.updated_at)) { updated++; return { ...x, dirty: 1 }; }
       return undefined;
     });
-    // Each block is replaced only if the backup's copy was imported later than the one here.
-    let blocksReplaced = 0;
-    const newer = async <T extends { importedAt: string }>(key: string, from: (Omit<T, 'dirty'>) | null) => {
-      if (!from) return;
-      await e.store.mutateMeta<T>(key, (cur) => {
-        if (cur && parseTs(from.importedAt) <= parseTs(cur.importedAt)) return undefined;
-        blocksReplaced++;
-        return { ...from, dirty: 1 } as unknown as T;
-      });
-    };
-    await newer<Plan>('plan', b.plan);
-    await newer<DueBlock>('block:due', b.due);
-    if (Object.keys(b.dueDone).length) {
-      await e.store.mutateMeta<DueDone>('dueDone', (cur) => ({ items: mergeDone(cur?.items ?? {}, cleanDoneMap(b.dueDone)), dirty: 1 }));
-    }
+    // An older backup may still hold the spreadsheet plan and the imported due list: they are brought across like the stored ones.
+    if (b.due) await e.store.mutateMeta<GoalsBlock>('goals', (cur) => { const r = migrateDue(b.due, b.dueDone, cur?.items ?? {}); return r.added ? { items: r.items, dirty: 1 } : undefined; });
+    if (b.plan) await e.store.mutateMeta<MineBlock>('mine', (cur) => { const r = migratePlan(b.plan, cur?.items ?? {}, monthOf(isoDate())); return r.added ? { items: r.mine, dirty: 1 } : undefined; });
     if (Object.keys(b.categories).length) {
       await e.store.mutateMeta<MineBlock>('mine', (cur) => ({ items: mergeMine(cur?.items ?? {}, b.categories), dirty: 1 }));
     }
@@ -593,7 +545,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await e.store.mutateMeta<GoalsBlock>('goals', (cur) => ({ items: mergeGoals(cur?.items ?? {}, b.goals), dirty: 1 }));
     }
     await afterChange();
-    return { added, updated, blocksReplaced };
+    return { added, updated };
   }, [afterChange]);
 
   const syncNow = useCallback(() => { void engRef.current?.sync.sync(); }, []);
@@ -621,7 +573,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [reload]);
 
   const own = useMemo(() => all.filter((e) => isMine(e, me)), [all, me]);
-  const categories = useMemo(() => categoryList(plan, mine), [plan, mine]);
+  const categories = useMemo(() => categoryList(mine), [mine]);
+  const dueItems = useMemo<DueItem[]>(() => dueItemsOf(goals), [goals]);
   const value = useMemo<AppApi>(() => ({
     ready: loaded,
     storageKind: eng?.store.kind ?? 'memory',
@@ -631,17 +584,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     allEntries: own,
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
-    plan, due, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
+    dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
     goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth,
     sync,
     syncEnabled,
     toastMsg,
     toastAction,
     toast,
-    addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
+    addEntry, updateEntry, removeEntry, undoEntry, markExported, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, plan, due, doneMap, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, markExported, applyPlan, applyDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, markExported, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

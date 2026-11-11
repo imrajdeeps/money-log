@@ -2,8 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { coupleTiles, dueOverview, nearestGoal, exportOverview, groupsOverview, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from '../../../src/features/payments/payments.ts';
-import { dueKey } from '../../../src/core/blocks.ts';
-import type { DueBlock } from '../../../src/core/blocks.ts';
 import { planForMonth, setBudget, categoryList } from '../../../src/core/categories.ts';
 import type { Mine } from '../../../src/core/categories.ts';
 import { daysInMonth, makeEntry, markExportedEntry, softDelete, summarizeMonth } from '../../../src/core/logic.ts';
@@ -21,7 +19,7 @@ const mk = (amount: number, category: string, date: string, over: Partial<Entry>
 function mineWithBudgets(): Mine {
   let m: Mine = {};
   for (const [name, amount] of [['Rent', 20000], ['Loan EMI', 10000], ['Savings', 5000]] as const) {
-    const info = categoryList(null, m).find((c) => c.name === name)!;
+    const info = categoryList(m).find((c) => c.name === name)!;
     m = setBudget(m, info, amount, T0);
   }
   return m;
@@ -35,7 +33,7 @@ test('daysInMonth knows month lengths and leap years', () => {
 });
 
 test('spentByDay adds up each day, leaves Saving out and ignores other months', () => {
-  const plan = planForMonth(null, {}, '2026-11');
+  const plan = planForMonth({}, '2026-11');
   const entries = [mk(100, 'Groceries', '2026-11-01'), mk(50, 'Groceries', '2026-11-01'), mk(300, 'Rent', '2026-11-03'), mk(999, 'Savings', '2026-11-02'), mk(7, 'Rent', '2026-10-31')];
   const d = spentByDay(entries, '2026-11', plan);
   assert.equal(d.length, 30);
@@ -54,7 +52,7 @@ test('monthOverview: spending without Saving, the budget of Spending, EMI and Fa
     mk(400, 'Groceries', '2026-10-10'), // after the 9th: not part of last month "by the same day"
     softDelete(mk(5000, 'Rent', '2026-11-01'), T0),
   ];
-  const o = monthOverview(entries, ME, planForMonth(null, mine, '2026-11'), planForMonth(null, mine, '2026-10'), '2026-11-09');
+  const o = monthOverview(entries, ME, planForMonth(mine, '2026-11'), planForMonth(mine, '2026-10'), '2026-11-09');
   assert.equal(o.month, '2026-11');
   assert.equal(o.day, 9);
   assert.equal(o.days, 30);
@@ -72,25 +70,25 @@ test('monthOverview: spending without Saving, the budget of Spending, EMI and Fa
 test('monthOverview: shared expenses count at my share, and there is no change to show without both months', () => {
   const shared = mk(900, 'Groceries', '2026-11-02', { group_id: U(9), paid_by: OTHER, shares: { [ME]: 300, [OTHER]: 600 } });
   const theirs = mk(700, 'Groceries', '2026-11-02', { owner_id: OTHER });
-  const plan = planForMonth(null, {}, '2026-11');
-  const o = monthOverview([shared, theirs], ME, plan, planForMonth(null, {}, '2026-10'), '2026-11-05');
+  const plan = planForMonth({}, '2026-11');
+  const o = monthOverview([shared, theirs], ME, plan, planForMonth({}, '2026-10'), '2026-11-05');
   assert.equal(o.spent, 300);
   assert.equal(o.budgeted, false);
   assert.equal(o.budget, 0);
   assert.equal(o.change, null, 'nothing last month');
-  const quiet = monthOverview([mk(100, 'Groceries', '2026-10-01')], ME, plan, planForMonth(null, {}, '2026-10'), '2026-11-05');
+  const quiet = monthOverview([mk(100, 'Groceries', '2026-10-01')], ME, plan, planForMonth({}, '2026-10'), '2026-11-05');
   assert.equal(quiet.change, null, 'nothing yet this month');
 });
 
 test('monthOverview on the 31st compares with the last day of a shorter month', () => {
-  const plan = planForMonth(null, {}, '2026-12');
-  const o = monthOverview([mk(100, 'Groceries', '2026-12-31'), mk(50, 'Groceries', '2026-11-30')], ME, plan, planForMonth(null, {}, '2026-11'), '2026-12-31');
+  const plan = planForMonth({}, '2026-12');
+  const o = monthOverview([mk(100, 'Groceries', '2026-12-31'), mk(50, 'Groceries', '2026-11-30')], ME, plan, planForMonth({}, '2026-11'), '2026-12-31');
   assert.equal(o.lastToDate, 50);
   assert.equal(o.change, 1);
 });
 
 test('topCategories: biggest first, Saving left out, unknown names kept, the rest added up', () => {
-  const plan = planForMonth(null, {}, '2026-11');
+  const plan = planForMonth({}, '2026-11');
   const s = summarizeMonth([
     mk(500, 'Groceries', '2026-11-01'), mk(300, 'Rent', '2026-11-01'), mk(100, 'Transport & fuel', '2026-11-01'),
     mk(60, 'Health', '2026-11-01'), mk(40, 'Bills', '2026-11-01'), mk(1000, 'Savings', '2026-11-01'), mk(200, 'Dog  walker', '2026-11-01'),
@@ -105,19 +103,14 @@ test('topCategories: biggest first, Saving left out, unknown names kept, the res
 });
 
 test('dueOverview counts overdue and open items and lists the next ones', () => {
-  assert.equal(dueOverview(null, {}, '2026-11-09'), null);
-  const item = (title: string, due: string | null, done = false) => ({ k: dueKey('todo', title, due), kind: 'todo' as const, title, due, amount: null, done });
-  const block: DueBlock = {
-    v: 1,
-    items: [item('Later', '2026-12-20'), item('Late', '2026-11-01'), item('Finished', '2026-11-05', true), item('Soon', '2026-11-12'), item('Undated', null)],
-    importedAt: '2026-11-01T00:00:00.000Z',
-    dirty: 0,
-  };
-  const o = dueOverview(block, {}, '2026-11-09')!;
+  assert.equal(dueOverview([], '2026-11-09'), null);
+  const item = (k: string, title: string, due: string | null, done = false) => ({ k, kind: 'todo' as const, title, due, amount: null, done });
+  const items = [item('1', 'Later', '2026-12-20'), item('2', 'Late', '2026-11-01'), item('3', 'Finished', '2026-11-05', true), item('4', 'Soon', '2026-11-12'), item('5', 'Undated', null)];
+  const o = dueOverview(items, '2026-11-09')!;
   assert.equal(o.overdue, 1);
   assert.equal(o.open, 4);
   assert.deepEqual(o.next.map((v) => v.title), ['Late', 'Soon']);
-  const ticked = dueOverview(block, { [block.items[1]!.k]: { d: 1, t: '2026-11-08T00:00:00.000Z' } }, '2026-11-09')!;
+  const ticked = dueOverview(items.map((i) => (i.k === '2' ? { ...i, done: true } : i)), '2026-11-09')!;
   assert.equal(ticked.overdue, 0);
 });
 
@@ -145,9 +138,9 @@ test('exportOverview counts what the Export screen offers', () => {
 });
 
 test('the overview shows all four groups until a budget is set, then only the groups that have one', () => {
-  const none = monthOverview([], ME, planForMonth(null, {}, '2026-11'), planForMonth(null, {}, '2026-10'), '2026-11-10');
+  const none = monthOverview([], ME, planForMonth({}, '2026-11'), planForMonth({}, '2026-10'), '2026-11-10');
   assert.deepEqual(overviewGroups(none.summary.groups), ['Spending', 'EMI', 'Family', 'Saving']);
-  const some = monthOverview([], ME, planForMonth(null, mineWithBudgets(), '2026-11'), planForMonth(null, mineWithBudgets(), '2026-10'), '2026-11-10');
+  const some = monthOverview([], ME, planForMonth(mineWithBudgets(), '2026-11'), planForMonth(mineWithBudgets(), '2026-10'), '2026-11-10');
   assert.deepEqual(overviewGroups(some.summary.groups), ['Spending', 'EMI', 'Saving'], 'Family has no budget, so no tile');
 });
 

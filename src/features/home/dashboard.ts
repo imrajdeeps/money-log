@@ -1,7 +1,7 @@
 // Pure helpers behind the Home dashboard's tiles: no DOM, no storage, no network. They only add up what the other modules
 // already know; nothing here is new data. Kept separate so the Node test runner can check them.
 import { classifyDue } from '../../core/blocks.ts';
-import type { DoneMap, DueBlock, DueView } from '../../core/blocks.ts';
+import type { DueItem, DueView } from '../../core/blocks.ts';
 import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
 import type { Group as SharedGroup, Member, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
@@ -96,9 +96,9 @@ export function topCategories(s: MonthSummary, n = 4): { top: CategoryShare[]; r
 }
 
 // The due list in one look: what is overdue, what is still open, and the next few, overdue first (blocks.ts classifyDue).
-export function dueOverview(due: DueBlock | null, done: DoneMap, todayIso: string, n = 2): { open: number; overdue: number; next: DueView[] } | null {
-  if (!due) return null;
-  const views = classifyDue(due.items, done, due.importedAt, todayIso).filter((v) => !v.isDone);
+export function dueOverview(items: DueItem[], todayIso: string, n = 2): { open: number; overdue: number; next: DueView[] } | null {
+  if (items.length === 0) return null;
+  const views = classifyDue(items, {}, '', todayIso).filter((v) => !v.isDone);
   return { open: views.length, overdue: views.filter((v) => v.state === 'overdue').length, next: views.slice(0, n) };
 }
 

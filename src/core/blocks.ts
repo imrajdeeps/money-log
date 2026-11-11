@@ -1,27 +1,9 @@
 // Pure helpers for the plan blocks beyond the budget (Release 2): the due list, the calendar file and the net worth
 // and goals snapshot. No DOM, no storage, no network, so the browser and the Node test runner share this file.
-import { fmtINR, isValidDate, laterThan, parsePlanText, parseTs, round2, splitCsvLine } from './logic.ts';
-import type { PlanData, PlanSummary } from './logic.ts';
+import { fmtINR, isValidDate, laterThan, parseTs } from './logic.ts';
 import { tr } from './i18n.ts';
 
 const MAX_AMOUNT = 1e9;
-
-// ---------------------------------------------------------------- reading a pasted block
-// Rows of trimmed cells from text pasted out of Excel (tab separated) or a CSV file. Blank lines are dropped.
-function readRows(text: unknown): string[][] {
-  const raw = String(text ?? '').replace(/^﻿/, '');
-  const lines = raw.split(/\r\n|\n|\r/).filter((l) => l.replace(/[\t, ]/g, '') !== '');
-  const first = lines[0];
-  if (first === undefined) return [];
-  const tab = first.includes('\t');
-  return lines.map((l) => (tab ? l.split('\t') : splitCsvLine(l)).map((c) => c.trim()));
-}
-
-const cellNumber = (s: string): number | null => {
-  const t = s.replace(/[₹,\s]/g, '');
-  if (t === '' || /^[-–—]$/.test(t)) return 0;
-  return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : null;
-};
 
 // ---------------------------------------------------------------- due list
 export type DueKind = 'oneoff' | 'todo';
@@ -37,57 +19,9 @@ export interface DueData { v: 1; items: DueItem[] }
 export interface DueBlock extends DueData { importedAt: string; dirty: 0 | 1 }
 export interface DueSummary { oneoffs: number; todos: number; undated: number }
 
-export const dueKey = (kind: DueKind, title: string, due: string | null): string => `${kind}|${due ?? ''}|${title.toLowerCase()}`;
 
 const MAX_DUE = 200;
 const MAX_TITLE = 120;
-
-export type DueParse = { ok: true; data: DueData; summary: DueSummary } | { ok: false; error: string };
-
-export function parseDueText(text: unknown): DueParse {
-  const fail = (error: string): DueParse => ({ ok: false, error });
-  const rows = readRows(text);
-  const head = (rows[0] ?? []).map((h) => h.toLowerCase());
-  const iKind = head.indexOf('kind');
-  const iTitle = head.indexOf('title');
-  const iDue = head.indexOf('due');
-  const iAmount = head.indexOf('amount');
-  const iStatus = head.indexOf('status');
-  if (iKind < 0 || iTitle < 0 || iDue < 0) return fail('The header row must contain Kind, Title and Due. Copy from the header row (row 38) of the App export tab.');
-
-  const items: DueItem[] = [];
-  const seen = new Set<string>();
-  for (const c of rows.slice(1)) {
-    const title = c[iTitle] ?? '';
-    if (title === '') continue; // an unused slot in the sheet
-    if (title.length > MAX_TITLE) return fail(`"${title.slice(0, 20)}…" is longer than ${MAX_TITLE} characters.`);
-    const kindText = (c[iKind] ?? '').toLowerCase().replace(/[^a-z]/g, '');
-    const kind: DueKind | null = kindText === 'oneoff' ? 'oneoff' : kindText === 'todo' ? 'todo' : null;
-    if (!kind) return fail(`"${title}": kind "${c[iKind] ?? ''}" must be oneoff or todo.`);
-    const dueText = c[iDue] ?? '';
-    if (dueText !== '' && !isValidDate(dueText)) return fail(`"${title}": the date "${dueText}" must look like 2027-09-30.`);
-    const due = dueText === '' ? null : dueText;
-    let amount: number | null = null;
-    if (iAmount >= 0) {
-      const n = cellNumber(c[iAmount] ?? '');
-      if (n === null || n < 0 || n >= MAX_AMOUNT) return fail(`"${title}": "${c[iAmount]}" is not a valid amount.`);
-      amount = n > 0 ? round2(n) : null;
-    }
-    const done = iStatus >= 0 && (c[iStatus] ?? '').toLowerCase() === 'done';
-    const base = dueKey(kind, title, due);
-    let k = base;
-    for (let n = 2; seen.has(k); n++) k = `${base}#${n}`;
-    seen.add(k);
-    items.push({ k, kind, title, due, amount, done });
-  }
-  if (!items.length) return fail('No due items found under the header.');
-  if (items.length > MAX_DUE) return fail(`Too many items (limit ${MAX_DUE}).`);
-  return {
-    ok: true,
-    data: { v: 1, items },
-    summary: { oneoffs: items.filter((i) => i.kind === 'oneoff').length, todos: items.filter((i) => i.kind === 'todo').length, undated: items.filter((i) => !i.due).length },
-  };
-}
 
 // Validate a due list that comes from the server or a backup (already parsed JSON).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -302,19 +236,4 @@ export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string, ca
   }
   lines.push('END:VCALENDAR');
   return lines.flatMap(fold).join('\r\n') + '\r\n';
-}
-
-// ---------------------------------------------------------------- one entry point for any pasted block
-export type BlockParse =
-  | { ok: true; kind: 'budget'; plan: PlanData; summary: PlanSummary }
-  | { ok: true; kind: 'due'; data: DueData; summary: DueSummary }
-  | { ok: false; error: string };
-
-// The first header cell tells the blocks apart: Category (budget) or Kind (due list).
-export function parseBlockText(text: unknown): BlockParse {
-  const first = (readRows(text)[0]?.[0] ?? '').toLowerCase();
-  if (first === 'category') { const r = parsePlanText(text); return r.ok ? { ok: true, kind: 'budget', plan: r.plan, summary: r.summary } : r; }
-  if (first === 'kind') { const r = parseDueText(text); return r.ok ? { ok: true, kind: 'due', data: r.data, summary: r.summary } : r; }
-  if (first === '') return { ok: false, error: "Nothing to import. Copy a block from the spreadsheet's App export tab." };
-  return { ok: false, error: 'This does not look like one of the App export blocks. The first header cell must be Category or Kind.' };
 }

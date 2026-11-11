@@ -1,4 +1,5 @@
-import type { DoneMap, DueBlock, DueData } from '../core/blocks.ts';
+import type { DueItem } from '../core/blocks.ts';
+import type { DueInput } from '../core/dueItems.ts';
 import type { BackupParse } from './backup.ts';
 import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import type { HistoryRow } from '../core/history.ts';
@@ -6,7 +7,7 @@ import type { LockConfig } from './lock.ts';
 import type { Receipt } from '../core/receipts.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
-import type { Entry, Group as Cat, NewEntryInput, Plan, PlanData } from '../core/logic.ts';
+import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
 import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import type { RecurInput, Recurring } from '../core/recurring.ts';
@@ -42,9 +43,7 @@ export interface AppApi {
   settlements: Settlement[];
   joinCode: string | null; // a code that arrived in the link, waiting for the person to confirm
   clearJoinCode: () => void;
-  plan: Plan | null;
-  due: DueBlock | null;
-  doneMap: DoneMap;
+  dueItems: DueItem[]; // the due list: payments and to-dos made in the app, removed ones left out (the key is the item's id)
   mine: Mine; // the categories and budgets set in the app
   recurring: Recurring; // payments that repeat every month, removed ones included
   addRecurring: (i: RecurInput, loggedMonth?: string) => Promise<string | null>; // null when it worked, else what to tell the person
@@ -70,10 +69,10 @@ export interface AppApi {
   removeEntry: (id: string) => Promise<void>;
   undoEntry: (before: Entry) => Promise<void>; // puts a payment back as it was before an edit or a delete
   markExported: (ids: string[]) => Promise<void>;
-  applyPlan: (data: PlanData) => Promise<void>;
-  applyDue: (data: DueData) => Promise<void>;
-  toggleDone: (key: string, done: boolean) => Promise<void>;
-  removeDue: (key: string) => Promise<void>; // take an item off the due list (swipe to delete)
+  addDue: (i: DueInput) => Promise<string | null>; // null when it worked, else what to tell the person
+  editDue: (id: string, i: DueInput) => Promise<string | null>;
+  toggleDone: (id: string, done: boolean) => Promise<void>;
+  removeDue: (id: string) => Promise<void>; // take an item off the due list (swipe to delete)
   addCategory: (name: string, group: Cat) => Promise<AddResult>;
   removeCategory: (name: string) => Promise<void>;
   saveBudgets: (budgets: { name: string; amount: number }[]) => Promise<void>;
@@ -89,7 +88,7 @@ export interface AppApi {
   setTripDates: (groupId: string, starts: string | null, ends: string | null) => Promise<void>; // admins, trips
   setGroupClosed: (groupId: string, closed: boolean) => Promise<void>; // admins, trips: close or reopen
   setUsualSplit: (groupId: string, split: UsualSplit | null) => Promise<void>; // admins, flatmates
-  restoreBackup: (b: Extract<BackupParse, { ok: true }>) => Promise<{ added: number; updated: number; blocksReplaced: number }>;
+  restoreBackup: (b: Extract<BackupParse, { ok: true }>) => Promise<{ added: number; updated: number }>;
   syncNow: () => void;
   signUp: (email: string, password: string) => Promise<'signed-in' | 'confirm'>;
   signInWithPassword: (email: string, password: string) => Promise<void>;

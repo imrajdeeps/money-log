@@ -1,6 +1,9 @@
-// The backup file: every payment, the plan blocks and the Done marks, as one JSON document. Pure, like logic.ts.
+// The backup file, the only file that goes in and out of the app: every payment of your own, your categories and budgets, the
+// payments that repeat, and the goals block (goals, top-ups, net worth, due list), as one JSON document. Pure, like logic.ts.
+// A backup made by an older version may also hold the spreadsheet plan, the imported due list and its marks: they are read
+// (and brought across when restored) but never written again.
 import { cleanDoneMap, cleanDue } from '../core/blocks.ts';
-import type { DoneMap, DueBlock, DueData } from '../core/blocks.ts';
+import type { DoneMap, DueData } from '../core/blocks.ts';
 import { cleanMine } from '../core/categories.ts';
 import type { Mine } from '../core/categories.ts';
 import { cleanGoals } from '../core/goals.ts';
@@ -8,36 +11,30 @@ import type { Goals } from '../core/goals.ts';
 import { cleanRecurring } from '../core/recurring.ts';
 import type { Recurring } from '../core/recurring.ts';
 import { cleanEntry, cleanPlan, parseTs } from '../core/logic.ts';
-import type { Entry, Plan, PlanData } from '../core/logic.ts';
+import type { Entry, PlanData } from '../core/logic.ts';
 import { tr } from '../core/i18n.ts';
 
-// What a backup may hold beyond payments and the budget plan. Every field is optional, so a Release 1 backup still loads.
-export interface BackupExtras { due?: DueBlock | null; dueDone?: DoneMap; categories?: Mine; recurring?: Recurring; goals?: Goals }
+// What a backup may hold beyond payments. Every field is optional, so a Release 1 backup still loads.
+export interface BackupExtras { categories?: Mine; recurring?: Recurring; goals?: Goals }
 
 export interface Backup {
   app: 'money-log';
   v: 1;
   exportedAt: string;
   entries: Omit<Entry, 'dirty'>[];
-  plan: (PlanData & { importedAt: string }) | null;
-  due?: (DueData & { importedAt: string }) | null;
-  dueDone?: DoneMap;
   categories?: Mine; // the person's own categories and budgets
   recurring?: Recurring; // payments that repeat every month
-  goals?: Goals; // goals and their top-ups
+  goals?: Goals; // goals, top-ups, net worth updates and the due list
 }
 
 // Only payments this account made go in: a backup is a copy of your own data, never of what others shared with you.
-export function makeBackup(entries: Entry[], plan: Plan | null, nowIso: string, extras: BackupExtras = {}): Backup {
+export function makeBackup(entries: Entry[], nowIso: string, extras: BackupExtras = {}): Backup {
   const out: Backup = {
     app: 'money-log',
     v: 1,
     exportedAt: nowIso,
     entries: entries.map(({ dirty: _dirty, ...e }) => e),
-    plan: plan ? { v: plan.v, months: plan.months, rows: plan.rows, importedAt: plan.importedAt } : null,
   };
-  if (extras.due) out.due = { v: 1, items: extras.due.items, importedAt: extras.due.importedAt };
-  if (extras.dueDone && Object.keys(extras.dueDone).length) out.dueDone = extras.dueDone;
   if (extras.categories && Object.keys(extras.categories).length) out.categories = extras.categories;
   if (extras.recurring && Object.keys(extras.recurring).length) out.recurring = extras.recurring;
   if (extras.goals && Object.keys(extras.goals).length) out.goals = extras.goals;

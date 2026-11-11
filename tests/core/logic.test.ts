@@ -1,10 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   parseAmount, fmtINR, isValidDate, shiftMonth, parseTs, isoDate, monthOf,
-  parsePlanText, cleanPlan, summarizeMonth, budgetState,
+  cleanPlan, summarizeMonth, budgetState,
   safeCell, exportNote, amountText, exportRows, toTSV, toCSV,
   cleanEntry, mergeRemote, frequentCategories, makeEntry, editEntry, softDelete,
   newId, markExportedEntry, changedAfterExport, restoreEntry,
@@ -43,60 +41,13 @@ test('dates and months', () => {
   assert.ok(Number.isNaN(parseTs('nonsense')));
 });
 
-const BLOCK = [
-  'Category\tGroup\t2026-11\t2026-12\t2027-01',
-  'Rent\tSpending\t9000\t9000\t9000',
-  'Bike EMI\tEMI\t0\t0\t12554.5',
-  'Long-term equity\tSaving\t50000\t50000\t50000',
-  '\t\t\t\t',
-  'Family support\tfamily\t10000\t10000\t10000',
-].join('\n');
-
-test('parsePlanText reads the App export block (tab separated)', () => {
-  const r = parsePlanText(BLOCK);
-  assert.ok(r.ok);
-  if (!r.ok) return;
-  assert.deepEqual(r.plan.months, ['2026-11', '2026-12', '2027-01']);
-  assert.equal(r.plan.rows.length, 4);
-  assert.equal(r.plan.rows[1]?.p[2], 12554.5);
-  assert.equal(r.plan.rows[3]?.g, 'Family'); // group names are case-insensitive
-  assert.deepEqual(r.summary.byGroup, { Spending: 1, EMI: 1, Family: 1, Saving: 1 });
-  assert.equal(r.summary.first, '2026-11');
-  assert.equal(r.summary.last, '2027-01');
-});
-
-test('parsePlanText also reads CSV with quotes, a BOM, and trailing empty header cells', () => {
-  const csv = '﻿Category,Group,2026-11,\r\n"Eating out, orders",Spending,"1,500",\r\n';
-  const r = parsePlanText(csv);
-  assert.ok(r.ok);
-  if (!r.ok) return;
-  assert.equal(r.plan.rows[0]?.c, 'Eating out, orders');
-  assert.equal(r.plan.rows[0]?.p[0], 1500);
-});
-
-test('parsePlanText refuses bad input with a readable reason', () => {
-  const err = (t: string) => { const r = parsePlanText(t); assert.ok(!r.ok); return r.ok ? '' : r.error; };
-  assert.match(err(''), /Nothing to import/);
-  assert.match(err('Name\tGroup\t2026-11\nRent\tSpending\t1'), /must start with/);
-  assert.match(err('Category\tGroup\t2026-13\nRent\tSpending\t1'), /2026-13/);
-  assert.match(err('Category\tGroup\t2026-12\t2026-11\nRent\tSpending\t1\t1'), /increasing/);
-  assert.match(err('Category\tGroup\t2026-11\nRent\tMisc\t1'), /must be one of/);
-  assert.match(err('Category\tGroup\t2026-11\nRent\tSpending\t1\nrent\tSpending\t2'), /twice/);
-  assert.match(err('Category\tGroup\t2026-11\nRent\tSpending\tabc'), /not a number/);
-  assert.match(err('Category\tGroup\t2026-11\nRent\tSpending\t-5'), /not a number/);
-  assert.match(err('Category\tGroup\t2026-11\n\t\t'), /No category rows/);
-  assert.match(err('Category\tGroup'), /No month columns/);
-});
-
-test('cleanPlan validates plans that come from the server or a backup', () => {
-  const ok = parsePlanText(BLOCK);
-  assert.ok(ok.ok);
-  if (!ok.ok) return;
-  assert.deepEqual(cleanPlan(ok.plan), ok.plan);
-  assert.equal(cleanPlan({ ...ok.plan, v: 2 }), null);
-  assert.equal(cleanPlan({ ...ok.plan, rows: [{ c: 'x', g: 'Spending', p: [1] }] }), null); // wrong length
-  assert.equal(cleanPlan({ ...ok.plan, rows: [{ c: 'x', g: 'Nope', p: [1, 1, 1] }] }), null);
-  assert.equal(cleanPlan({ ...ok.plan, rows: [{ c: 'x', g: 'Saving', p: [1, -1, 1] }] }), null);
+test('cleanPlan validates the old imported plans that come from the server or a backup', () => {
+  const ok = { v: 1, months: ['2026-11', '2026-12', '2027-01'], rows: [{ c: 'Rent', g: 'Spending', p: [9000, 9000, 9000] }, { c: 'Bike EMI', g: 'EMI', p: [0, 0, 12554.5] }] };
+  assert.deepEqual(cleanPlan(JSON.parse(JSON.stringify(ok))), ok);
+  assert.equal(cleanPlan({ ...ok, v: 2 }), null);
+  assert.equal(cleanPlan({ ...ok, rows: [{ c: 'x', g: 'Spending', p: [1] }] }), null); // wrong length
+  assert.equal(cleanPlan({ ...ok, rows: [{ c: 'x', g: 'Nope', p: [1, 1, 1] }] }), null);
+  assert.equal(cleanPlan({ ...ok, rows: [{ c: 'x', g: 'Saving', p: [1, -1, 1] }] }), null);
   assert.equal(cleanPlan(null), null);
 });
 
@@ -235,17 +186,16 @@ test('frequentCategories ranks by use in the last 90 days', () => {
   assert.deepEqual(frequentCategories(list, now), ['Groceries', 'Rent', 'Travel']);
 });
 
-test('backup round trip keeps entries and plan, and skips bad rows', () => {
+test('backup round trip keeps entries, and skips bad rows', () => {
   const entries = [mk({ id: newId(), note: 'a' }), mk({ id: newId(), note: 'b', deleted_at: T0 })];
-  const plan = { ...PLAN, importedAt: T0, dirty: 0 as const };
-  const text = JSON.stringify(makeBackup(entries, plan, T0));
+  const text = JSON.stringify(makeBackup(entries, T0));
   const back = parseBackup(text);
   assert.ok(back.ok);
   if (!back.ok) return;
   assert.equal(back.entries.length, 2);
   assert.equal(back.skipped, 0);
   assert.ok(back.entries.every((e) => e.dirty === 1)); // restored entries are pushed to the cloud on the next sync
-  assert.deepEqual(back.plan?.rows, PLAN.rows);
+  assert.equal(back.plan, null, 'a new backup holds no spreadsheet plan');
   const withBad = JSON.parse(text);
   withBad.entries.push({ id: 'nope' });
   const r2 = parseBackup(JSON.stringify(withBad));
@@ -291,27 +241,6 @@ test('Excel-hostile text gets a leading space: formulas, a leading quote, dates 
   assert.equal(safeCell('Rent'), 'Rent');
   assert.equal(exportNote({ note: '1/2', method: null }), ' 1/2');
   assert.equal(exportNote({ note: '1/2', method: 'UPI' }), '[UPI] 1/2'); // the method prefix already makes it text
-});
-
-test('plan import accepts dashes where an accounting format shows zero, but not negatives', () => {
-  const ok = parsePlanText('Category\tGroup\t2026-11\t2026-12\nRent\tSpending\t₹ -\t–\nFood\tSpending\t100\t—');
-  assert.ok(ok.ok);
-  if (!ok.ok) return;
-  assert.deepEqual(ok.plan.rows.map((r) => r.p), [[0, 0], [100, 0]]);
-  assert.ok(!parsePlanText('Category\tGroup\t2026-11\nRent\tSpending\t-5').ok);
-});
-
-// Contract check against the real spreadsheet export. The exported blocks are never in the repo: set MONEY_LOG_REAL_DIR to
-// the folder that holds them (for example your Finance folder); without it these tests are skipped.
-const REAL = process.env.MONEY_LOG_REAL_DIR ? join(process.env.MONEY_LOG_REAL_DIR, 'Money Log - plan block (Base).tsv') : '';
-test('the spreadsheet App export block imports cleanly', { skip: !REAL || !existsSync(REAL) }, () => {
-  const r = parsePlanText(readFileSync(REAL, 'utf8'));
-  assert.ok(r.ok, r.ok ? '' : r.error);
-  if (!r.ok) return;
-  assert.equal(r.summary.months, 36);
-  assert.ok(r.summary.categories >= 5);
-  assert.ok(r.plan.rows.every((row) => row.p.length === 36));
-  console.log(`  real block: ${r.summary.categories} categories x ${r.summary.months} months (${r.summary.first} to ${r.summary.last})`);
 });
 
 // ---------------------------------------------------------------- Log layout with a Method column, and the my-share link

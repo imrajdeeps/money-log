@@ -1,6 +1,6 @@
 # PRD: Everything in the app, the backup file as the only import
 
-**Status:** 1.20 built (2026-11-11); 1.21 and 1.22 are still to do.
+**Status:** 1.20 and 1.21 built (2026-11-11); 1.22 is still to do.
 
 ## Problem
 The Plan page's "Net worth and goals" block can only be filled by pasting a block from the spreadsheet's App export tab, so it cannot
@@ -45,7 +45,9 @@ block rows are ignored. The Overview tile shows the latest net worth.
 
 **Not in 1.20:** a net worth history chart (the Insights page may take it later), assets and debts as separate lists.
 
-## 1.21: due list and budgets in the app
+## 1.21: due list and budgets in the app (built)
+
+**As built:** due items are items of kind `d` in the `goals` block (merged per item, no database change), added, changed, ticked and removed on Plan. The imported due list, its ticks and the imported plan are brought across once per phone by `data/legacy.ts` (same ids and time stamps on every phone, so no copies), then deleted from the phone; the sync of the old `budget`, `due` and `due_done` blocks is removed. The plan's amount for the month nearest to the current one becomes the app budget. Settings no longer has *Spreadsheet plan*; the pure `categoryList` and `planForMonth` take only the app's categories.
 - **Due list:** an "Add due item" form on Plan (kind: payment or to-do; title; optional date; optional amount), edit, mark done, delete,
   with Undo. The calendar file and its cancels keep working from this list. Existing imported items are **kept once** as ordinary items
   (my proposal; say if you would rather drop them), with their done marks.

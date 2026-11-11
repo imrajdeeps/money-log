@@ -1,10 +1,11 @@
 import { Icon } from '../../ui/Icon.tsx';
 import { GoalsScreen } from '../goals/index.ts';
+import { DueForm } from './DueForm.tsx';
 import { NetWorthCard } from './NetWorthCard.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { DEFAULT_ALERT, buildIcs, classifyDue, cleanAlert, dueRelative } from '../../core/blocks.ts';
-import type { AlertPrefs, DueView, SentEvent } from '../../core/blocks.ts';
+import type { AlertPrefs, DueItem, DueView, SentEvent } from '../../core/blocks.ts';
 import { afterExport, toCancel } from '../../core/calendar.ts';
 import { loadSent, saveSent } from '../../data/calendar.ts';
 import { saveFile } from '../../ui/files.ts';
@@ -22,7 +23,7 @@ function loadAlert(): AlertPrefs {
 
 const hourLabel = (h: number) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'am' : 'pm'}`;
 
-function DueRow({ v, onToggle, onCalendar, onDelete }: { v: DueView; onToggle: () => void; onCalendar: (() => void) | null; onDelete: () => void }) {
+function DueRow({ v, onToggle, onEdit, onCalendar, onDelete }: { v: DueView; onToggle: () => void; onEdit: () => void; onCalendar: (() => void) | null; onDelete: () => void }) {
   const what = v.kind === 'oneoff' ? tr('One-off payment') : tr('To-do');
   const when = v.due ? `${shortDate(v.due)} · ${dueRelative(v.days)}` : tr('No date');
   return (
@@ -30,10 +31,10 @@ function DueRow({ v, onToggle, onCalendar, onDelete }: { v: DueView; onToggle: (
       <button type="button" className="min-w-11 min-h-11 flex-none rounded-[50%] border-2 border-line bg-transparent text-good-ink text-[20px] font-bold cursor-pointer aria-pressed:bg-good aria-pressed:border-good" aria-pressed={v.isDone} aria-label={`${v.isDone ? tr('Mark not done') : tr('Mark done')}: ${v.title}`} onClick={onToggle}>
         {v.isDone ? <Icon name="check" size={22} /> : null}
       </button>
-      <span className={ui.rowMain(true)}>
+      <button type="button" className={ui.rowMain(true) + ' cursor-pointer border-0 bg-transparent p-0 text-left text-inherit [font:inherit]'} onClick={onEdit} aria-label={tr('Change: {0}', v.title)}>
         <b>{v.title}</b>
         <small className={v.state === 'overdue' ? ui.late : undefined}>{when} · {what}</small>
-      </span>
+      </button>
       {v.amount ? <span className="font-bold tabular-nums">{fmtINR(v.amount)}</span> : null}
       {onCalendar && <button type="button" className={ui.icoBtn} aria-label={tr('Add to calendar: {0}', v.title)} onClick={onCalendar}><Icon name="calendar" size={22} /></button>}
     </SwipeRow>
@@ -45,8 +46,8 @@ function DueSection() {
   const [alert, setAlert] = useState<AlertPrefs>(loadAlert);
   const [sent, setSent] = useState(loadSent);
   const today = isoDate();
-  const due = app.due;
-  const views = useMemo(() => (due ? classifyDue(due.items, app.doneMap, due.importedAt, today) : []), [due, app.doneMap, today]);
+  const [form, setForm] = useState<'new' | DueItem | null>(null);
+  const views = useMemo(() => classifyDue(app.dueItems, {}, '', today), [app.dueItems, today]);
 
   function pick(next: AlertPrefs) {
     setAlert(next);
@@ -68,20 +69,19 @@ function DueSection() {
     void app.removeDue(v.k).then(() => app.toast(tr('Removed: {0}', v.title)));
   }
 
-  if (!due) return null;
   const overdue = views.filter((v) => v.state === 'overdue');
   const upcoming = views.filter((v) => v.state === 'today' || v.state === 'soon' || v.state === 'later');
   const undated = views.filter((v) => v.state === 'nodate');
   const finished = views.filter((v) => v.state === 'done');
   const calendarable = views.filter((v) => v.due && !v.isDone && v.due >= today);
-  const cancels = toCancel(sent, due.items, app.doneMap, due.importedAt);
+  const cancels = toCancel(sent, app.dueItems, {}, '');
 
   const block = (title: string, list: DueView[], badge?: string) => list.length > 0 && (
     <>
       <h3 className="text-[16px] mt-5 mb-2">{title}{badge ? <span className={ui.tag}>{badge}</span> : null}</h3>
       <ul className={ui.list()}>
         {list.map((v) => (
-          <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }}
+          <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onEdit={() => setForm(v)}
             onCalendar={v.due && !v.isDone ? () => { void calendar([v], 'event'); } : null} onDelete={() => remove(v)} />
         ))}
       </ul>
@@ -89,9 +89,13 @@ function DueSection() {
   );
 
   return (
-    <section aria-label={tr('Due soon')}>
-      <h2>{tr('Due soon')}</h2>
-      {views.length === 0 && <p className="text-muted">{tr('The imported list has nothing on it.')}</p>}
+    <section aria-label={tr('Due soon')} id="due">
+      <div className="mt-5 mb-2 flex items-center justify-between gap-3">
+        <h2 className="m-0">{tr('Due soon')}</h2>
+        {!form && <button type="button" className={ui.btn('solid', 'small')} onClick={() => setForm('new')}>{tr('Add an item')}</button>}
+      </div>
+      {form && <DueForm key={form === 'new' ? 'new' : form.k} item={form === 'new' ? undefined : form} onDone={() => setForm(null)} />}
+      {views.length === 0 && !form && <p className="text-muted">{tr('Nothing is due. Add a payment or a to-do, with a date if it has one.')}</p>}
       {block(tr('Overdue'), overdue, `${overdue.length}`)}
       {block(tr('Coming up'), upcoming)}
       {block(tr('No date'), undated)}
@@ -99,7 +103,7 @@ function DueSection() {
         <details className={ui.finished()}>
           <summary>{tr('Done ({0})', finished.length)}</summary>
           <ul className={ui.list()}>
-            {finished.map((v) => <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onCalendar={null} onDelete={() => remove(v)} />)}
+            {finished.map((v) => <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onEdit={() => setForm(v)} onCalendar={null} onDelete={() => remove(v)} />)}
           </ul>
         </details>
       )}
@@ -132,20 +136,13 @@ function DueSection() {
   );
 }
 
-export function PlanScreen({ openSettings }: { openSettings: () => void }) {
-  const app = useApp();
+export function PlanScreen() {
   return (
     <div>
       <section aria-label={tr('Net worth and goals')}>
         <NetWorthCard />
         <GoalsScreen />
       </section>
-      {!app.due && (
-        <div className={ui.card('notice')}>
-          <p><strong>{tr('No due list yet.')}</strong>{' '}{tr('The due list comes from the spreadsheet\'s App export tab.')}</p>
-          <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={openSettings}>{tr('Go to Settings')}</button>
-        </div>
-      )}
       <DueSection />
     </div>
   );
