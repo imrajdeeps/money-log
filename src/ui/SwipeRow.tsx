@@ -8,7 +8,7 @@ const INTENT = 8; // how far a finger moves before it counts as a swipe (and not
 
 // A list row that slides left to show a Delete button: drag it (a finger, or a mouse), then tap Delete. Tapping elsewhere or
 // swiping back closes it. Delete is also reachable with the keyboard (Tab to it: the row opens). Vertical scrolling still works.
-export function SwipeRow({ children, onDelete, label, className, as = 'li' }: { children: ReactNode; onDelete: () => void; label: string; className?: string; as?: 'li' | 'div' }) {
+export function SwipeRow({ children, onDelete, label, className, as = 'li' }: Readonly<{ children: ReactNode; onDelete: () => void; label: string; className?: string; as?: 'li' | 'div' }>) {
   const [shift, setShift] = useState(0); // 0 closed, -WIDTH open, in between while dragging
   const [dragging, setDragging] = useState(false);
   const start = useRef<{ x: number; y: number; from: number; id: number } | null>(null);
@@ -32,7 +32,7 @@ export function SwipeRow({ children, onDelete, label, className, as = 'li' }: { 
   }
   function move(e: PointerEvent) {
     const s = start.current;
-    if (!s || s.id !== e.pointerId) return;
+    if (s?.id !== e.pointerId) return;
     const dx = e.clientX - s.x;
     const dy = e.clientY - s.y;
     if (!dragging) {
@@ -45,7 +45,7 @@ export function SwipeRow({ children, onDelete, label, className, as = 'li' }: { 
   }
   function up(e: PointerEvent) {
     const s = start.current;
-    if (!s || s.id !== e.pointerId) return;
+    if (s?.id !== e.pointerId) return;
     start.current = null;
     if (dragging) {
       setDragging(false);

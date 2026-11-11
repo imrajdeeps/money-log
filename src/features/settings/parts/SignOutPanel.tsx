@@ -4,7 +4,7 @@ import { tr } from '../../../core/i18n.ts';
 
 // The choice after "Sign out" or "Switch account". Signing out can keep this phone's copy of the data (for signing back in
 // as the same person); switching to another account needs it erased first, because a phone holds one account's data.
-export function SignOutPanel({ kind, onCancel, onSwitched }: { kind: 'out' | 'switch'; onCancel: () => void; onSwitched?: () => void }) {
+export function SignOutPanel({ kind, onCancel, onSwitched }: Readonly<{ kind: 'out' | 'switch'; onCancel: () => void; onSwitched?: () => void }>) {
   const app = useApp();
   const pending = app.sync.pending;
   const lost = pending > 0 && (

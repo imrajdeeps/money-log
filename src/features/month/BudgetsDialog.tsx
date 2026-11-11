@@ -10,7 +10,7 @@ import { tr } from '../../core/i18n.ts';
 
 // Where the person manages categories and monthly budgets without any spreadsheet: add or remove categories, and give
 // each a monthly amount that applies to every month. Categories from an imported plan show the plan's own figures.
-export function BudgetsDialog({ onClose, focus }: { onClose: () => void; focus?: string }) {
+export function BudgetsDialog({ onClose, focus }: Readonly<{ onClose: () => void; focus?: string }>) {
   const app = useApp();
   const ref = useRef<HTMLDialogElement>(null);
   const [text, setText] = useState<Record<string, string>>({});

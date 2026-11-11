@@ -5,6 +5,14 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+// The header of the generated src/routeTree.gen.ts (the plugin rewrites that file, so it is set here, not in the file). It names the
+// lint rules it switches off, as code checkers ask, instead of switching off everything.
+const ROUTE_TREE_HEADER = [
+  '/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */',
+  '// @ts-nocheck',
+  '// noinspection JSUnusedGlobalSymbols',
+];
+
 // Relative paths everywhere, so the same build works at https://name.github.io/repo/ and at a custom domain root.
 const BASE = './';
 
@@ -137,7 +145,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: BASE,
     // Writes src/routeTree.gen.ts from the files in src/routes. One chunk: the app is small and works offline.
-    plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: false }), tailwindcss(), csp(env.VITE_SUPABASE_URL ?? ''), serviceWorker(), spaFallback()],
+    plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: false, routeTreeFileHeader: ROUTE_TREE_HEADER }), tailwindcss(), csp(env.VITE_SUPABASE_URL ?? ''), serviceWorker(), spaFallback()],
     build: { target: 'es2022', modulePreload: { polyfill: false } },
     oxc: { jsx: { runtime: 'automatic' } },
   };

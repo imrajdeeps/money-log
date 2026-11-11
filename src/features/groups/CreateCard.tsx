@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
-import type { Group } from '../../core/groups.ts';
 import { GROUP_KINDS } from '../../core/groupKinds.ts';
 import type { GroupKind } from '../../core/groupKinds.ts';
 import { rememberedName, rememberName, useAction } from './useAction.ts';

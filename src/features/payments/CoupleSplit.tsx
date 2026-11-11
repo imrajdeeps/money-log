@@ -5,7 +5,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // Add expense in a Couple group: one tap says who paid and who owes, instead of the full split editor.
-export function CoupleSplit({ people, me, total, value, onChange }: { people: Member[]; me: string; total: number; value: SplitState; onChange: (next: SplitState) => void }) {
+export function CoupleSplit({ people, me, total, value, onChange }: Readonly<{ people: Member[]; me: string; total: number; value: SplitState; onChange: (next: SplitState) => void }>) {
   const partner = people.find((m) => m.user_id !== me);
   if (!partner) return null;
   const name = partner.display_name;

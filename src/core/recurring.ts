@@ -1,7 +1,6 @@
 // Payments that repeat every month (rent, an SIP, a subscription): set once, then logged with one tap. Pure, like
 // categories.ts, and synced the same way: one block, merged per item, the latest change to each item wins.
-import { daysInMonth } from './logic.ts';
-import { MAX_AMOUNT, METHODS, UUID_RE, monthOf, newId, normName, parseTs, round2 } from './logic.ts';
+import { MAX_AMOUNT, METHODS, UUID_RE, daysInMonth, monthOf, newId, normName, parseTs, round2 } from './logic.ts';
 import type { Method } from './logic.ts';
 import { tr } from './i18n.ts';
 
@@ -100,18 +99,23 @@ export function sameRecurring(a: Recurring, b: Recurring): boolean {
 }
 
 // Validate what comes from the server or a backup. Anything malformed is dropped, never repaired.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function isCleanRecurring(k: string, v: any): boolean {
+  if (!UUID_RE.test(k) || v?.id !== k || typeof v.c !== 'string' || normName(v.c) !== v.c) return false;
+  if (v.m !== null && !(METHODS as readonly string[]).includes(v.m)) return false;
+  if (typeof v.n !== 'string' || v.n.length > 200 || (v.x !== 0 && v.x !== 1) || !Number.isFinite(parseTs(v.t))) return false;
+  if (typeof v.l !== 'string' || (v.l !== '' && !MONTH_RE.test(v.l))) return false;
+  return checkRecurInput({ category: v.c, amount: v.a, day: v.d, method: v.m, note: v.n }) === null;
+}
+
 export function cleanRecurring(p: any): Recurring {
   const out: Recurring = {};
   if (!p || typeof p !== 'object') return out;
-  for (const [k, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (!UUID_RE.test(k) || !v || v.id !== k || typeof v.c !== 'string' || normName(v.c) !== v.c) continue;
-    if (v.m !== null && !(METHODS as readonly string[]).includes(v.m)) continue;
-    if (typeof v.n !== 'string' || v.n.length > 200 || (v.x !== 0 && v.x !== 1) || !Number.isFinite(parseTs(v.t))) continue;
-    if (typeof v.l !== 'string' || (v.l !== '' && !MONTH_RE.test(v.l))) continue;
-    if (checkRecurInput({ category: v.c, amount: v.a, day: v.d, method: v.m, note: v.n }) !== null) continue;
+  for (const [k, v] of Object.entries(p as Record<string, any>)) {
+    if (!isCleanRecurring(k, v)) continue;
     out[k] = { id: k, c: v.c, a: v.a, d: v.d, m: v.m, n: v.n, x: v.x, t: v.t, l: v.l };
     if (Object.keys(out).length >= MAX_RECURRING) break;
   }
   return out;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */

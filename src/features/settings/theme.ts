@@ -37,7 +37,7 @@ const listeners = new Set<() => void>();
 
 function paint(): void {
   if (typeof document === 'undefined') return;
-  document.documentElement.setAttribute('data-theme', state.theme);
+  document.documentElement.dataset.theme = state.theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_BG[state.theme]);
 }
 

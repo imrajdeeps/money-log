@@ -4,7 +4,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The plan: what to set aside each month for each goal, the total, and whether this month's Saving budget covers it.
-export function PlanCard({ plan }: { plan: GoalPlan }) {
+export function PlanCard({ plan }: Readonly<{ plan: GoalPlan }>) {
   if (plan.rows.length === 0) {
     return (
       <div className={ui.card()}>

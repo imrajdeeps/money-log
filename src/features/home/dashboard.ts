@@ -58,7 +58,7 @@ export function monthOverview(all: Entry[], me: string | null, planThis: PlanDat
   const daily = spentByDay(entries, month, planThis).slice(0, day);
   const lastDaily = spentByDay(entries, last, planLast);
   const lastToDate = lastDaily[Math.min(day, lastDaily.length) - 1] ?? 0;
-  const toDate = daily[daily.length - 1] ?? 0;
+  const toDate = daily.at(-1) ?? 0;
   const spend: Group[] = ['Spending', 'EMI', 'Family'];
   return {
     month,

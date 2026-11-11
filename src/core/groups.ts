@@ -66,7 +66,7 @@ export function cleanUsualSplit(v: any): UsualSplit | null {
 // people in it now, or null to start from an equal split: nothing set, "equal", or percentages that do not add up to 100
 // for the people who are in the group today (someone left, or joined after it was set).
 export function usualSplitValues(usual: UsualSplit | null, ids: string[]): Record<string, string> | null {
-  if (!usual || usual.mode !== 'percent') return null;
+  if (usual?.mode !== 'percent') return null;
   const values: Record<string, string> = {};
   let total = 0;
   for (const id of ids) {

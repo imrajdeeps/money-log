@@ -2,16 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { ReactNode } from 'react';
 import { useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { AppProvider, useApp } from '../data/context.tsx';
-import { cleanSection } from '../features/settings/index.ts';
+import { LockScreen, SettingsScreen, ThemeToggle, cleanSection } from '../features/settings/index.ts';
 import type { SettingsSection } from '../features/settings/index.ts';
 import { Splash } from '../ui/Splash.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import type { IconName } from '../ui/Icon.tsx';
-import { LockScreen } from '../features/settings/index.ts';
-import { QuickLog } from '../features/payments/index.ts';
-import { AllPayments } from '../features/payments/index.ts';
+import { AllPayments, QuickLog } from '../features/payments/index.ts';
 import { SyncPill } from '../ui/SyncPill.tsx';
-import { ThemeToggle } from '../features/settings/index.ts';
 import { AnalyticsScreen } from '../features/analytics/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
@@ -19,7 +16,6 @@ import type { Section } from '../features/home/index.ts';
 import type { Group } from '../core/logic.ts';
 import { MonthScreen } from '../features/month/index.ts';
 import { PlanScreen } from '../features/plan/index.ts';
-import { SettingsScreen } from '../features/settings/index.ts';
 import { TourHost } from '../features/tour/index.ts';
 import type { TourPage } from '../core/tour.ts';
 import { VERSION } from '../core/version.ts';
@@ -47,7 +43,7 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'analytics', label: 'Insights', icon: 'month' },
 ];
 
-function PageBody({ title, back, backLabel = tr('Overview'), onBack, children }: { title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }) {
+function PageBody({ title, back, backLabel = tr('Overview'), onBack, children }: Readonly<{ title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }>) {
   return (
     <section className={`${sh.page} animate-page-in`} aria-labelledby="page-title">
       {back && <button type="button" className={ui.backLink} onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
@@ -60,7 +56,7 @@ function PageBody({ title, back, backLabel = tr('Overview'), onBack, children }:
 function Shell() {
   const app = useApp();
   const navigate = useNavigate();
-  const routeId = useMatches({ select: (ms) => ms[ms.length - 1]?.routeId });
+  const routeId = useMatches({ select: (ms) => ms.at(-1)?.routeId });
   const page: Page = routeId?.startsWith('/settings') ? 'settings' : routeId === '/add' ? 'add' : SECTIONS.find((s) => routeId === ROUTES[s] || routeId?.startsWith(`${ROUTES[s]}/`)) ?? 'home';
   const params = useParams({ strict: false }) as { part?: string; groupId?: string };
   const section = cleanSection(params.part); // the part of Settings that is open, if any

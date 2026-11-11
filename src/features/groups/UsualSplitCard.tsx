@@ -10,7 +10,7 @@ import { tr } from '../../core/i18n.ts';
 const pctText = (n: number): string => `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0$/, '')}%`;
 
 // Flatmates: how a new shared expense is split before anyone changes it. Everyone sees it; admins set it.
-export function UsualSplitCard({ group, people, isAdmin }: { group: Group; people: Member[]; isAdmin: boolean }) {
+export function UsualSplitCard({ group, people, isAdmin }: Readonly<{ group: Group; people: Member[]; isAdmin: boolean }>) {
   const app = useApp();
   const act = useAction();
   const usual = group.usual_split;

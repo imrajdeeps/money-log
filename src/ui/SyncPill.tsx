@@ -4,7 +4,7 @@ import { pill } from './styles.ts';
 import type { PillTone } from './styles.ts';
 import { tr } from '../core/i18n.ts';
 
-export function SyncPill({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function SyncPill({ onOpenSettings }: Readonly<{ onOpenSettings: () => void }>) {
   const app = useApp();
   const s = app.sync;
   let label = '';

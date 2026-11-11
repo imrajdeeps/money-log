@@ -5,7 +5,7 @@ import * as ui from '../../../ui/styles.ts';
 import { tr } from '../../../core/i18n.ts';
 
 // At the top of Settings when signed in: who, and Sign out / Switch account without opening Cloud sync.
-export function SessionCard({ onSwitched }: { onSwitched: () => void }) {
+export function SessionCard({ onSwitched }: Readonly<{ onSwitched: () => void }>) {
   const app = useApp();
   const [panel, setPanel] = useState<'out' | 'switch' | null>(null);
   return (

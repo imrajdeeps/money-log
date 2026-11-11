@@ -9,7 +9,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // One payment as a tappable row: category, the day, method, note, your share.
-export function PaymentRow({ entry: e, onOpen, compact = false }: { entry: Entry; onOpen: (e: Entry) => void; compact?: boolean }) {
+export function PaymentRow({ entry: e, onOpen, compact = false }: Readonly<{ entry: Entry; onOpen: (e: Entry) => void; compact?: boolean }>) {
   const app = useApp();
   const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
   return (
@@ -26,7 +26,7 @@ export function PaymentRow({ entry: e, onOpen, compact = false }: { entry: Entry
 
 // The latest payments, newest first; tapping one opens it to edit or delete. The Home tile shows a few without a frame
 // (plain), the Recent sheet shows the last 20 in a framed list.
-export function RecentList({ limit, plain = false, empty }: { limit: number; plain?: boolean; empty: ReactNode }) {
+export function RecentList({ limit, plain = false, empty }: Readonly<{ limit: number; plain?: boolean; empty: ReactNode }>) {
   const app = useApp();
   const [editing, setEditing] = useState<Entry | null>(null);
   const recent = useMemo(() => app.entries.slice().sort(byRecent).slice(0, limit), [app.entries, limit]);

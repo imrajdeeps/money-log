@@ -29,7 +29,7 @@ const FILLS: Partial<Record<IconName, string>> = {
   target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
 };
 
-export function Icon({ name, size = 22, duotone = false }: { name: IconName; size?: number; duotone?: boolean }) {
+export function Icon({ name, size = 22, duotone = false }: Readonly<{ name: IconName; size?: number; duotone?: boolean }>) {
   return (
     <svg className="block flex-none" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false"
       fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">

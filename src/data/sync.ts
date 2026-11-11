@@ -483,7 +483,7 @@ export function createSync(opts: SyncOptions) {
         if (e) remote.set(e.id, e);
       }
       await merge(remote);
-      const last = rows[rows.length - 1]?.synced_at;
+      const last = rows.at(-1)?.synced_at;
       if (rows.length < PAGE || fresh === 0 || typeof last !== 'string') break;
       since = last;
     }
