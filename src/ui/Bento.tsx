@@ -17,7 +17,7 @@ const SPAN_WIDE: Record<Span, string> = {
   12: '@min-[900px]:col-span-12',
 };
 
-export function BentoGrid({ children, label }: { children: ReactNode; label?: string }) {
+export function BentoGrid({ children, label }: Readonly<{ children: ReactNode; label?: string }>) {
   return (
     <div className="@container">
       <div
@@ -82,7 +82,7 @@ export function BentoCard({ title, span = 4, compact = false, fill = false, hero
 }
 
 // What a tile shows when there is nothing to show yet, and the one thing to do about it.
-export function BentoEmpty({ children, cta, onCta }: { children: ReactNode; cta?: string; onCta?: () => void }) {
+export function BentoEmpty({ children, cta, onCta }: Readonly<{ children: ReactNode; cta?: string; onCta?: () => void }>) {
   return (
     <div className="flex-1 flex flex-col items-start justify-center gap-3 [&>p]:m-0 [&>p]:text-[14px]">
       <p className="text-muted">{children}</p>

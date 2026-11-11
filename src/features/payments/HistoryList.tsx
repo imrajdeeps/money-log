@@ -7,7 +7,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // What changed in a shared expense and who changed it. Needs a connection: the history lives in the cloud, not on the phone.
-export function HistoryList({ entryId, groupId }: { entryId: string; groupId: string }) {
+export function HistoryList({ entryId, groupId }: Readonly<{ entryId: string; groupId: string }>) {
   const app = useApp();
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const [error, setError] = useState('');

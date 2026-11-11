@@ -17,7 +17,7 @@ function reason(e: unknown): string {
   return tr('The camera could not be opened. Use Choose photo instead.');
 }
 
-function Camera({ onShot, onClose }: { onShot: (photo: Blob) => void; onClose: () => void }) {
+function Camera({ onShot, onClose }: Readonly<{ onShot: (photo: Blob) => void; onClose: () => void }>) {
   const dlg = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState('');
@@ -64,7 +64,7 @@ function Camera({ onShot, onClose }: { onShot: (photo: Blob) => void; onClose: (
   );
 }
 
-export function TakePhoto({ busy, onPicked }: { busy: boolean; onPicked: (files: Blob[]) => void }) {
+export function TakePhoto({ busy, onPicked }: Readonly<{ busy: boolean; onPicked: (files: Blob[]) => void }>) {
   const [live] = useState(hasLiveCamera);
   const [open, setOpen] = useState(false);
   const label = busy ? 'Working…' : tr('Take photo');

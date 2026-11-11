@@ -10,7 +10,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // groupId: the group named in the address (/groups/<id>), or none for the list. onOpen(id) goes to a group, onOpen() to the list.
-export function GroupsScreen({ groupId, onOpen, openSettings }: { groupId?: string; onOpen: (id?: string) => void; openSettings: () => void }) {
+export function GroupsScreen({ groupId, onOpen, openSettings }: Readonly<{ groupId?: string; onOpen: (id?: string) => void; openSettings: () => void }>) {
   const app = useApp();
   const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
   // An invitation arrived (a tapped link): go back to the list, where the join form is.

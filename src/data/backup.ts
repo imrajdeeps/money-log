@@ -58,7 +58,7 @@ export type BackupParse =
 export function parseBackup(text: string): BackupParse {
   let j: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   try { j = JSON.parse(text); } catch { return { ok: false, error: tr('This is not a Money Log backup (not valid JSON).') }; }
-  if (!j || j.app !== 'money-log' || j.v !== 1 || !Array.isArray(j.entries)) return { ok: false, error: tr('This is not a Money Log backup file.') };
+  if (j?.app !== 'money-log' || j.v !== 1 || !Array.isArray(j.entries)) return { ok: false, error: tr('This is not a Money Log backup file.') };
   const entries: Entry[] = [];
   let skipped = 0;
   for (const e of j.entries) {

@@ -13,7 +13,7 @@ const SHOWN = 4;
 
 // The Overview's one-tap list: what repeats every month and has not been logged yet this month. Shown only when something
 // is set up; the rest of the time the Overview stays as it was.
-export function RecurringTile({ onManage }: { onManage: () => void }) {
+export function RecurringTile({ onManage }: Readonly<{ onManage: () => void }>) {
   const app = useApp();
   const today = isoDate();
   const todo = useMemo(() => recurringThisMonth(app.recurring, today), [app.recurring, today]);

@@ -22,7 +22,7 @@ function findTarget(name: string | undefined): HTMLElement | null {
   return [...document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }) ?? null;
 }
 
-export function TourHost({ version, ready, hasData, go }: { version: string; ready: boolean; hasData: boolean; go: (to: TourPage) => void }) {
+export function TourHost({ version, ready, hasData, go }: Readonly<{ version: string; ready: boolean; hasData: boolean; go: (to: TourPage) => void }>) {
   const [tour, setTour] = useState<Tour | null>(null);
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);

@@ -26,7 +26,7 @@ import type { RecurInput, Recurring } from '../core/recurring.ts';
 import { addGoal as addGoalTo, addNetUpdate as addNetUpdateTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeNetUpdate as removeNetUpdateFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import { createSync } from './sync.ts';
-import type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock, Sync, SyncState } from './sync.ts';
+import type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock, SyncState } from './sync.ts';
 import { migrateLegacy } from './legacy.ts';
 import type { AppApi, Engine, ToastAction } from './appApi.ts';
 import { clearProfile, loadProfile, setLocalProfile, setProfileSaveListener } from './profile.ts';
@@ -59,7 +59,7 @@ export function useApp(): AppApi {
   return v;
 }
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [eng, setEng] = useState<Engine | null>(null);
   const engRef = useRef<Engine | null>(null);
   const [all, setAll] = useState<Entry[]>([]);

@@ -10,7 +10,7 @@ import { tr } from '../../core/i18n.ts';
 
 // What a shared group has spent, at a glance: the total, who paid and whose share it is, where the money went and (for a
 // trip) on which days. The whole group's history, or one month of it.
-export function SummaryCard({ group, title, month, byDay, empty, extra }: { group: Group; title: string; month?: string; byDay: boolean; empty: string; extra?: (total: number) => string }) {
+export function SummaryCard({ group, title, month, byDay, empty, extra }: Readonly<{ group: Group; title: string; month?: string; byDay: boolean; empty: string; extra?: (total: number) => string }>) {
   const app = useApp();
   const me = app.me ?? '';
   const s = useMemo(() => groupSummary(app.groupEntries, group.id, { month }), [app.groupEntries, group.id, month]);

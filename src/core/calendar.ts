@@ -39,7 +39,7 @@ export function cleanSent(p: any): SentMap {
   const out: SentMap = {};
   if (!p || typeof p !== 'object') return out;
   for (const [uid, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (!v || v.uid !== uid || !/^[0-9a-f]{16}@money-log$/.test(uid)) continue;
+    if (v?.uid !== uid || !/^[0-9a-f]{16}@money-log$/.test(uid)) continue;
     if (typeof v.k !== 'string' || v.k.length > 400 || typeof v.title !== 'string' || !v.title || v.title.length > 200) continue;
     if (typeof v.due !== 'string' || !isValidDate(v.due)) continue;
     if (v.amount !== null && !(typeof v.amount === 'number' && Number.isFinite(v.amount) && v.amount > 0)) continue;

@@ -22,7 +22,7 @@ import { tr } from '../../core/i18n.ts';
 
 // A list of headings; tapping one opens just that part. Every part stays mounted (only hidden), so a half-typed
 // password or a half-pasted plan is still there after a look at another part.
-export function SettingsScreen({ section, onSection }: { section?: SettingsSection; onSection: (s?: SettingsSection) => void }) {
+export function SettingsScreen({ section, onSection }: Readonly<{ section?: SettingsSection; onSection: (s?: SettingsSection) => void }>) {
   const app = useApp();
   const profile = useProfile();
   const signedIn = app.syncEnabled && app.sync.mode !== 'signedout' && app.sync.mode !== 'local';

@@ -12,7 +12,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // group: show only that group's categories (a tile on the Overview was tapped); onGroup() shows them all again.
-export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: { group?: Group; onGroup: (g?: Group) => void; onAddExpense: (category: string) => void; onInsights: () => void }) {
+export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readonly<{ group?: Group; onGroup: (g?: Group) => void; onAddExpense: (category: string) => void; onInsights: () => void }>) {
   const app = useApp();
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);

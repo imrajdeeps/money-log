@@ -29,7 +29,7 @@ function usePicture(r: Receipt): { url: string | null; error: string } {
   return { url, error };
 }
 
-function Thumb({ r, mine, onOpen }: { r: Receipt; mine: boolean; onOpen: () => void }) {
+function Thumb({ r, mine, onOpen }: Readonly<{ r: Receipt; mine: boolean; onOpen: () => void }>) {
   const { url, error } = usePicture(r);
   const waiting = mine && !r.uploaded_at;
   return (
@@ -40,7 +40,7 @@ function Thumb({ r, mine, onOpen }: { r: Receipt; mine: boolean; onOpen: () => v
   );
 }
 
-function Viewer({ r, mine, onClose }: { r: Receipt; mine: boolean; onClose: () => void }) {
+function Viewer({ r, mine, onClose }: Readonly<{ r: Receipt; mine: boolean; onClose: () => void }>) {
   const app = useApp();
   const ref = useRef<HTMLDialogElement>(null);
   const { url, error } = usePicture(r);
@@ -62,7 +62,7 @@ function Viewer({ r, mine, onClose }: { r: Receipt; mine: boolean; onClose: () =
 }
 
 // The photos of one payment, with buttons to add more when the account may.
-export function PhotoStrip({ entryId, canEdit }: { entryId: string; canEdit: boolean }) {
+export function PhotoStrip({ entryId, canEdit }: Readonly<{ entryId: string; canEdit: boolean }>) {
   const app = useApp();
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

@@ -127,7 +127,7 @@ export function projectedMonthEnd(dailyCumulative: readonly number[], month: str
   const spent = dailyCumulative[day - 1] ?? 0;
   if (day >= days) return spent;
   const lastToDate = lastMonthDaily?.[day - 1] ?? 0;
-  const lastEnd = lastMonthDaily?.[lastMonthDaily.length - 1] ?? 0;
+  const lastEnd = lastMonthDaily?.at(-1) ?? 0;
   if (lastToDate > 0 && lastEnd >= lastToDate) return round2(spent * (lastEnd / lastToDate));
   return round2((spent / day) * days);
 }

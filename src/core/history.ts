@@ -38,23 +38,31 @@ function split(shares: unknown, name: (uid: string) => string): string {
 }
 
 // One line per thing that happened, in plain words. `name` turns a user id into the name shown in the group.
-export function describeHistory(row: HistoryRow, name: (uid: string) => string): string[] {
+type Names = (uid: string) => string;
+const nameOrQuestion = (v: unknown, name: Names): string => (typeof v === 'string' ? name(v) : '?');
+
+function describeCreated(c: HistoryRow['changes'], name: Names): string[] {
+  const first = [money(c.amount), typeof c.category === 'string' ? c.category : null, c.note ? quoted(c.note) : null].filter(Boolean).join(' · ');
+  const lines = [tr('Added: {0}', first)];
+  if (typeof c.paid_by === 'string') lines.push(tr('Paid by {0}', name(c.paid_by)));
+  if (c.shares) lines.push(tr('Split: {0}', split(c.shares, name)));
+  return lines;
+}
+
+function describeEdited(row: HistoryRow, name: Names): string[] {
   const c = row.changes;
-  if (row.kind === 'moved') return [tr('Taken out of this group')];
-  if (row.kind === 'created') {
-    const first = [money(c.amount), typeof c.category === 'string' ? c.category : null, c.note ? quoted(c.note) : null].filter(Boolean).join(' · ');
-    const lines = [tr('Added: {0}', first)];
-    if (typeof c.paid_by === 'string') lines.push(tr('Paid by {0}', name(c.paid_by)));
-    if (c.shares) lines.push(tr('Split: {0}', split(c.shares, name)));
-    return lines;
-  }
   const lines: string[] = [];
   if (c.amount) lines.push(tr('Amount {0} → {1}', money(c.amount.from), money(c.amount.to)));
   if (c.category) lines.push(tr('Category {0} → {1}', quoted(c.category.from), quoted(c.category.to)));
   if (c.note) lines.push(tr('Note {0} → {1}', quoted(c.note.from), quoted(c.note.to)));
   if (c.entry_date) lines.push(tr('Date {0} → {1}', day(c.entry_date.from), day(c.entry_date.to)));
-  if (c.paid_by) lines.push(tr('Paid by {0} → {1}', typeof c.paid_by.from === 'string' ? name(c.paid_by.from) : '?', typeof c.paid_by.to === 'string' ? name(c.paid_by.to) : '?'));
+  if (c.paid_by) lines.push(tr('Paid by {0} → {1}', nameOrQuestion(c.paid_by.from, name), nameOrQuestion(c.paid_by.to, name)));
   if (c.shares) lines.push(tr('Split now: {0}', split(c.shares.to, name)));
   if (row.kind === 'deleted') lines.push('Deleted');
   return lines.length ? lines : ['Changed'];
+}
+
+export function describeHistory(row: HistoryRow, name: Names): string[] {
+  if (row.kind === 'moved') return [tr('Taken out of this group')];
+  return row.kind === 'created' ? describeCreated(row.changes, name) : describeEdited(row, name);
 }

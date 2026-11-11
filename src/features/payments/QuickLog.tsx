@@ -29,7 +29,7 @@ function lastMethod(): Method | null {
 
 // The payment form behind the "+ Add expense" button. It lives in a sheet that stays mounted, so a half-typed payment
 // survives closing it; the sheet focuses the amount (amountRef) the moment it opens.
-export function QuickLog({ amountRef, onSaved, category: preset }: { amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string }) {
+export function QuickLog({ amountRef, onSaved, category: preset }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string }>) {
   const app = useApp();
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');

@@ -2,8 +2,7 @@ import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
-import { EditDialog } from '../payments/index.ts';
-import { ExpenseDialog } from '../payments/index.ts';
+import { EditDialog, ExpenseDialog } from '../payments/index.ts';
 import { copyText } from '../../ui/files.ts';
 import { shortDate } from '../../core/format.ts';
 import { activeMembers, formatCode, fromPaise, groupBalances, inviteLink, ledger, memberName, simplifyDebts } from '../../core/groups.ts';
@@ -26,7 +25,7 @@ const owes = (paise: number): string => (paise === 0 ? tr('All settled') : paise
 
 type LedgerItem = { kind: 'expense'; date: string; at: string; e: Entry } | { kind: 'settle'; date: string; at: string; s: Settlement };
 
-export function GroupDetail({ group, onBack }: { group: Group; onBack: () => void }) {
+export function GroupDetail({ group, onBack }: Readonly<{ group: Group; onBack: () => void }>) {
   const app = useApp();
   const me = app.me ?? '';
   const act = useAction();

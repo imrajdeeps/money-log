@@ -36,7 +36,7 @@ export function AnalyticsScreen() {
 
   const day = Number(today.slice(8, 10));
   const daily = cumulativeByDay(entries, groupOf, thisMonth, day);
-  const spentNow = daily[daily.length - 1] ?? 0;
+  const spentNow = daily.at(-1) ?? 0;
   const lastMonth = monthsEnding(thisMonth, 2)[0]!;
   const projected = projectedMonthEnd(daily, thisMonth, cumulativeByDay(entries, groupOf, lastMonth, daysInMonth(lastMonth)));
   const finished = totals.slice(0, -1).filter((t) => t.spent > 0); // months that are over and had spending

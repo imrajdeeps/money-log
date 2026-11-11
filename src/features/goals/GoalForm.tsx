@@ -10,7 +10,7 @@ import { tr } from '../../core/i18n.ts';
 const typed = (v: string): number | null => (v.trim() === '' || /^0+(\.0*)?$/.test(v.trim()) ? 0 : parseAmount(v));
 
 // Making a goal, or changing one: a name, a target, a date, what is already saved, and (optionally) a category whose payments count.
-export function GoalForm({ goal, onDone }: { goal?: Goal; onDone: () => void }) {
+export function GoalForm({ goal, onDone }: Readonly<{ goal?: Goal; onDone: () => void }>) {
   const app = useApp();
   const today = isoDate();
   const [name, setName] = useState(goal?.n ?? '');
