@@ -29,6 +29,8 @@ import { addRecurring as addRecurringTo, editRecurring as editRecurringIn, markH
 import type { RecurInput, Recurring } from '../core/recurring.ts';
 import { addGoal as addGoalTo, addNetUpdate as addNetUpdateTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeNetUpdate as removeNetUpdateFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
+import { addIncomeCategory as addIncomeCategoryTo, incomeCategories, removeIncomeCategory as removeIncomeCategoryFrom } from '../core/income.ts';
+import type { IncomeCatResult } from '../core/income.ts';
 import { createSync } from './sync.ts';
 import type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock, SyncState } from './sync.ts';
 import { migrateLegacy } from './legacy.ts';
@@ -545,6 +547,18 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const dismissed = useMemo(() => dismissedKeys(goals), [goals]);
   const noticeKinds = useMemo(() => enabledKinds(goals), [goals]);
 
+  // The person's own income categories, kept in the goals block (kind 'i'): the same read-modify-write.
+  const addIncomeCategory = useCallback(async (name: string): Promise<IncomeCatResult> => {
+    let result: IncomeCatResult = { ok: false, error: '' };
+    await changeGoals((items, nowIso) => {
+      result = addIncomeCategoryTo(items, name, nowIso);
+      return result.ok ? result.items : items;
+    });
+    return result;
+  }, [changeGoals]);
+  const removeIncomeCategory = useCallback((name: string) => changeGoals((items, nowIso) => removeIncomeCategoryFrom(items, name, nowIso)), [changeGoals]);
+  const incomeCats = useMemo(() => incomeCategories(goals), [goals]);
+
   const addNetWorth = useCallback((amount: number, date: string) => runGoals((items, nowIso) => addNetUpdateTo(items, amount, date, isoDate(), nowIso)), [runGoals]);
   const removeNetWorth = useCallback((id: string) => changeGoals((items, nowIso) => removeNetUpdateFrom(items, id, nowIso)), [changeGoals]);
 
@@ -652,7 +666,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
     dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
-    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions,
+    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions,
     sync,
     syncEnabled,
     toastMsg,
@@ -661,7 +675,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

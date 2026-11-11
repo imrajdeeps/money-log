@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { EditDialog } from './EditDialog.tsx';
 import { shortDate } from '../../core/format.ts';
-import { byRecent, fmtINR, myShare } from '../../core/logic.ts';
+import { byRecent, fmtINR, isIncome, myShare } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -18,7 +18,7 @@ export function PaymentRow({ entry: e, onOpen, compact = false }: Readonly<{ ent
         <b>{e.category}</b>
         <small>{[shortDate(e.entry_date), e.method, e.note, e.group_id ? tr('shared with {0}, total {1}', groupName(e.group_id), fmtINR(e.amount)) : ''].filter(Boolean).join(' · ')}</small>
       </span>
-      <span className="font-bold tabular-nums">{fmtINR(myShare(e, app.me))}</span>
+      <span className={`font-bold tabular-nums${isIncome(e) ? ' text-good' : ''}`}>{isIncome(e) ? '+' : ''}{fmtINR(myShare(e, app.me))}</span>
       {app.syncEnabled && e.dirty ? <span className={ui.dot} role="img" aria-label={tr('Waiting to sync')} /> : null}
     </button>
   );

@@ -3,8 +3,9 @@ import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { activeMembers, computeShares } from '../../core/groups.ts';
 import { METHODS, fmtINR, isValidDate, isoDate, parseAmount } from '../../core/logic.ts';
-import type { Entry, Method, NewEntryInput } from '../../core/logic.ts';
-import { CategorySelect } from '../../ui/CategorySelect.tsx';
+import type { Entry, EntryKind, Method, NewEntryInput } from '../../core/logic.ts';
+import { KindCategory } from './KindCategory.tsx';
+import { KindSwitch } from './KindSwitch.tsx';
 import { HistoryList } from './HistoryList.tsx';
 import { PhotoStrip } from './PhotoStrip.tsx';
 import { MethodChips } from './MethodChips.tsx';
@@ -13,11 +14,20 @@ import type { SplitState } from './SplitEditor.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
+const updatedText = (kind: EntryKind, amount: number, category: string): string =>
+  kind === 'in' ? tr('Updated income {0} · {1}', fmtINR(amount), category) : tr('Updated {0} · {1}', fmtINR(amount), category);
+
+function editTitle(shared: boolean, kind: EntryKind): string {
+  if (shared) return tr('Edit shared expense');
+  return kind === 'in' ? tr('Edit income') : tr('Edit payment');
+}
+
 export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose: () => void }>) {
   const app = useApp();
   const ref = useRef<HTMLDialogElement>(null);
   const [amount, setAmount] = useState(String(entry.amount));
   const [category, setCategory] = useState(entry.category);
+  const [kind, setKind] = useState<EntryKind>(entry.kind ?? 'out');
   const [method, setMethod] = useState<Method | null>(entry.method);
   const [note, setNote] = useState(entry.note);
   const [date, setDate] = useState(entry.entry_date);
@@ -41,6 +51,13 @@ export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose:
 
   const close = () => ref.current?.close();
 
+  // Switching between Spent and Received starts the category again: each has its own list.
+  function pickKind(k: EntryKind) {
+    setKind(k);
+    setCategory('');
+    setError('');
+  }
+
   async function save(ev: FormEvent) {
     ev.preventDefault();
     const amt = parseAmount(amount);
@@ -48,7 +65,7 @@ export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose:
     if (!category) return setError(tr('Pick a category.'));
     if (!isValidDate(date)) return setError(tr('Pick a valid date.'));
     if (date > isoDate()) return setError(tr('The date cannot be in the future.'));
-    const changes: Partial<NewEntryInput> = { category, method, note: note.trim(), date };
+    const changes: Partial<NewEntryInput> = { category, method, note: note.trim(), date, kind };
     if (!shared) changes.amount = amt;
     else if (!frozen) {
       const r = computeShares(split.mode, amt, people.map((m) => m.user_id), new Set(split.included), split.values);
@@ -60,7 +77,7 @@ export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose:
     const before = entry; // as it was when this dialog opened: what Undo goes back to
     await app.updateEntry(entry.id, changes);
     // Undo is for the person's own payments: a shared expense is also other people's, and the group has rules about changing it afterwards
-    app.toast(tr('Updated {0} · {1}', fmtINR(amt), category), shared ? undefined : { label: tr('Undo'), run: async () => { await app.undoEntry(before); app.toast(tr('Back as it was.')); } });
+    app.toast(updatedText(kind, amt, category), shared ? undefined : { label: tr('Undo'), run: async () => { await app.undoEntry(before); app.toast(tr('Back as it was.')); } });
     close();
   }
 
@@ -83,9 +100,10 @@ export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose:
       aria-labelledby="edit-title"
     >
       <form onSubmit={save} noValidate>
-        <h2 id="edit-title">{shared ? tr('Edit shared expense') : tr('Edit payment')}</h2>
+        <h2 id="edit-title">{editTitle(shared, kind)}</h2>
         {readOnly && <p className={ui.msg('bad')} role="status">{tr('You are no longer in this group, so this expense can no longer be changed.')}</p>}
         {frozen && inGroup && <p className={ui.msg()} role="status">{tr('Someone this expense names has left the group, so its amount, split and deletion are locked. You can still change the category, method, note and date.')}</p>}
+        {!shared && <KindSwitch value={kind} onChange={pickKind} />}
         <label className={ui.field}>
           <span>{tr('Amount (₹)')}</span>
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={readOnly || frozen} />
@@ -94,7 +112,7 @@ export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose:
           <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
         )}
         <label className={ui.field} htmlFor="edit-cat"><span>{tr('Category')}</span></label>
-        <CategorySelect id="edit-cat" value={category} onChange={setCategory} />
+        <KindCategory kind={kind} id="edit-cat" value={category} onChange={setCategory} />
         <MethodChips value={method} onChange={setMethod} options={METHODS} />
         <label className={ui.field}>
           <span>{tr('Note')}</span>
@@ -104,7 +122,7 @@ export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose:
           <span>{tr('Date')}</span>
           <input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} />
         </label>
-        <PhotoStrip entryId={entry.id} canEdit={!readOnly} />
+        {kind === 'out' && <PhotoStrip entryId={entry.id} canEdit={!readOnly} />}
         {shared && inGroup && entry.group_id && (
           <div className={ui.photoStrip}>
             <p className={ui.fieldLabel}>{tr('History')}</p>

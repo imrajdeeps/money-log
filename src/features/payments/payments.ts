@@ -1,5 +1,5 @@
 // Search and filters behind the All payments sheet. Pure (no DOM, no storage) so the Node test runner can check them.
-import { byDate, myShare } from '../../core/logic.ts';
+import { byDate, isIncome, myShare } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 
 // '' means "any" for month, category and method.
@@ -36,5 +36,10 @@ export function paymentCategories(entries: Entry[]): string[] {
   return [...seen.values()].sort((a, b) => a.localeCompare(b));
 }
 
+// What went out: the full amount of a private payment, your share of a shared one. Income is not in it.
 export const totalShare = (entries: Entry[], me: string | null): number =>
-  Math.round(entries.reduce((n, e) => n + myShare(e, me), 0) * 100) / 100;
+  Math.round(entries.filter((e) => !isIncome(e)).reduce((n, e) => n + myShare(e, me), 0) * 100) / 100;
+
+// What came in (income entries).
+export const totalReceived = (entries: Entry[]): number =>
+  Math.round(entries.filter(isIncome).reduce((n, e) => n + e.amount, 0) * 100) / 100;
