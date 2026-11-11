@@ -95,7 +95,8 @@ its own. Every page has its own address, so a refresh, the back button and a boo
 | Overview | `/` |
 | Month (a group tile such as Saving opens just that group's categories) | `/month`, `/month?g=Saving` |
 | Plan, All payments | `/plan`, `/payments` |
-| Add expense | `/add` |
+| Add expense (or income), and Add opened on Received | `/add`, `/add?kind=in` |
+| Cash flow | `/cashflow` |
 | Groups, and one group | `/groups`, `/groups/<id>` |
 | Settings, and one part of it | `/settings`, `/settings/password` |
 
@@ -153,6 +154,16 @@ alter table public.plan_blocks add constraint plan_blocks_block_known
 everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
+
+## Income and cash flow (version 1.26)
+**Add** has a **Spent / Received** switch at the top. *Received* is for money that came in; it has its own categories: **Salary, Business / Freelance, Lent back, Cashback, Refund, Interest & dividends, Rent received, Gift received, Other income**, and *＋ New income category…* adds your own (they sync and are in the backup, in the same block as goals, kind `i`; no extra table). Income is private to you: no group, no split, no receipt photos, no *Repeat every month*. An entry can be switched between Spent and Received when you edit it. A new spending category, **Lent to someone**, pairs with *Lent back*.
+
+- **Cash flow** (the Overview card, and the page at `/cashflow` with a month picker): **Money in**, **Money out** (your spending, a shared expense at your own share), **Left** (in minus out) and **Saved** (what went to a Saving category, shown beside the rest and never counted as spending), the share of your income you kept, where the income came from, the biggest payments, and the last six months in and out side by side.
+- **Income is never spending.** `budgetEntries` (`core/logic.ts`) leaves income out, and every total of spending (month, budgets, goals, Insights, notifications) is built from it; `core/income.ts` is the one place that adds income up. A test adds income to a month and checks that no existing figure moves.
+- **Not income:** a friend paying back a shared expense (the group ledger handles it) and anything inside a group.
+- **A message about money received** (*Paste a payment message*) now fills the form on *Received*: the amount, the day, who it came from, and a category when the words say one (refund, cashback, salary, interest).
+- **Refunds and cashback count as income** here; they do not reduce the category they came from.
+- **The database:** one column, `entries.kind` (`out` or `in`, default `out`), and a rule that income cannot belong to a group (the SQL is at the end of `supabase/schema.sql`, tests in section 10 of `supabase/rls_tests.sql`). The app sends `kind` only for income, so spending keeps syncing before that SQL has been run; income syncs once it has. An entry saved before 1.26 has no kind and is spending.
 
 ## Repeat every month (version 1.18)
 In Add expense, tick **Repeat every month** (for a private payment) and, besides saving the payment, the app sets it up as a recurring payment: the same category, amount, method and note, on the same day of the month. This month's is the one you just saved, so it first comes up next month, to log with one tap. Change or remove it under Settings, Recurring payments.

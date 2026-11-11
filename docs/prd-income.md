@@ -1,6 +1,6 @@
 # PRD: Income, and a monthly cash flow
 
-**Status:** proposed (2026-11-11), from the owner's request and one question round. To be built as version 1.26.0 on `version/1.26`.
+**Status:** built in version 1.26.0 (2026-11-11), from the owner's request and one question round. The SQL was tested on a local Postgres; running it on the real project is the owner's go-ahead.
 
 ## Problem
 Every entry in the app is money going out. There is no way to record money coming in (salary, a friend paying back a loan, cashback,
@@ -36,8 +36,9 @@ cashback, refund and others. This feature helps the user to check the monthly ca
   - A **Home card** "This month": In, Out, Left, and a link to the cash flow page.
   - A **Cash flow page**: the month picker, the same four figures, income by category, the biggest outflows, and the last 6 months as in-vs-out
     bars (the chart rules of the Analytics page: one shared scale, a text alternative).
-  - The **payments list** marks income entries with a plus and the good colour; the **backup file** and the **CSV export** carry the kind
-    (a *Type* column). An old backup without it is read as spending.
+  - The **payments list** marks income entries with a plus and the good colour; the **backup file** carries the kind (there is
+    no CSV export any more, since 1.22). An old backup without it is read as spending. *Built differently from the first draft:* the All
+    payments header adds up what went out and what came in apart, so income never inflates the spending total there either.
 - **SMS paste** (the paste-message feature): a message saying *credited / received / refund* opens the Add page on *Received*, amount and
   date filled; the category stays for the person to pick (a refund message suggests *Refund*).
 - **Not counted as income, on purpose:**

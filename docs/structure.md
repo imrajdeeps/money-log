@@ -12,7 +12,7 @@ src/
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
               the sync pill, file helpers.
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
-    home/  payments/  recurring/  month/  plan/  goals/  groups/  notifications/  settings/  tour/  analytics/
+    home/  payments/  recurring/  month/  plan/  goals/  groups/  notifications/  settings/  tour/  analytics/  cashflow/
       index.ts    the only file other code may import from this folder
   app/        starts the app: main.tsx, the page frame (App.tsx), the router.
   routes/     one small file per address (TanStack Router reads this folder). routeTree.gen.ts is generated.
@@ -73,7 +73,9 @@ dialogs that need a click (budgets, an expense). Animations are cancelled while 
 
 `core/analytics.ts` holds the arithmetic (monthly totals, category trends, weekday spending, biggest payments, the month-end projection, group shares)
 as pure functions over the budget entries (`budgetEntries`: a shared expense at the account's own share); `features/analytics/` draws it, with
-small hand-written charts (`charts.tsx`: bars and a sparkline; no chart library). A new figure goes in `core/analytics.ts` with a test first.
+small hand-written charts (`charts.tsx`: bars, in-and-out bars and a sparkline; no chart library). A new figure goes in `core/analytics.ts` with a test first.
+
+Income (an entry with `kind: 'in'`) is kept out of every spending figure by `budgetEntries`; `core/income.ts` holds the income categories (the person's own are kind `i` items in the goals block) and the cash flow (`cashFlow`, `cashFlowSeries`), and `features/cashflow/` draws the page.
 
 ## Language
 

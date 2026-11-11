@@ -50,9 +50,24 @@ test('a message with no date is today, a future date is ignored', () => {
   assert.equal(findDate('on 31-02-2026', TODAY), null);
 });
 
-test('money coming in is not a payment', () => {
-  assert.match(bad('Rs 5,000.00 credited to A/c XX1234 on 09-11-26 by UPI from Ravi. Ref 123456789'), /coming in/);
-  assert.match(bad('Refund of Rs 300 credited to your account'), /coming in/);
+test('money coming in is read as income, with who it came from and the category the words point to', () => {
+  const p = ok('Rs 5,000.00 credited to A/c XX1234 on 09-11-26 by UPI from Ravi. Ref 123456789');
+  assert.equal(p.kind, 'in');
+  assert.equal(p.amount, 5000);
+  assert.equal(p.merchant, 'Ravi');
+  assert.equal(p.incomeCategory, null, 'no word points to a category: the person picks');
+  const refund = ok('Refund of Rs 300 credited to your account');
+  assert.equal(refund.kind, 'in');
+  assert.equal(refund.incomeCategory, 'Refund');
+  assert.equal(ok('Rs 120 cashback received on your UPI payment').incomeCategory, 'Cashback');
+  assert.equal(ok('Salary Rs 52,000 credited to A/c XX9 on 01-11-26').incomeCategory, 'Salary');
+  assert.equal(ok('Interest of Rs 410 credited to your savings account').incomeCategory, 'Interest & dividends');
+});
+
+test('a payment message stays spending, with no income category', () => {
+  const p = ok('Rs 450.00 debited from A/c XX1234 to VPA swiggy@icici. UPI Ref 412345678901');
+  assert.equal(p.kind, 'out');
+  assert.equal(p.incomeCategory, null);
 });
 
 test('a debit that mentions "credited to" the shop is still a payment', () => {
