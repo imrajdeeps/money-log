@@ -14,7 +14,7 @@ export function useNotices(): Notice[] {
   const app = useApp();
   const lastBackup = useLastBackup();
   const today = isoDate();
-  const { dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, noticeKinds, dismissed } = app;
+  const { dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, noticeKinds, dismissed, sessions } = app;
   return useMemo(() => {
     const own = budgetEntries(entries, me);
     const month = monthOf(today);
@@ -35,7 +35,8 @@ export function useNotices(): Notice[] {
       lastBackupMs: lastBackup,
       hasPayments: entries.length > 0,
       sync: { mode: sync.mode, pending: sync.pending, lastSync: sync.lastSync, error: sync.error },
+      sessions,
     };
     return buildNotices(input, noticeKinds, dismissed);
-  }, [today, dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, lastBackup, noticeKinds, dismissed]);
+  }, [today, dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, lastBackup, noticeKinds, dismissed, sessions]);
 }

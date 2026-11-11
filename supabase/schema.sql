@@ -1251,3 +1251,47 @@ create policy profiles_insert on public.profiles for insert to authenticated
 create policy profiles_update on public.profiles for update to authenticated
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
+
+-- ---------------------------------------------------------------------------------
+-- the sign-in record (version 1.25): two read-only functions, so the app can show where the account is signed in and what happened
+-- ---------------------------------------------------------------------------------
+-- Both run as the database owner (the `auth` tables are not readable by the app) but return only the signed-in person's own rows,
+-- chosen by auth.uid() inside the function, never by an argument. No IP address is returned. Nothing can be written through them.
+-- Supabase keeps a device (user agent) only for a session that is still signed in; the record of past events has a time and an action.
+create or replace function public.my_sessions()
+returns table (id uuid, created_at timestamptz, refreshed_at timestamptz, user_agent text, is_current boolean)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select s.id,
+         s.created_at,
+         greatest(s.created_at, coalesce(s.refreshed_at::timestamp at time zone 'UTC', s.updated_at, s.created_at)),
+         s.user_agent,
+         s.id::text = (select auth.jwt() ->> 'session_id')
+    from auth.sessions s
+   where s.user_id = (select auth.uid())
+   order by s.created_at desc
+   limit 20;
+$$;
+
+create or replace function public.my_sign_in_log(p_limit integer default 30)
+returns table (at timestamptz, action text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select e.created_at, e.payload ->> 'action'
+    from auth.audit_log_entries e
+   where e.payload ->> 'actor_id' = (select auth.uid())::text
+     and e.payload ->> 'action' in ('login', 'user_signedup', 'user_recovery_requested', 'user_modified', 'logout', 'token_revoked')
+   order by e.created_at desc
+   limit least(greatest(coalesce(p_limit, 30), 1), 100);
+$$;
+
+revoke all on function public.my_sessions()            from public, anon, authenticated;
+revoke all on function public.my_sign_in_log(integer)  from public, anon, authenticated;
+grant execute on function public.my_sessions()           to authenticated;
+grant execute on function public.my_sign_in_log(integer) to authenticated;

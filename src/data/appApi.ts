@@ -1,6 +1,7 @@
 import type { DueItem } from '../core/blocks.ts';
 import type { DueInput } from '../core/dueItems.ts';
 import type { NoticeKind } from '../core/noticeKinds.ts';
+import type { SessionInfo, SignInEvent } from '../core/signins.ts';
 import type { BackupParse } from './backup.ts';
 import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
 import type { HistoryRow } from '../core/history.ts';
@@ -34,6 +35,8 @@ export interface AppApi {
   removeReceipt: (id: string) => Promise<void>;
   receiptBlob: (r: Receipt) => Promise<Blob>;
   fetchHistory: (entryId: string) => Promise<HistoryRow[]>;
+  loadSessions: () => Promise<SessionInfo[]>; // where the account is signed in now (throws when offline or the database has no such function yet)
+  loadSignInLog: (limit?: number) => Promise<SignInEvent[]>; // what happened to the account, newest first
   entries: Entry[]; // this account's own payments, not deleted (shared ones included, at their full amount)
   allEntries: Entry[]; // this account's own payments including deleted ones, for backups
   groupEntries: Entry[]; // every live shared expense this phone holds, whoever made it
@@ -58,6 +61,7 @@ export interface AppApi {
   removeTopUp: (id: string) => Promise<void>;
   addNetWorth: (amount: number, date: string) => Promise<string | null>; // a net worth update; the error text, or null
   removeNetWorth: (id: string) => Promise<void>;
+  sessions: SessionInfo[] | null; // where the account is signed in now (null: not known)
   dismissed: ReadonlySet<string>; // notifications the person dismissed (their keys)
   noticeKinds: ReadonlySet<NoticeKind>; // the kinds of notification that are switched on
   dismissNotice: (key: string) => Promise<void>;

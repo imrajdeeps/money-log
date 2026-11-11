@@ -39,6 +39,7 @@ detail and where it opens. The list is sorted attention, then soon, then reminde
 | Net worth | the latest update is more than 30 days old (nothing entered yet: no reminder, the Overview tile already invites) | `networth:<month>` | Plan, net worth |
 | Backup | no backup downloaded for 30 days and the phone holds payments (the free plan keeps no database backups) | `backup:<month>` | Settings, Backup |
 | Sync | changes have been waiting more than a day, or the last sync failed | `sync:<day>` | Settings, Cloud sync |
+| Sign-in on another device (added in 1.25) | a session on another device began in the last 7 days | `signin:<session id>` | Settings, Password and sessions |
 
 ## What a person sees
 - **The bell:** an icon beside the sync pill; a small count of what is shown (undismissed, from the kinds that are on), `9+` above nine,

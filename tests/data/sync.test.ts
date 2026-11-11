@@ -40,7 +40,7 @@ function device(email = 'me@example.com', cfg?: { supabaseUrl: string; supabaseK
 const iso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
 const entry = (over: Partial<Parameters<typeof makeEntry>[0]> = {}): Entry =>
   makeEntry({ amount: 100, category: 'Rent', method: 'UPI', note: 'n', date: '2026-11-09', ...over }, iso());
-const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.profiles.clear(); mock.state.profilesTableMissing = false; mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.recoveries.length = 0; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
+const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.profiles.clear(); mock.state.profilesTableMissing = false; mock.state.sessions.length = 0; mock.state.signIns.length = 0; mock.state.signInFunctionsMissing = false; mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.recoveries.length = 0; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
 
 test('without a Supabase URL and key the app stays local and never touches the network', async () => {
   reset();
@@ -1480,4 +1480,43 @@ test('a notification dismissed on one phone is hidden on the other, and so is a 
     assert.equal(enabledKinds(g).has('due'), true);
   }
   assert.equal(a.sync.getState().pending, 0);
+});
+
+// ------------------------------------------------------------------ the sign-in record (two read-only database functions)
+test('the account sees its own live sessions, this phone marked, and its own sign-in record', async () => {
+  reset();
+  const a = device('raj@example.com'); const other = device('someone@example.com');
+  await a.signIn(); await other.signIn();
+  const uid = [...mock.state.users.entries()].find(([email]) => email === 'raj@example.com')![1];
+  mock.state.sessions.push({ id: 'phone-2', uid, created_at: '2026-11-10T08:00:00.000Z', refreshed_at: '2026-11-10T09:00:00.000Z', user_agent: 'Mozilla/5.0 (iPhone) Safari/604.1' });
+  mock.state.signIns.push({ uid, at: '2026-11-10T08:00:00.000Z', action: 'user_modified' });
+  const sessions = await a.sync.fetchSessions();
+  assert.equal(sessions.length, 2, 'this sign-in and the seeded one, not the other account\'s');
+  assert.equal(sessions.filter((s) => s.isCurrent).length, 1);
+  assert.equal(sessions.find((s) => s.id === 'phone-2')!.isCurrent, false);
+  assert.equal(sessions.find((s) => s.id === 'phone-2')!.userAgent, 'Mozilla/5.0 (iPhone) Safari/604.1');
+  const log = await a.sync.fetchSignInLog();
+  assert.deepEqual(log.map((e) => e.action).sort(), ['login', 'user_modified']);
+  assert.equal((await other.sync.fetchSessions()).length, 1);
+  assert.equal((await a.sync.fetchSignInLog(1)).length, 1, 'the limit is sent');
+});
+
+test('without the database functions the sign-in record answers 404, and syncing is not affected', async () => {
+  reset();
+  mock.state.signInFunctionsMissing = true;
+  const a = device('raj@example.com');
+  await a.signIn();
+  await assert.rejects(a.sync.fetchSessions(), (e: unknown) => e instanceof Error && 'status' in e && e.status === 404);
+  await assert.rejects(a.sync.fetchSignInLog(), (e: unknown) => e instanceof Error && 'status' in e && e.status === 404);
+  await a.store.putEntries([entry()]);
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.equal(mock.state.entries.size, 1);
+});
+
+test('a phone that does not sync cannot ask for the record', async () => {
+  reset();
+  const d = device('x@example.com', { supabaseUrl: '', supabaseKey: '' });
+  await d.sync.init();
+  await assert.rejects(d.sync.fetchSessions(), /not set up/);
 });

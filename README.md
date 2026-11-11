@@ -348,6 +348,7 @@ the free Supabase plan. It does not buzz the phone when the app is closed (that 
 | Net worth | the latest update is more than 30 days old (nothing entered yet: no reminder) | Plan, net worth |
 | Backup | payments on the phone and no backup downloaded for 30 days | Settings, Backup |
 | Sync | the last sync failed, or changes have waited more than a day | Settings, Cloud sync |
+| Sign-in on another device | a session on another device that began in the last 7 days (this phone's own never counts) | Settings, Password and sessions |
 
 The page lists *Needs attention*, then *Coming up*, then *Reminders*. The cross on a row **dismisses** it for good, **on every phone**,
 until the situation changes (the key of a notification holds the stage or the month: a due item that goes from "soon" to "overdue", or
@@ -355,6 +356,29 @@ a new month, brings it back). **Settings, Notifications** has one switch per kin
 switches sync too. Dismissals and switches are items of the `goals` block (kinds `k` and `s`; the newest 500 dismissals are kept),
 in the backup file and with no new database line. When a backup was last downloaded is kept on the phone only. The rules are in
 `src/core/notifications.ts` and `docs/prd-notifications.md`.
+
+## Login history
+
+Settings, *Password and sessions* (when signed in) shows, under the password form, **Login history**, read from the server's own records so
+it cannot be changed from the app:
+
+- **Signed in now:** every session that is still signed in, with the device and browser ("Chrome on Mac", "Safari on iPhone"), when it
+  began and when it was last active, and *This phone* on this phone's own session. A device is known only for a session that is still
+  signed in: Supabase does not keep it for past sign-ins.
+- **Recent activity:** the last 30 events of the sign-in record, each with its time: signed in, account created, password reset link
+  asked for, account or password changed, signed out, a sign-in ended. No IP address is shown or returned.
+
+If you see a sign-in you do not know: change the password and use *Sign out other devices*. A sign-in on another device also shows on
+the notification bell for a week (dismiss it once you know it is you).
+
+It is two read-only database functions, `my_sessions()` and `my_sign_in_log()` (the end of `supabase/schema.sql`; run the file again
+after updating to 1.25). They run as the database owner because the `auth` tables are closed to the app, return only the signed-in
+person's own rows (chosen by `auth.uid()` inside the function), and cannot write anything. Until they exist the section says *Not
+available yet* and everything else works; if the server's record turns out to be switched off for the project, *Recent activity*
+says *No sign-in record yet*.
+
+**Switch account was removed in 1.25:** it only erased this phone's copy and asked for another sign-in, which *Sign out and erase this
+phone* already does. One phone still holds one account's data.
 
 ## Profile
 

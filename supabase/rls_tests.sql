@@ -1275,6 +1275,37 @@ begin
   if not pg_temp.fails('select 1 from public.profiles') then raise exception 'FAIL anon could read profiles'; end if;
   raise notice 'PASS profiles: own row only, +91 numbers only, email from the account, latest change wins';
 
+  -- =========================================================================
+  -- 9. THE SIGN-IN RECORD: ONLY YOUR OWN SESSIONS AND EVENTS, NO IP ADDRESS, NOTHING FOR ANONYMOUS VISITORS
+  -- =========================================================================
+  reset role;
+  insert into auth.sessions (id, user_id, created_at, user_agent)
+    values ('11111111-1111-4111-8111-111111111111', a::uuid, '2026-11-10T08:00:00Z', 'Mozilla/5.0 Chrome/150 Macintosh'),
+           ('22222222-2222-4222-8222-222222222222', a::uuid, '2026-11-11T09:00:00Z', 'Mozilla/5.0 Firefox/140 Windows'),
+           ('33333333-3333-4333-8333-333333333333', b::uuid, '2026-11-11T09:30:00Z', 'Mozilla/5.0 Safari/20 iPhone');
+  insert into auth.audit_log_entries (instance_id, id, payload, created_at, ip_address)
+    values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), json_build_object('actor_id', a, 'action', 'login'), '2026-11-11T09:00:00Z', '203.0.113.7'),
+           ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), json_build_object('actor_id', a, 'action', 'user_modified'), '2026-11-11T09:05:00Z', '203.0.113.7'),
+           ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), json_build_object('actor_id', a, 'action', 'token_refreshed'), '2026-11-11T09:06:00Z', '203.0.113.7'),
+           ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), json_build_object('actor_id', b, 'action', 'login'), '2026-11-11T09:30:00Z', '198.51.100.9');
+  perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated', 'session_id', '22222222-2222-4222-8222-222222222222')::text, true);
+  set local role authenticated;
+  if (select count(*) from public.my_sessions()) <> 2 then raise exception 'FAIL A does not see exactly the own two sessions'; end if;
+  if (select count(*) from public.my_sessions() where is_current) <> 1 or not (select is_current from public.my_sessions() where id = '22222222-2222-4222-8222-222222222222') then raise exception 'FAIL the current session is not marked'; end if;
+  if (select user_agent from public.my_sessions() order by created_at desc limit 1) <> 'Mozilla/5.0 Firefox/140 Windows' then raise exception 'FAIL sessions are not newest first'; end if;
+  if (select count(*) from public.my_sign_in_log()) <> 2 then raise exception 'FAIL the log should hold the own login and password change only (a token refresh and B''s login are left out)'; end if;
+  if (select action from public.my_sign_in_log() limit 1) <> 'user_modified' then raise exception 'FAIL the log is not newest first'; end if;
+  if (select count(*) from public.my_sign_in_log(1)) <> 1 then raise exception 'FAIL the log ignores its limit'; end if;
+  if exists (select 1 from information_schema.routines r join information_schema.parameters p on p.specific_name = r.specific_name where r.routine_schema = 'public' and r.routine_name in ('my_sessions', 'my_sign_in_log') and p.parameter_mode = 'OUT' and p.parameter_name in ('ip', 'ip_address', 'user_id')) then raise exception 'FAIL a sign-in function returns an address or an id of a person'; end if;
+  perform pg_temp.act_as(b);
+  if (select count(*) from public.my_sessions()) <> 1 or (select count(*) from public.my_sign_in_log()) <> 1 then raise exception 'FAIL B sees something other than the own session and login'; end if;
+  perform pg_temp.act_as(null);
+  if not pg_temp.fails('select * from public.my_sessions()') or not pg_temp.fails('select * from public.my_sign_in_log()') then raise exception 'FAIL anon could call the sign-in functions'; end if;
+  perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+  set local role authenticated;
+  if (select count(*) from public.my_sessions()) <> 0 or (select count(*) from public.my_sign_in_log()) <> 0 then raise exception 'FAIL a token without a user id got sign-in data'; end if;
+  raise notice 'PASS sign-in record: own sessions and events only, current session marked, no address, nothing for anonymous visitors';
+
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;
 

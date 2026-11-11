@@ -14,6 +14,7 @@ import { clearLastActive, loadLastActive, saveLastActive } from './lockSeen.ts';
 import { clearLastBackup } from './backupSeen.ts';
 import { dismissNotice as dismissNoticeIn, dismissedKeys, enabledKinds, setNoticeKind as setNoticeKindIn, showDismissedAgain } from '../core/notifications.ts';
 import type { NoticeKind } from '../core/noticeKinds.ts';
+import type { SessionInfo } from '../core/signins.ts';
 import type { LockConfig, LockTries } from './lock.ts';
 import { MAX_ACCOUNT_PHOTOS, MAX_PHOTOS, liveFor, makeReceipt, markDeleted, photoRoom } from '../core/receipts.ts';
 import type { Receipt } from '../core/receipts.ts';
@@ -69,6 +70,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [mine, setMine] = useState<Mine>({});
   const [recurring, setRecurring] = useState<Recurring>({});
   const [goals, setGoals] = useState<Goals>({});
+  const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -364,6 +366,8 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   const receiptBlob = useCallback((r: Receipt) => engine().receiptBlob(r), []);
   const fetchHistory = useCallback((entryId: string) => engine().fetchHistory(entryId), []);
+  const loadSessions = useCallback(() => engine().fetchSessions(), []);
+  const loadSignInLog = useCallback((limit?: number) => engine().fetchSignInLog(limit), []);
 
   const setPin = useCallback(async (pin: string, timeoutSec: number) => {
     const e = engRef.current;
@@ -515,6 +519,25 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const removeGoal = useCallback((id: string) => changeGoals((items, nowIso) => removeGoalFrom(items, id, nowIso)), [changeGoals]);
   const addTopUp = useCallback((goalId: string, amount: number, date: string) => runGoals((items, nowIso) => addTopUpTo(items, goalId, amount, date, isoDate(), nowIso)), [runGoals]);
   const removeTopUp = useCallback((id: string) => changeGoals((items, nowIso) => removeTopUpFrom(items, id, nowIso)), [changeGoals]);
+  // Where the account is signed in now, kept fresh for the notification center: when the phone starts signed in, comes back to the
+  // front, and every five minutes. Never an error to show: a phone that is offline, signed out, or whose database has no such
+  // function yet simply knows nothing (null) and says nothing.
+  const refreshSessions = useCallback(async () => {
+    const e = engRef.current;
+    const mode = e?.sync.getState().mode;
+    if (!e || !mode || mode === 'local' || mode === 'signedout') { setSessions(null); return; }
+    try { setSessions(await e.sync.fetchSessions()); } catch { /* keep what was known */ }
+  }, []);
+  const signedInNow = sync.mode !== 'local' && sync.mode !== 'signedout';
+  useEffect(() => {
+    if (!loaded || !signedInNow) { setSessions(null); return undefined; }
+    void refreshSessions();
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshSessions(); }, 5 * 60_000);
+    const onShow = () => { if (document.visibilityState === 'visible') void refreshSessions(); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onShow); };
+  }, [loaded, signedInNow, refreshSessions]);
+
   // Notification center: what the person dismissed and which kinds they switched off live in the goals block too.
   const dismissNotice = useCallback((key: string) => changeGoals((items, nowIso) => dismissNoticeIn(items, key, nowIso)), [changeGoals]);
   const setNoticeKind = useCallback((kind: NoticeKind, on: boolean) => changeGoals((items, nowIso) => setNoticeKindIn(items, kind, on, nowIso)), [changeGoals]);
@@ -623,13 +646,13 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     ready: loaded,
     storageKind: eng?.store.kind ?? 'memory',
     me, receipts, lock: lockCfg, locked, unlock, setPin, updateLock,
-    addReceipts, removeReceipt, receiptBlob, fetchHistory,
+    addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog,
     entries: own.filter((e) => !e.deleted_at),
     allEntries: own,
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
     dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
-    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds,
+    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions,
     sync,
     syncEnabled,
     toastMsg,
@@ -638,7 +661,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

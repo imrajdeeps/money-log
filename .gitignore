@@ -13,3 +13,4 @@ dist-e2e
 *.csv
 *.xlsx
 money-log-backup-*.json
+.tanstack
