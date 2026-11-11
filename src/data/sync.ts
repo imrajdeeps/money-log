@@ -17,15 +17,15 @@ import { cleanReceipt, markDeleted, markPurged, markUploaded, mergeRemoteReceipt
 import type { Receipt } from '../core/receipts.ts';
 import { PAGE, PUSH_CHUNK, OVERLAP_MS, SyncError } from './syncTypes.ts';
 import type { Session, SyncOptions, SyncState } from './syncTypes.ts';
-import { BLOCKS, BLOCK_NAMES, MERGED, isBlock } from './syncBlocks.ts';
-import type { Items, StoredBlock } from './syncBlocks.ts';
+import { MERGED } from './syncBlocks.ts';
+import type { Items } from './syncBlocks.ts';
 import { isRefusal, pushable, toReceiptRow, toRow, toSettlementRow } from './syncRows.ts';
 import { tr } from '../core/i18n.ts';
 
 // Everything other files used to import from here still comes from here.
 export type { SyncConfig, SyncMode, SyncOptions, SyncState } from './syncTypes.ts';
 export { SyncError } from './syncTypes.ts';
-export type { DueDone, GoalsBlock, MineBlock, RecurBlock } from './syncBlocks.ts';
+export type { GoalsBlock, MineBlock, RecurBlock } from './syncBlocks.ts';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function createSync(opts: SyncOptions) {
@@ -281,7 +281,6 @@ export function createSync(opts: SyncOptions) {
     let pending = entries.filter((e) => e.dirty && pushable(e, uid, active)).length;
     pending += (await store.allSettlements()).filter((x) => x.dirty && pushable({ owner_id: x.created_by, group_id: x.group_id }, uid, active)).length;
     pending += (await store.allReceipts()).filter((r) => r.owner_id === uid && (r.dirty || needsUpload(r, uid) || needsPurge(r, uid))).length;
-    for (const n of BLOCK_NAMES) if ((await store.getMeta<StoredBlock>(BLOCKS[n].meta))?.dirty) pending++;
     for (const m of MERGED) if ((await store.getMeta<{ dirty: 0 | 1 }>(m.meta))?.dirty) pending++;
     set({ pending });
   }
@@ -340,19 +339,6 @@ export function createSync(opts: SyncOptions) {
   }
 
   async function pushBlocks(uid: string): Promise<void> {
-    for (const name of BLOCK_NAMES) {
-      const key = BLOCKS[name].meta;
-      const stored = await store.getMeta<StoredBlock & Record<string, unknown>>(key);
-      if (!stored || !stored.dirty) continue;
-      const { importedAt, dirty: _dirty, ...payload } = stored;
-      await request('/rest/v1/plan_blocks?on_conflict=owner_id,block', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: [{ owner_id: uid, block: name, imported_at: importedAt, payload }],
-      });
-      // Clear the flag only if a newer import did not arrive while the request was in flight.
-      await store.mutateMeta<StoredBlock>(key, (cur) => (cur && cur.importedAt === importedAt ? { ...cur, dirty: 0 } : undefined));
-    }
     for (const m of MERGED) {
       const mine = await store.getMeta<{ items: Items; dirty: 0 | 1 }>(m.meta);
       if (!mine?.dirty) continue;
@@ -572,13 +558,6 @@ export function createSync(opts: SyncOptions) {
         });
         continue;
       }
-      const name: unknown = row.block;
-      if (!isBlock(name)) continue;
-      const data = BLOCKS[name].clean(row.payload);
-      if (!data || !Number.isFinite(parseTs(row.imported_at))) continue;
-      // Latest import wins; a newer local one is pushed next.
-      await store.mutateMeta<StoredBlock>(BLOCKS[name].meta, (cur) =>
-        cur && parseTs(row.imported_at) <= parseTs(cur.importedAt) ? undefined : ({ ...data, importedAt: row.imported_at as string, dirty: 0 } as StoredBlock));
     }
   }
 

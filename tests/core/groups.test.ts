@@ -9,7 +9,6 @@ import type { Member, Settlement } from '../../src/core/groups.ts';
 import { budgetEntries, cleanEntry, editEntry, exportRows, isMine, makeEntry, myShare, softDelete, summarizeMonth, toTSV } from '../../src/core/logic.ts';
 import type { Entry, Shares } from '../../src/core/logic.ts';
 import { makeBackup, parseBackup } from '../../src/data/backup.ts';
-import { parseDueText } from '../../src/core/blocks.ts';
 
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const G = '10000000-0000-4000-8000-000000000001';
@@ -236,19 +235,20 @@ test('a shared expense paid by the account for itself alone has no "my share" no
 });
 
 // ---------------------------------------------------------------- backup
-test('a backup holds the plan blocks and the Done marks, and an older backup without them still loads', () => {
-  const due = parseDueText('Kind\tTitle\tDue\ntodo\tRenew\t2027-01-01\n');
-  assert.ok(due.ok);
+test('an older backup that holds the imported plan, due list and marks still loads, and a new one writes none of them', () => {
   const entry = makeEntry({ amount: 5, category: 'x', method: null, note: '', date: '2026-11-09' }, T0);
-  const text = JSON.stringify(makeBackup([entry], null, T0, {
-    due: { ...due.data, importedAt: T0, dirty: 0 },
+  const legacy = {
+    app: 'money-log', v: 1, exportedAt: T0, entries: [entry],
+    due: { v: 1, items: [{ k: 'todo|2027-01-01|renew', kind: 'todo', title: 'Renew', due: '2027-01-01', amount: null, done: false }], importedAt: T0 },
     dueDone: { k: { d: 1, t: T0 } },
-  }));
-  const r = parseBackup(text);
+  };
+  const r = parseBackup(JSON.stringify(legacy));
   assert.ok(r.ok);
   assert.deepEqual(r.due!.items.map((i) => i.title), ['Renew']);
   assert.deepEqual(r.dueDone, { k: { d: 1, t: T0 } });
   assert.equal(r.entries.length, 1);
+  const fresh = JSON.parse(JSON.stringify(makeBackup([entry], T0)));
+  assert.deepEqual(['plan', 'due', 'dueDone', 'networth'].filter((k) => k in fresh), [], 'nothing from the spreadsheet is written any more');
   const old = parseBackup(JSON.stringify({ app: 'money-log', v: 1, exportedAt: T0, entries: [], plan: null }));
   assert.ok(old.ok);
   assert.deepEqual([old.due, old.dueDone], [null, {}]);

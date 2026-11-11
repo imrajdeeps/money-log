@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { copyText, saveFile } from '../../ui/files.ts';
-import { missingFromPlan } from '../../core/categories.ts';
 import { shortDate, stamp } from '../../core/format.ts';
 import { changedAfterExport, exportRows, fmtINR, isoDate, monthOf, myShare, toCSV, toTSV } from '../../core/logic.ts';
 import type { LogLayout } from '../../core/logic.ts';
@@ -39,8 +38,6 @@ export function ExportScreen() {
 
   const changed = useMemo(() => changedAfterExport(app.allEntries), [app.allEntries]);
 
-  // The spreadsheet adds payments up by the categories on its Budget tab; its Log shows "NOT IN LIST" for any other name.
-  const unknown = useMemo(() => missingFromPlan(rows.map((r) => r.category), app.plan), [rows, app.plan]);
 
   const tsv = toTSV(rows, layout);
   const n = rows.length;
@@ -108,16 +105,6 @@ export function ExportScreen() {
         </label>
         <p className="text-muted text-[13px]">{layout === 'column' ? tr('Five columns, for the Log tab with a Method column.') : tr('Four columns: the method is written at the start of the note, like [UPI] lunch.')}</p>
         <p className="text-muted text-[13px]">{n === 0 ? tr('Nothing to export here.') : tr('{0}, oldest first. Columns: {1}.', plural(n), layout === 'column' ? 'Date, Category, Amount, Method, Note' : 'Date, Category, Amount, Note')}</p>
-        {unknown.length > 0 && (
-          <p className={ui.msg('bad')} role="alert">
-            {tr('The spreadsheet does not have {0}:', unknown.length === 1 ? 'this category' : 'these categories')}{' '}<b>{unknown.join(', ')}</b>{tr('. Its Log will show NOT IN LIST and the Budget and Tracker tabs will not count {0} until you add{1} to the spreadsheet\'s category list (Inputs tab), or change the category of {2} here.', unknown.length === 1 ? 'it' : 'them', unknown.length === 1 ? ' it' : ' them', unknown.length === 1 ? 'that payment' : 'those payments')}
-          </p>
-        )}
-        {!app.plan && n > 0 && (
-          <p className="text-muted text-[13px]">
-            {tr('The spreadsheet only counts the categories on its Budget tab. If your list differs, import your plan in Settings and this screen will name the categories it is missing.')}
-          </p>
-        )}
         <textarea className="whitespace-pre overflow-auto mt-2" readOnly rows={8} value={tsv} aria-label={tr('Rows to paste into the Log tab')} placeholder={tr('Nothing to export.')} />
         <div className={ui.btnRow}>
           <button type="button" className={ui.btn()} disabled={n === 0} onClick={copy}>{tr('Copy for Excel')}</button>

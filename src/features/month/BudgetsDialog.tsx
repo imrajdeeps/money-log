@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { MAX_NAME } from '../../core/categories.ts';
-import { GROUPS, catKey, fmtINR, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
+import { GROUPS, fmtINR, parseAmount } from '../../core/logic.ts';
 import type { Group } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -29,11 +29,6 @@ export function BudgetsDialog({ onClose, focus }: { onClose: () => void; focus?:
       input?.focus({ preventScroll: true });
     }
   }, [focus]);
-  // what the spreadsheet plan says for this month, per category (shown as the figure a budget set here replaces)
-  const planNow = (() => {
-    const mi = app.plan ? app.plan.months.indexOf(monthOf(isoDate())) : -1;
-    return new Map((app.plan?.rows ?? []).map((r) => [catKey(r.c), mi >= 0 ? r.p[mi] ?? 0 : 0]));
-  })();
   const close = () => ref.current?.close();
 
   const shown = (n: string, budget: number) => text[n] ?? (budget > 0 ? String(budget) : '');
@@ -71,7 +66,7 @@ export function BudgetsDialog({ onClose, focus }: { onClose: () => void; focus?:
       <form onSubmit={save} noValidate>
         <h2 id="budgets-title">{tr('Categories and budgets')}</h2>
         <p className="text-muted text-[13px]">
-          {tr('A budget is the amount you plan to spend in a month; it applies to every month. Leave it empty for none. A category from your spreadsheet plan uses the spreadsheet\'s figures until you type a budget here; then yours is used. Clear it to go back to the spreadsheet\'s.')}
+          {tr('A budget is the amount you plan to spend in a month; it applies to every month. Leave it empty for none.')}
         </p>
         {GROUPS.map((g) => {
           const items = app.categories.filter((c) => c.group === g);
@@ -84,7 +79,6 @@ export function BudgetsDialog({ onClose, focus }: { onClose: () => void; focus?:
                   <li key={c.name} className="flex items-center gap-2.5 px-3 py-2">
                     <span className={ui.rowMain(true)}>
                       <b>{c.name}</b>
-                      {c.source === 'plan' && <small>{c.budget > 0 ? tr("yours replaces the spreadsheet's{0}", planNow.get(catKey(c.name)) ? ` (${fmtINR(planNow.get(catKey(c.name))!)})` : '') : tr('from your spreadsheet{0}', planNow.get(catKey(c.name)) ? tr(': {0} this month', fmtINR(planNow.get(catKey(c.name))!)) : '')}</small>}
                       {c.source === 'mine' && <small>{tr('yours')}</small>}
                     </span>
                     <label className="flex items-center gap-1 flex-none [&_input]:w-[104px] [&_input]:text-right">
@@ -93,14 +87,12 @@ export function BudgetsDialog({ onClose, focus }: { onClose: () => void; focus?:
                       <input
                         data-cat={c.name}
                         inputMode="decimal"
-                        placeholder={c.source === 'plan' && planNow.get(catKey(c.name)) ? String(planNow.get(catKey(c.name))) : 'none'}
+                        placeholder="none"
                         value={shown(c.name, c.budget)}
                         onChange={(e) => { setText({ ...text, [c.name]: e.target.value }); setError(''); }}
                       />
                     </label>
-                    {c.source !== 'plan' && (
-                      <button type="button" className={ui.icoBtn} aria-label={tr('Remove {0}', c.name)} onClick={() => { void app.removeCategory(c.name); }}><Icon name="close" size={18} /></button>
-                    )}
+                    <button type="button" className={ui.icoBtn} aria-label={tr('Remove {0}', c.name)} onClick={() => { void app.removeCategory(c.name); }}><Icon name="close" size={18} /></button>
                   </li>
                 ))}
               </ul>
@@ -131,7 +123,7 @@ export function BudgetsDialog({ onClose, focus }: { onClose: () => void; focus?:
         </div>
 
         {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-        <p className="text-muted text-[13px]">{tr('Total planned each month from the budgets above: {0} (savings not counted).', fmtINR(app.categories.filter((c) => c.source !== 'plan' && c.group !== 'Saving').reduce((a, c) => a + (parseAmount(shown(c.name, c.budget).replace(/[₹,\s]/g, '')) ?? 0), 0)))}</p>
+        <p className="text-muted text-[13px]">{tr('Total planned each month from the budgets above: {0} (savings not counted).', fmtINR(app.categories.filter((c) => c.group !== 'Saving').reduce((a, c) => a + (parseAmount(shown(c.name, c.budget).replace(/[₹,\s]/g, '')) ?? 0), 0)))}</p>
         <div className={ui.btnRow}>
           <button type="submit" className={ui.btn()}>{tr('Save budgets')}</button>
           <button type="button" className={ui.btn('ghost')} onClick={close}>{tr('Close')}</button>

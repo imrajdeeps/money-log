@@ -25,9 +25,9 @@ export function GoalsScreen() {
   // this month's Saving budget: the planned amounts of the Saving group (the app's budgets, or the spreadsheet's where it covers the month)
   const plan = useMemo(() => {
     const month = monthOf(today);
-    const saving = summarizeMonth(entries, planForMonth(app.plan, app.mine, month), month).groups.Saving;
+    const saving = summarizeMonth(entries, planForMonth(app.mine, month), month).groups.Saving;
     return goalPlan(rows, saving.budgeted ? saving.planned : null);
-  }, [rows, entries, app.plan, app.mine, today]);
+  }, [rows, entries, app.mine, today]);
 
   const list = (title: string, term: 'short' | 'long', hint: string) => {
     const mine = rows.filter((r) => r.term === term);

@@ -85,7 +85,7 @@ test('bad items from the server or a backup are dropped, good ones kept', () => 
 
 test('net worth updates are in the backup file and come back from it', () => {
   const g = upd({}, 621302, '2026-11-10', T1, 1);
-  const file = makeBackup([], null, '2026-11-10T12:00:00.000Z', { goals: g });
+  const file = makeBackup([], '2026-11-10T12:00:00.000Z', { goals: g });
   const back = parseBackup(JSON.stringify(file));
   assert.ok(back.ok);
   assert.deepEqual(back.ok && back.goals, g);

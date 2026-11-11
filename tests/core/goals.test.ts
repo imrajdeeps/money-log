@@ -134,14 +134,14 @@ test('cleaning keeps what is valid and drops what is not', () => {
 test('goals are in a backup and come back from it; an old backup without them still loads', () => {
   const r = addTopUp(made(), id(1), 5000, TODAY, TODAY, NOW, id(2));
   assert.ok(r.ok);
-  const file = JSON.stringify(makeBackup([], null, NOW, { goals: r.items }));
+  const file = JSON.stringify(makeBackup([], NOW, { goals: r.items }));
   const back = parseBackup(file);
   assert.ok(back.ok);
   assert.deepEqual(back.goals, r.items);
-  const old = parseBackup(JSON.stringify(makeBackup([], null, NOW)));
+  const old = parseBackup(JSON.stringify(makeBackup([], NOW)));
   assert.ok(old.ok);
   assert.deepEqual(old.goals, {});
-  assert.ok(!('goals' in JSON.parse(JSON.stringify(makeBackup([], null, NOW)))), 'nothing written when there are no goals');
+  assert.ok(!('goals' in JSON.parse(JSON.stringify(makeBackup([], NOW)))), 'nothing written when there are no goals');
 });
 
 const pay = (o: Partial<Entry>): Entry => ({
