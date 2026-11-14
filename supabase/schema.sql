@@ -1524,6 +1524,10 @@ declare uid uuid := (select auth.uid());
 begin
   if uid is null then raise exception 'Not signed in' using errcode = '28000'; end if;
   delete from public.circle_links l where l.user_a = least(uid, p_user) and l.user_b = greatest(uid, p_user);
+  -- invitations to shared goals between the two lapse with it (a goal made later asks again)
+  delete from public.shared_goal_members m using public.shared_goals g
+   where g.id = m.goal_id and m.state = 'invited'
+     and ((m.user_id = p_user and g.created_by = uid) or (m.user_id = uid and g.created_by = p_user));
 end;
 $$;
 
@@ -1595,17 +1599,18 @@ create table if not exists public.shared_goals (
   id           uuid primary key default gen_random_uuid(),
   name         text not null check (char_length(name) between 1 and 60),
   target       numeric(12, 2) not null check (target > 0 and target < 1000000000),
-  target_date  date not null,
+  target_date  date not null check (target_date between '2000-01-01' and '2200-01-01'), -- no infinity
   created_by   uuid not null references auth.users (id) on delete cascade, -- the goal goes with its creator's account
   created_at   timestamptz not null default now()
 );
 
--- invited: asked, not answered. active: in it. left: out (their top-ups stay in the history, shown as left).
+-- invited: asked, not answered (an invitation lapses after 30 days). active: in it. left: out (their top-ups stay in the history, shown as left).
+-- declined: said no; the creator cannot ask the same person to the same goal again.
 create table if not exists public.shared_goal_members (
   goal_id       uuid not null references public.shared_goals (id) on delete cascade,
   user_id       uuid not null references auth.users (id) on delete cascade,
   display_name  text not null default '' check (char_length(display_name) <= 40),
-  state         text not null check (state in ('invited', 'active', 'left')),
+  state         text not null check (state in ('invited', 'active', 'left', 'declined')),
   invited_at    timestamptz not null default now(),
   primary key (goal_id, user_id)
 );
@@ -1616,7 +1621,7 @@ create table if not exists public.shared_goal_topups (
   goal_id     uuid not null references public.shared_goals (id) on delete cascade,
   user_id     uuid not null references auth.users (id) on delete cascade,
   amount      numeric(12, 2) not null check (amount > 0 and amount < 1000000000),
-  topup_date  date not null,
+  topup_date  date not null check (topup_date between '2000-01-01' and '2200-01-01'),
   created_at  timestamptz not null default now(),
   deleted_at  timestamptz
 );
@@ -1646,13 +1651,13 @@ as $$
   );
 $$;
 
--- How many shared goals a person is in or invited to (the cap is 20), and how many people a goal holds or has asked (the cap is 10).
+-- How many shared goals a person is in (the cap is 20; invitations do not count), and how many people a goal holds or has asked (the cap is 10).
 create or replace function public.shared_goal_count(p_user uuid)
 returns integer language sql stable security definer set search_path = '' set row_security = off
-as $$ select count(*)::integer from public.shared_goal_members m where m.user_id = p_user and m.state in ('invited', 'active'); $$;
+as $$ select count(*)::integer from public.shared_goal_members m where m.user_id = p_user and m.state = 'active'; $$;
 create or replace function public.shared_goal_people(p_goal uuid)
 returns integer language sql stable security definer set search_path = '' set row_security = off
-as $$ select count(*)::integer from public.shared_goal_members m where m.goal_id = p_goal and m.state in ('invited', 'active'); $$;
+as $$ select count(*)::integer from public.shared_goal_members m where m.goal_id = p_goal and (m.state = 'active' or (m.state = 'invited' and m.invited_at > now() - interval '30 days')); $$;
 
 -- Lock the goal and say who made it: every change below starts here, so two changes to one goal never overlap.
 create or replace function public.lock_shared_goal(p_goal uuid)
@@ -1678,11 +1683,22 @@ security definer
 set search_path = ''
 set row_security = off
 as $$
+declare cur public.shared_goal_members;
 begin
   if not public.circle_has(p_owner, p_user) then raise exception 'You can only invite people in your Circle' using errcode = '42501'; end if;
-  if exists (select 1 from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = p_user and m.state in ('invited', 'active')) then return; end if;
+  -- one invitation at a time per person, so the caps below hold even when two people ask the same person together
+  perform pg_advisory_xact_lock(hashtextextended('shared-goal:' || p_user::text, 0));
+  select * into cur from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = p_user;
+  -- already in, already asked and still waiting, or said no: nothing to do (a "no" is final for this goal)
+  if found and (cur.state in ('active', 'declined') or (cur.state = 'invited' and cur.invited_at > now() - interval '30 days')) then return; end if;
   if public.shared_goal_people(p_goal) >= 10 then raise exception 'A shared goal holds at most 10 people' using errcode = '53400'; end if;
-  if public.shared_goal_count(p_user) >= 20 then raise exception 'That person is in as many shared goals as one account can keep' using errcode = '53400'; end if;
+  -- a person is not flooded: at most 10 invitations waiting, at most 3 from the same creator, and room in their own 20
+  if (select count(*) from public.shared_goal_members m where m.user_id = p_user and m.state = 'invited' and m.invited_at > now() - interval '30 days') >= 10
+     or (select count(*) from public.shared_goal_members m join public.shared_goals g on g.id = m.goal_id
+          where m.user_id = p_user and g.created_by = p_owner and m.state = 'invited' and m.invited_at > now() - interval '30 days') >= 3
+     or public.shared_goal_count(p_user) >= 20 then
+    raise exception 'That person cannot be invited right now' using errcode = '53400';
+  end if;
   insert into public.shared_goal_members (goal_id, user_id, state) values (p_goal, p_user, 'invited')
   on conflict (goal_id, user_id) do update set state = 'invited', invited_at = now();
 end;
@@ -1705,13 +1721,14 @@ begin
   if uid is null then raise exception 'Not signed in' using errcode = '28000'; end if;
   if char_length(nm) not between 1 and 60 then raise exception 'Give the goal a name of 1 to 60 characters' using errcode = '22023'; end if;
   if p_target is null or p_target <= 0 or p_target >= 1000000000 or scale(p_target) > 2 then raise exception 'The target must be above zero, with at most 2 decimals' using errcode = '22023'; end if;
-  if p_date is null or p_date <= current_date then raise exception 'Pick a target date after today' using errcode = '22023'; end if;
+  if p_date is null or p_date < current_date - 1 or p_date > current_date + interval '50 years' then raise exception 'Pick a target date after today' using errcode = '22023'; end if;
   if char_length(dn) not between 1 and 40 then raise exception 'Enter the name others will see you as (1 to 40 characters)' using errcode = '22023'; end if;
   if coalesce(array_length(p_invite, 1), 0) > 9 then raise exception 'A shared goal holds at most 10 people' using errcode = '53400'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('shared-goal:' || uid::text, 0));
   if public.shared_goal_count(uid) >= 20 then raise exception 'You are in as many shared goals as one account can keep' using errcode = '53400'; end if;
   insert into public.shared_goals (name, target, target_date, created_by) values (nm, p_target, p_date, uid) returning id into gid;
   insert into public.shared_goal_members (goal_id, user_id, display_name, state) values (gid, uid, dn, 'active');
-  foreach u in array coalesce(p_invite, '{}') loop
+  foreach u in array coalesce((select array_agg(distinct x order by x) from unnest(p_invite) x), '{}') loop -- sorted: two creators asking the same people never wait on each other in a circle
     perform public.ask_to_join_shared_goal(gid, uid, u);
   end loop;
   return gid;
@@ -1745,11 +1762,11 @@ declare
   dn text := btrim(coalesce(p_display_name, ''));
 begin
   perform public.lock_shared_goal(p_goal);
-  if not exists (select 1 from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = uid and m.state = 'invited') then
+  if not exists (select 1 from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = uid and m.state = 'invited' and m.invited_at > now() - interval '30 days') then
     raise exception 'There is no invitation to answer' using errcode = '22023';
   end if;
   if not coalesce(p_accept, false) then
-    delete from public.shared_goal_members where goal_id = p_goal and user_id = uid and state = 'invited';
+    update public.shared_goal_members set state = 'declined' where goal_id = p_goal and user_id = uid; -- remembered: the creator cannot ask again
     return;
   end if;
   if char_length(dn) not between 1 and 40 then raise exception 'Enter the name others will see you as (1 to 40 characters)' using errcode = '22023'; end if;
@@ -1801,7 +1818,7 @@ begin
   if public.lock_shared_goal(p_goal) is distinct from (select auth.uid()) then raise exception 'Only the person who made the goal can do this' using errcode = '42501'; end if;
   if char_length(nm) not between 1 and 60 then raise exception 'Give the goal a name of 1 to 60 characters' using errcode = '22023'; end if;
   if p_target is null or p_target <= 0 or p_target >= 1000000000 or scale(p_target) > 2 then raise exception 'The target must be above zero, with at most 2 decimals' using errcode = '22023'; end if;
-  if p_date is null then raise exception 'Pick a target date' using errcode = '22023'; end if;
+  if p_date is null or p_date < '2000-01-01' or p_date > current_date + interval '50 years' then raise exception 'Pick a target date' using errcode = '22023'; end if;
   update public.shared_goals set name = nm, target = p_target, target_date = p_date where id = p_goal;
 end;
 $$;
@@ -1834,12 +1851,17 @@ begin
   end if;
   if p_id is null then raise exception 'A top-up needs an id' using errcode = '22023'; end if;
   if p_amount is null or p_amount <= 0 or p_amount >= 1000000000 or scale(p_amount) > 2 then raise exception 'The amount must be above zero, with at most 2 decimals' using errcode = '22023'; end if;
-  if p_date is null or p_date > current_date then raise exception 'Pick a day that is today or earlier' using errcode = '22023'; end if;
-  if (select count(*) from public.shared_goal_topups t where t.goal_id = p_goal and t.user_id = uid and t.deleted_at is null) >= 2000 then
+  -- a day up to one ahead of the server's is allowed: the phone's today may be a day ahead (India in the early morning)
+  if p_date is null or p_date > current_date + 1 or p_date < current_date - interval '10 years' then raise exception 'Pick a day that is today or earlier' using errcode = '22023'; end if;
+  if (select count(*) from public.shared_goal_topups t where t.goal_id = p_goal and t.user_id = uid) >= 2000 then
     raise exception 'That is the most top-ups one person can keep in a goal' using errcode = '53400';
   end if;
   insert into public.shared_goal_topups (id, goal_id, user_id, amount, topup_date) values (p_id, p_goal, uid, p_amount, p_date)
-  on conflict (id) do nothing; -- the same top-up sent twice (a retry) is stored once
+  on conflict (id) do nothing;
+  -- the same top-up sent twice (a retry) is stored once; an id already used for something else is refused, never silently dropped
+  if not found and not exists (select 1 from public.shared_goal_topups t where t.id = p_id and t.goal_id = p_goal and t.user_id = uid and t.amount = p_amount and t.topup_date = p_date) then
+    raise exception 'That top-up id is already used' using errcode = '22023';
+  end if;
 end;
 $$;
 
@@ -1881,13 +1903,13 @@ begin
         'creator_name', coalesce((select c.display_name from public.shared_goal_members c where c.goal_id = g.id and c.user_id = g.created_by), ''),
         'members', case when me.state = 'active' then coalesce((
             select jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', m.display_name, 'state', m.state) order by m.invited_at, m.user_id)
-              from public.shared_goal_members m where m.goal_id = g.id), '[]'::jsonb) else '[]'::jsonb end,
+              from public.shared_goal_members m where m.goal_id = g.id and m.state <> 'declined' and (m.state <> 'invited' or m.invited_at > now() - interval '30 days')), '[]'::jsonb) else '[]'::jsonb end,
         'topups', case when me.state = 'active' then coalesce((
             select jsonb_agg(jsonb_build_object('id', t.id, 'user_id', t.user_id, 'amount', t.amount, 'date', t.topup_date) order by t.topup_date desc, t.created_at desc, t.id)
               from public.shared_goal_topups t where t.goal_id = g.id and t.deleted_at is null), '[]'::jsonb) else '[]'::jsonb end
       ) order by g.target_date, g.name, g.id)
     from public.shared_goals g
-    join public.shared_goal_members me on me.goal_id = g.id and me.user_id = uid and me.state in ('invited', 'active')
+    join public.shared_goal_members me on me.goal_id = g.id and me.user_id = uid and (me.state = 'active' or (me.state = 'invited' and me.invited_at > now() - interval '30 days'))
   ), '[]'::jsonb));
 end;
 $$;

@@ -26,9 +26,9 @@ function AddTopUp({ goal, onChanged }: Readonly<{ goal: SharedGoal; onChanged: (
   }
   return (
     <form className="mt-2" onSubmit={(ev) => { void submit(ev); }} noValidate>
-      <div className="flex gap-2">
-        <input className="min-w-0 flex-1" inputMode="decimal" value={amount} placeholder={tr('Amount (₹)')} aria-label={tr('Amount (₹)')} onChange={(e) => { setAmount(e.target.value); act.setError(''); }} />
-        <input type="date" value={date} max={isoDate()} aria-label={tr('Date')} onChange={(e) => setDate(e.target.value)} />
+      <div className="flex flex-wrap items-center gap-2">
+        <input className="min-w-[7rem] flex-1" inputMode="decimal" value={amount} placeholder={tr('Amount (₹)')} aria-label={tr('Amount (₹)')} onChange={(e) => { setAmount(e.target.value); act.setError(''); }} />
+        <input className="w-[10.5rem]" type="date" value={date} max={isoDate()} aria-label={tr('Date')} onChange={(e) => setDate(e.target.value)} />
         <button type="submit" className={ui.btn('solid', 'small')} disabled={act.busy}>{tr('Add')}</button>
       </div>
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}

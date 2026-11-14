@@ -1527,7 +1527,7 @@ begin
   if not pg_temp.fails($q$select public.create_shared_goal('', 100, current_date + 5, 'Asha')$q$) then raise exception 'FAIL a goal with no name was made'; end if;
   if not pg_temp.fails($q$select public.create_shared_goal('x', 0, current_date + 5, 'Asha')$q$) then raise exception 'FAIL a goal with a zero target was made'; end if;
   if not pg_temp.fails($q$select public.create_shared_goal('x', 100.555, current_date + 5, 'Asha')$q$) then raise exception 'FAIL a target with 3 decimals was accepted'; end if;
-  if not pg_temp.fails($q$select public.create_shared_goal('x', 100, current_date, 'Asha')$q$) then raise exception 'FAIL a goal with a date that is not after today was made'; end if;
+  if not pg_temp.fails($q$select public.create_shared_goal('x', 100, current_date - 3, 'Asha')$q$) then raise exception 'FAIL a goal with a date in the past was made'; end if;
   if not pg_temp.fails(format($q$select public.create_shared_goal('x', 100, current_date + 5, 'Asha', array[%L]::uuid[])$q$, d)) then raise exception 'FAIL a stranger (not in the Circle) was invited'; end if;
   if not pg_temp.fails(format($q$select public.create_shared_goal('x', 100, current_date + 5, 'Asha', array[%L]::uuid[])$q$, a)) then raise exception 'FAIL the creator invited themself'; end if;
   if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a failed create left a goal behind'; end if;
@@ -1557,7 +1557,10 @@ begin
   tid := gen_random_uuid();
   perform public.add_shared_topup(sg, tid, 500, current_date);
   perform public.add_shared_topup(sg, tid, 500, current_date); -- the same top-up sent again is stored once
-  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 0, current_date)$q$, sg)) or not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 5, current_date + 1)$q$, sg)) then raise exception 'FAIL a bad top-up was accepted'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 0, current_date)$q$, sg)) or not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 5, current_date + 3)$q$, sg)) then raise exception 'FAIL a bad top-up was accepted'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 5, '-infinity')$q$, sg)) or not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 5, current_date + 30)$q$, sg)) then raise exception 'FAIL a top-up with an impossible day was accepted'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, %L, 501, current_date)$q$, sg, tid)) then raise exception 'FAIL a top-up id already used for another amount was silently ignored'; end if;
+  if not pg_temp.fails($q$select public.create_shared_goal('x', 100, 'infinity', 'Asha')$q$) then raise exception 'FAIL a goal on the day infinity was made'; end if;
   perform pg_temp.act_as(a);
   perform public.add_shared_topup(sg, gen_random_uuid(), 1000, current_date);
   doc := public.my_shared_goals();
@@ -1572,13 +1575,47 @@ begin
   perform public.edit_shared_goal(sg, 'Trip fund 2', 40000, current_date + 120);
   if (public.my_shared_goals() -> 'goals' -> 0 ->> 'name') <> 'Trip fund 2' then raise exception 'FAIL the creator could not edit the goal'; end if;
   if not pg_temp.fails(format($q$select public.leave_shared_goal(%L)$q$, sg)) then raise exception 'FAIL the creator left their own goal'; end if;
-  perform public.invite_to_shared_goal(sg, c::uuid); -- C declined before; inviting again is allowed
+  -- someone who said no is not asked again for that goal
+  perform public.invite_to_shared_goal(sg, c::uuid);
   perform pg_temp.act_as(c);
-  if (public.my_shared_goals() -> 'goals' -> 0 ->> 'me') <> 'invited' then raise exception 'FAIL C was not invited again'; end if;
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL someone who declined was asked again'; end if;
+  -- an invitation can be withdrawn
   perform pg_temp.act_as(a);
-  perform public.remove_from_shared_goal(sg, c::uuid); -- withdraw the invitation
+  sg2 := public.create_shared_goal('Gift', 100, current_date + 30, 'Asha', array[c::uuid]);
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 1 then raise exception 'FAIL C was not asked to the second goal'; end if;
+  perform pg_temp.act_as(a);
+  perform public.remove_from_shared_goal(sg2, c::uuid);
   perform pg_temp.act_as(c);
   if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a withdrawn invitation is still shown'; end if;
+  -- an invitation lapses after 30 days
+  perform pg_temp.act_as(a);
+  perform public.invite_to_shared_goal(sg2, c::uuid);
+  reset role;
+  update public.shared_goal_members set invited_at = now() - interval '31 days' where goal_id = sg2 and user_id = c::uuid;
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a lapsed invitation is still shown'; end if;
+  if not pg_temp.fails(format($q$select public.answer_shared_goal(%L, true, 'Cee')$q$, sg2)) then raise exception 'FAIL a lapsed invitation was accepted'; end if;
+  perform pg_temp.act_as(a);
+  perform public.invite_to_shared_goal(sg2, c::uuid); -- asking again after it lapsed works
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 1 then raise exception 'FAIL a lapsed invitation could not be renewed'; end if;
+  -- leaving the Circle withdraws the pending invitations between the two
+  perform pg_temp.act_as(a);
+  perform public.circle_remove(c::uuid);
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL circle_remove left a pending invitation'; end if;
+  -- nobody is flooded: at most 3 waiting from one creator
+  perform pg_temp.act_as(a);
+  perform public.create_shared_goal('P1', 100, current_date + 30, 'Asha', array[c::uuid]);
+  perform public.create_shared_goal('P2', 100, current_date + 30, 'Asha', array[c::uuid]);
+  perform public.create_shared_goal('P3', 100, current_date + 30, 'Asha', array[c::uuid]);
+  if not pg_temp.fails($q$select public.create_shared_goal('P4', 100, current_date + 30, 'Asha', array['ffff0003-ffff-4fff-8fff-ffffffff0003']::uuid[])$q$) then raise exception 'FAIL a fourth waiting invitation from one creator was allowed'; end if;
+  if jsonb_array_length((select jsonb_agg(x) from jsonb_array_elements(public.my_shared_goals() -> 'goals') x where x ->> 'name' = 'P4')) is not null then raise exception 'FAIL a refused create left a goal behind'; end if;
+  perform pg_temp.act_as(c);
+  if (select count(*) from jsonb_array_elements(public.my_shared_goals() -> 'goals') x where x ->> 'me' = 'invited') <> 3 then raise exception 'FAIL C does not hold exactly 3 invitations'; end if;
+  reset role;
+  delete from public.shared_goals where name in ('P1', 'P2', 'P3', 'Gift');
   -- leaving: the top-ups stay for the others, as left; the one who left sees nothing and cannot add more
   perform pg_temp.act_as(b);
   perform public.leave_shared_goal(sg);
