@@ -10,6 +10,7 @@ import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettl
 import type { Group, Invite, Member, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import { cleanCircleMember } from '../core/circle.ts';
+import { parseSharedGoals } from '../core/sharedGoals.ts';
 import type { CircleMember } from '../core/circle.ts';
 import { cleanHistory } from '../core/history.ts';
 import type { HistoryRow } from '../core/history.ts';
@@ -683,6 +684,21 @@ export function createSync(opts: SyncOptions) {
   const joinCircle = (code: string) => circleCall<string>('circle_join', { p_code: code });
   const removeFromCircle = (userId: string) => circleCall<null>('circle_remove', { p_user: userId });
 
+  // Shared goals (version 1.29): kept by the server and read on demand, like the Circle; nothing is stored on the phone.
+  const sharedGoals = {
+    load: async () => parseSharedGoals(await circleCall<unknown>('my_shared_goals', {})),
+    create: (name: string, target: number, date: string, displayName: string, invite: string[]) =>
+      circleCall<string>('create_shared_goal', { p_name: name, p_target: target, p_date: date, p_display_name: displayName, p_invite: invite }),
+    edit: (goal: string, name: string, target: number, date: string) => circleCall<null>('edit_shared_goal', { p_goal: goal, p_name: name, p_target: target, p_date: date }),
+    invite: (goal: string, userId: string) => circleCall<null>('invite_to_shared_goal', { p_goal: goal, p_user: userId }),
+    answer: (goal: string, accept: boolean, displayName: string) => circleCall<null>('answer_shared_goal', { p_goal: goal, p_accept: accept, p_display_name: displayName }),
+    leave: (goal: string) => circleCall<null>('leave_shared_goal', { p_goal: goal }),
+    removePerson: (goal: string, userId: string) => circleCall<null>('remove_from_shared_goal', { p_goal: goal, p_user: userId }),
+    remove: (goal: string) => circleCall<null>('delete_shared_goal', { p_goal: goal }),
+    addTopUp: (goal: string, amount: number, date: string) => circleCall<null>('add_shared_topup', { p_goal: goal, p_id: newId(), p_amount: amount, p_date: date }),
+    removeTopUp: (goal: string, id: string) => circleCall<null>('remove_shared_topup', { p_goal: goal, p_id: id }),
+  };
+
   // The sign-in record: where the account is signed in now, and what happened to it (the two read-only functions of version 1.25).
   // They answer 404 until the database has them; the caller says "not available yet" then.
   async function fetchSessions() {
@@ -721,7 +737,7 @@ export function createSync(opts: SyncOptions) {
     sync,
     refreshPending,
     createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
-    fetchCircle, newCircleCode, joinCircle, removeFromCircle,
+    fetchCircle, newCircleCode, joinCircle, removeFromCircle, sharedGoals,
     receiptBlob, fetchHistory, fetchSessions, fetchSignInLog,
   };
 }

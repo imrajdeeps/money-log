@@ -10,6 +10,21 @@ import type { Receipt } from '../core/receipts.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import type { CircleMember } from '../core/circle.ts';
+import type { SharedGoal } from '../core/sharedGoals.ts';
+
+// Shared goals live on the server: each call asks it and throws when offline (or when the database has no 1.29 yet).
+export interface SharedGoalsApi {
+  load: () => Promise<SharedGoal[]>;
+  create: (name: string, target: number, date: string, displayName: string, invite: string[]) => Promise<string>;
+  edit: (goal: string, name: string, target: number, date: string) => Promise<void>; // the creator
+  invite: (goal: string, userId: string) => Promise<void>; // the creator, someone in the Circle
+  answer: (goal: string, accept: boolean, displayName: string) => Promise<void>;
+  leave: (goal: string) => Promise<void>;
+  removePerson: (goal: string, userId: string) => Promise<void>; // the creator
+  remove: (goal: string) => Promise<void>; // the creator deletes the goal for everyone
+  addTopUp: (goal: string, amount: number, date: string) => Promise<void>;
+  removeTopUp: (goal: string, id: string) => Promise<void>; // your own
+}
 import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
 import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
@@ -104,6 +119,7 @@ export interface AppApi {
   newCircleCode: () => Promise<string>;
   joinCircle: (code: string) => Promise<string>; // returns the name of the person whose code it was
   removeFromCircle: (userId: string) => Promise<void>;
+  sharedGoals: SharedGoalsApi;
   circleCode: string | null; // a Circle link was opened: the code it carried
   clearCircleCode: () => void;
   setDisplayName: (groupId: string, name: string) => Promise<void>;

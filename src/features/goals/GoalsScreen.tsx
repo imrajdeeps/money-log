@@ -8,6 +8,7 @@ import { GoalForm } from './GoalForm.tsx';
 import { GoalRow } from './GoalRow.tsx';
 import { confirmRemoveGoal } from './confirmRemove.ts';
 import { PlanCard } from './PlanCard.tsx';
+import { SharedGoals } from './SharedGoals.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -59,6 +60,7 @@ export function GoalsScreen() {
       {list(tr('Short term'), 'short', tr('due within 12 months'))}
       {list(tr('Long term'), 'long', tr('more than 12 months away'))}
       {goals.length > 0 && <p className="text-muted text-[13px]">{tr('Slide a goal or a top-up to the left to remove it. A goal moves from long term to short term by itself as its date gets close.')}</p>}
+      <SharedGoals />
     </section>
   );
 }
