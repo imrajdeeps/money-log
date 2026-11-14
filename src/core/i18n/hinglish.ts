@@ -1015,4 +1015,6 @@ export const HINGLISH: Record<string, string> = {
   'Your name, if you join': 'Aapka naam, agar aap judein',
   '{0} asked you to join this goal. Target {1} by {2}.': '{0} ne aapko is goal mein bulaya hai. Target {1}, {2} tak.',
   'Decline': 'Decline karein',
+  'New: shared goals': 'Naya: shared goals',
+  'Goals has a Shared goals section now: one target and one date, with people from your Circle. Each person adds their own top-ups, and everyone sees the total and who put in what. People join only when they accept, and a shared goal never counts in your own plan.': 'Goals mein ab Shared goals ka hissa hai: ek target aur ek tareekh, aapke Circle ke logon ke saath. Har koi apne top-up jodta hai, aur sabko total aur har kisi ka yogdaan dikhta hai. Log tabhi judte hain jab woh manzoor karein, aur shared goal aapke apne plan mein kabhi nahi ginta.',
 };

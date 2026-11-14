@@ -155,6 +155,15 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Shared goals (version 1.29)
+**Needs the SQL at the end of `supabase/schema.sql` run once** (the whole file is safe to run again). Builds on the Circle (1.28). Without the SQL the section on the Goals page says it is not available yet.
+
+- **What it is:** one pot with people from your Circle: one target and one day; each person adds their **own** top-ups; everyone in it sees the total, the bar and what each person put in. It is **not** part of your own plan, net worth or any private total, and your own goals (and the backup file) are unchanged. Shared goals live on the server, so they need sign-in and a connection.
+- **Making one** (Goals, *Shared goals*, *New shared goal*): name, target, day after today, your name in it, and who to ask from your Circle (up to 9; 10 people in all). **A person joins only by accepting**; until then they see only the goal's name, target, day and who asked. A person who says no is **not asked again** for that goal; an unanswered invitation lapses after 30 days; leaving the Circle withdraws pending ones. At most 10 invitations wait for one person, at most 3 from the same creator; one person can be in 20 shared goals.
+- **Roles:** the person who made it changes it (name, target, day), asks more people, takes someone out (what they put in stays in the total, shown as *left*), withdraws an invitation and deletes the goal for everyone (asked first). Everyone else adds and removes **their own** top-ups and can leave (asked first). The creator deletes instead of leaving.
+- **Privacy:** the three tables have no policies and no grants; the app reaches them only through functions, and `my_shared_goals` returns one document: an invitee sees the goal and its maker, a member sees the people (id, the name each gave, state) and every top-up, a person who left sees nothing. A stranger can do nothing. A person's top-up is theirs: nobody else can remove it.
+- **Checks:** access tests (`supabase/rls_tests.sql`, section 13); an independent review of the SQL found invitation flooding, a silently dropped top-up on a reused id, `infinity` dates and non-atomic caps, all fixed. Known and accepted: a person who left cannot remove their old top-ups; deleting an account removes its top-ups from the totals and deleting a creator's account deletes the goal; an invitee learns the creator's user id.
+
 ## Primary admin and the Circle (version 1.28)
 **Needs the SQL in `supabase/schema.sql` run once** (it is safe to run the whole file again): the group functions changed in place, and the end of the file adds the Circle. The app keeps working on the old database (every admin then keeps the old powers, and *Your Circle* says it is not available yet).
 
