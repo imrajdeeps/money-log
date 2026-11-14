@@ -155,6 +155,14 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Primary admin and the Circle (version 1.28)
+**Needs the SQL in `supabase/schema.sql` run once** (it is safe to run the whole file again): the group functions changed in place, and the end of the file adds the Circle. The app keeps working on the old database (every admin then keeps the old powers, and *Your Circle* says it is not available yet).
+
+- **Primary admin:** every group has one, the person who made it (an older group gets its creator, else its longest-standing admin, when the SQL runs). The primary admin **cannot be removed, cannot be made a plain member, and cannot leave** until they *Make primary admin* someone else (they stay an admin). **Only the primary admin** makes or removes admins, hands the role over, and removes an admin. Other admins still invite people and remove members **whose balance is zero** (the button shows why when it is not: "settle up first: they owe ₹…"). If the primary admin's account is gone, the longest-standing admin sees *Take over as primary admin* (a group with people but no admin: its longest-standing member). A group everyone has left is taken over by the next person who joins with its code.
+- **Your Circle** (Groups, then *Your Circle*; `/circle`): the people you can share with. **Everyone you share a group with is in it automatically**, shown by the name they use in that group. **Add anyone else with a code**: *Make a code* gives 20 characters (80 bits), good once and for 7 days, with a link that carries it after the `#`. The other person types it under *Use a code* or opens the link; you are then in each other's Circle (shown by their Profile name). *Remove* takes a linked person out both ways; people from a shared group stay listed through that group. Limits: 100 linked people, 10 unused codes.
+- **What a Circle member sees of you: your name only.** The tables have no policies and no grants; the app reaches them only through functions (`circle_new_invite`, `circle_join`, `circle_remove`, `my_circle`) that return an id, a name, whether you linked them and the names of the groups you share. No search by email or name.
+- **Checks:** the access tests (`supabase/rls_tests.sql`, sections 11 and 12) cover the primary admin rules and the Circle; an independent review of the SQL found six issues, fixed before release. Shared goals (version 1.29) will build on the Circle.
+
 ## Goal delete, payment order and group settings (version 1.27)
 - **Delete a goal:** the goal's own screen (tap the goal) has **Delete goal**; sliding it left and tapping the trash does the same. Both ask first, and the goal's top-ups go with it.
 - **Sort payments:** *All payments* has a **Sort payments** choice (date either way, amount either way, category A to Z, last added). The choice is kept in `localStorage` (`money-log.payment-sort`) on this phone only: not synced, not in the backup, no database. The default is the day paid, newest first, and the Overview's Recent tile follows the same choice (it used to follow the time a payment was logged).
@@ -257,7 +265,7 @@ goes in and out (see *Backups* below). Payments carry an old `exported_at` mark 
   payment between them; only the person who recorded it can remove it.
 - **Leaving:** you can leave once your balance is zero, and an admin can remove a member only at zero. Their earlier
   expenses stay. An expense or payment that names someone who has left is locked (its amount, split and deletion), so
-  nobody's balance changes behind their back. If the only admin wants to leave, they hand over admin first.
+  nobody's balance changes behind their back. The primary admin hands the role over before leaving (see *Primary admin and the Circle*).
 - A shared expense must be one you paid or share in; nobody can record a debt between two other people.
 - **Add my share to my budget:** tap someone else's expense and the button logs your share as a payment of your own
   (you pick the category), so your Month view includes it. It does not change the group's balances, and

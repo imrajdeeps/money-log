@@ -970,4 +970,6 @@ export const HINGLISH: Record<string, string> = {
   'Primary admin': 'Primary admin',
   'Remove admin': 'Admin hatayein',
   'Make primary admin': 'Primary admin banayein',
+  'New: your Circle and the primary admin': 'Naya: aapka Circle aur primary admin',
+  'Groups has Your Circle now: everyone you share a group with is in it, and you can add anyone else with a code or link. They see only your name. Every group has a primary admin (the person who made it): they cannot be removed, and only they make or remove admins or hand the role on.': 'Groups mein ab Aapka Circle hai: jinke saath aapka group share hai woh sab isme hain, aur kisi aur ko aap code ya link se jod sakte hain. Unhein sirf aapka naam dikhta hai. Har group ka ek primary admin hota hai (jisne group banaya): use hataya nahi ja sakta, aur sirf wahi admin bana ya hata sakta hai ya yeh pad kisi aur ko de sakta hai.',
 };
