@@ -940,4 +940,6 @@ export const HINGLISH: Record<string, string> = {
   'Settings of {0}': '{0} ki settings',
   'settle up first: they are owed {0}': 'pehle hisaab chukta karein: unhein {0} milne hain',
   'settle up first: they owe {0}': 'pehle hisaab chukta karein: un par {0} baaki hain',
+  'New: group settings, goal delete, payment sorting': 'Naya: group settings, goal hatana, payments ko kram dena',
+  'Each group page is lighter now: its Group settings button holds Invite people, Usual split, the people and leaving, for that group only. A goal can be deleted from its own screen (it asks first). All payments can be sorted by date, amount, category or last added; the choice stays on this phone.': 'Har group ka page ab halka hai: uske Group settings button mein sirf usi group ke liye logon ko bulana, usual split, members aur group chhodna hai. Goal ko uski apni screen se hataya ja sakta hai (pehle poochta hai). Saare payments tareekh, raqam, category ya aakhir mein jodi ke hisaab se kram mein lag sakte hain; chunav isi phone par rehta hai.',
 };
