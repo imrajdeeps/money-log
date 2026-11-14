@@ -1584,3 +1584,337 @@ grant execute on function public.circle_join(text)              to authenticated
 grant execute on function public.circle_remove(uuid)            to authenticated;
 grant execute on function public.my_circle()                    to authenticated;
 -- circle_link_count is only called by the functions above (security definer): the app cannot call it.
+
+-- ---------------------------------------------------------------------------------
+-- shared goals (version 1.29)
+-- ---------------------------------------------------------------------------------
+-- One pot, many people: a target and a day; each person adds their own top-ups; everyone in it sees the total and who put in what.
+-- Only people in the creator's Circle can be invited, and a person joins only by accepting. Nothing here is readable by the app
+-- directly: the tables have no policies and no grants, and the functions below return one document (my_shared_goals).
+create table if not exists public.shared_goals (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null check (char_length(name) between 1 and 60),
+  target       numeric(12, 2) not null check (target > 0 and target < 1000000000),
+  target_date  date not null,
+  created_by   uuid not null references auth.users (id) on delete cascade, -- the goal goes with its creator's account
+  created_at   timestamptz not null default now()
+);
+
+-- invited: asked, not answered. active: in it. left: out (their top-ups stay in the history, shown as left).
+create table if not exists public.shared_goal_members (
+  goal_id       uuid not null references public.shared_goals (id) on delete cascade,
+  user_id       uuid not null references auth.users (id) on delete cascade,
+  display_name  text not null default '' check (char_length(display_name) <= 40),
+  state         text not null check (state in ('invited', 'active', 'left')),
+  invited_at    timestamptz not null default now(),
+  primary key (goal_id, user_id)
+);
+create index if not exists shared_goal_members_user_idx on public.shared_goal_members (user_id);
+
+create table if not exists public.shared_goal_topups (
+  id          uuid primary key,
+  goal_id     uuid not null references public.shared_goals (id) on delete cascade,
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  amount      numeric(12, 2) not null check (amount > 0 and amount < 1000000000),
+  topup_date  date not null,
+  created_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+create index if not exists shared_goal_topups_goal_idx on public.shared_goal_topups (goal_id);
+
+alter table public.shared_goals        enable row level security;
+alter table public.shared_goals        force row level security;
+alter table public.shared_goal_members enable row level security;
+alter table public.shared_goal_members force row level security;
+alter table public.shared_goal_topups  enable row level security;
+alter table public.shared_goal_topups  force row level security;
+revoke all on public.shared_goals, public.shared_goal_members, public.shared_goal_topups from anon, authenticated;
+
+-- Are these two people in each other's Circle (linked, or sharing a group now)? Internal.
+create or replace function public.circle_has(p_a uuid, p_b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+  select p_a <> p_b and (
+    exists (select 1 from public.circle_links l where l.user_a = least(p_a, p_b) and l.user_b = greatest(p_a, p_b))
+    or exists (select 1 from public.group_members x join public.group_members y on y.group_id = x.group_id and y.user_id = p_b and y.left_at is null
+                where x.user_id = p_a and x.left_at is null)
+  );
+$$;
+
+-- How many shared goals a person is in or invited to (the cap is 20), and how many people a goal holds or has asked (the cap is 10).
+create or replace function public.shared_goal_count(p_user uuid)
+returns integer language sql stable security definer set search_path = '' set row_security = off
+as $$ select count(*)::integer from public.shared_goal_members m where m.user_id = p_user and m.state in ('invited', 'active'); $$;
+create or replace function public.shared_goal_people(p_goal uuid)
+returns integer language sql stable security definer set search_path = '' set row_security = off
+as $$ select count(*)::integer from public.shared_goal_members m where m.goal_id = p_goal and m.state in ('invited', 'active'); $$;
+
+-- Lock the goal and say who made it: every change below starts here, so two changes to one goal never overlap.
+create or replace function public.lock_shared_goal(p_goal uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare owner uuid;
+begin
+  select g.created_by into owner from public.shared_goals g where g.id = p_goal for update;
+  if owner is null then raise exception 'That goal is not here' using errcode = '22023'; end if;
+  return owner;
+end;
+$$;
+
+-- Ask someone (in the creator's Circle) to join. Used by create_shared_goal and invite_to_shared_goal.
+create or replace function public.ask_to_join_shared_goal(p_goal uuid, p_owner uuid, p_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+begin
+  if not public.circle_has(p_owner, p_user) then raise exception 'You can only invite people in your Circle' using errcode = '42501'; end if;
+  if exists (select 1 from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = p_user and m.state in ('invited', 'active')) then return; end if;
+  if public.shared_goal_people(p_goal) >= 10 then raise exception 'A shared goal holds at most 10 people' using errcode = '53400'; end if;
+  if public.shared_goal_count(p_user) >= 20 then raise exception 'That person is in as many shared goals as one account can keep' using errcode = '53400'; end if;
+  insert into public.shared_goal_members (goal_id, user_id, state) values (p_goal, p_user, 'invited')
+  on conflict (goal_id, user_id) do update set state = 'invited', invited_at = now();
+end;
+$$;
+
+create or replace function public.create_shared_goal(p_name text, p_target numeric, p_date date, p_display_name text, p_invite uuid[] default '{}')
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare
+  uid uuid := (select auth.uid());
+  nm text := btrim(coalesce(p_name, ''));
+  dn text := btrim(coalesce(p_display_name, ''));
+  gid uuid;
+  u uuid;
+begin
+  if uid is null then raise exception 'Not signed in' using errcode = '28000'; end if;
+  if char_length(nm) not between 1 and 60 then raise exception 'Give the goal a name of 1 to 60 characters' using errcode = '22023'; end if;
+  if p_target is null or p_target <= 0 or p_target >= 1000000000 or scale(p_target) > 2 then raise exception 'The target must be above zero, with at most 2 decimals' using errcode = '22023'; end if;
+  if p_date is null or p_date <= current_date then raise exception 'Pick a target date after today' using errcode = '22023'; end if;
+  if char_length(dn) not between 1 and 40 then raise exception 'Enter the name others will see you as (1 to 40 characters)' using errcode = '22023'; end if;
+  if coalesce(array_length(p_invite, 1), 0) > 9 then raise exception 'A shared goal holds at most 10 people' using errcode = '53400'; end if;
+  if public.shared_goal_count(uid) >= 20 then raise exception 'You are in as many shared goals as one account can keep' using errcode = '53400'; end if;
+  insert into public.shared_goals (name, target, target_date, created_by) values (nm, p_target, p_date, uid) returning id into gid;
+  insert into public.shared_goal_members (goal_id, user_id, display_name, state) values (gid, uid, dn, 'active');
+  foreach u in array coalesce(p_invite, '{}') loop
+    perform public.ask_to_join_shared_goal(gid, uid, u);
+  end loop;
+  return gid;
+end;
+$$;
+
+create or replace function public.invite_to_shared_goal(p_goal uuid, p_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  if public.lock_shared_goal(p_goal) is distinct from uid then raise exception 'Only the person who made the goal can do this' using errcode = '42501'; end if;
+  perform public.ask_to_join_shared_goal(p_goal, uid, p_user);
+end;
+$$;
+
+-- Answer an invitation. Declining forgets it; accepting makes the person a member under the name they give.
+create or replace function public.answer_shared_goal(p_goal uuid, p_accept boolean, p_display_name text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare
+  uid uuid := (select auth.uid());
+  dn text := btrim(coalesce(p_display_name, ''));
+begin
+  perform public.lock_shared_goal(p_goal);
+  if not exists (select 1 from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = uid and m.state = 'invited') then
+    raise exception 'There is no invitation to answer' using errcode = '22023';
+  end if;
+  if not coalesce(p_accept, false) then
+    delete from public.shared_goal_members where goal_id = p_goal and user_id = uid and state = 'invited';
+    return;
+  end if;
+  if char_length(dn) not between 1 and 40 then raise exception 'Enter the name others will see you as (1 to 40 characters)' using errcode = '22023'; end if;
+  update public.shared_goal_members set state = 'active', display_name = dn where goal_id = p_goal and user_id = uid;
+end;
+$$;
+
+create or replace function public.leave_shared_goal(p_goal uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  if public.lock_shared_goal(p_goal) = uid then raise exception 'The person who made the goal deletes it instead of leaving' using errcode = '23514'; end if;
+  update public.shared_goal_members set state = 'left' where goal_id = p_goal and user_id = uid and state = 'active';
+  if not found then raise exception 'You are not in this goal' using errcode = '42501'; end if;
+end;
+$$;
+
+-- The creator takes someone out (their top-ups stay in the history, as left) or withdraws an invitation.
+create or replace function public.remove_from_shared_goal(p_goal uuid, p_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  if public.lock_shared_goal(p_goal) is distinct from uid then raise exception 'Only the person who made the goal can do this' using errcode = '42501'; end if;
+  if p_user = uid then raise exception 'You made this goal: delete it instead' using errcode = '22023'; end if;
+  delete from public.shared_goal_members where goal_id = p_goal and user_id = p_user and state = 'invited';
+  update public.shared_goal_members set state = 'left' where goal_id = p_goal and user_id = p_user and state = 'active';
+end;
+$$;
+
+create or replace function public.edit_shared_goal(p_goal uuid, p_name text, p_target numeric, p_date date)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare nm text := btrim(coalesce(p_name, ''));
+begin
+  if public.lock_shared_goal(p_goal) is distinct from (select auth.uid()) then raise exception 'Only the person who made the goal can do this' using errcode = '42501'; end if;
+  if char_length(nm) not between 1 and 60 then raise exception 'Give the goal a name of 1 to 60 characters' using errcode = '22023'; end if;
+  if p_target is null or p_target <= 0 or p_target >= 1000000000 or scale(p_target) > 2 then raise exception 'The target must be above zero, with at most 2 decimals' using errcode = '22023'; end if;
+  if p_date is null then raise exception 'Pick a target date' using errcode = '22023'; end if;
+  update public.shared_goals set name = nm, target = p_target, target_date = p_date where id = p_goal;
+end;
+$$;
+
+create or replace function public.delete_shared_goal(p_goal uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+begin
+  if public.lock_shared_goal(p_goal) is distinct from (select auth.uid()) then raise exception 'Only the person who made the goal can do this' using errcode = '42501'; end if;
+  delete from public.shared_goals where id = p_goal;
+end;
+$$;
+
+create or replace function public.add_shared_topup(p_goal uuid, p_id uuid, p_amount numeric, p_date date)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  perform public.lock_shared_goal(p_goal);
+  if not exists (select 1 from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = uid and m.state = 'active') then
+    raise exception 'You are not in this goal' using errcode = '42501';
+  end if;
+  if p_id is null then raise exception 'A top-up needs an id' using errcode = '22023'; end if;
+  if p_amount is null or p_amount <= 0 or p_amount >= 1000000000 or scale(p_amount) > 2 then raise exception 'The amount must be above zero, with at most 2 decimals' using errcode = '22023'; end if;
+  if p_date is null or p_date > current_date then raise exception 'Pick a day that is today or earlier' using errcode = '22023'; end if;
+  if (select count(*) from public.shared_goal_topups t where t.goal_id = p_goal and t.user_id = uid and t.deleted_at is null) >= 2000 then
+    raise exception 'That is the most top-ups one person can keep in a goal' using errcode = '53400';
+  end if;
+  insert into public.shared_goal_topups (id, goal_id, user_id, amount, topup_date) values (p_id, p_goal, uid, p_amount, p_date)
+  on conflict (id) do nothing; -- the same top-up sent twice (a retry) is stored once
+end;
+$$;
+
+create or replace function public.remove_shared_topup(p_goal uuid, p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  perform public.lock_shared_goal(p_goal);
+  update public.shared_goal_topups set deleted_at = now()
+   where id = p_id and goal_id = p_goal and user_id = uid and deleted_at is null
+     and exists (select 1 from public.shared_goal_members m where m.goal_id = p_goal and m.user_id = uid and m.state = 'active');
+  if not found then raise exception 'That top-up is not yours or is gone' using errcode = '42501'; end if;
+end;
+$$;
+
+-- Everything the caller may see, as one document: {"goals": [...]}.
+-- An invitation shows only the goal, its target, its day and who made it. A member also sees the people (id, the name each gave, and
+-- invited, active or left) and every top-up (id, who, amount, day). A person who has left sees nothing of the goal any more.
+create or replace function public.my_shared_goals()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  if uid is null then return jsonb_build_object('goals', '[]'::jsonb); end if;
+  return jsonb_build_object('goals', coalesce((
+    select jsonb_agg(jsonb_build_object(
+        'id', g.id, 'name', g.name, 'target', g.target, 'date', g.target_date, 'created_by', g.created_by,
+        'me', me.state,
+        'creator_name', coalesce((select c.display_name from public.shared_goal_members c where c.goal_id = g.id and c.user_id = g.created_by), ''),
+        'members', case when me.state = 'active' then coalesce((
+            select jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', m.display_name, 'state', m.state) order by m.invited_at, m.user_id)
+              from public.shared_goal_members m where m.goal_id = g.id), '[]'::jsonb) else '[]'::jsonb end,
+        'topups', case when me.state = 'active' then coalesce((
+            select jsonb_agg(jsonb_build_object('id', t.id, 'user_id', t.user_id, 'amount', t.amount, 'date', t.topup_date) order by t.topup_date desc, t.created_at desc, t.id)
+              from public.shared_goal_topups t where t.goal_id = g.id and t.deleted_at is null), '[]'::jsonb) else '[]'::jsonb end
+      ) order by g.target_date, g.name, g.id)
+    from public.shared_goals g
+    join public.shared_goal_members me on me.goal_id = g.id and me.user_id = uid and me.state in ('invited', 'active')
+  ), '[]'::jsonb));
+end;
+$$;
+
+revoke all on function public.circle_has(uuid, uuid)                                    from public, anon, authenticated;
+revoke all on function public.shared_goal_count(uuid)                                   from public, anon, authenticated;
+revoke all on function public.shared_goal_people(uuid)                                  from public, anon, authenticated;
+revoke all on function public.lock_shared_goal(uuid)                                    from public, anon, authenticated;
+revoke all on function public.ask_to_join_shared_goal(uuid, uuid, uuid)                 from public, anon, authenticated;
+revoke all on function public.create_shared_goal(text, numeric, date, text, uuid[])     from public, anon, authenticated;
+revoke all on function public.invite_to_shared_goal(uuid, uuid)                         from public, anon, authenticated;
+revoke all on function public.answer_shared_goal(uuid, boolean, text)                   from public, anon, authenticated;
+revoke all on function public.leave_shared_goal(uuid)                                   from public, anon, authenticated;
+revoke all on function public.remove_from_shared_goal(uuid, uuid)                       from public, anon, authenticated;
+revoke all on function public.edit_shared_goal(uuid, text, numeric, date)               from public, anon, authenticated;
+revoke all on function public.delete_shared_goal(uuid)                                  from public, anon, authenticated;
+revoke all on function public.add_shared_topup(uuid, uuid, numeric, date)               from public, anon, authenticated;
+revoke all on function public.remove_shared_topup(uuid, uuid)                           from public, anon, authenticated;
+revoke all on function public.my_shared_goals()                                         from public, anon, authenticated;
+grant execute on function public.create_shared_goal(text, numeric, date, text, uuid[])  to authenticated;
+grant execute on function public.invite_to_shared_goal(uuid, uuid)                      to authenticated;
+grant execute on function public.answer_shared_goal(uuid, boolean, text)                to authenticated;
+grant execute on function public.leave_shared_goal(uuid)                                to authenticated;
+grant execute on function public.remove_from_shared_goal(uuid, uuid)                    to authenticated;
+grant execute on function public.edit_shared_goal(uuid, text, numeric, date)            to authenticated;
+grant execute on function public.delete_shared_goal(uuid)                               to authenticated;
+grant execute on function public.add_shared_topup(uuid, uuid, numeric, date)            to authenticated;
+grant execute on function public.remove_shared_topup(uuid, uuid)                        to authenticated;
+grant execute on function public.my_shared_goals()                                      to authenticated;
+-- circle_has, shared_goal_count, shared_goal_people, lock_shared_goal and ask_to_join_shared_goal are internal: the app cannot call them.
