@@ -940,4 +940,6 @@ export const HI: Record<string, string> = {
   'Settings of {0}': '{0} की सेटिंग्स',
   'settle up first: they are owed {0}': 'पहले हिसाब चुकता करें: उन्हें {0} मिलने हैं',
   'settle up first: they owe {0}': 'पहले हिसाब चुकता करें: उन पर {0} बकाया है',
+  'New: group settings, goal delete, payment sorting': 'नया: ग्रुप सेटिंग्स, लक्ष्य हटाना, भुगतान क्रमबद्ध करना',
+  'Each group page is lighter now: its Group settings button holds Invite people, Usual split, the people and leaving, for that group only. A goal can be deleted from its own screen (it asks first). All payments can be sorted by date, amount, category or last added; the choice stays on this phone.': 'हर ग्रुप का पेज अब हल्का है: उसके Group settings बटन में सिर्फ़ उसी ग्रुप के लिए लोगों को बुलाना, सामान्य बँटवारा, सदस्य और ग्रुप छोड़ना है। लक्ष्य को उसकी अपनी स्क्रीन से हटाया जा सकता है (पहले पूछता है)। सभी भुगतान तारीख़, राशि, श्रेणी या आख़िर में जोड़े गए के हिसाब से क्रमबद्ध हो सकते हैं; चुनाव इसी फ़ोन पर रहता है।',
 };
