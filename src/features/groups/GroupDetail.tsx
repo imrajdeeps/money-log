@@ -3,21 +3,16 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { EditDialog, ExpenseDialog } from '../payments/index.ts';
-import { copyText } from '../../ui/files.ts';
 import { shortDate } from '../../core/format.ts';
-import { activeMembers, formatCode, fromPaise, groupBalances, inviteLink, ledger, memberName, simplifyDebts } from '../../core/groups.ts';
+import { activeMembers, fromPaise, groupBalances, ledger, memberName, simplifyDebts } from '../../core/groups.ts';
 import type { Group, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
-import { hasRoom, kindLabel, kindMax } from '../../core/groupKinds.ts';
-import { BASEPATH, appRootUrl } from '../../core/paths.ts';
+import { kindLabel } from '../../core/groupKinds.ts';
 import { fmtINR, isValidDate, isoDate, myShare, parseAmount } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
-import { TripSettings } from './TripSettings.tsx';
 import { TripSummary } from './TripSummary.tsx';
 import { FamilyMonth } from './FamilyMonth.tsx';
-import { UsualSplitCard } from './UsualSplitCard.tsx';
 import { tripDatesLabel } from '../../core/groupSummary.ts';
-import { useAction } from './useAction.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -25,24 +20,19 @@ const owes = (paise: number): string => (paise === 0 ? tr('All settled') : paise
 
 type LedgerItem = { kind: 'expense'; date: string; at: string; e: Entry } | { kind: 'settle'; date: string; at: string; s: Settlement };
 
-export function GroupDetail({ group, onBack }: Readonly<{ group: Group; onBack: () => void }>) {
+export function GroupDetail({ group, onBack, onSettings }: Readonly<{ group: Group; onBack: () => void; onSettings: () => void }>) {
   const app = useApp();
   const me = app.me ?? '';
-  const act = useAction();
   const [editing, setEditing] = useState<Entry | null>(null);
   const [viewing, setViewing] = useState<Entry | null>(null);
-  const [renaming, setRenaming] = useState<string | null>(null);
   const [settle, setSettle] = useState<{ dir: 'paid' | 'received'; other: string; amount: string; date: string } | null>(null);
   const [settleError, setSettleError] = useState('');
 
   const people = useMemo(() => activeMembers(app.members, group.id), [app.members, group.id]);
-  const former = app.members.filter((m) => m.group_id === group.id && m.left_at);
-  const mine = people.find((m) => m.user_id === me);
-  const isAdmin = mine?.role === 'admin';
+  const former = app.members.filter((m) => m.group_id === group.id && m.left_at); // left, but may still be owed or owe
   const bal = useMemo(() => groupBalances(group.id, app.groupEntries, app.settlements), [group.id, app.groupEntries, app.settlements]);
   const debts = useMemo(() => simplifyDebts(bal), [bal]);
   const nameOf = (uid: string) => (uid === me ? tr('You') : memberName(app.members, group.id, uid));
-  const invite = app.invites.find((i) => i.group_id === group.id);
   const partner = group.kind === 'couple' && people.length === 2 ? people.find((m) => m.user_id !== me) : undefined; // the other half of a couple
   const line = coupleLine(bal[me] ?? 0, partner?.display_name ?? '');
   const closed = group.closed_at !== null; // a closed trip: no new expenses, no new people
@@ -75,15 +65,12 @@ export function GroupDetail({ group, onBack }: Readonly<{ group: Group; onBack: 
   const startSettle = (d: { from: string; to: string; amount: number }) =>
     setSettle({ dir: d.from === me ? 'paid' : 'received', other: d.from === me ? d.to : d.from, amount: String(d.amount), date: isoDate() });
 
-  const myBalance = bal[me] ?? 0;
-
-  async function copy(text: string, what: string) {
-    app.toast((await copyText(text)) ? tr('{0} copied.', what) : tr('Could not copy. Select it and copy it by hand.'));
-  }
-
   return (
     <section aria-label={tr('Group {0}', group.name)}>
-      <button type="button" className={ui.btn('ghost', 'md', 'w-auto mb-2')} onClick={onBack}><span className="inline-flex rotate-180"><Icon name="chevron" size={18} /></span>{' '}{tr('All groups')}</button>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <button type="button" className={ui.btn('ghost', 'md', 'w-auto')} onClick={onBack}><span className="inline-flex rotate-180"><Icon name="chevron" size={18} /></span>{' '}{tr('All groups')}</button>
+        <button type="button" className={ui.btn('ghost', 'md', 'w-auto')} onClick={onSettings}>{tr('Group settings')}</button>
+      </div>
       <h2>{group.name} <span className={ui.tag}>{kindLabel(group.kind)}</span>{closed && <> <span className={ui.tag}>{tr('Closed')}</span></>}</h2>
       {dates && <p className="text-muted text-[13px]">{dates}</p>}
       <p className="text-muted text-[13px]">
@@ -148,7 +135,6 @@ export function GroupDetail({ group, onBack }: Readonly<{ group: Group; onBack: 
 
       {group.kind === 'trip' && <TripSummary group={group} />}
       {group.kind === 'family' && <FamilyMonth group={group} />}
-      {group.kind === 'flatmates' && <UsualSplitCard group={group} people={people} isAdmin={isAdmin} />}
 
       <h3 className="text-[16px] mt-5 mb-2">{tr('Expenses and payments')}</h3>
       {items.length === 0 ? <p className="text-muted">{tr('Nothing yet.')}</p> : (
@@ -181,59 +167,6 @@ export function GroupDetail({ group, onBack }: Readonly<{ group: Group; onBack: 
         </ul>
       )}
 
-      {group.kind === 'trip' && <TripSettings group={group} isAdmin={isAdmin} />}
-
-      {isAdmin && (
-        <div className={ui.card()}>
-          <h3>{tr('Invite people')}</h3>
-          {closed ? (
-            <p className="text-muted text-[13px]">{tr('This trip is closed, so nobody can join it. Reopen it to invite someone.')}</p>
-          ) : !hasRoom(group.kind, people.length) ? (
-            <p className="text-muted text-[13px]">{tr('A {0} group holds at most {1} people and this one is full. If someone leaves, a new code can be made here.', kindLabel(group.kind).toLowerCase(), kindMax(group.kind))}</p>
-          ) : invite && Date.parse(invite.expires_at) > Date.now() ? (
-            <>
-              <p className={ui.codeBox} aria-label={tr('Join code')}>{formatCode(invite.code)}</p>
-              <p className="text-muted text-[13px]">{tr('Valid until {0}. Anyone with the code can join, so send it only to people you mean to add.', shortDate(invite.expires_at.slice(0, 10)))}</p>
-              <div className={ui.btnRow}>
-                <button type="button" className={ui.btn()} onClick={() => { void copy(inviteLink(appRootUrl(window.location.href, BASEPATH), invite.code), 'Link'); }}>{tr('Copy link')}</button>
-                <button type="button" className={ui.btn('ghost')} onClick={() => { void copy(formatCode(invite.code), 'Code'); }}>{tr('Copy code')}</button>
-              </div>
-            </>
-          ) : <p className="text-muted text-[13px]">{tr('The code has expired. Make a new one to invite someone.')}</p>}
-          {!closed && hasRoom(group.kind, people.length) && <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>{tr('Make a new code')}</button>}
-          {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
-        </div>
-      )}
-
-      <div className={ui.card()}>
-        <h3>{tr('People')}</h3>
-        <ul className={ui.list(true)}>
-          {people.map((m) => {
-            const b = bal[m.user_id] ?? 0;
-            return (
-              <li key={m.user_id} className={ui.dueRow()}>
-                <span className={ui.rowMain(true)}><b>{m.display_name}{m.user_id === me ? ' (you)' : ''}</b><small>{m.role === 'admin' ? tr('Admin') : tr('Member')}</small></span>
-                {m.user_id === me && <button type="button" className={ui.btn('ghost', 'small')} onClick={() => setRenaming(m.display_name)}>{tr('Rename')}</button>}
-                {isAdmin && m.user_id !== me && m.role === 'member' && <button type="button" className={ui.btn('ghost', 'small')} disabled={act.busy} onClick={() => { if (window.confirm(`Make ${m.display_name} an admin? Admins can invite and remove people.`)) void act.run(() => app.makeAdmin(group.id, m.user_id), 'Done'); }}>{tr('Make admin')}</button>}
-                {isAdmin && m.user_id !== me && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy || b !== 0} title={b !== 0 ? tr('They must settle up first') : undefined} onClick={() => { if (window.confirm(tr('Remove {0} from {1}? The invite code changes too.', m.display_name, group.name))) void act.run(() => app.removeMember(group.id, m.user_id), 'Removed'); }}>{tr('Remove')}</button>}
-              </li>
-            );
-          })}
-        </ul>
-        {renaming !== null && (
-          <form className={ui.settleForm} onSubmit={(ev) => { ev.preventDefault(); if (renaming.trim()) void act.run(() => app.setDisplayName(group.id, renaming.trim()), 'Name changed').then((ok) => { if (ok) setRenaming(null); }); }}>
-            <label className={ui.field}><span>{tr('Your name in this group')}</span><input value={renaming} maxLength={40} onChange={(e) => setRenaming(e.target.value)} /></label>
-            <div className={ui.btnRow}><button type="submit" className={ui.btn()} disabled={act.busy}>{tr('Save name')}</button><button type="button" className={ui.btn('ghost')} onClick={() => setRenaming(null)}>{tr('Cancel')}</button></div>
-          </form>
-        )}
-        {former.length > 0 && <p className="text-muted text-[13px]">{tr('Left the group: {0}. Their earlier expenses stay in the list.', former.map((m) => m.display_name).join(', '))}</p>}
-        {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
-        <button type="button" className={ui.btn('danger', 'md', ui.inCard)} disabled={act.busy || myBalance !== 0}
-          onClick={() => { if (window.confirm(tr('Leave {0}? You will stop seeing it. Expenses you added stay in the group for the others.', group.name))) void act.run(() => app.leaveGroup(group.id), 'You left the group').then((ok) => { if (ok) onBack(); }); }}>
-          {tr('Leave this group')}
-        </button>
-        {myBalance !== 0 && <p className="text-muted text-[13px]">{tr('You can leave once you have settled up: your balance here is {0}.', myBalance > 0 ? tr('{0} owed to you', fmtINR(fromPaise(myBalance))) : tr('{0} that you owe', fmtINR(fromPaise(-myBalance))))}</p>}
-      </div>
       {editing && <EditDialog key={editing.id} entry={editing} onClose={() => setEditing(null)} />}
       {viewing && <ExpenseDialog key={viewing.id} entry={viewing} group={group} onClose={() => setViewing(null)} />}
     </section>

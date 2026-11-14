@@ -301,7 +301,6 @@ export const HI: Record<string, string> = {
   'Save name': 'नाम सहेजें',
   'Save payment': 'भुगतान सहेजें',
   'The code has expired. Make a new one to invite someone.': 'कोड की मियाद ख़त्म हो गई। किसी को बुलाने के लिए नया बनाएँ।',
-  'They must settle up first': 'उन्हें पहले हिसाब चुकता करना होगा',
   'This trip is closed, so nobody can join it. Reopen it to invite someone.': 'यह यात्रा बंद है, इसलिए कोई इसमें जुड़ नहीं सकता। किसी को बुलाने के लिए इसे फिर खोलें।',
   'To settle up': 'हिसाब चुकाने के लिए',
   'Valid until {0}. Anyone with the code can join, so send it only to people you mean to add.': '{0} तक मान्य। कोड वाला कोई भी जुड़ सकता है, इसलिए इसे सिर्फ़ उन्हें भेजें जिन्हें जोड़ना चाहते हैं।',
@@ -936,4 +935,9 @@ export const HI: Record<string, string> = {
   'Category, A to Z': 'श्रेणी, A से Z',
   'Last added first': 'आख़िर में जोड़ी पहले',
   'Sort payments': 'भुगतान क्रमबद्ध करें',
+  'Group settings': 'ग्रुप सेटिंग्स',
+  'These apply to {0} only.': 'ये सिर्फ़ {0} पर लागू होती हैं।',
+  'Settings of {0}': '{0} की सेटिंग्स',
+  'settle up first: they are owed {0}': 'पहले हिसाब चुकता करें: उन्हें {0} मिलने हैं',
+  'settle up first: they owe {0}': 'पहले हिसाब चुकता करें: उन पर {0} बकाया है',
 };

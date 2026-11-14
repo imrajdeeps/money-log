@@ -28,7 +28,7 @@ import * as sh from './shellStyles.ts';
 import { tr } from '../core/i18n.ts';
 
 // Everything is a page with its own address, so a refresh and the back button stay where they were:
-//   /  /month  /plan  /payments  /add  /groups  /groups/<id>  /settings  /settings/<part>
+//   /  /month  /plan  /payments  /add  /groups  /groups/<id>  /groups/<id>/settings  /settings  /settings/<part>
 // The Overview, Settings and Add expense stay mounted behind the others (they keep their place and a half-typed payment);
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
@@ -91,7 +91,10 @@ function Shell() {
   const goAddFor = useCallback((category: string) => { void navigate({ to: '/add', search: { category } }); }, [navigate]);
   const goPage = useCallback((to: Section, part?: string) => { anchor.current = part; void navigate({ to: ROUTES[to] }); }, [navigate]);
   const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
-  const goGroup = useCallback((id?: string) => { void navigate(id ? { to: '/groups/$groupId', params: { groupId: id } } : { to: '/groups' }); }, [navigate]);
+  const goGroup = useCallback((id?: string, settings = false) => {
+    if (!id) void navigate({ to: '/groups' });
+    else void navigate(settings ? { to: '/groups/$groupId/settings', params: { groupId: id } } : { to: '/groups/$groupId', params: { groupId: id } });
+  }, [navigate]);
   const goSettings = useCallback((to?: SettingsSection) => { void navigate(to ? { to: '/settings/$part', params: { part: to } } : { to: '/settings' }); }, [navigate]);
   // a notification opens the screen it is about
   const openNotice = useCallback((t: OpenTarget) => {
@@ -176,7 +179,7 @@ function Shell() {
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}
-        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
+        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}

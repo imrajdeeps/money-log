@@ -301,7 +301,6 @@ export const HINGLISH: Record<string, string> = {
   'Save name': 'Naam save karein',
   'Save payment': 'Payment save karein',
   'The code has expired. Make a new one to invite someone.': 'Code ki miyaad khatam ho gayi. Kisi ko bulane ke liye naya banayein.',
-  'They must settle up first': 'Unhein pehle hisaab chukta karna hoga',
   'This trip is closed, so nobody can join it. Reopen it to invite someone.': 'Yeh trip band hai, isliye koi ismein jud nahi sakta. Kisi ko bulane ke liye ise phir kholein.',
   'To settle up': 'Hisaab chukane ke liye',
   'Valid until {0}. Anyone with the code can join, so send it only to people you mean to add.': '{0} tak maanya. Code wala koi bhi jud sakta hai, isliye ise sirf unhein bhejein jinhein jodna chahte hain.',
@@ -936,4 +935,9 @@ export const HINGLISH: Record<string, string> = {
   'Category, A to Z': 'Category, A se Z',
   'Last added first': 'Aakhir mein jodi pehle',
   'Sort payments': 'Payments ko kram mein lagayein',
+  'Group settings': 'Group settings',
+  'These apply to {0} only.': 'Ye sirf {0} par lagu hoti hain.',
+  'Settings of {0}': '{0} ki settings',
+  'settle up first: they are owed {0}': 'pehle hisaab chukta karein: unhein {0} milne hain',
+  'settle up first: they owe {0}': 'pehle hisaab chukta karein: un par {0} baaki hain',
 };
