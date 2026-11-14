@@ -294,11 +294,12 @@ declare
   i int;
   u text;
   rpc constant text[] := array['create_group(text,text,text)', 'join_group(text,text)', 'reset_invite(uuid)', 'leave_group(uuid)',
-                               'remove_member(uuid,uuid)', 'make_admin(uuid,uuid)', 'set_display_name(uuid,text)',
+                               'remove_member(uuid,uuid)', 'make_admin(uuid,uuid)', 'revoke_admin(uuid,uuid)', 'make_primary_admin(uuid,uuid)', 'claim_primary_admin(uuid)',
+                               'circle_new_invite()', 'circle_join(text)', 'circle_remove(uuid)', 'my_circle()', 'set_display_name(uuid,text)',
                                'set_trip_dates(uuid,date,date)', 'set_group_closed(uuid,boolean)', 'set_usual_split(uuid,jsonb)'];
   internal constant text[] := array['group_balance(uuid,uuid)', 'was_group_member(uuid,uuid)', 'new_invite_code()',
-                                    'validate_entry_group()', 'validate_settlement()', 'names_former_member(uuid,uuid,jsonb)', 'enforce_row_cap()'];
-  helpers constant text[] := array['is_group_member(uuid)', 'is_group_admin(uuid)'];
+                                    'validate_entry_group()', 'validate_settlement()', 'names_former_member(uuid,uuid,jsonb)', 'enforce_row_cap()', 'circle_link_count(uuid)'];
+  helpers constant text[] := array['is_group_member(uuid)', 'is_group_admin(uuid)', 'is_primary_admin(uuid)'];
   shared_row constant text := $q$insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
                                  values (gen_random_uuid(), %L, '2026-11-09', 'Dinner', %s, %L, %L, %L::jsonb)$q$;
 begin
@@ -378,7 +379,7 @@ begin
   if (select count(*) from pg_trigger where not tgisinternal and tgname in
         ('entries_validate_group', 'settlements_validate', 'settlements_touch_synced_at', 'settlements_keep_latest_edit', 'entries_cap', 'settlements_cap')) <> 6 then
     raise exception 'FAIL group validation, row-cap or sync triggers are missing'; end if;
-  foreach fn in array array['leave_group', 'remove_member', 'make_admin', 'join_group'] loop
+  foreach fn in array array['leave_group', 'remove_member', 'make_admin', 'revoke_admin', 'make_primary_admin', 'claim_primary_admin', 'join_group'] loop
     if not exists (select 1 from pg_proc p where p.proname = fn and p.pronamespace = 'public'::regnamespace
                     and position('for update' in p.prosrc) > 0 and position('public.groups g' in p.prosrc) > 0) then
       raise exception 'FAIL % does not lock the group row before changing membership', fn; end if;
@@ -610,7 +611,7 @@ begin
   -- the only admin cannot walk away from a group that still has people in it
   perform pg_temp.act_as(a);
   if not pg_temp.fails(format($q$select public.leave_group(%L)$q$, gid)) then raise exception 'FAIL the only admin left a group with members'; end if;
-  perform public.make_admin(gid, b::uuid);
+  perform public.make_primary_admin(gid, b::uuid); -- the creator is the primary admin: hand the role over before leaving
   perform public.leave_group(gid);
   perform pg_temp.act_as(b);
   if (select role from public.group_members where group_id = gid and user_id = b::uuid) <> 'admin' then raise exception 'FAIL B is not admin'; end if;
@@ -1311,18 +1312,198 @@ begin
   -- =========================================================================
   reset role;
   perform pg_temp.act_as(a);
-  insert into public.entries (id, owner_id, entry_date, category, amount, kind) values ('40000000-0000-4000-8000-000000000001', a::uuid, '2026-11-11', 'Salary', 50000, 'in');
-  if (select kind from public.entries where id = '40000000-0000-4000-8000-000000000001') <> 'in' then raise exception 'FAIL an income entry was not stored as income'; end if;
-  insert into public.entries (id, owner_id, entry_date, category, amount) values ('40000000-0000-4000-8000-000000000002', a::uuid, '2026-11-11', 'Rent', 100);
-  if (select kind from public.entries where id = '40000000-0000-4000-8000-000000000002') <> 'out' then raise exception 'FAIL an entry sent without a kind is not spending'; end if;
-  if not pg_temp.fails(format('insert into public.entries (owner_id, entry_date, category, amount, kind) values (%L, ''2026-11-11'', ''Salary'', 1, ''sideways'')', a)) then raise exception 'FAIL an unknown kind was accepted'; end if;
-  if not pg_temp.fails(format('insert into public.entries (owner_id, entry_date, category, amount, kind, share_of) values (%L, ''2026-11-11'', ''Refund'', 1, ''in'', %L)', a, e1)) then raise exception 'FAIL income recording a share of a shared expense was accepted'; end if;
+  insert into public.entries (id, owner_id, entry_date, category, amount, kind) values ('a1000000-0000-4000-8000-000000000001', a::uuid, '2026-11-11', 'Salary', 50000, 'in');
+  if (select kind from public.entries where id = 'a1000000-0000-4000-8000-000000000001') <> 'in' then raise exception 'FAIL an income entry was not stored as income'; end if;
+  insert into public.entries (id, owner_id, entry_date, category, amount) values ('a1000000-0000-4000-8000-000000000002', a::uuid, '2026-11-11', 'Rent', 100);
+  if (select kind from public.entries where id = 'a1000000-0000-4000-8000-000000000002') <> 'out' then raise exception 'FAIL an entry sent without a kind is not spending'; end if;
+  if not pg_temp.fails(format('insert into public.entries (id, owner_id, entry_date, category, amount, kind) values (''a1000000-0000-4000-8000-000000000003'', %L, ''2026-11-11'', ''Salary'', 1, ''sideways'')', a)) then raise exception 'FAIL an unknown kind was accepted'; end if;
+  if not pg_temp.fails(format('insert into public.entries (id, owner_id, entry_date, category, amount, kind, share_of) values (''a1000000-0000-4000-8000-000000000004'', %L, ''2026-11-11'', ''Refund'', 1, ''in'', %L)', a, 'a1000000-0000-4000-8000-000000000002')) then raise exception 'FAIL income recording a share of a shared expense was accepted'; end if;
   if not exists (select 1 from pg_constraint where conrelid = 'public.entries'::regclass and conname = 'entries_income_private' and pg_get_constraintdef(oid) ilike '%group_id IS NULL%') then raise exception 'FAIL income is not barred from groups'; end if;
   perform pg_temp.act_as(b);
   if pg_temp.n('select 1 from public.entries where kind = ''in''') <> 0 then raise exception 'FAIL B can read A income'; end if;
   perform pg_temp.act_as(null);
   if not pg_temp.fails('select 1 from public.entries') then raise exception 'FAIL anon could read entries'; end if;
   raise notice 'PASS income: private to its owner, a known kind, never in a group';
+
+
+end $$;
+
+-- ===========================================================================
+-- 11 and 12 run as a third block with their own people (the first block's A made its 10 groups already)
+-- ===========================================================================
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into auth.users (id) values
+  ('ffff0001-ffff-4fff-8fff-ffffffff0001'), ('ffff0002-ffff-4fff-8fff-ffffffff0002'),
+  ('ffff0003-ffff-4fff-8fff-ffffffff0003'), ('ffff0004-ffff-4fff-8fff-ffffffff0004');
+
+do $$
+declare
+  a constant text := 'ffff0001-ffff-4fff-8fff-ffffffff0001';
+  b constant text := 'ffff0002-ffff-4fff-8fff-ffffffff0002';
+  c constant text := 'ffff0003-ffff-4fff-8fff-ffffffff0003';
+  d constant text := 'ffff0004-ffff-4fff-8fff-ffffffff0004';
+  gid7 uuid; gx uuid; pcode text; xcode text; ccode2 text; dname text; i int;
+begin
+  -- =========================================================================
+  -- 11. PRIMARY ADMIN
+  -- =========================================================================
+  reset role;
+  perform pg_temp.act_as(a);
+  gid7 := public.create_group('Primary test', 'family', 'Asha');
+  select i.code into pcode from public.group_invites i where i.group_id = gid7;
+  perform pg_temp.act_as(b); perform public.join_group(pcode, 'Ravi');
+  perform pg_temp.act_as(c); perform public.join_group(pcode, 'Cee');
+  reset role;
+  if (select primary_admin from public.groups where id = gid7) is distinct from a::uuid then raise exception 'FAIL the creator is not the primary admin'; end if;
+  perform pg_temp.act_as(a);
+  if not public.is_primary_admin(gid7) then raise exception 'FAIL is_primary_admin is false for the creator'; end if;
+  perform public.make_admin(gid7, b::uuid);
+  perform public.make_admin(gid7, c::uuid);
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$select public.remove_member(%L, %L)$q$, gid7, c)) then raise exception 'FAIL an admin who is not primary removed another admin'; end if;
+  perform pg_temp.act_as(a);
+  perform public.revoke_admin(gid7, c::uuid);
+  perform pg_temp.act_as(b);
+  if public.is_primary_admin(gid7) then raise exception 'FAIL is_primary_admin is true for a plain admin'; end if;
+  if not pg_temp.fails(format($q$select public.make_admin(%L, %L)$q$, gid7, c)) then raise exception 'FAIL an admin who is not primary made someone admin'; end if;
+  if not pg_temp.fails(format($q$select public.revoke_admin(%L, %L)$q$, gid7, a)) then raise exception 'FAIL an admin who is not primary took admin rights away'; end if;
+  if not pg_temp.fails(format($q$select public.make_primary_admin(%L, %L)$q$, gid7, b)) then raise exception 'FAIL an admin who is not primary made themself primary'; end if;
+  if not pg_temp.fails(format($q$select public.remove_member(%L, %L)$q$, gid7, a)) then raise exception 'FAIL the primary admin was removed'; end if;
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gid7)) then raise exception 'FAIL a group with a primary admin was claimed'; end if;
+  if not pg_temp.fails(format($q$update public.groups set primary_admin = %L where id = %L$q$, b, gid7)) then raise exception 'FAIL an app user wrote groups.primary_admin directly'; end if;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.make_primary_admin(%L, %L)$q$, gid7, c)) then raise exception 'FAIL a member made themself primary'; end if;
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails(format($q$select public.leave_group(%L)$q$, gid7)) then raise exception 'FAIL the primary admin left without handing over'; end if;
+  if not pg_temp.fails(format($q$select public.revoke_admin(%L, %L)$q$, gid7, a)) then raise exception 'FAIL the primary admin revoked their own admin rights'; end if;
+  if not pg_temp.fails(format($q$select public.make_primary_admin(%L, %L)$q$, gid7, d)) then raise exception 'FAIL the primary role went to someone outside the group'; end if;
+  perform public.make_primary_admin(gid7, b::uuid);
+  if public.is_primary_admin(gid7) then raise exception 'FAIL A is still primary after handing over'; end if;
+  if (select role from public.group_members where group_id = gid7 and user_id = a::uuid) <> 'admin' then raise exception 'FAIL A lost admin rights by handing over'; end if;
+  if not pg_temp.fails(format($q$select public.make_admin(%L, %L)$q$, gid7, c)) then raise exception 'FAIL the old primary admin still gives admin rights'; end if;
+  perform pg_temp.act_as(b);
+  perform public.revoke_admin(gid7, a::uuid);
+  if (select role from public.group_members where group_id = gid7 and user_id = a::uuid) <> 'member' then raise exception 'FAIL revoke_admin did not make A a member'; end if;
+  if not pg_temp.fails(format($q$select public.revoke_admin(%L, %L)$q$, gid7, b)) then raise exception 'FAIL the primary admin was demoted'; end if;
+  perform pg_temp.act_as(a);
+  perform public.leave_group(gid7); -- a plain member with nothing owed may leave
+  -- a group whose primary admin is gone (the account was deleted): the longest-standing admin takes over
+  reset role;
+  update public.groups set primary_admin = null where id = gid7;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gid7)) then raise exception 'FAIL a plain member took over a group'; end if;
+  perform pg_temp.act_as(b);
+  perform public.claim_primary_admin(gid7);
+  if not public.is_primary_admin(gid7) then raise exception 'FAIL the longest-standing admin could not take over'; end if;
+  -- the backfill for groups made before 1.28
+  reset role;
+  update public.groups set primary_admin = null where id = gid7;
+  update public.groups g set primary_admin = coalesce(
+      (select m.user_id from public.group_members m where m.group_id = g.id and m.user_id = g.created_by and m.left_at is null and m.role = 'admin'),
+      (select m.user_id from public.group_members m where m.group_id = g.id and m.left_at is null and m.role = 'admin' order by m.joined_at, m.user_id limit 1))
+    where g.primary_admin is null and g.id = gid7;
+  if (select primary_admin from public.groups where id = gid7) is distinct from b::uuid then raise exception 'FAIL the backfill picked the wrong primary admin (A, the creator, left; B is the admin)'; end if;
+  -- a group with people but no admin (the only admin's account is gone): not a stranger with an old code, but its longest-standing member
+  perform pg_temp.act_as(a);
+  gx := public.create_group('No admin left', 'family', 'Asha');
+  select i.code into xcode from public.group_invites i where i.group_id = gx;
+  perform pg_temp.act_as(b); perform public.join_group(xcode, 'Ravi');
+  perform pg_temp.act_as(c); perform public.join_group(xcode, 'Cee');
+  reset role;
+  update public.group_members set role = 'member' where group_id = gx;
+  update public.groups set primary_admin = null where id = gx;
+  perform pg_temp.act_as(d);
+  perform public.join_group(xcode, 'Dev'); -- a stranger holding the code joins as a plain member only
+  if (select role from public.group_members where group_id = gx and user_id = d::uuid) <> 'member' then raise exception 'FAIL a stranger with an old code became admin of a group that has people'; end if;
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a newcomer took over a group with no admin'; end if;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a member who is not the longest-standing took over'; end if;
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a member who is not the longest-standing took over (B)'; end if;
+  perform pg_temp.act_as(a); -- A made the group and joined first
+  perform public.claim_primary_admin(gx);
+  if not public.is_primary_admin(gx) then raise exception 'FAIL the longest-standing member could not take over a group with no admin'; end if;
+  if (select role from public.group_members where group_id = gx and user_id = a::uuid) <> 'admin' then raise exception 'FAIL the member who took over is not an admin'; end if;
+  perform pg_temp.act_as(d); perform public.leave_group(gx); -- D shares nothing with A again
+  raise notice 'PASS primary admin: only they give or take admin rights; cannot be removed, demoted or leave without handing over; handover and take-over work';
+
+  -- =========================================================================
+  -- 12. THE CIRCLE
+  -- =========================================================================
+  perform pg_temp.act_as(null);
+  if not pg_temp.fails('select * from public.my_circle()') or not pg_temp.fails('select public.circle_new_invite()') or not pg_temp.fails($q$select public.circle_join('aaaaaaaaaaaa')$q$) then
+    raise exception 'FAIL anon could use the Circle'; end if;
+  perform pg_temp.act_as(d);
+  insert into public.profiles (user_id, name) values (d::uuid, 'Dev Name');
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails('select * from public.circle_links') or not pg_temp.fails('select * from public.circle_invites') then raise exception 'FAIL an app user read a Circle table directly'; end if;
+  if not pg_temp.fails($q$insert into public.circle_links (user_a, user_b) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd')$q$) then raise exception 'FAIL an app user wrote a Circle link directly'; end if;
+  if not pg_temp.fails('select public.circle_link_count(auth.uid())') then raise exception 'FAIL an app user called the internal Circle counter'; end if;
+  -- people from shared groups are in the Circle without a link (A left the first group above, so A and B share a new one)
+  perform pg_temp.act_as(a);
+  gid7 := public.create_group('Circle test', 'family', 'Asha');
+  select i.code into pcode from public.group_invites i where i.group_id = gid7;
+  perform pg_temp.act_as(b); perform public.join_group(pcode, 'Ravi');
+  perform pg_temp.act_as(a);
+  if (select count(*) from public.my_circle() where linked) <> 0 then raise exception 'FAIL A has linked people before linking anyone'; end if;
+  if not exists (select 1 from public.my_circle() where user_id = b::uuid and not linked and 'Circle test' = any (shared_groups)) then raise exception 'FAIL a group member is not in the Circle through the group'; end if;
+  if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL D, who shares nothing with A yet, is in A''s Circle'; end if;
+  -- link by code
+  pcode := public.circle_new_invite();
+  if pcode !~ '^[0-9a-f]{20}$' then raise exception 'FAIL the Circle code has the wrong shape'; end if;
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL someone used their own Circle code'; end if;
+  perform pg_temp.act_as(d);
+  if not pg_temp.fails($q$select public.circle_join('00000000000000000000')$q$) then raise exception 'FAIL a code that does not exist was accepted'; end if;
+  dname := public.circle_join(pcode);
+  if dname is distinct from '' then raise exception 'FAIL circle_join returned %, A has no profile name', dname; end if;
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL a Circle code worked twice'; end if;
+  if not exists (select 1 from public.my_circle() where user_id = a::uuid and linked) then raise exception 'FAIL D does not have A in the Circle'; end if;
+  -- the code stays used even if the person who used it deletes their account (used_by is then emptied)
+  reset role;
+  update public.circle_invites set used_by = null where code = pcode;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL a used Circle code worked again after its user was gone'; end if;
+  perform pg_temp.act_as(b);
+  insert into public.profiles (user_id, name) values (b::uuid, 'Bee Real Name');
+  perform pg_temp.act_as(a);
+  if not exists (select 1 from public.my_circle() where user_id = b::uuid and not linked and name = 'Ravi') then raise exception 'FAIL a person known only through a group is shown by their profile name, not the name they use in the group'; end if;
+  if not exists (select 1 from public.my_circle() where user_id = d::uuid and linked and name = 'Dev Name') then raise exception 'FAIL A does not have D (by profile name) in the Circle'; end if;
+  perform pg_temp.act_as(c);
+  if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL C can see D, whom C shares nothing with'; end if;
+  if (select string_agg(a2.proargnames[i2], ',' order by i2) from pg_proc a2, generate_subscripts((select proargnames from pg_proc where oid = 'public.my_circle()'::regprocedure), 1) i2
+       where a2.oid = 'public.my_circle()'::regprocedure and (a2.proargmodes)[i2] = 't') <> 'user_id,name,linked,shared_groups' then
+    raise exception 'FAIL my_circle returns more than an id, a name, the link flag and the shared group names'; end if;
+  -- an expired code does not work
+  perform pg_temp.act_as(a);
+  ccode2 := public.circle_new_invite();
+  reset role;
+  update public.circle_invites set expires_at = now() - interval '1 minute' where code = ccode2;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, ccode2)) then raise exception 'FAIL an expired Circle code worked'; end if;
+  -- removing a link works both ways and leaves group members alone
+  perform pg_temp.act_as(d);
+  perform public.circle_remove(a::uuid);
+  if exists (select 1 from public.my_circle() where user_id = a::uuid) then raise exception 'FAIL D still has A after removing the link'; end if;
+  perform pg_temp.act_as(a);
+  if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL A still has D after D removed the link'; end if;
+  perform public.circle_remove(b::uuid); -- B is only there through the group: nothing to remove, and no error
+  if not exists (select 1 from public.my_circle() where user_id = b::uuid) then raise exception 'FAIL removing a link took away a person from a shared group'; end if;
+  -- limits: 10 unused codes, 100 linked people
+  reset role;
+  delete from public.circle_invites;
+  perform pg_temp.act_as(a);
+  for i in 1..10 loop perform public.circle_new_invite(); end loop;
+  if not pg_temp.fails('select public.circle_new_invite()') then raise exception 'FAIL an 11th unused Circle code was made'; end if;
+  reset role;
+  delete from public.circle_invites;
+  insert into auth.users (id) select gen_random_uuid() from generate_series(1, 100);
+  insert into public.circle_links (user_a, user_b)
+    select least(a::uuid, u.id), greatest(a::uuid, u.id) from auth.users u
+     where u.id not in (a::uuid, b::uuid, c::uuid, d::uuid) limit 100;
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails('select public.circle_new_invite()') then raise exception 'FAIL a Circle of 100 linked people made another code'; end if;
+  raise notice 'PASS Circle: links only by single-use code, nobody reads the tables, strangers stay invisible, removing works, limits hold';
 
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;

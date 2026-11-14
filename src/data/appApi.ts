@@ -9,6 +9,7 @@ import type { LockConfig } from './lock.ts';
 import type { Receipt } from '../core/receipts.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
+import type { CircleMember } from '../core/circle.ts';
 import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
 import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
@@ -95,7 +96,16 @@ export interface AppApi {
   resetInvite: (groupId: string) => Promise<string>;
   leaveGroup: (groupId: string) => Promise<void>;
   removeMember: (groupId: string, userId: string) => Promise<void>;
-  makeAdmin: (groupId: string, userId: string) => Promise<void>;
+  makeAdmin: (groupId: string, userId: string) => Promise<void>; // the primary admin only
+  revokeAdmin: (groupId: string, userId: string) => Promise<void>; // the primary admin only
+  makePrimaryAdmin: (groupId: string, userId: string) => Promise<void>; // the primary admin hands the role over
+  claimPrimaryAdmin: (groupId: string) => Promise<void>; // a group with no primary admin: its longest-standing admin takes over
+  circle: () => Promise<CircleMember[]>; // who is in the Circle (asks the server; throws when offline or the database has no 1.28 yet)
+  newCircleCode: () => Promise<string>;
+  joinCircle: (code: string) => Promise<string>; // returns the name of the person whose code it was
+  removeFromCircle: (userId: string) => Promise<void>;
+  circleCode: string | null; // a Circle link was opened: the code it carried
+  clearCircleCode: () => void;
   setDisplayName: (groupId: string, name: string) => Promise<void>;
   setTripDates: (groupId: string, starts: string | null, ends: string | null) => Promise<void>; // admins, trips
   setGroupClosed: (groupId: string, closed: boolean) => Promise<void>; // admins, trips: close or reopen

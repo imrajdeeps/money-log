@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as AddRouteImport } from './routes/add'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as CashflowRouteImport } from './routes/cashflow'
+import { Route as CircleRouteImport } from './routes/circle'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as MonthRouteImport } from './routes/month'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -48,6 +49,11 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
 const CashflowRoute = CashflowRouteImport.update({
   id: '/cashflow',
   path: '/cashflow',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CircleRoute = CircleRouteImport.update({
+  id: '/circle',
+  path: '/circle',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GoalsRoute = GoalsRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/add': typeof AddRoute
   '/analytics': typeof AnalyticsRoute
   '/cashflow': typeof CashflowRoute
+  '/circle': typeof CircleRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
   '/notifications': typeof NotificationsRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/add': typeof AddRoute
   '/analytics': typeof AnalyticsRoute
   '/cashflow': typeof CashflowRoute
+  '/circle': typeof CircleRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
   '/notifications': typeof NotificationsRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/add': typeof AddRoute
   '/analytics': typeof AnalyticsRoute
   '/cashflow': typeof CashflowRoute
+  '/circle': typeof CircleRoute
   '/goals': typeof GoalsRoute
   '/month': typeof MonthRoute
   '/notifications': typeof NotificationsRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/analytics'
     | '/cashflow'
+    | '/circle'
     | '/goals'
     | '/month'
     | '/notifications'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/analytics'
     | '/cashflow'
+    | '/circle'
     | '/goals'
     | '/month'
     | '/notifications'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/analytics'
     | '/cashflow'
+    | '/circle'
     | '/goals'
     | '/month'
     | '/notifications'
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   AddRoute: typeof AddRoute
   AnalyticsRoute: typeof AnalyticsRoute
   CashflowRoute: typeof CashflowRoute
+  CircleRoute: typeof CircleRoute
   GoalsRoute: typeof GoalsRoute
   MonthRoute: typeof MonthRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -259,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/cashflow'
       fullPath: '/cashflow'
       preLoaderRoute: typeof CashflowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/circle': {
+      id: '/circle'
+      path: '/circle'
+      fullPath: '/circle'
+      preLoaderRoute: typeof CircleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/goals': {
@@ -352,6 +372,7 @@ const rootRouteChildren: RootRouteChildren = {
   AddRoute: AddRoute,
   AnalyticsRoute: AnalyticsRoute,
   CashflowRoute: CashflowRoute,
+  CircleRoute: CircleRoute,
   GoalsRoute: GoalsRoute,
   MonthRoute: MonthRoute,
   NotificationsRoute: NotificationsRoute,

@@ -11,6 +11,7 @@ import { AllPayments, QuickLog } from '../features/payments/index.ts';
 import { SyncPill } from '../ui/SyncPill.tsx';
 import { AnalyticsScreen } from '../features/analytics/index.ts';
 import { CashFlowScreen } from '../features/cashflow/index.ts';
+import { CircleScreen } from '../features/circle/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
 import type { Section } from '../features/home/index.ts';
@@ -28,14 +29,14 @@ import * as sh from './shellStyles.ts';
 import { tr } from '../core/i18n.ts';
 
 // Everything is a page with its own address, so a refresh and the back button stay where they were:
-//   /  /month  /plan  /payments  /add  /groups  /groups/<id>  /groups/<id>/settings  /settings  /settings/<part>
+//   /  /month  /plan  /payments  /add  /groups  /circle  /groups/<id>  /groups/<id>/settings  /settings  /settings/<part>
 // The Overview, Settings and Add expense stay mounted behind the others (they keep their place and a half-typed payment);
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', notifications: '/notifications' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', notifications: '/notifications' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', notifications: 'Notifications' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Circle', notifications: 'Notifications' };
 
 const SPLASH_MS = 900; // how long the start screen stays, at least
 
@@ -125,6 +126,7 @@ function Shell() {
   }, [app.ready, app.recovering, app.authNotice, app.locked, goSettings]);
   // A join link was opened: show where it can be used, once the PIN screen (if any) is out of the way.
   useEffect(() => { if (app.ready && app.joinCode && !app.locked) goPage('groups'); }, [app.ready, app.joinCode, app.locked, goPage]);
+  useEffect(() => { if (app.ready && app.circleCode && !app.locked) goPage('circle'); }, [app.ready, app.circleCode, app.locked, goPage]);
   // The PIN screen must not sit under an open dialog (they are drawn above the page): close them all before it is painted
   // and before it puts the focus in its PIN field.
   useLayoutEffect(() => {
@@ -179,7 +181,8 @@ function Shell() {
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}
-        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} /></PageBody>}
+        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} /></PageBody>}
+        {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}

@@ -9,6 +9,8 @@ import { authMessage, checkPassword } from './password.ts';
 import { cleanGroup, cleanInvite, cleanMember, cleanSettlement, mergeRemoteSettlement } from '../core/groups.ts';
 import type { Group, Invite, Member, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
+import { cleanCircleMember } from '../core/circle.ts';
+import type { CircleMember } from '../core/circle.ts';
 import { cleanHistory } from '../core/history.ts';
 import type { HistoryRow } from '../core/history.ts';
 import { cleanEntry, mergeRemote, newId, parseTs } from '../core/logic.ts';
@@ -660,10 +662,26 @@ export function createSync(opts: SyncOptions) {
   const leaveGroup = (groupId: string) => rpc<null>('leave_group', { p_group: groupId });
   const removeMember = (groupId: string, userId: string) => rpc<null>('remove_member', { p_group: groupId, p_user: userId });
   const makeAdmin = (groupId: string, userId: string) => rpc<null>('make_admin', { p_group: groupId, p_user: userId });
+  const revokeAdmin = (groupId: string, userId: string) => rpc<null>('revoke_admin', { p_group: groupId, p_user: userId });
+  const makePrimaryAdmin = (groupId: string, userId: string) => rpc<null>('make_primary_admin', { p_group: groupId, p_user: userId });
+  const claimPrimaryAdmin = (groupId: string) => rpc<null>('claim_primary_admin', { p_group: groupId });
   const setDisplayName = (groupId: string, name: string) => rpc<null>('set_display_name', { p_group: groupId, p_name: name });
   const setTripDates = (groupId: string, starts: string | null, ends: string | null) => rpc<null>('set_trip_dates', { p_group: groupId, p_starts: starts, p_ends: ends });
   const setGroupClosed = (groupId: string, closed: boolean) => rpc<null>('set_group_closed', { p_group: groupId, p_closed: closed });
   const setUsualSplit = (groupId: string, split: UsualSplit | null) => rpc<null>('set_usual_split', { p_group: groupId, p_split: split });
+
+  // The Circle (version 1.28): answered by the server on demand, not part of the sync, so nothing here is kept on the phone.
+  async function circleCall<T>(name: string, args: Record<string, unknown>): Promise<T> {
+    if (!enabled) throw new SyncError('http', tr('Cloud sync is not set up in this build.'));
+    return (await request(`/rest/v1/rpc/${name}`, { method: 'POST', body: args })) as T;
+  }
+  const fetchCircle = async (): Promise<CircleMember[]> => {
+    const rows = (await circleCall<unknown[] | null>('my_circle', {})) ?? [];
+    return rows.map(cleanCircleMember).filter((m): m is CircleMember => m !== null);
+  };
+  const newCircleCode = () => circleCall<string>('circle_new_invite', {});
+  const joinCircle = (code: string) => circleCall<string>('circle_join', { p_code: code });
+  const removeFromCircle = (userId: string) => circleCall<null>('circle_remove', { p_user: userId });
 
   // The sign-in record: where the account is signed in now, and what happened to it (the two read-only functions of version 1.25).
   // They answer 404 until the database has them; the caller says "not available yet" then.
@@ -702,7 +720,8 @@ export function createSync(opts: SyncOptions) {
     eraseAll,
     sync,
     refreshPending,
-    createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
+    createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
+    fetchCircle, newCircleCode, joinCircle, removeFromCircle,
     receiptBlob, fetchHistory, fetchSessions, fetchSignInLog,
   };
 }
