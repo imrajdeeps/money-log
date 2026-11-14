@@ -1015,4 +1015,6 @@ export const HI: Record<string, string> = {
   'Your name, if you join': 'आपका नाम, अगर आप जुड़ें',
   '{0} asked you to join this goal. Target {1} by {2}.': '{0} ने आपको इस लक्ष्य में बुलाया है। लक्ष्य {1}, {2} तक।',
   'Decline': 'अस्वीकार करें',
+  'New: shared goals': 'नया: साझा लक्ष्य',
+  'Goals has a Shared goals section now: one target and one date, with people from your Circle. Each person adds their own top-ups, and everyone sees the total and who put in what. People join only when they accept, and a shared goal never counts in your own plan.': 'लक्ष्य में अब साझा लक्ष्य का हिस्सा है: एक लक्ष्य और एक तारीख़, आपके सर्किल के लोगों के साथ। हर कोई अपने टॉप-अप जोड़ता है, और सबको कुल और हर किसी का योगदान दिखता है। लोग तभी जुड़ते हैं जब वे मंज़ूर करें, और साझा लक्ष्य आपकी अपनी योजना में कभी नहीं गिना जाता।',
 };
