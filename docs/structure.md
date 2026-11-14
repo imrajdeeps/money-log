@@ -12,7 +12,7 @@ src/
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
               the sync pill, file helpers.
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
-    home/  payments/  recurring/  month/  plan/  goals/  groups/  notifications/  settings/  tour/  analytics/  cashflow/
+    home/  payments/  recurring/  month/  plan/  goals/  groups/  circle/  notifications/  settings/  tour/  analytics/  cashflow/
       index.ts    the only file other code may import from this folder
   app/        starts the app: main.tsx, the page frame (App.tsx), the router.
   routes/     one small file per address (TanStack Router reads this folder). routeTree.gen.ts is generated.
@@ -113,7 +113,7 @@ point at, and bump `core/version.ts` and `package.json` together.
 - `features/settings/SettingsScreen.tsx` is only the list; each part is a file in `features/settings/parts/` (one per
   `/settings/<part>` page, plus `shared.ts` for the version number and two small helpers).
 - `features/groups/GroupsScreen.tsx` is the list; `GroupDetail.tsx` is one group's page and `GroupSettings.tsx` its settings page
-  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx`); `JoinCard.tsx`,
+  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx` with `PersonRow.tsx`); `JoinCard.tsx`,
   `CreateCard.tsx` and `useAction.ts` hold the rest.
 - `data/sync.ts` is the sync engine: one closure over the store, the session and the state, so it stays in one file. What
   does not touch that state is beside it: `syncTypes.ts` (state, error, options), `syncBlocks.ts` (the table of blocks) and

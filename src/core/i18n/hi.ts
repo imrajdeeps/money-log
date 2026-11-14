@@ -970,4 +970,6 @@ export const HI: Record<string, string> = {
   'Primary admin': 'प्राइमरी एडमिन',
   'Remove admin': 'एडमिन हटाएँ',
   'Make primary admin': 'प्राइमरी एडमिन बनाएँ',
+  'New: your Circle and the primary admin': 'नया: आपका सर्किल और प्राइमरी एडमिन',
+  'Groups has Your Circle now: everyone you share a group with is in it, and you can add anyone else with a code or link. They see only your name. Every group has a primary admin (the person who made it): they cannot be removed, and only they make or remove admins or hand the role on.': 'ग्रुप्स में अब आपका सर्किल है: जिनके साथ आपका ग्रुप साझा है वे सब इसमें हैं, और किसी और को आप कोड या लिंक से जोड़ सकते हैं। उन्हें सिर्फ़ आपका नाम दिखता है। हर ग्रुप का एक प्राइमरी एडमिन होता है (जिसने ग्रुप बनाया): उसे हटाया नहीं जा सकता, और सिर्फ़ वही एडमिन बना या हटा सकता है या यह पद किसी और को दे सकता है।',
 };
