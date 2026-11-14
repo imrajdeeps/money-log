@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import type { Goal } from '../../core/goals.ts';
 import { isoDate, parseAmount } from '../../core/logic.ts';
+import { confirmRemoveGoal } from './confirmRemove.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -42,6 +43,14 @@ export function GoalForm({ goal, onDone }: Readonly<{ goal?: Goal; onDone: () =>
     onDone();
   }
 
+  async function remove() {
+    if (!goal || !confirmRemoveGoal(goal.n)) return;
+    setBusy(true);
+    await app.removeGoal(goal.id);
+    app.toast(tr('Removed: {0}', goal.n));
+    onDone();
+  }
+
   return (
     <form className={ui.card()} onSubmit={submit} noValidate>
       <h2>{goal ? tr('Change goal') : tr('New goal')}</h2>
@@ -64,6 +73,7 @@ export function GoalForm({ goal, onDone }: Readonly<{ goal?: Goal; onDone: () =>
         <button type="submit" className={ui.btn()} disabled={busy}>{goal ? tr('Save') : tr('Add goal')}</button>
         <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
       </div>
+      {goal && <button type="button" className={ui.btn('danger', 'md', ui.inCard)} disabled={busy} onClick={() => void remove()}>{tr('Delete goal')}</button>}
     </form>
   );
 }

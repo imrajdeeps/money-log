@@ -6,6 +6,7 @@ import type { Goal } from '../../core/goals.ts';
 import { budgetEntries, isoDate, monthOf, summarizeMonth } from '../../core/logic.ts';
 import { GoalForm } from './GoalForm.tsx';
 import { GoalRow } from './GoalRow.tsx';
+import { confirmRemoveGoal } from './confirmRemove.ts';
 import { PlanCard } from './PlanCard.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -39,7 +40,7 @@ export function GoalsScreen() {
           {mine.map((r) => (
             <GoalRow key={r.goal.id} goal={r.goal} progress={r.progress} line={r.line} topUps={r.topUps}
               onEdit={() => setForm(r.goal)}
-              onRemove={() => { void app.removeGoal(r.goal.id).then(() => app.toast(tr('Removed: {0}', r.goal.n))); }} />
+              onRemove={() => { if (confirmRemoveGoal(r.goal.n)) void app.removeGoal(r.goal.id).then(() => app.toast(tr('Removed: {0}', r.goal.n))); }} />
           ))}
         </ul>
       </>

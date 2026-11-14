@@ -4,13 +4,15 @@ import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
 import { kindLabel } from '../../core/groupKinds.ts';
 import { fmtINR } from '../../core/logic.ts';
 import { GroupDetail } from './GroupDetail.tsx';
+import { GroupSettings } from './GroupSettings.tsx';
 import { CreateCard } from './CreateCard.tsx';
 import { JoinCard } from './JoinCard.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
-// groupId: the group named in the address (/groups/<id>), or none for the list. onOpen(id) goes to a group, onOpen() to the list.
-export function GroupsScreen({ groupId, onOpen, openSettings }: Readonly<{ groupId?: string; onOpen: (id?: string) => void; openSettings: () => void }>) {
+// groupId: the group named in the address (/groups/<id>), or none for the list. settings: that group's settings are open
+// (/groups/<id>/settings). onOpen(id) goes to a group, onOpen(id, true) to its settings, onOpen() to the list.
+export function GroupsScreen({ groupId, settings = false, onOpen, openSettings }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void }>) {
   const app = useApp();
   const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
   // An invitation arrived (a tapped link): go back to the list, where the join form is.
@@ -27,7 +29,8 @@ export function GroupsScreen({ groupId, onOpen, openSettings }: Readonly<{ group
       </div>
     );
   }
-  if (open) return <GroupDetail group={open} onBack={() => onOpen()} />;
+  if (open && settings) return <GroupSettings group={open} onBack={() => onOpen(open.id)} onLeft={() => onOpen()} />;
+  if (open) return <GroupDetail group={open} onBack={() => onOpen()} onSettings={() => onOpen(open.id, true)} />;
   if (groupId) {
     return (
       <div className={ui.card('notice')}>
