@@ -210,4 +210,4 @@ export const amount =
   'flex items-center gap-1.5 border border-line rounded-xl px-3.5 py-1 bg-bg focus-within:[outline:3px_solid_var(--accent)] focus-within:outline-offset-2 ' +
   '[&_span]:text-[30px] [&_span]:text-muted [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[34px] [&_input]:font-bold [&_input]:min-h-[60px] [&_input]:p-0 [&_input:focus-visible]:outline-none';
 export const payFilters = 'mb-3 [&_p]:m-0';
-export const paySelects = 'grid grid-cols-3 gap-2 my-2 mx-0 [&_select]:px-2';
+export const paySelects = 'grid grid-cols-2 gap-2 my-2 mx-0 sm:grid-cols-4 [&_select]:px-2';

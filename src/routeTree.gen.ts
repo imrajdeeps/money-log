@@ -23,6 +23,7 @@ import { Route as GroupsIndexRouteImport } from './routes/groups.index'
 import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as SettingsIndexRouteImport } from './routes/settings.index'
 import { Route as SettingsPartRouteImport } from './routes/settings.$part'
+import { Route as GroupsGroupIdSettingsRouteImport } from './routes/groups.$groupId.settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +95,11 @@ const SettingsPartRoute = SettingsPartRouteImport.update({
   path: '/settings/$part',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GroupsGroupIdSettingsRoute = GroupsGroupIdSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => GroupsGroupIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -106,10 +112,11 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
-  '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/groups/$groupId': typeof GroupsGroupIdRouteWithChildren
   '/settings/$part': typeof SettingsPartRoute
   '/groups/': typeof GroupsIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/groups/$groupId/settings': typeof GroupsGroupIdSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -122,10 +129,11 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
-  '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/groups/$groupId': typeof GroupsGroupIdRouteWithChildren
   '/settings/$part': typeof SettingsPartRoute
   '/groups': typeof GroupsIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/groups/$groupId/settings': typeof GroupsGroupIdSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -139,10 +147,11 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
-  '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/groups/$groupId': typeof GroupsGroupIdRouteWithChildren
   '/settings/$part': typeof SettingsPartRoute
   '/groups/': typeof GroupsIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/groups/$groupId/settings': typeof GroupsGroupIdSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/settings/$part'
     | '/groups/'
     | '/settings/'
+    | '/groups/$groupId/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/settings/$part'
     | '/groups'
     | '/settings'
+    | '/groups/$groupId/settings'
   id:
     | '__root__'
     | '/'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/settings/$part'
     | '/groups/'
     | '/settings/'
+    | '/groups/$groupId/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -206,7 +218,7 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   PaymentsRoute: typeof PaymentsRoute
   PlanRoute: typeof PlanRoute
-  GroupsGroupIdRoute: typeof GroupsGroupIdRoute
+  GroupsGroupIdRoute: typeof GroupsGroupIdRouteWithChildren
   SettingsPartRoute: typeof SettingsPartRoute
   GroupsIndexRoute: typeof GroupsIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
@@ -312,8 +324,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/groups/$groupId/settings': {
+      id: '/groups/$groupId/settings'
+      path: '/settings'
+      fullPath: '/groups/$groupId/settings'
+      preLoaderRoute: typeof GroupsGroupIdSettingsRouteImport
+      parentRoute: typeof GroupsGroupIdRoute
+    }
   }
 }
+
+interface GroupsGroupIdRouteChildren {
+  GroupsGroupIdSettingsRoute: typeof GroupsGroupIdSettingsRoute
+}
+
+const GroupsGroupIdRouteChildren: GroupsGroupIdRouteChildren = {
+  GroupsGroupIdSettingsRoute: GroupsGroupIdSettingsRoute,
+}
+
+const GroupsGroupIdRouteWithChildren = GroupsGroupIdRoute._addFileChildren(
+  GroupsGroupIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -326,7 +357,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   PaymentsRoute: PaymentsRoute,
   PlanRoute: PlanRoute,
-  GroupsGroupIdRoute: GroupsGroupIdRoute,
+  GroupsGroupIdRoute: GroupsGroupIdRouteWithChildren,
   SettingsPartRoute: SettingsPartRoute,
   GroupsIndexRoute: GroupsIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,

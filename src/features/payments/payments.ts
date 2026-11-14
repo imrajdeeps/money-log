@@ -1,6 +1,8 @@
 // Search and filters behind the All payments sheet. Pure (no DOM, no storage) so the Node test runner can check them.
-import { byDate, isIncome, myShare } from '../../core/logic.ts';
+import { isIncome, myShare } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
+import { DEFAULT_SORT, comparePayments } from '../../core/paymentSort.ts';
+import type { SortKey } from '../../core/paymentSort.ts';
 
 // '' means "any" for month, category and method.
 export interface PaymentFilter { q: string; month: string; category: string; method: string }
@@ -14,9 +16,9 @@ function haystack(e: Entry, me: string | null): string {
   return [e.category, e.note, e.method, String(myShare(e, me)), String(e.amount)].filter(Boolean).join(' ').toLowerCase();
 }
 
-// Newest day first. Every word of the search must be found (in any order); the month, category and method must match exactly
+// In the chosen order (newest day first unless told otherwise). Every word of the search must be found (in any order); the month, category and method must match exactly
 // (category without regard to case, as elsewhere in the app).
-export function filterPayments(entries: Entry[], f: PaymentFilter, me: string | null): Entry[] {
+export function filterPayments(entries: Entry[], f: PaymentFilter, me: string | null, order: SortKey = DEFAULT_SORT): Entry[] {
   const words = f.q.toLowerCase().replace(/[₹,]/g, '').split(/\s+/).filter(Boolean);
   const cat = f.category.toLowerCase();
   return entries
@@ -24,7 +26,7 @@ export function filterPayments(entries: Entry[], f: PaymentFilter, me: string | 
       && (!cat || e.category.toLowerCase() === cat)
       && (!f.method || e.method === f.method)
       && (words.length === 0 || words.every((w) => haystack(e, me).includes(w))))
-    .sort((a, b) => byDate(b, a)); // by the day paid, then by when it was logged
+    .sort(comparePayments(order, me));
 }
 
 export const paymentMonths = (entries: Entry[]): string[] =>
