@@ -294,11 +294,12 @@ declare
   i int;
   u text;
   rpc constant text[] := array['create_group(text,text,text)', 'join_group(text,text)', 'reset_invite(uuid)', 'leave_group(uuid)',
-                               'remove_member(uuid,uuid)', 'make_admin(uuid,uuid)', 'set_display_name(uuid,text)',
+                               'remove_member(uuid,uuid)', 'make_admin(uuid,uuid)', 'revoke_admin(uuid,uuid)', 'make_primary_admin(uuid,uuid)', 'claim_primary_admin(uuid)',
+                               'circle_new_invite()', 'circle_join(text)', 'circle_remove(uuid)', 'my_circle()', 'set_display_name(uuid,text)',
                                'set_trip_dates(uuid,date,date)', 'set_group_closed(uuid,boolean)', 'set_usual_split(uuid,jsonb)'];
   internal constant text[] := array['group_balance(uuid,uuid)', 'was_group_member(uuid,uuid)', 'new_invite_code()',
-                                    'validate_entry_group()', 'validate_settlement()', 'names_former_member(uuid,uuid,jsonb)', 'enforce_row_cap()'];
-  helpers constant text[] := array['is_group_member(uuid)', 'is_group_admin(uuid)'];
+                                    'validate_entry_group()', 'validate_settlement()', 'names_former_member(uuid,uuid,jsonb)', 'enforce_row_cap()', 'circle_link_count(uuid)'];
+  helpers constant text[] := array['is_group_member(uuid)', 'is_group_admin(uuid)', 'is_primary_admin(uuid)'];
   shared_row constant text := $q$insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares)
                                  values (gen_random_uuid(), %L, '2026-11-09', 'Dinner', %s, %L, %L, %L::jsonb)$q$;
 begin
@@ -378,7 +379,7 @@ begin
   if (select count(*) from pg_trigger where not tgisinternal and tgname in
         ('entries_validate_group', 'settlements_validate', 'settlements_touch_synced_at', 'settlements_keep_latest_edit', 'entries_cap', 'settlements_cap')) <> 6 then
     raise exception 'FAIL group validation, row-cap or sync triggers are missing'; end if;
-  foreach fn in array array['leave_group', 'remove_member', 'make_admin', 'join_group'] loop
+  foreach fn in array array['leave_group', 'remove_member', 'make_admin', 'revoke_admin', 'make_primary_admin', 'claim_primary_admin', 'join_group'] loop
     if not exists (select 1 from pg_proc p where p.proname = fn and p.pronamespace = 'public'::regnamespace
                     and position('for update' in p.prosrc) > 0 and position('public.groups g' in p.prosrc) > 0) then
       raise exception 'FAIL % does not lock the group row before changing membership', fn; end if;
@@ -610,7 +611,7 @@ begin
   -- the only admin cannot walk away from a group that still has people in it
   perform pg_temp.act_as(a);
   if not pg_temp.fails(format($q$select public.leave_group(%L)$q$, gid)) then raise exception 'FAIL the only admin left a group with members'; end if;
-  perform public.make_admin(gid, b::uuid);
+  perform public.make_primary_admin(gid, b::uuid); -- the creator is the primary admin: hand the role over before leaving
   perform public.leave_group(gid);
   perform pg_temp.act_as(b);
   if (select role from public.group_members where group_id = gid and user_id = b::uuid) <> 'admin' then raise exception 'FAIL B is not admin'; end if;
@@ -1311,18 +1312,335 @@ begin
   -- =========================================================================
   reset role;
   perform pg_temp.act_as(a);
-  insert into public.entries (id, owner_id, entry_date, category, amount, kind) values ('40000000-0000-4000-8000-000000000001', a::uuid, '2026-11-11', 'Salary', 50000, 'in');
-  if (select kind from public.entries where id = '40000000-0000-4000-8000-000000000001') <> 'in' then raise exception 'FAIL an income entry was not stored as income'; end if;
-  insert into public.entries (id, owner_id, entry_date, category, amount) values ('40000000-0000-4000-8000-000000000002', a::uuid, '2026-11-11', 'Rent', 100);
-  if (select kind from public.entries where id = '40000000-0000-4000-8000-000000000002') <> 'out' then raise exception 'FAIL an entry sent without a kind is not spending'; end if;
-  if not pg_temp.fails(format('insert into public.entries (owner_id, entry_date, category, amount, kind) values (%L, ''2026-11-11'', ''Salary'', 1, ''sideways'')', a)) then raise exception 'FAIL an unknown kind was accepted'; end if;
-  if not pg_temp.fails(format('insert into public.entries (owner_id, entry_date, category, amount, kind, share_of) values (%L, ''2026-11-11'', ''Refund'', 1, ''in'', %L)', a, e1)) then raise exception 'FAIL income recording a share of a shared expense was accepted'; end if;
+  insert into public.entries (id, owner_id, entry_date, category, amount, kind) values ('a1000000-0000-4000-8000-000000000001', a::uuid, '2026-11-11', 'Salary', 50000, 'in');
+  if (select kind from public.entries where id = 'a1000000-0000-4000-8000-000000000001') <> 'in' then raise exception 'FAIL an income entry was not stored as income'; end if;
+  insert into public.entries (id, owner_id, entry_date, category, amount) values ('a1000000-0000-4000-8000-000000000002', a::uuid, '2026-11-11', 'Rent', 100);
+  if (select kind from public.entries where id = 'a1000000-0000-4000-8000-000000000002') <> 'out' then raise exception 'FAIL an entry sent without a kind is not spending'; end if;
+  if not pg_temp.fails(format('insert into public.entries (id, owner_id, entry_date, category, amount, kind) values (''a1000000-0000-4000-8000-000000000003'', %L, ''2026-11-11'', ''Salary'', 1, ''sideways'')', a)) then raise exception 'FAIL an unknown kind was accepted'; end if;
+  if not pg_temp.fails(format('insert into public.entries (id, owner_id, entry_date, category, amount, kind, share_of) values (''a1000000-0000-4000-8000-000000000004'', %L, ''2026-11-11'', ''Refund'', 1, ''in'', %L)', a, 'a1000000-0000-4000-8000-000000000002')) then raise exception 'FAIL income recording a share of a shared expense was accepted'; end if;
   if not exists (select 1 from pg_constraint where conrelid = 'public.entries'::regclass and conname = 'entries_income_private' and pg_get_constraintdef(oid) ilike '%group_id IS NULL%') then raise exception 'FAIL income is not barred from groups'; end if;
   perform pg_temp.act_as(b);
   if pg_temp.n('select 1 from public.entries where kind = ''in''') <> 0 then raise exception 'FAIL B can read A income'; end if;
   perform pg_temp.act_as(null);
   if not pg_temp.fails('select 1 from public.entries') then raise exception 'FAIL anon could read entries'; end if;
   raise notice 'PASS income: private to its owner, a known kind, never in a group';
+
+
+end $$;
+
+-- ===========================================================================
+-- 11 and 12 run as a third block with their own people (the first block's A made its 10 groups already)
+-- ===========================================================================
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into auth.users (id) values
+  ('ffff0001-ffff-4fff-8fff-ffffffff0001'), ('ffff0002-ffff-4fff-8fff-ffffffff0002'),
+  ('ffff0003-ffff-4fff-8fff-ffffffff0003'), ('ffff0004-ffff-4fff-8fff-ffffffff0004');
+
+do $$
+declare
+  a constant text := 'ffff0001-ffff-4fff-8fff-ffffffff0001';
+  b constant text := 'ffff0002-ffff-4fff-8fff-ffffffff0002';
+  c constant text := 'ffff0003-ffff-4fff-8fff-ffffffff0003';
+  d constant text := 'ffff0004-ffff-4fff-8fff-ffffffff0004';
+  fn text; gid7 uuid; gx uuid; sg uuid; sg2 uuid; sgs uuid[]; tid uuid; doc jsonb; pcode text; xcode text; ccode2 text; dname text; i int;
+begin
+  -- =========================================================================
+  -- 11. PRIMARY ADMIN
+  -- =========================================================================
+  reset role;
+  perform pg_temp.act_as(a);
+  gid7 := public.create_group('Primary test', 'family', 'Asha');
+  select i.code into pcode from public.group_invites i where i.group_id = gid7;
+  perform pg_temp.act_as(b); perform public.join_group(pcode, 'Ravi');
+  perform pg_temp.act_as(c); perform public.join_group(pcode, 'Cee');
+  reset role;
+  if (select primary_admin from public.groups where id = gid7) is distinct from a::uuid then raise exception 'FAIL the creator is not the primary admin'; end if;
+  perform pg_temp.act_as(a);
+  if not public.is_primary_admin(gid7) then raise exception 'FAIL is_primary_admin is false for the creator'; end if;
+  perform public.make_admin(gid7, b::uuid);
+  perform public.make_admin(gid7, c::uuid);
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$select public.remove_member(%L, %L)$q$, gid7, c)) then raise exception 'FAIL an admin who is not primary removed another admin'; end if;
+  perform pg_temp.act_as(a);
+  perform public.revoke_admin(gid7, c::uuid);
+  perform pg_temp.act_as(b);
+  if public.is_primary_admin(gid7) then raise exception 'FAIL is_primary_admin is true for a plain admin'; end if;
+  if not pg_temp.fails(format($q$select public.make_admin(%L, %L)$q$, gid7, c)) then raise exception 'FAIL an admin who is not primary made someone admin'; end if;
+  if not pg_temp.fails(format($q$select public.revoke_admin(%L, %L)$q$, gid7, a)) then raise exception 'FAIL an admin who is not primary took admin rights away'; end if;
+  if not pg_temp.fails(format($q$select public.make_primary_admin(%L, %L)$q$, gid7, b)) then raise exception 'FAIL an admin who is not primary made themself primary'; end if;
+  if not pg_temp.fails(format($q$select public.remove_member(%L, %L)$q$, gid7, a)) then raise exception 'FAIL the primary admin was removed'; end if;
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gid7)) then raise exception 'FAIL a group with a primary admin was claimed'; end if;
+  if not pg_temp.fails(format($q$update public.groups set primary_admin = %L where id = %L$q$, b, gid7)) then raise exception 'FAIL an app user wrote groups.primary_admin directly'; end if;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.make_primary_admin(%L, %L)$q$, gid7, c)) then raise exception 'FAIL a member made themself primary'; end if;
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails(format($q$select public.leave_group(%L)$q$, gid7)) then raise exception 'FAIL the primary admin left without handing over'; end if;
+  if not pg_temp.fails(format($q$select public.revoke_admin(%L, %L)$q$, gid7, a)) then raise exception 'FAIL the primary admin revoked their own admin rights'; end if;
+  if not pg_temp.fails(format($q$select public.make_primary_admin(%L, %L)$q$, gid7, d)) then raise exception 'FAIL the primary role went to someone outside the group'; end if;
+  perform public.make_primary_admin(gid7, b::uuid);
+  if public.is_primary_admin(gid7) then raise exception 'FAIL A is still primary after handing over'; end if;
+  if (select role from public.group_members where group_id = gid7 and user_id = a::uuid) <> 'admin' then raise exception 'FAIL A lost admin rights by handing over'; end if;
+  if not pg_temp.fails(format($q$select public.make_admin(%L, %L)$q$, gid7, c)) then raise exception 'FAIL the old primary admin still gives admin rights'; end if;
+  perform pg_temp.act_as(b);
+  perform public.revoke_admin(gid7, a::uuid);
+  if (select role from public.group_members where group_id = gid7 and user_id = a::uuid) <> 'member' then raise exception 'FAIL revoke_admin did not make A a member'; end if;
+  if not pg_temp.fails(format($q$select public.revoke_admin(%L, %L)$q$, gid7, b)) then raise exception 'FAIL the primary admin was demoted'; end if;
+  perform pg_temp.act_as(a);
+  perform public.leave_group(gid7); -- a plain member with nothing owed may leave
+  -- a group whose primary admin is gone (the account was deleted): the longest-standing admin takes over
+  reset role;
+  update public.groups set primary_admin = null where id = gid7;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gid7)) then raise exception 'FAIL a plain member took over a group'; end if;
+  perform pg_temp.act_as(b);
+  perform public.claim_primary_admin(gid7);
+  if not public.is_primary_admin(gid7) then raise exception 'FAIL the longest-standing admin could not take over'; end if;
+  -- the backfill for groups made before 1.28
+  reset role;
+  update public.groups set primary_admin = null where id = gid7;
+  update public.groups g set primary_admin = coalesce(
+      (select m.user_id from public.group_members m where m.group_id = g.id and m.user_id = g.created_by and m.left_at is null and m.role = 'admin'),
+      (select m.user_id from public.group_members m where m.group_id = g.id and m.left_at is null and m.role = 'admin' order by m.joined_at, m.user_id limit 1))
+    where g.primary_admin is null and g.id = gid7;
+  if (select primary_admin from public.groups where id = gid7) is distinct from b::uuid then raise exception 'FAIL the backfill picked the wrong primary admin (A, the creator, left; B is the admin)'; end if;
+  -- a group with people but no admin (the only admin's account is gone): not a stranger with an old code, but its longest-standing member
+  perform pg_temp.act_as(a);
+  gx := public.create_group('No admin left', 'family', 'Asha');
+  select i.code into xcode from public.group_invites i where i.group_id = gx;
+  perform pg_temp.act_as(b); perform public.join_group(xcode, 'Ravi');
+  perform pg_temp.act_as(c); perform public.join_group(xcode, 'Cee');
+  reset role;
+  update public.group_members set role = 'member' where group_id = gx;
+  update public.groups set primary_admin = null where id = gx;
+  perform pg_temp.act_as(d);
+  perform public.join_group(xcode, 'Dev'); -- a stranger holding the code joins as a plain member only
+  if (select role from public.group_members where group_id = gx and user_id = d::uuid) <> 'member' then raise exception 'FAIL a stranger with an old code became admin of a group that has people'; end if;
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a newcomer took over a group with no admin'; end if;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a member who is not the longest-standing took over'; end if;
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a member who is not the longest-standing took over (B)'; end if;
+  perform pg_temp.act_as(a); -- A made the group and joined first
+  perform public.claim_primary_admin(gx);
+  if not public.is_primary_admin(gx) then raise exception 'FAIL the longest-standing member could not take over a group with no admin'; end if;
+  if (select role from public.group_members where group_id = gx and user_id = a::uuid) <> 'admin' then raise exception 'FAIL the member who took over is not an admin'; end if;
+  perform pg_temp.act_as(d); perform public.leave_group(gx); -- D shares nothing with A again
+  raise notice 'PASS primary admin: only they give or take admin rights; cannot be removed, demoted or leave without handing over; handover and take-over work';
+
+  -- =========================================================================
+  -- 12. THE CIRCLE
+  -- =========================================================================
+  perform pg_temp.act_as(null);
+  if not pg_temp.fails('select * from public.my_circle()') or not pg_temp.fails('select public.circle_new_invite()') or not pg_temp.fails($q$select public.circle_join('aaaaaaaaaaaa')$q$) then
+    raise exception 'FAIL anon could use the Circle'; end if;
+  perform pg_temp.act_as(d);
+  insert into public.profiles (user_id, name) values (d::uuid, 'Dev Name');
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails('select * from public.circle_links') or not pg_temp.fails('select * from public.circle_invites') then raise exception 'FAIL an app user read a Circle table directly'; end if;
+  if not pg_temp.fails($q$insert into public.circle_links (user_a, user_b) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd')$q$) then raise exception 'FAIL an app user wrote a Circle link directly'; end if;
+  if not pg_temp.fails('select public.circle_link_count(auth.uid())') then raise exception 'FAIL an app user called the internal Circle counter'; end if;
+  -- people from shared groups are in the Circle without a link (A left the first group above, so A and B share a new one)
+  perform pg_temp.act_as(a);
+  gid7 := public.create_group('Circle test', 'family', 'Asha');
+  select i.code into pcode from public.group_invites i where i.group_id = gid7;
+  perform pg_temp.act_as(b); perform public.join_group(pcode, 'Ravi');
+  perform pg_temp.act_as(a);
+  if (select count(*) from public.my_circle() where linked) <> 0 then raise exception 'FAIL A has linked people before linking anyone'; end if;
+  if not exists (select 1 from public.my_circle() where user_id = b::uuid and not linked and 'Circle test' = any (shared_groups)) then raise exception 'FAIL a group member is not in the Circle through the group'; end if;
+  if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL D, who shares nothing with A yet, is in A''s Circle'; end if;
+  -- link by code
+  pcode := public.circle_new_invite();
+  if pcode !~ '^[0-9a-f]{20}$' then raise exception 'FAIL the Circle code has the wrong shape'; end if;
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL someone used their own Circle code'; end if;
+  perform pg_temp.act_as(d);
+  if not pg_temp.fails($q$select public.circle_join('00000000000000000000')$q$) then raise exception 'FAIL a code that does not exist was accepted'; end if;
+  dname := public.circle_join(pcode);
+  if dname is distinct from '' then raise exception 'FAIL circle_join returned %, A has no profile name', dname; end if;
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL a Circle code worked twice'; end if;
+  if not exists (select 1 from public.my_circle() where user_id = a::uuid and linked) then raise exception 'FAIL D does not have A in the Circle'; end if;
+  -- the code stays used even if the person who used it deletes their account (used_by is then emptied)
+  reset role;
+  update public.circle_invites set used_by = null where code = pcode;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL a used Circle code worked again after its user was gone'; end if;
+  perform pg_temp.act_as(b);
+  insert into public.profiles (user_id, name) values (b::uuid, 'Bee Real Name');
+  perform pg_temp.act_as(a);
+  if not exists (select 1 from public.my_circle() where user_id = b::uuid and not linked and name = 'Ravi') then raise exception 'FAIL a person known only through a group is shown by their profile name, not the name they use in the group'; end if;
+  if not exists (select 1 from public.my_circle() where user_id = d::uuid and linked and name = 'Dev Name') then raise exception 'FAIL A does not have D (by profile name) in the Circle'; end if;
+  perform pg_temp.act_as(c);
+  if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL C can see D, whom C shares nothing with'; end if;
+  if (select string_agg(a2.proargnames[i2], ',' order by i2) from pg_proc a2, generate_subscripts((select proargnames from pg_proc where oid = 'public.my_circle()'::regprocedure), 1) i2
+       where a2.oid = 'public.my_circle()'::regprocedure and (a2.proargmodes)[i2] = 't') <> 'user_id,name,linked,shared_groups' then
+    raise exception 'FAIL my_circle returns more than an id, a name, the link flag and the shared group names'; end if;
+  -- an expired code does not work
+  perform pg_temp.act_as(a);
+  ccode2 := public.circle_new_invite();
+  reset role;
+  update public.circle_invites set expires_at = now() - interval '1 minute' where code = ccode2;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, ccode2)) then raise exception 'FAIL an expired Circle code worked'; end if;
+  -- removing a link works both ways and leaves group members alone
+  perform pg_temp.act_as(d);
+  perform public.circle_remove(a::uuid);
+  if exists (select 1 from public.my_circle() where user_id = a::uuid) then raise exception 'FAIL D still has A after removing the link'; end if;
+  perform pg_temp.act_as(a);
+  if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL A still has D after D removed the link'; end if;
+  perform public.circle_remove(b::uuid); -- B is only there through the group: nothing to remove, and no error
+  if not exists (select 1 from public.my_circle() where user_id = b::uuid) then raise exception 'FAIL removing a link took away a person from a shared group'; end if;
+  -- limits: 10 unused codes, 100 linked people
+  reset role;
+  delete from public.circle_invites;
+  perform pg_temp.act_as(a);
+  for i in 1..10 loop perform public.circle_new_invite(); end loop;
+  if not pg_temp.fails('select public.circle_new_invite()') then raise exception 'FAIL an 11th unused Circle code was made'; end if;
+  reset role;
+  delete from public.circle_invites;
+  insert into auth.users (id) select gen_random_uuid() from generate_series(1, 100);
+  insert into public.circle_links (user_a, user_b)
+    select least(a::uuid, u.id), greatest(a::uuid, u.id) from auth.users u
+     where u.id not in (a::uuid, b::uuid, c::uuid, d::uuid) limit 100;
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails('select public.circle_new_invite()') then raise exception 'FAIL a Circle of 100 linked people made another code'; end if;
+  raise notice 'PASS Circle: links only by single-use code, nobody reads the tables, strangers stay invisible, removing works, limits hold';
+
+  -- =========================================================================
+  -- 13. SHARED GOALS
+  -- =========================================================================
+  reset role;
+  perform pg_temp.act_as(null);
+  if not pg_temp.fails('select public.my_shared_goals()') or not pg_temp.fails($q$select public.create_shared_goal('x', 1, current_date + 5, 'x')$q$) then raise exception 'FAIL anon could use shared goals'; end if;
+  -- a group of A, B and C: they are in each other's Circle through it; D is a stranger to A
+  perform pg_temp.act_as(a);
+  gx := public.create_group('Goals test', 'family', 'Asha');
+  select i.code into xcode from public.group_invites i where i.group_id = gx;
+  perform pg_temp.act_as(b); perform public.join_group(xcode, 'Ravi');
+  perform pg_temp.act_as(c); perform public.join_group(xcode, 'Cee');
+  perform pg_temp.act_as(a);
+  if not pg_temp.fails('select * from public.shared_goals') or not pg_temp.fails('select * from public.shared_goal_members') or not pg_temp.fails('select * from public.shared_goal_topups') then raise exception 'FAIL an app user read a shared goal table directly'; end if;
+  if not pg_temp.fails($q$insert into public.shared_goals (name, target, target_date, created_by) values ('x', 1, current_date + 5, 'ffff0001-ffff-4fff-8fff-ffffffff0001')$q$) then raise exception 'FAIL an app user wrote a shared goal directly'; end if;
+  foreach fn in array array['circle_has(uuid,uuid)', 'shared_goal_count(uuid)', 'shared_goal_people(uuid)', 'lock_shared_goal(uuid)', 'ask_to_join_shared_goal(uuid,uuid,uuid)'] loop
+    if has_function_privilege('authenticated', 'public.' || fn, 'execute') or has_function_privilege('anon', 'public.' || fn, 'execute') then raise exception 'FAIL internal function % can be run by the app', fn; end if;
+  end loop;
+  -- bad input
+  if not pg_temp.fails($q$select public.create_shared_goal('', 100, current_date + 5, 'Asha')$q$) then raise exception 'FAIL a goal with no name was made'; end if;
+  if not pg_temp.fails($q$select public.create_shared_goal('x', 0, current_date + 5, 'Asha')$q$) then raise exception 'FAIL a goal with a zero target was made'; end if;
+  if not pg_temp.fails($q$select public.create_shared_goal('x', 100.555, current_date + 5, 'Asha')$q$) then raise exception 'FAIL a target with 3 decimals was accepted'; end if;
+  if not pg_temp.fails($q$select public.create_shared_goal('x', 100, current_date - 3, 'Asha')$q$) then raise exception 'FAIL a goal with a date in the past was made'; end if;
+  if not pg_temp.fails(format($q$select public.create_shared_goal('x', 100, current_date + 5, 'Asha', array[%L]::uuid[])$q$, d)) then raise exception 'FAIL a stranger (not in the Circle) was invited'; end if;
+  if not pg_temp.fails(format($q$select public.create_shared_goal('x', 100, current_date + 5, 'Asha', array[%L]::uuid[])$q$, a)) then raise exception 'FAIL the creator invited themself'; end if;
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a failed create left a goal behind'; end if;
+  -- make one, inviting B and C
+  sg := public.create_shared_goal('Trip fund', 30000, current_date + 90, 'Asha', array[b::uuid, c::uuid]);
+  doc := public.my_shared_goals();
+  if jsonb_array_length(doc -> 'goals') <> 1 or (doc -> 'goals' -> 0 ->> 'me') <> 'active' or jsonb_array_length(doc -> 'goals' -> 0 -> 'members') <> 3 then raise exception 'FAIL the creator does not see the goal with 3 people'; end if;
+  -- an invitation shows the goal and who made it, and nothing else
+  perform pg_temp.act_as(b);
+  doc := public.my_shared_goals();
+  if (doc -> 'goals' -> 0 ->> 'me') <> 'invited' or (doc -> 'goals' -> 0 ->> 'creator_name') <> 'Asha' or (doc -> 'goals' -> 0 ->> 'name') <> 'Trip fund' then raise exception 'FAIL an invitation does not show the goal and its maker'; end if;
+  if jsonb_array_length(doc -> 'goals' -> 0 -> 'members') <> 0 or jsonb_array_length(doc -> 'goals' -> 0 -> 'topups') <> 0 then raise exception 'FAIL an invitation shows people or top-ups'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 10, current_date)$q$, sg)) then raise exception 'FAIL someone added a top-up to a goal they were only invited to'; end if;
+  if not pg_temp.fails(format($q$select public.answer_shared_goal(%L, true, '')$q$, sg)) then raise exception 'FAIL an invitation was accepted with no name'; end if;
+  perform public.answer_shared_goal(sg, true, 'Ravi');
+  if not pg_temp.fails(format($q$select public.answer_shared_goal(%L, true, 'Ravi')$q$, sg)) then raise exception 'FAIL an invitation was answered twice'; end if;
+  perform pg_temp.act_as(c);
+  perform public.answer_shared_goal(sg, false, '');
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a declined goal is still shown'; end if;
+  -- a stranger sees and can do nothing
+  perform pg_temp.act_as(d);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a stranger sees a shared goal'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 10, current_date)$q$, sg)) or not pg_temp.fails(format($q$select public.delete_shared_goal(%L)$q$, sg))
+     or not pg_temp.fails(format($q$select public.answer_shared_goal(%L, true, 'Dev')$q$, sg)) or not pg_temp.fails(format($q$select public.leave_shared_goal(%L)$q$, sg)) then raise exception 'FAIL a stranger changed a shared goal'; end if;
+  -- top-ups
+  perform pg_temp.act_as(b);
+  tid := gen_random_uuid();
+  perform public.add_shared_topup(sg, tid, 500, current_date);
+  perform public.add_shared_topup(sg, tid, 500, current_date); -- the same top-up sent again is stored once
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 0, current_date)$q$, sg)) or not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 5, current_date + 3)$q$, sg)) then raise exception 'FAIL a bad top-up was accepted'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 5, '-infinity')$q$, sg)) or not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 5, current_date + 30)$q$, sg)) then raise exception 'FAIL a top-up with an impossible day was accepted'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, %L, 501, current_date)$q$, sg, tid)) then raise exception 'FAIL a top-up id already used for another amount was silently ignored'; end if;
+  if not pg_temp.fails($q$select public.create_shared_goal('x', 100, 'infinity', 'Asha')$q$) then raise exception 'FAIL a goal on the day infinity was made'; end if;
+  perform pg_temp.act_as(a);
+  perform public.add_shared_topup(sg, gen_random_uuid(), 1000, current_date);
+  doc := public.my_shared_goals();
+  if (select coalesce(sum((t ->> 'amount')::numeric), 0) from jsonb_array_elements(doc -> 'goals' -> 0 -> 'topups') t) <> 1500 or jsonb_array_length(doc -> 'goals' -> 0 -> 'topups') <> 2 then raise exception 'FAIL the top-ups do not add up to 1500 in 2 rows'; end if;
+  if not exists (select 1 from jsonb_array_elements(doc -> 'goals' -> 0 -> 'topups') t where t ->> 'user_id' = b and (t ->> 'amount')::numeric = 500) then raise exception 'FAIL B''s top-up does not show who made it'; end if;
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$select public.remove_shared_topup(%L, (select (t ->> 'id')::uuid from jsonb_array_elements(public.my_shared_goals() -> 'goals' -> 0 -> 'topups') t where t ->> 'user_id' = %L))$q$, sg, a)) then raise exception 'FAIL B removed A''s top-up'; end if;
+  -- only the creator changes the goal
+  if not pg_temp.fails(format($q$select public.edit_shared_goal(%L, 'Mine now', 1, current_date + 5)$q$, sg)) or not pg_temp.fails(format($q$select public.delete_shared_goal(%L)$q$, sg))
+     or not pg_temp.fails(format($q$select public.invite_to_shared_goal(%L, %L)$q$, sg, c)) or not pg_temp.fails(format($q$select public.remove_from_shared_goal(%L, %L)$q$, sg, a)) then raise exception 'FAIL a member changed a goal they did not make'; end if;
+  perform pg_temp.act_as(a);
+  perform public.edit_shared_goal(sg, 'Trip fund 2', 40000, current_date + 120);
+  if (public.my_shared_goals() -> 'goals' -> 0 ->> 'name') <> 'Trip fund 2' then raise exception 'FAIL the creator could not edit the goal'; end if;
+  if not pg_temp.fails(format($q$select public.leave_shared_goal(%L)$q$, sg)) then raise exception 'FAIL the creator left their own goal'; end if;
+  -- someone who said no is not asked again for that goal
+  perform public.invite_to_shared_goal(sg, c::uuid);
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL someone who declined was asked again'; end if;
+  -- an invitation can be withdrawn
+  perform pg_temp.act_as(a);
+  sg2 := public.create_shared_goal('Gift', 100, current_date + 30, 'Asha', array[c::uuid]);
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 1 then raise exception 'FAIL C was not asked to the second goal'; end if;
+  perform pg_temp.act_as(a);
+  perform public.remove_from_shared_goal(sg2, c::uuid);
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a withdrawn invitation is still shown'; end if;
+  -- an invitation lapses after 30 days
+  perform pg_temp.act_as(a);
+  perform public.invite_to_shared_goal(sg2, c::uuid);
+  reset role;
+  update public.shared_goal_members set invited_at = now() - interval '31 days' where goal_id = sg2 and user_id = c::uuid;
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL a lapsed invitation is still shown'; end if;
+  if not pg_temp.fails(format($q$select public.answer_shared_goal(%L, true, 'Cee')$q$, sg2)) then raise exception 'FAIL a lapsed invitation was accepted'; end if;
+  perform pg_temp.act_as(a);
+  perform public.invite_to_shared_goal(sg2, c::uuid); -- asking again after it lapsed works
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 1 then raise exception 'FAIL a lapsed invitation could not be renewed'; end if;
+  -- leaving the Circle withdraws the pending invitations between the two
+  perform pg_temp.act_as(a);
+  perform public.circle_remove(c::uuid);
+  perform pg_temp.act_as(c);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL circle_remove left a pending invitation'; end if;
+  -- nobody is flooded: at most 3 waiting from one creator
+  perform pg_temp.act_as(a);
+  perform public.create_shared_goal('P1', 100, current_date + 30, 'Asha', array[c::uuid]);
+  perform public.create_shared_goal('P2', 100, current_date + 30, 'Asha', array[c::uuid]);
+  perform public.create_shared_goal('P3', 100, current_date + 30, 'Asha', array[c::uuid]);
+  if not pg_temp.fails($q$select public.create_shared_goal('P4', 100, current_date + 30, 'Asha', array['ffff0003-ffff-4fff-8fff-ffffffff0003']::uuid[])$q$) then raise exception 'FAIL a fourth waiting invitation from one creator was allowed'; end if;
+  if jsonb_array_length((select jsonb_agg(x) from jsonb_array_elements(public.my_shared_goals() -> 'goals') x where x ->> 'name' = 'P4')) is not null then raise exception 'FAIL a refused create left a goal behind'; end if;
+  perform pg_temp.act_as(c);
+  if (select count(*) from jsonb_array_elements(public.my_shared_goals() -> 'goals') x where x ->> 'me' = 'invited') <> 3 then raise exception 'FAIL C does not hold exactly 3 invitations'; end if;
+  reset role;
+  delete from public.shared_goals where name in ('P1', 'P2', 'P3', 'Gift');
+  -- leaving: the top-ups stay for the others, as left; the one who left sees nothing and cannot add more
+  perform pg_temp.act_as(b);
+  perform public.leave_shared_goal(sg);
+  if jsonb_array_length(public.my_shared_goals() -> 'goals') <> 0 then raise exception 'FAIL someone who left still sees the goal'; end if;
+  if not pg_temp.fails(format($q$select public.add_shared_topup(%L, gen_random_uuid(), 10, current_date)$q$, sg)) then raise exception 'FAIL someone who left added a top-up'; end if;
+  perform pg_temp.act_as(a);
+  doc := public.my_shared_goals();
+  if (select count(*) from jsonb_array_elements(doc -> 'goals' -> 0 -> 'members') m where m ->> 'user_id' = b and m ->> 'state' = 'left') <> 1 then raise exception 'FAIL B is not shown as left'; end if;
+  if (select coalesce(sum((t ->> 'amount')::numeric), 0) from jsonb_array_elements(doc -> 'goals' -> 0 -> 'topups') t) <> 1500 then raise exception 'FAIL the top-ups of someone who left disappeared'; end if;
+  -- the creator removes an active member
+  perform public.invite_to_shared_goal(sg, b::uuid);
+  perform pg_temp.act_as(b); perform public.answer_shared_goal(sg, true, 'Ravi');
+  perform pg_temp.act_as(a); perform public.remove_from_shared_goal(sg, b::uuid);
+  if (select count(*) from jsonb_array_elements(public.my_shared_goals() -> 'goals' -> 0 -> 'members') m where m ->> 'user_id' = b and m ->> 'state' = 'left') <> 1 then raise exception 'FAIL a removed member is not shown as left'; end if;
+  -- limits: 10 people in a goal, 20 goals for a person
+  reset role;
+  perform pg_temp.act_as(a);
+  sgs := array[]::uuid[];
+  for i in 1..19 loop sgs := sgs || public.create_shared_goal('Goal ' || i, 100, current_date + 30, 'Asha'); end loop;
+  if not pg_temp.fails($q$select public.create_shared_goal('One too many', 100, current_date + 30, 'Asha')$q$) then raise exception 'FAIL a 21st shared goal was made'; end if;
+  -- delete takes everything with it
+  perform public.delete_shared_goal(sg);
+  reset role;
+  if (select count(*) from public.shared_goal_topups where goal_id = sg) <> 0 or (select count(*) from public.shared_goal_members where goal_id = sg) <> 0 then raise exception 'FAIL deleting a goal left its people or top-ups'; end if;
+  raise notice 'PASS shared goals: only members and invitees see them, only the creator changes them, top-ups are own, strangers cannot invite or read, limits hold';
 
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;

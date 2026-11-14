@@ -1,6 +1,6 @@
 # PRD: goal delete, payment sorting, a simpler group page, a Circle, primary admin, shared goals
 
-**Status:** 1.27 built (2026-11-14); 1.28 and 1.29 not yet. From nine requests and one question round. Three versions, each usable on its own.
+**Status:** all three versions built (2026-11-14); the SQL of 1.28 and 1.29 is not yet run on the live project. From nine requests and one question round. Three versions, each usable on its own.
 
 ## The owner's words (2026-11-14)
 1. "currently there is no way to delete a goal, user should be able to delete a plan, ask confirmation before delete."

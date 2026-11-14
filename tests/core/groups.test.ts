@@ -142,7 +142,9 @@ test('settlements: made, deleted later than they were last changed, merged by la
 
 // ---------------------------------------------------------------- what comes from the server is checked
 test('group rows from the server are validated before they are trusted', () => {
-  assert.deepEqual(cleanGroup({ id: G.toUpperCase(), name: 'Home', kind: 'family', created_at: T0 }), { id: G, name: 'Home', kind: 'family', created_at: T0, starts_on: null, ends_on: null, closed_at: null, usual_split: null });
+  assert.deepEqual(cleanGroup({ id: G.toUpperCase(), name: 'Home', kind: 'family', created_at: T0 }), { id: G, name: 'Home', kind: 'family', created_at: T0, starts_on: null, ends_on: null, closed_at: null, usual_split: null, primary_admin: null });
+  assert.equal(cleanGroup({ id: G, name: 'Home', kind: 'family', created_at: T0, primary_admin: A.toUpperCase() })!.primary_admin, A, 'the primary admin is an id, lower-cased');
+  assert.equal(cleanGroup({ id: G, name: 'Home', kind: 'family', created_at: T0, primary_admin: 'nobody' })!.primary_admin, null, 'anything else is no primary admin');
   for (const bad of [null, {}, { id: G, name: '', kind: 'family' }, { id: G, name: 'x', kind: 'club' }, { id: 'nope', name: 'x', kind: 'trip' }, { id: G, name: 'x'.repeat(61), kind: 'trip' }]) assert.equal(cleanGroup(bad), null);
   const m = { group_id: G, user_id: A, display_name: 'Asha', role: 'admin', joined_at: T0, left_at: null };
   assert.equal(cleanMember(m)!.role, 'admin');

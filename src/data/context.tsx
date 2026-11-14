@@ -19,6 +19,7 @@ import type { LockConfig, LockTries } from './lock.ts';
 import { MAX_ACCOUNT_PHOTOS, MAX_PHOTOS, liveFor, makeReceipt, markDeleted, photoRoom } from '../core/receipts.ts';
 import type { Receipt } from '../core/receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from '../core/groups.ts';
+import { circleCodeFromHash } from '../core/circle.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import { editEntry, isMine, isoDate, makeEntry, monthOf, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
@@ -34,7 +35,7 @@ import type { IncomeCatResult } from '../core/income.ts';
 import { createSync } from './sync.ts';
 import type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock, SyncState } from './sync.ts';
 import { migrateLegacy } from './legacy.ts';
-import type { AppApi, Engine, ToastAction } from './appApi.ts';
+import type { AppApi, Engine, SharedGoalsApi, ToastAction } from './appApi.ts';
 import { clearProfile, loadProfile, setLocalProfile, setProfileSaveListener } from './profile.ts';
 import { clearSent } from './calendar.ts';
 import { tr } from '../core/i18n.ts';
@@ -84,6 +85,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const lockRef = useRef<LockConfig | null>(null);
   const hiddenAt = useRef<number | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(() => joinCodeFromHash(window.location.hash));
+  const [circleCode, setCircleCode] = useState<string | null>(() => circleCodeFromHash(window.location.hash));
   const [recovering, setRecovering] = useState(false);
   const [authNotice, setAuthNotice] = useState<{ text: string; bad: boolean } | null>(null);
   const linkHandled = useRef(false);
@@ -218,6 +220,8 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     const onHash = () => {
       const c = joinCodeFromHash(window.location.hash);
       if (c) setJoinCode(c);
+      const cc = circleCodeFromHash(window.location.hash);
+      if (cc) setCircleCode(cc);
       const link = takeAuthLink();
       if (link) void handleAuthLink(link);
     };
@@ -328,6 +332,11 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* the address bar is only cosmetic */ }
   }, []);
 
+  const clearCircleCode = useCallback(() => {
+    setCircleCode(null);
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* the address bar is only cosmetic */ }
+  }, []);
+
   const engine = () => { const e = engRef.current; if (!e) throw new Error(tr('The app is still starting.')); return e.sync; };
   const createGroup = useCallback((name: string, kind: GroupKind, displayName: string) => engine().createGroup(name, kind, displayName), []);
   const joinGroup = useCallback(async (code: string, displayName: string) => { const id = await engine().joinGroup(code, displayName); clearJoinCode(); return id; }, [clearJoinCode]);
@@ -335,6 +344,25 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const leaveGroup = useCallback(async (groupId: string) => { await engine().leaveGroup(groupId); }, []);
   const removeMember = useCallback(async (groupId: string, userId: string) => { await engine().removeMember(groupId, userId); }, []);
   const makeAdmin = useCallback(async (groupId: string, userId: string) => { await engine().makeAdmin(groupId, userId); }, []);
+  const revokeAdmin = useCallback(async (groupId: string, userId: string) => { await engine().revokeAdmin(groupId, userId); }, []);
+  const makePrimaryAdmin = useCallback(async (groupId: string, userId: string) => { await engine().makePrimaryAdmin(groupId, userId); }, []);
+  const claimPrimaryAdmin = useCallback(async (groupId: string) => { await engine().claimPrimaryAdmin(groupId); }, []);
+  const circle = useCallback(() => engine().fetchCircle(), []);
+  const newCircleCode = useCallback(() => engine().newCircleCode(), []);
+  const joinCircle = useCallback(async (code: string) => { const name = await engine().joinCircle(code); clearCircleCode(); return name; }, [clearCircleCode]);
+  const sharedGoals = useMemo<SharedGoalsApi>(() => ({
+    load: () => engine().sharedGoals.load(),
+    create: async (name, target, date, displayName, invite) => engine().sharedGoals.create(name, target, date, displayName, invite),
+    edit: async (goal, name, target, date) => { await engine().sharedGoals.edit(goal, name, target, date); },
+    invite: async (goal, userId) => { await engine().sharedGoals.invite(goal, userId); },
+    answer: async (goal, accept, displayName) => { await engine().sharedGoals.answer(goal, accept, displayName); },
+    leave: async (goal) => { await engine().sharedGoals.leave(goal); },
+    removePerson: async (goal, userId) => { await engine().sharedGoals.removePerson(goal, userId); },
+    remove: async (goal) => { await engine().sharedGoals.remove(goal); },
+    addTopUp: async (goal, amount, date) => { await engine().sharedGoals.addTopUp(goal, amount, date); },
+    removeTopUp: async (goal, id) => { await engine().sharedGoals.removeTopUp(goal, id); },
+  }), []);
+  const removeFromCircle = useCallback(async (userId: string) => { await engine().removeFromCircle(userId); }, []);
   const setDisplayName = useCallback(async (groupId: string, name: string) => { await engine().setDisplayName(groupId, name); }, []);
   const setTripDates = useCallback(async (groupId: string, starts: string | null, ends: string | null) => { await engine().setTripDates(groupId, starts, ends); }, []);
   const setGroupClosed = useCallback(async (groupId: string, closed: boolean) => { await engine().setGroupClosed(groupId, closed); }, []);
@@ -673,9 +701,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     toastAction,
     toast,
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
-    addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
+    addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

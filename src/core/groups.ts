@@ -27,6 +27,7 @@ export interface Group {
   ends_on: string | null;
   closed_at: string | null; // a closed trip takes no new expenses and no new people
   usual_split: UsualSplit | null; // flatmates only
+  primary_admin: string | null; // the admin who cannot be removed, demoted or leave without handing the role on (null until the database has 1.28)
 }
 export interface Member { group_id: string; user_id: string; display_name: string; role: 'admin' | 'member'; joined_at: string; left_at: string | null }
 export interface Invite { group_id: string; code: string; expires_at: string }
@@ -92,6 +93,7 @@ export function cleanGroup(g: any): Group | null {
     ends_on: trip ? day(g.ends_on) : null,
     closed_at: trip && isTs(g.closed_at) ? g.closed_at : null,
     usual_split: g.kind === 'flatmates' ? cleanUsualSplit(g.usual_split) : null,
+    primary_admin: isId(g.primary_admin) ? g.primary_admin.toLowerCase() : null,
   };
 }
 

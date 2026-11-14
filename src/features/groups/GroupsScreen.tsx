@@ -12,7 +12,7 @@ import { tr } from '../../core/i18n.ts';
 
 // groupId: the group named in the address (/groups/<id>), or none for the list. settings: that group's settings are open
 // (/groups/<id>/settings). onOpen(id) goes to a group, onOpen(id, true) to its settings, onOpen() to the list.
-export function GroupsScreen({ groupId, settings = false, onOpen, openSettings }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void }>) {
+export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void }>) {
   const app = useApp();
   const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
   // An invitation arrived (a tapped link): go back to the list, where the join form is.
@@ -43,6 +43,9 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings }
   return (
     <section aria-label={tr('Groups')} className="[&>*+*]:mt-4 [&>p]:mb-0">
       <JoinCard />
+      <button type="button" className={ui.row} onClick={openCircle}>
+        <span className={ui.rowMain()}><b>{tr('Your Circle')}</b><small>{tr('People you share with, and a code to add anyone')}</small></span>
+      </button>
       {app.groups.length === 0 && !app.joinCode && <p className="text-muted">{tr('No groups yet. Make one for the family or a trip, or join one with a code.')}</p>}
       {app.groups.length > 0 && (
         <ul className={ui.list()}>

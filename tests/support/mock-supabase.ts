@@ -33,6 +33,11 @@ export interface MockState {
   entries: Map<string, any>;
   plans: Map<string, any>;
   profiles: Map<string, { user_id: string; name: string; email: string; whatsapp: string; updated_at: string }>; // by user id
+  sharedGoals: Map<string, any>; // version 1.29
+  sharedMembers: Map<string, { goal_id: string; user_id: string; display_name: string; state: string; invited_at: string }>; // "goal|user"
+  sharedTopups: Map<string, { id: string; goal_id: string; user_id: string; amount: number; topup_date: string; deleted_at: string | null; created_at: string }>;
+  circleLinks: Set<string>; // version 1.28: "smaller id|larger id"
+  circleInvites: Map<string, { code: string; owner_id: string; expires_at: string; used_by: string | null }>; // by code
   sessions: { id: string; uid: string; created_at: string; refreshed_at: string; user_agent: string }[]; // the server's live sessions
   signIns: { uid: string; at: string; action: string }[]; // the server's sign-in record
   signInFunctionsMissing: boolean; // the database has not had the version 1.25 SQL: PostgREST answers 404
@@ -53,7 +58,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     otp: '123456', accessTtlSec: 3600,
     users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true, recoveries: [],
     access: new Map(), refresh: new Map(),
-    entries: new Map(), plans: new Map(), profiles: new Map(), sessions: [], signIns: [], signInFunctionsMissing: false, profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
+    entries: new Map(), plans: new Map(), profiles: new Map(), sharedGoals: new Map(), sharedMembers: new Map(), sharedTopups: new Map(), circleLinks: new Set(), circleInvites: new Map(), sessions: [], signIns: [], signInFunctionsMissing: false, profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
     receipts: new Map(), objects: new Map(), history: [],
     requests: [], failNext: null,
   };
@@ -158,7 +163,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (nm.length < 1 || nm.length > 60 || !['family', 'trip', 'flatmates', 'couple'].includes(a.p_kind) || dn.length < 1 || dn.length > 40) return err(400, '22023', 'Check the group name, kind and your name');
       if ([...state.groups.values()].filter((g) => g.created_by === uid).length >= 10) return err(400, '53400', 'You can create at most 10 groups');
       const id = randomUUID();
-      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, created_at: new Date().toISOString(), starts_on: null, ends_on: null, closed_at: null, usual_split: null });
+      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, primary_admin: uid, created_at: new Date().toISOString(), starts_on: null, ends_on: null, closed_at: null, usual_split: null });
       state.members.set(`${id}|${uid}`, { group_id: id, user_id: uid, display_name: dn, role: 'admin', joined_at: new Date().toISOString(), left_at: null });
       state.invites.set(id, { group_id: id, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
       return ok(id);
@@ -174,7 +179,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (activeIn(inv.group_id).length >= 20) return err(400, '53400', 'This group is full (20 people)');
       if (state.groups.get(inv.group_id)?.kind === 'couple' && activeIn(inv.group_id).length >= 2) return err(400, '53400', 'A couple is only two people');
       state.members.set(`${inv.group_id}|${uid}`, { group_id: inv.group_id, user_id: uid, display_name: dn, role: 'member', joined_at: new Date().toISOString(), left_at: null });
-      if (!activeIn(inv.group_id).some((m) => m.role === 'admin')) member(inv.group_id, uid).role = 'admin';
+      if (!activeIn(inv.group_id).some((m) => m.user_id !== uid)) { member(inv.group_id, uid).role = 'admin'; state.groups.get(inv.group_id).primary_admin = uid; }
       return ok(inv.group_id);
     }
     if (name === 'reset_invite') {
@@ -189,12 +194,18 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (balance(a.p_group, uid) !== 0) return refuse('Settle up first: your balance in this group is not zero');
       const others = activeIn(a.p_group).filter((m) => m.user_id !== uid);
       if (me.role === 'admin' && others.length && !others.some((m) => m.role === 'admin')) return refuse('Make someone else an admin before you leave');
+      if (state.groups.get(a.p_group)?.primary_admin === uid) {
+        if (others.length) return err(400, '23514', 'Hand over the primary admin role before you leave');
+        state.groups.get(a.p_group).primary_admin = null;
+      }
       me.left_at = new Date().toISOString();
       return ok();
     }
     if (name === 'remove_member') {
       if (!adminOf(a.p_group)) return lockedOut;
       if (a.p_user === uid) return err(400, '22023', 'Use Leave group to remove yourself');
+      if (state.groups.get(a.p_group)?.primary_admin === a.p_user) return err(403, '42501', 'The primary admin cannot be removed');
+      if (member(a.p_group, a.p_user)?.role === 'admin' && state.groups.get(a.p_group)?.primary_admin !== uid) return err(403, '42501', 'Only the primary admin can remove an admin');
       const m = member(a.p_group, a.p_user);
       if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
       if (balance(a.p_group, a.p_user) !== 0) return refuse('They must settle up first: their balance in this group is not zero');
@@ -202,12 +213,158 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       state.invites.set(a.p_group, { group_id: a.p_group, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
       return ok();
     }
+    const primaryOf = (gid: string) => state.groups.get(gid)?.primary_admin === uid && adminOf(gid);
+    const notPrimary = err(403, '42501', 'Only the primary admin can do this');
     if (name === 'make_admin') {
-      if (!adminOf(a.p_group)) return lockedOut;
+      if (!primaryOf(a.p_group)) return notPrimary;
       const m = member(a.p_group, a.p_user);
       if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
       m.role = 'admin';
       return ok();
+    }
+    if (name === 'revoke_admin') {
+      if (!primaryOf(a.p_group)) return notPrimary;
+      if (state.groups.get(a.p_group).primary_admin === a.p_user) return err(400, '23514', 'The primary admin stays an admin: hand the role over first');
+      const m = member(a.p_group, a.p_user);
+      if (!m || m.left_at || m.role !== 'admin') return err(400, '22023', 'That person is not an admin of this group');
+      m.role = 'member';
+      return ok();
+    }
+    if (name === 'make_primary_admin') {
+      if (!primaryOf(a.p_group)) return notPrimary;
+      if (a.p_user === uid) return err(400, '22023', 'You are the primary admin already');
+      const m = member(a.p_group, a.p_user);
+      if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
+      m.role = 'admin';
+      state.groups.get(a.p_group).primary_admin = a.p_user;
+      return ok();
+    }
+    if (name === 'claim_primary_admin') {
+      const g = state.groups.get(a.p_group);
+      const p = g?.primary_admin ? member(a.p_group, g.primary_admin) : undefined;
+      if (g && p && !p.left_at && p.role === 'admin') return err(400, '23514', 'This group has a primary admin');
+      const oldest = activeIn(a.p_group).filter((m) => m.role === 'admin').sort((x, y) => x.joined_at.localeCompare(y.joined_at) || x.user_id.localeCompare(y.user_id))[0];
+      if (!g || oldest?.user_id !== uid) return err(403, '42501', 'Only the longest-standing admin can take over');
+      g.primary_admin = uid;
+      return ok();
+    }
+    // the Circle (version 1.28)
+    const pair = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
+    const linkedWith = (u: string) => [...state.circleLinks].map((k) => k.split('|')).filter((k) => k.includes(u)).map((k) => (k[0] === u ? k[1]! : k[0]!));
+    if (name === 'circle_new_invite') {
+      if (linkedWith(uid).length >= 100) return err(400, '53400', 'Your Circle is full (100 people)');
+      if ([...state.circleInvites.values()].filter((i) => i.owner_id === uid && !i.used_by && Date.parse(i.expires_at) > Date.now()).length >= 10) return err(400, '53400', 'You have 10 unused codes already: use or wait for one to expire');
+      const code = randomUUID().replace(/-/g, '').slice(0, 20);
+      state.circleInvites.set(code, { code, owner_id: uid, expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), used_by: null });
+      return ok(code);
+    }
+    if (name === 'circle_join') {
+      const norm = String(a.p_code ?? '').toLowerCase().replace(/[^0-9a-f]/g, '');
+      const inv = state.circleInvites.get(norm);
+      if (!inv || inv.used_by || Date.parse(inv.expires_at) <= Date.now()) return err(400, '22023', 'That code is not valid or has expired');
+      if (inv.owner_id === uid) return err(400, '22023', 'That is your own code');
+      state.circleLinks.add(pair(uid, inv.owner_id));
+      inv.used_by = uid;
+      return ok(state.profiles.get(inv.owner_id)?.name ?? '');
+    }
+    // shared goals (version 1.29)
+    const sm = (g: string, u: string) => state.sharedMembers.get(`${g}|${u}`);
+    const goalOwner = (g: string) => state.sharedGoals.get(g)?.created_by as string | undefined;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const inCircle = (x: string, y: string) => state.circleLinks.has(x < y ? `${x}|${y}` : `${y}|${x}`) || [...state.members.values()].some((m) => m.user_id === x && !m.left_at && active(m.group_id, y));
+    const askToJoin = (g: string, owner: string, u: string): { status: number; body: unknown } | null => {
+      if (!inCircle(owner, u) || owner === u) return err(403, '42501', 'You can only invite people in your Circle');
+      const cur = sm(g, u);
+      if (cur && cur.state !== 'left') return null;
+      if ([...state.sharedMembers.values()].filter((m) => m.goal_id === g && m.state !== 'left').length >= 10) return err(400, '53400', 'A shared goal holds at most 10 people');
+      state.sharedMembers.set(`${g}|${u}`, { goal_id: g, user_id: u, display_name: cur?.display_name ?? '', state: 'invited', invited_at: new Date().toISOString() });
+      return null;
+    };
+    if (name === 'create_shared_goal') {
+      const nm = String(a.p_name ?? '').trim(); const dn = String(a.p_display_name ?? '').trim();
+      if (nm.length < 1 || nm.length > 60) return err(400, '22023', 'Give the goal a name of 1 to 60 characters');
+      if (!(a.p_target > 0)) return err(400, '22023', 'The target must be above zero, with at most 2 decimals');
+      if (!a.p_date || a.p_date <= todayIso) return err(400, '22023', 'Pick a target date after today');
+      if (dn.length < 1 || dn.length > 40) return err(400, '22023', 'Enter the name others will see you as (1 to 40 characters)');
+      const id = randomUUID();
+      state.sharedGoals.set(id, { id, name: nm, target: a.p_target, target_date: a.p_date, created_by: uid });
+      state.sharedMembers.set(`${id}|${uid}`, { goal_id: id, user_id: uid, display_name: dn, state: 'active', invited_at: new Date().toISOString() });
+      for (const u of a.p_invite ?? []) { const bad = askToJoin(id, uid, u); if (bad) { state.sharedGoals.delete(id); return bad; } }
+      return ok(id);
+    }
+    if (name === 'invite_to_shared_goal') { if (goalOwner(a.p_goal) !== uid) return err(403, '42501', 'Only the person who made the goal can do this'); return askToJoin(a.p_goal, uid, a.p_user) ?? ok(); }
+    if (name === 'answer_shared_goal') {
+      const m = sm(a.p_goal, uid);
+      if (!m || m.state !== 'invited') return err(400, '22023', 'There is no invitation to answer');
+      if (!a.p_accept) { state.sharedMembers.delete(`${a.p_goal}|${uid}`); return ok(); }
+      const dn = String(a.p_display_name ?? '').trim();
+      if (dn.length < 1 || dn.length > 40) return err(400, '22023', 'Enter the name others will see you as (1 to 40 characters)');
+      m.state = 'active'; m.display_name = dn;
+      return ok();
+    }
+    if (name === 'leave_shared_goal') {
+      if (goalOwner(a.p_goal) === uid) return err(400, '23514', 'The person who made the goal deletes it instead of leaving');
+      const m = sm(a.p_goal, uid);
+      if (!m || m.state !== 'active') return err(403, '42501', 'You are not in this goal');
+      m.state = 'left';
+      return ok();
+    }
+    if (name === 'remove_from_shared_goal') {
+      if (goalOwner(a.p_goal) !== uid) return err(403, '42501', 'Only the person who made the goal can do this');
+      const m = sm(a.p_goal, a.p_user);
+      if (m?.state === 'invited') state.sharedMembers.delete(`${a.p_goal}|${a.p_user}`); else if (m?.state === 'active') m.state = 'left';
+      return ok();
+    }
+    if (name === 'edit_shared_goal') {
+      if (goalOwner(a.p_goal) !== uid) return err(403, '42501', 'Only the person who made the goal can do this');
+      Object.assign(state.sharedGoals.get(a.p_goal), { name: String(a.p_name).trim(), target: a.p_target, target_date: a.p_date });
+      return ok();
+    }
+    if (name === 'delete_shared_goal') {
+      if (goalOwner(a.p_goal) !== uid) return err(403, '42501', 'Only the person who made the goal can do this');
+      state.sharedGoals.delete(a.p_goal);
+      for (const k of [...state.sharedMembers.keys()]) if (k.startsWith(`${a.p_goal}|`)) state.sharedMembers.delete(k);
+      for (const [k, t] of [...state.sharedTopups]) if (t.goal_id === a.p_goal) state.sharedTopups.delete(k);
+      return ok();
+    }
+    if (name === 'add_shared_topup') {
+      if (sm(a.p_goal, uid)?.state !== 'active') return err(403, '42501', 'You are not in this goal');
+      if (!(a.p_amount > 0)) return err(400, '22023', 'The amount must be above zero, with at most 2 decimals');
+      if (!a.p_date || a.p_date > todayIso) return err(400, '22023', 'Pick a day that is today or earlier');
+      if (!state.sharedTopups.has(a.p_id)) state.sharedTopups.set(a.p_id, { id: a.p_id, goal_id: a.p_goal, user_id: uid, amount: a.p_amount, topup_date: a.p_date, deleted_at: null, created_at: new Date().toISOString() });
+      return ok();
+    }
+    if (name === 'remove_shared_topup') {
+      const t = state.sharedTopups.get(a.p_id);
+      if (!t || t.goal_id !== a.p_goal || t.user_id !== uid || t.deleted_at || sm(a.p_goal, uid)?.state !== 'active') return err(403, '42501', 'That top-up is not yours or is gone');
+      t.deleted_at = new Date().toISOString();
+      return ok();
+    }
+    if (name === 'my_shared_goals') {
+      const goals = [...state.sharedGoals.values()].filter((g) => ['invited', 'active'].includes(sm(g.id, uid)?.state ?? '')).sort((x, y) => x.target_date.localeCompare(y.target_date)).map((g) => {
+        const me = sm(g.id, uid)!.state;
+        const act = me === 'active';
+        return {
+          id: g.id, name: g.name, target: g.target, date: g.target_date, created_by: g.created_by, me,
+          creator_name: sm(g.id, g.created_by)?.display_name ?? '',
+          members: act ? [...state.sharedMembers.values()].filter((m) => m.goal_id === g.id).map((m) => ({ user_id: m.user_id, name: m.display_name, state: m.state })) : [],
+          topups: act ? [...state.sharedTopups.values()].filter((t) => t.goal_id === g.id && !t.deleted_at).sort((x, y) => y.topup_date.localeCompare(x.topup_date)).map((t) => ({ id: t.id, user_id: t.user_id, amount: t.amount, date: t.topup_date })) : [],
+        };
+      });
+      return ok({ goals });
+    }
+    if (name === 'circle_remove') { state.circleLinks.delete(pair(uid, a.p_user)); return ok(); }
+    if (name === 'my_circle') {
+      const linked = new Set(linkedWith(uid));
+      const through = new Map<string, { groups: Set<string>; dn: string }>();
+      for (const m of state.members.values()) {
+        if (m.left_at || m.user_id === uid || !active(m.group_id, uid)) continue;
+        const cur = through.get(m.user_id) ?? { groups: new Set<string>(), dn: m.display_name };
+        cur.groups.add(state.groups.get(m.group_id).name);
+        through.set(m.user_id, cur);
+      }
+      const everyone = new Set([...linked, ...through.keys()]);
+      return ok([...everyone].map((u) => ({ user_id: u, name: state.profiles.get(u)?.name?.trim() || through.get(u)?.dn || '', linked: linked.has(u), shared_groups: [...(through.get(u)?.groups ?? [])].sort() })));
     }
     if (name === 'set_trip_dates') {
       if (!adminOf(a.p_group)) return lockedOut;
