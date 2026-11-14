@@ -3,7 +3,9 @@ import type { ReactNode } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { EditDialog } from './EditDialog.tsx';
 import { shortDate } from '../../core/format.ts';
-import { byRecent, fmtINR, isIncome, myShare } from '../../core/logic.ts';
+import { fmtINR, isIncome, myShare } from '../../core/logic.ts';
+import { sortPayments } from '../../core/paymentSort.ts';
+import { usePaymentSort } from '../../data/usePaymentSort.ts';
 import type { Entry } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -24,12 +26,12 @@ export function PaymentRow({ entry: e, onOpen, compact = false }: Readonly<{ ent
   );
 }
 
-// The latest payments, newest first; tapping one opens it to edit or delete. The Home tile shows a few without a frame
-// (plain), the Recent sheet shows the last 20 in a framed list.
+// The first few payments in the order the person chose (newest day first until they choose another); tapping one opens it to edit or delete. The Home tile shows a few without a frame (plain).
 export function RecentList({ limit, plain = false, empty }: Readonly<{ limit: number; plain?: boolean; empty: ReactNode }>) {
   const app = useApp();
   const [editing, setEditing] = useState<Entry | null>(null);
-  const recent = useMemo(() => app.entries.slice().sort(byRecent).slice(0, limit), [app.entries, limit]);
+  const order = usePaymentSort();
+  const recent = useMemo(() => sortPayments(app.entries, order, app.me).slice(0, limit), [app.entries, order, app.me, limit]);
   return (
     <>
       {recent.length === 0 ? empty : (

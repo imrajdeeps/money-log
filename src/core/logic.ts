@@ -322,7 +322,6 @@ export function budgetEntries(entries: Entry[], me: string | null): Entry[] {
 export const incomeEntries = (entries: readonly Entry[], me: string | null): Entry[] =>
   entries.filter((e) => !e.deleted_at && isIncome(e) && isMine(e, me));
 
-export const byRecent = (a: Entry, b: Entry): number => parseTs(b.created_at) - parseTs(a.created_at);
 export const byDate = (a: Entry, b: Entry): number =>
   a.entry_date < b.entry_date ? -1 : a.entry_date > b.entry_date ? 1 : parseTs(a.created_at) - parseTs(b.created_at);
 

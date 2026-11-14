@@ -927,4 +927,13 @@ export const HINGLISH: Record<string, string> = {
   'Name of the new income category': 'Nayi income category ka naam',
   'New: income and cash flow': 'Naya: income aur cash flow',
   'Add has a Spent / Received switch now: log salary, lent-back money, cashback, refunds and more under Received. The Overview and a new Cash flow page show, month by month, what came in, what went out and what is left, with savings counted apart.': 'Add mein ab Kharch / Mila ka switch hai: salary, udhaar lauta paisa, cashback, refund waghera "Mila" mein darj karein. Overview aur naya Cash flow page mahine dar mahine dikhate hain ki kitna aaya, kitna gaya aur kitna bacha, savings alag ginti hai.',
+  'Delete the goal "{0}"? Its top-ups are deleted with it. This cannot be undone.': 'Goal "{0}" hata dein? Iske top-up bhi hat jayenge. Ise wapas nahi kiya ja sakta.',
+  'Delete goal': 'Goal hatayein',
+  'Date, newest first': 'Tareekh, nayi pehle',
+  'Date, oldest first': 'Tareekh, purani pehle',
+  'Amount, high to low': 'Raqam, zyada se kam',
+  'Amount, low to high': 'Raqam, kam se zyada',
+  'Category, A to Z': 'Category, A se Z',
+  'Last added first': 'Aakhir mein jodi pehle',
+  'Sort payments': 'Payments ko kram mein lagayein',
 };

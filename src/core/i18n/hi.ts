@@ -927,4 +927,13 @@ export const HI: Record<string, string> = {
   'Name of the new income category': 'नई आय श्रेणी का नाम',
   'New: income and cash flow': 'नया: आय और कैश फ़्लो',
   'Add has a Spent / Received switch now: log salary, lent-back money, cashback, refunds and more under Received. The Overview and a new Cash flow page show, month by month, what came in, what went out and what is left, with savings counted apart.': 'जोड़ें में अब खर्च / मिला का स्विच है: सैलरी, उधार लौटा पैसा, कैशबैक, रिफ़ंड वगैरह "मिला" में दर्ज करें। ओवरव्यू और नया कैश फ़्लो पेज महीने दर महीने दिखाते हैं कि कितना आया, कितना गया और कितना बचा, बचत अलग गिनी जाती है।',
+  'Delete the goal "{0}"? Its top-ups are deleted with it. This cannot be undone.': 'लक्ष्य "{0}" हटाएँ? इसके टॉप-अप भी हट जाएँगे। इसे वापस नहीं किया जा सकता।',
+  'Delete goal': 'लक्ष्य हटाएँ',
+  'Date, newest first': 'तारीख़, नई पहले',
+  'Date, oldest first': 'तारीख़, पुरानी पहले',
+  'Amount, high to low': 'राशि, ज़्यादा से कम',
+  'Amount, low to high': 'राशि, कम से ज़्यादा',
+  'Category, A to Z': 'श्रेणी, A से Z',
+  'Last added first': 'आख़िर में जोड़ी पहले',
+  'Sort payments': 'भुगतान क्रमबद्ध करें',
 };
