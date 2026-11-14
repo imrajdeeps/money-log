@@ -47,8 +47,12 @@ export function circleLink(pageUrl: string, code: string): string {
   return u.toString();
 }
 
+// A Circle code is 20 characters (80 bits), longer than a group's, so it cannot be guessed.
+export const CIRCLE_CODE_LENGTH = 20;
+export const circleCodeLooksValid = (s: string): boolean => normalizeCode(s).length === CIRCLE_CODE_LENGTH;
+
 export function circleCodeFromHash(hash: string): string | null {
-  const m = /^#?circle=([0-9a-fA-F-]{12,20})$/.exec(hash);
+  const m = /^#?circle=([0-9a-fA-F-]{20,30})$/.exec(hash);
   const code = m ? normalizeCode(m[1]!) : '';
-  return code.length === 12 ? code : null;
+  return code.length === CIRCLE_CODE_LENGTH ? code : null;
 }

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { copyText } from '../../ui/files.ts';
-import { circleHow, circleLink, circleName, sortCircle } from '../../core/circle.ts';
+import { circleCodeLooksValid, circleHow, circleLink, circleName, sortCircle } from '../../core/circle.ts';
 import type { CircleMember } from '../../core/circle.ts';
-import { codeLooksValid, formatCode } from '../../core/groups.ts';
+import { formatCode } from '../../core/groups.ts';
 import { BASEPATH, appRootUrl } from '../../core/paths.ts';
 import { useAction } from '../groups/index.ts';
 import * as ui from '../../ui/styles.ts';
@@ -66,8 +66,8 @@ export function CircleScreen() {
         });
       }}>
         <h3>{tr('Use a code')}</h3>
-        <label className={ui.field}><span>{tr('Their code')}</span><input value={typed} placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" onChange={(e) => setTyped(e.target.value)} /></label>
-        <button type="submit" className={ui.btn()} disabled={act.busy || !codeLooksValid(typed)}>{tr('Add to my Circle')}</button>
+        <label className={ui.field}><span>{tr('Their code')}</span><input value={typed} placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" onChange={(e) => setTyped(e.target.value)} /></label>
+        <button type="submit" className={ui.btn()} disabled={act.busy || !circleCodeLooksValid(typed)}>{tr('Add to my Circle')}</button>
       </form>
       <h3 className="text-[16px] mt-5 mb-2">{tr('People')}</h3>
       {people === null && !problem && <p className="text-muted">{tr('Loading…')}</p>}

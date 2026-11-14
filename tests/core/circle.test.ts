@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { circleCodeFromHash, circleHow, circleLink, circleName, cleanCircleMember, sortCircle } from '../../src/core/circle.ts';
+import { circleCodeFromHash, circleCodeLooksValid, circleHow, circleLink, circleName, cleanCircleMember, sortCircle } from '../../src/core/circle.ts';
 import { joinCodeFromHash } from '../../src/core/groups.ts';
 
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -31,11 +31,14 @@ test('the Circle is listed by name, and people with no name come last', () => {
 });
 
 test('a Circle link carries the code after the #, and is not mistaken for a group invite', () => {
-  const link = circleLink('https://x.github.io/money-log/?a=1', 'abcdef012345');
-  assert.equal(link, 'https://x.github.io/money-log/#circle=abcdef012345');
-  assert.equal(circleCodeFromHash(new URL(link).hash), 'abcdef012345');
-  assert.equal(circleCodeFromHash('#circle=ABCD-EF01-2345'), 'abcdef012345');
+  const code = 'abcdef0123456789abcd';
+  const link = circleLink('https://x.github.io/money-log/?a=1', code);
+  assert.equal(link, `https://x.github.io/money-log/#circle=${code}`);
+  assert.equal(circleCodeFromHash(new URL(link).hash), code);
+  assert.equal(circleCodeFromHash('#circle=ABCD-EF01-2345-6789-ABCD'), code);
   assert.equal(circleCodeFromHash('#circle=short'), null);
-  assert.equal(circleCodeFromHash('#join=abcdef012345'), null);
-  assert.equal(joinCodeFromHash('#circle=abcdef012345'), null, 'a Circle link never opens the group join form');
+  assert.equal(circleCodeFromHash('#circle=abcdef012345'), null, 'a group-sized code is not a Circle code');
+  assert.equal(circleCodeFromHash(`#join=${code}`), null);
+  assert.equal(joinCodeFromHash(`#circle=${code}`), null, 'a Circle link never opens the group join form');
+  assert.ok(circleCodeLooksValid('ABCD-EF01-2345-6789-ABCD') && !circleCodeLooksValid('ABCD-EF01-2345'));
 });

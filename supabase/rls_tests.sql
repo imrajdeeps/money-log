@@ -1343,7 +1343,7 @@ declare
   b constant text := 'ffff0002-ffff-4fff-8fff-ffffffff0002';
   c constant text := 'ffff0003-ffff-4fff-8fff-ffffffff0003';
   d constant text := 'ffff0004-ffff-4fff-8fff-ffffffff0004';
-  gid7 uuid; pcode text; ccode2 text; dname text; i int;
+  gid7 uuid; gx uuid; pcode text; xcode text; ccode2 text; dname text; i int;
 begin
   -- =========================================================================
   -- 11. PRIMARY ADMIN
@@ -1359,6 +1359,11 @@ begin
   perform pg_temp.act_as(a);
   if not public.is_primary_admin(gid7) then raise exception 'FAIL is_primary_admin is false for the creator'; end if;
   perform public.make_admin(gid7, b::uuid);
+  perform public.make_admin(gid7, c::uuid);
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$select public.remove_member(%L, %L)$q$, gid7, c)) then raise exception 'FAIL an admin who is not primary removed another admin'; end if;
+  perform pg_temp.act_as(a);
+  perform public.revoke_admin(gid7, c::uuid);
   perform pg_temp.act_as(b);
   if public.is_primary_admin(gid7) then raise exception 'FAIL is_primary_admin is true for a plain admin'; end if;
   if not pg_temp.fails(format($q$select public.make_admin(%L, %L)$q$, gid7, c)) then raise exception 'FAIL an admin who is not primary made someone admin'; end if;
@@ -1399,6 +1404,28 @@ begin
       (select m.user_id from public.group_members m where m.group_id = g.id and m.left_at is null and m.role = 'admin' order by m.joined_at, m.user_id limit 1))
     where g.primary_admin is null and g.id = gid7;
   if (select primary_admin from public.groups where id = gid7) is distinct from b::uuid then raise exception 'FAIL the backfill picked the wrong primary admin (A, the creator, left; B is the admin)'; end if;
+  -- a group with people but no admin (the only admin's account is gone): not a stranger with an old code, but its longest-standing member
+  perform pg_temp.act_as(a);
+  gx := public.create_group('No admin left', 'family', 'Asha');
+  select i.code into xcode from public.group_invites i where i.group_id = gx;
+  perform pg_temp.act_as(b); perform public.join_group(xcode, 'Ravi');
+  perform pg_temp.act_as(c); perform public.join_group(xcode, 'Cee');
+  reset role;
+  update public.group_members set role = 'member' where group_id = gx;
+  update public.groups set primary_admin = null where id = gx;
+  perform pg_temp.act_as(d);
+  perform public.join_group(xcode, 'Dev'); -- a stranger holding the code joins as a plain member only
+  if (select role from public.group_members where group_id = gx and user_id = d::uuid) <> 'member' then raise exception 'FAIL a stranger with an old code became admin of a group that has people'; end if;
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a newcomer took over a group with no admin'; end if;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a member who is not the longest-standing took over'; end if;
+  perform pg_temp.act_as(b);
+  if not pg_temp.fails(format($q$select public.claim_primary_admin(%L)$q$, gx)) then raise exception 'FAIL a member who is not the longest-standing took over (B)'; end if;
+  perform pg_temp.act_as(a); -- A made the group and joined first
+  perform public.claim_primary_admin(gx);
+  if not public.is_primary_admin(gx) then raise exception 'FAIL the longest-standing member could not take over a group with no admin'; end if;
+  if (select role from public.group_members where group_id = gx and user_id = a::uuid) <> 'admin' then raise exception 'FAIL the member who took over is not an admin'; end if;
+  perform pg_temp.act_as(d); perform public.leave_group(gx); -- D shares nothing with A again
   raise notice 'PASS primary admin: only they give or take admin rights; cannot be removed, demoted or leave without handing over; handover and take-over work';
 
   -- =========================================================================
@@ -1424,15 +1451,23 @@ begin
   if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL D, who shares nothing with A yet, is in A''s Circle'; end if;
   -- link by code
   pcode := public.circle_new_invite();
-  if pcode !~ '^[0-9a-f]{12}$' then raise exception 'FAIL the Circle code has the wrong shape'; end if;
+  if pcode !~ '^[0-9a-f]{20}$' then raise exception 'FAIL the Circle code has the wrong shape'; end if;
   if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL someone used their own Circle code'; end if;
   perform pg_temp.act_as(d);
-  if not pg_temp.fails($q$select public.circle_join('000000000000')$q$) then raise exception 'FAIL a code that does not exist was accepted'; end if;
+  if not pg_temp.fails($q$select public.circle_join('00000000000000000000')$q$) then raise exception 'FAIL a code that does not exist was accepted'; end if;
   dname := public.circle_join(pcode);
   if dname is distinct from '' then raise exception 'FAIL circle_join returned %, A has no profile name', dname; end if;
   if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL a Circle code worked twice'; end if;
   if not exists (select 1 from public.my_circle() where user_id = a::uuid and linked) then raise exception 'FAIL D does not have A in the Circle'; end if;
+  -- the code stays used even if the person who used it deletes their account (used_by is then emptied)
+  reset role;
+  update public.circle_invites set used_by = null where code = pcode;
+  perform pg_temp.act_as(c);
+  if not pg_temp.fails(format($q$select public.circle_join(%L)$q$, pcode)) then raise exception 'FAIL a used Circle code worked again after its user was gone'; end if;
+  perform pg_temp.act_as(b);
+  insert into public.profiles (user_id, name) values (b::uuid, 'Bee Real Name');
   perform pg_temp.act_as(a);
+  if not exists (select 1 from public.my_circle() where user_id = b::uuid and not linked and name = 'Ravi') then raise exception 'FAIL a person known only through a group is shown by their profile name, not the name they use in the group'; end if;
   if not exists (select 1 from public.my_circle() where user_id = d::uuid and linked and name = 'Dev Name') then raise exception 'FAIL A does not have D (by profile name) in the Circle'; end if;
   perform pg_temp.act_as(c);
   if exists (select 1 from public.my_circle() where user_id = d::uuid) then raise exception 'FAIL C can see D, whom C shares nothing with'; end if;

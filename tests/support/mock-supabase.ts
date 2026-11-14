@@ -33,6 +33,8 @@ export interface MockState {
   entries: Map<string, any>;
   plans: Map<string, any>;
   profiles: Map<string, { user_id: string; name: string; email: string; whatsapp: string; updated_at: string }>; // by user id
+  circleLinks: Set<string>; // version 1.28: "smaller id|larger id"
+  circleInvites: Map<string, { code: string; owner_id: string; expires_at: string; used_by: string | null }>; // by code
   sessions: { id: string; uid: string; created_at: string; refreshed_at: string; user_agent: string }[]; // the server's live sessions
   signIns: { uid: string; at: string; action: string }[]; // the server's sign-in record
   signInFunctionsMissing: boolean; // the database has not had the version 1.25 SQL: PostgREST answers 404
@@ -53,7 +55,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     otp: '123456', accessTtlSec: 3600,
     users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true, recoveries: [],
     access: new Map(), refresh: new Map(),
-    entries: new Map(), plans: new Map(), profiles: new Map(), sessions: [], signIns: [], signInFunctionsMissing: false, profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
+    entries: new Map(), plans: new Map(), profiles: new Map(), circleLinks: new Set(), circleInvites: new Map(), sessions: [], signIns: [], signInFunctionsMissing: false, profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
     receipts: new Map(), objects: new Map(), history: [],
     requests: [], failNext: null,
   };
@@ -158,7 +160,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (nm.length < 1 || nm.length > 60 || !['family', 'trip', 'flatmates', 'couple'].includes(a.p_kind) || dn.length < 1 || dn.length > 40) return err(400, '22023', 'Check the group name, kind and your name');
       if ([...state.groups.values()].filter((g) => g.created_by === uid).length >= 10) return err(400, '53400', 'You can create at most 10 groups');
       const id = randomUUID();
-      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, created_at: new Date().toISOString(), starts_on: null, ends_on: null, closed_at: null, usual_split: null });
+      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, primary_admin: uid, created_at: new Date().toISOString(), starts_on: null, ends_on: null, closed_at: null, usual_split: null });
       state.members.set(`${id}|${uid}`, { group_id: id, user_id: uid, display_name: dn, role: 'admin', joined_at: new Date().toISOString(), left_at: null });
       state.invites.set(id, { group_id: id, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
       return ok(id);
@@ -174,7 +176,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (activeIn(inv.group_id).length >= 20) return err(400, '53400', 'This group is full (20 people)');
       if (state.groups.get(inv.group_id)?.kind === 'couple' && activeIn(inv.group_id).length >= 2) return err(400, '53400', 'A couple is only two people');
       state.members.set(`${inv.group_id}|${uid}`, { group_id: inv.group_id, user_id: uid, display_name: dn, role: 'member', joined_at: new Date().toISOString(), left_at: null });
-      if (!activeIn(inv.group_id).some((m) => m.role === 'admin')) member(inv.group_id, uid).role = 'admin';
+      if (!activeIn(inv.group_id).some((m) => m.user_id !== uid)) { member(inv.group_id, uid).role = 'admin'; state.groups.get(inv.group_id).primary_admin = uid; }
       return ok(inv.group_id);
     }
     if (name === 'reset_invite') {
@@ -189,12 +191,18 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (balance(a.p_group, uid) !== 0) return refuse('Settle up first: your balance in this group is not zero');
       const others = activeIn(a.p_group).filter((m) => m.user_id !== uid);
       if (me.role === 'admin' && others.length && !others.some((m) => m.role === 'admin')) return refuse('Make someone else an admin before you leave');
+      if (state.groups.get(a.p_group)?.primary_admin === uid) {
+        if (others.length) return err(400, '23514', 'Hand over the primary admin role before you leave');
+        state.groups.get(a.p_group).primary_admin = null;
+      }
       me.left_at = new Date().toISOString();
       return ok();
     }
     if (name === 'remove_member') {
       if (!adminOf(a.p_group)) return lockedOut;
       if (a.p_user === uid) return err(400, '22023', 'Use Leave group to remove yourself');
+      if (state.groups.get(a.p_group)?.primary_admin === a.p_user) return err(403, '42501', 'The primary admin cannot be removed');
+      if (member(a.p_group, a.p_user)?.role === 'admin' && state.groups.get(a.p_group)?.primary_admin !== uid) return err(403, '42501', 'Only the primary admin can remove an admin');
       const m = member(a.p_group, a.p_user);
       if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
       if (balance(a.p_group, a.p_user) !== 0) return refuse('They must settle up first: their balance in this group is not zero');
@@ -202,12 +210,72 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       state.invites.set(a.p_group, { group_id: a.p_group, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
       return ok();
     }
+    const primaryOf = (gid: string) => state.groups.get(gid)?.primary_admin === uid && adminOf(gid);
+    const notPrimary = err(403, '42501', 'Only the primary admin can do this');
     if (name === 'make_admin') {
-      if (!adminOf(a.p_group)) return lockedOut;
+      if (!primaryOf(a.p_group)) return notPrimary;
       const m = member(a.p_group, a.p_user);
       if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
       m.role = 'admin';
       return ok();
+    }
+    if (name === 'revoke_admin') {
+      if (!primaryOf(a.p_group)) return notPrimary;
+      if (state.groups.get(a.p_group).primary_admin === a.p_user) return err(400, '23514', 'The primary admin stays an admin: hand the role over first');
+      const m = member(a.p_group, a.p_user);
+      if (!m || m.left_at || m.role !== 'admin') return err(400, '22023', 'That person is not an admin of this group');
+      m.role = 'member';
+      return ok();
+    }
+    if (name === 'make_primary_admin') {
+      if (!primaryOf(a.p_group)) return notPrimary;
+      if (a.p_user === uid) return err(400, '22023', 'You are the primary admin already');
+      const m = member(a.p_group, a.p_user);
+      if (!m || m.left_at) return err(400, '22023', 'That person is not in this group');
+      m.role = 'admin';
+      state.groups.get(a.p_group).primary_admin = a.p_user;
+      return ok();
+    }
+    if (name === 'claim_primary_admin') {
+      const g = state.groups.get(a.p_group);
+      const p = g?.primary_admin ? member(a.p_group, g.primary_admin) : undefined;
+      if (g && p && !p.left_at && p.role === 'admin') return err(400, '23514', 'This group has a primary admin');
+      const oldest = activeIn(a.p_group).filter((m) => m.role === 'admin').sort((x, y) => x.joined_at.localeCompare(y.joined_at) || x.user_id.localeCompare(y.user_id))[0];
+      if (!g || oldest?.user_id !== uid) return err(403, '42501', 'Only the longest-standing admin can take over');
+      g.primary_admin = uid;
+      return ok();
+    }
+    // the Circle (version 1.28)
+    const pair = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
+    const linkedWith = (u: string) => [...state.circleLinks].map((k) => k.split('|')).filter((k) => k.includes(u)).map((k) => (k[0] === u ? k[1]! : k[0]!));
+    if (name === 'circle_new_invite') {
+      if (linkedWith(uid).length >= 100) return err(400, '53400', 'Your Circle is full (100 people)');
+      if ([...state.circleInvites.values()].filter((i) => i.owner_id === uid && !i.used_by && Date.parse(i.expires_at) > Date.now()).length >= 10) return err(400, '53400', 'You have 10 unused codes already: use or wait for one to expire');
+      const code = randomUUID().replace(/-/g, '').slice(0, 20);
+      state.circleInvites.set(code, { code, owner_id: uid, expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), used_by: null });
+      return ok(code);
+    }
+    if (name === 'circle_join') {
+      const norm = String(a.p_code ?? '').toLowerCase().replace(/[^0-9a-f]/g, '');
+      const inv = state.circleInvites.get(norm);
+      if (!inv || inv.used_by || Date.parse(inv.expires_at) <= Date.now()) return err(400, '22023', 'That code is not valid or has expired');
+      if (inv.owner_id === uid) return err(400, '22023', 'That is your own code');
+      state.circleLinks.add(pair(uid, inv.owner_id));
+      inv.used_by = uid;
+      return ok(state.profiles.get(inv.owner_id)?.name ?? '');
+    }
+    if (name === 'circle_remove') { state.circleLinks.delete(pair(uid, a.p_user)); return ok(); }
+    if (name === 'my_circle') {
+      const linked = new Set(linkedWith(uid));
+      const through = new Map<string, { groups: Set<string>; dn: string }>();
+      for (const m of state.members.values()) {
+        if (m.left_at || m.user_id === uid || !active(m.group_id, uid)) continue;
+        const cur = through.get(m.user_id) ?? { groups: new Set<string>(), dn: m.display_name };
+        cur.groups.add(state.groups.get(m.group_id).name);
+        through.set(m.user_id, cur);
+      }
+      const everyone = new Set([...linked, ...through.keys()]);
+      return ok([...everyone].map((u) => ({ user_id: u, name: state.profiles.get(u)?.name?.trim() || through.get(u)?.dn || '', linked: linked.has(u), shared_groups: [...(through.get(u)?.groups ?? [])].sort() })));
     }
     if (name === 'set_trip_dates') {
       if (!adminOf(a.p_group)) return lockedOut;

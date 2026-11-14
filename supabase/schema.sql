@@ -558,8 +558,9 @@ begin
   -- coming back is always as a plain member, whatever the person was before
   insert into public.group_members (group_id, user_id, display_name, role) values (gid, uid, dn, 'member')
   on conflict (group_id, user_id) do update set left_at = null, role = 'member', display_name = excluded.display_name, joined_at = now();
-  -- a group nobody administers (the last admin left) is taken over by the next person to join
-  if not exists (select 1 from public.group_members m where m.group_id = gid and m.left_at is null and m.role = 'admin') then
+  -- a group everyone has left is taken over by the next person to join (a group that still has people but no admin is
+  -- taken over through claim_primary_admin, never by whoever holds an old code)
+  if not exists (select 1 from public.group_members m where m.group_id = gid and m.left_at is null and m.user_id <> uid) then
     update public.group_members set role = 'admin' where group_id = gid and user_id = uid;
     update public.groups set primary_admin = uid where id = gid;
   end if;
@@ -628,6 +629,10 @@ begin
   if exists (select 1 from public.groups g where g.id = p_group and g.primary_admin = p_user) then
     raise exception 'The primary admin cannot be removed' using errcode = '42501';
   end if;
+  if exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = p_user and m.left_at is null and m.role = 'admin')
+     and not public.is_primary_admin(p_group) then
+    raise exception 'Only the primary admin can remove an admin' using errcode = '42501';
+  end if;
   perform 1 from public.group_members m where m.group_id = p_group and m.user_id = p_user and m.left_at is null for update;
   if not found then
     raise exception 'That person is not in this group' using errcode = '22023';
@@ -650,6 +655,7 @@ as $$
 begin
   if not public.is_primary_admin(p_group) then raise exception 'Only the primary admin can do this' using errcode = '42501'; end if;
   perform 1 from public.groups g where g.id = p_group for update; -- one membership change per group at a time
+  if not public.is_primary_admin(p_group) then raise exception 'Only the primary admin can do this' using errcode = '42501'; end if;
   update public.group_members set role = 'admin' where group_id = p_group and user_id = p_user and left_at is null;
   if not found then raise exception 'That person is not in this group' using errcode = '22023'; end if;
 end;
@@ -1384,7 +1390,8 @@ begin
 end;
 $$;
 
--- A group whose primary admin is gone (the account was deleted) can be taken over by its longest-standing admin.
+-- A group whose primary admin is gone (the account was deleted) can be taken over by its longest-standing admin; a group that
+-- has people but no admin at all, by its longest-standing member (who becomes an admin).
 create or replace function public.claim_primary_admin(p_group uuid)
 returns void
 language plpgsql
@@ -1400,9 +1407,14 @@ begin
     where g.id = p_group) then
     raise exception 'This group has a primary admin' using errcode = '23514';
   end if;
-  if uid is distinct from (select m.user_id from public.group_members m where m.group_id = p_group and m.left_at is null and m.role = 'admin' order by m.joined_at, m.user_id limit 1) then
-    raise exception 'Only the longest-standing admin can take over' using errcode = '42501';
+  if exists (select 1 from public.group_members m where m.group_id = p_group and m.left_at is null and m.role = 'admin') then
+    if uid is distinct from (select m.user_id from public.group_members m where m.group_id = p_group and m.left_at is null and m.role = 'admin' order by m.joined_at, m.user_id limit 1) then
+      raise exception 'Only the longest-standing admin can take over' using errcode = '42501';
+    end if;
+  elsif uid is distinct from (select m.user_id from public.group_members m where m.group_id = p_group and m.left_at is null order by m.joined_at, m.user_id limit 1) then
+    raise exception 'Only the longest-standing member can take over a group with no admin' using errcode = '42501';
   end if;
+  update public.group_members set role = 'admin' where group_id = p_group and user_id = uid;
   update public.groups set primary_admin = uid where id = p_group;
 end;
 $$;
@@ -1419,9 +1431,10 @@ create table if not exists public.circle_links (
 );
 create index if not exists circle_links_b_idx on public.circle_links (user_b);
 
--- A code one person sends another. It works once, for 7 days.
+-- A code one person sends another. It works once, for 7 days (20 hex characters, so it cannot be guessed). A used code keeps
+-- used_at, even if the person who used it later deletes their account (used_by is then empty).
 create table if not exists public.circle_invites (
-  code        text primary key check (code ~ '^[0-9a-f]{12}$'),
+  code        text primary key check (code ~ '^[0-9a-f]{20}$'),
   owner_id    uuid not null references auth.users (id) on delete cascade,
   created_at  timestamptz not null default now(),
   expires_at  timestamptz not null,
@@ -1458,12 +1471,12 @@ set row_security = off
 as $$
 declare
   uid uuid := (select auth.uid());
-  c text := public.new_invite_code();
+  c text := substr(replace(gen_random_uuid()::text, '-', ''), 1, 20); -- 80 bits: too many to guess
 begin
   if uid is null then raise exception 'Not signed in' using errcode = '28000'; end if;
   if public.circle_link_count(uid) >= 100 then raise exception 'Your Circle is full (100 people)' using errcode = '53400'; end if;
-  delete from public.circle_invites i where i.owner_id = uid and (i.expires_at < now() - interval '30 days' or (i.used_by is not null and i.used_at < now() - interval '30 days'));
-  if (select count(*) from public.circle_invites i where i.owner_id = uid and i.used_by is null and i.expires_at > now()) >= 10 then
+  delete from public.circle_invites i where i.owner_id = uid and (i.expires_at < now() - interval '30 days' or (i.used_at is not null and i.used_at < now() - interval '30 days'));
+  if (select count(*) from public.circle_invites i where i.owner_id = uid and i.used_at is null and i.expires_at > now()) >= 10 then
     raise exception 'You have 10 unused codes already: use or wait for one to expire' using errcode = '53400';
   end if;
   insert into public.circle_invites (code, owner_id, expires_at) values (c, uid, now() + interval '7 days');
@@ -1485,14 +1498,14 @@ declare
   inv public.circle_invites;
 begin
   if uid is null then raise exception 'Not signed in' using errcode = '28000'; end if;
-  select * into inv from public.circle_invites i where i.code = norm and i.used_by is null and i.expires_at > now() for update;
+  select * into inv from public.circle_invites i where i.code = norm and i.used_at is null and i.expires_at > now() for update;
   if not found then raise exception 'That code is not valid or has expired' using errcode = '22023'; end if;
   if inv.owner_id = uid then raise exception 'That is your own code' using errcode = '22023'; end if;
   if not exists (select 1 from public.circle_links l where l.user_a = least(uid, inv.owner_id) and l.user_b = greatest(uid, inv.owner_id)) then
     if public.circle_link_count(uid) >= 100 or public.circle_link_count(inv.owner_id) >= 100 then
-      raise exception 'A Circle is full (100 people)' using errcode = '53400';
+      raise exception 'That code cannot be used' using errcode = '22023'; -- does not say whose Circle is full
     end if;
-    insert into public.circle_links (user_a, user_b) values (least(uid, inv.owner_id), greatest(uid, inv.owner_id));
+    insert into public.circle_links (user_a, user_b) values (least(uid, inv.owner_id), greatest(uid, inv.owner_id)) on conflict do nothing;
   end if;
   update public.circle_invites set used_by = uid, used_at = now() where code = inv.code;
   return coalesce((select p.name from public.profiles p where p.user_id = inv.owner_id), '');
@@ -1514,8 +1527,8 @@ begin
 end;
 $$;
 
--- Your Circle: the people you linked, and everyone you share a group with now. For each: an id, a name (their profile name, else
--- the name they use in a group with you), whether you linked them, and the names of the groups you share. Nothing else about them.
+-- Your Circle: the people you linked, and everyone you share a group with now. For each: an id, a name (for someone you linked: their
+-- profile name; for someone you only share a group with: the name they use in that group, so a group alias stays an alias), whether you linked them, and the names of the groups you share. Nothing else about them.
 create or replace function public.my_circle()
 returns table (user_id uuid, name text, linked boolean, shared_groups text[])
 language plpgsql
@@ -1541,7 +1554,10 @@ begin
     select other from linked union select other from shared
   )
   select e.other,
-         coalesce(nullif(btrim(p.name), ''), (select s.display_name from shared s where s.other = e.other order by s.group_name limit 1), ''),
+         case when exists (select 1 from linked k where k.other = e.other)
+              then coalesce(nullif(btrim(p.name), ''), (select s.display_name from shared s where s.other = e.other order by s.group_name limit 1), '')
+              else coalesce((select s.display_name from shared s where s.other = e.other order by s.group_name limit 1), nullif(btrim(p.name), ''), '')
+         end,
          exists (select 1 from linked k where k.other = e.other),
          coalesce((select array_agg(distinct s.group_name order by s.group_name) from shared s where s.other = e.other), '{}')
     from everyone e

@@ -30,7 +30,7 @@ export function PersonRow({ group, m, balance, powers, act, onRename }: Readonly
   const other = !mine;
   const run = (fn: () => Promise<unknown>, done: string) => { void act.run(fn, done); };
   const ask = (q: string) => window.confirm(q);
-  const canRemove = powers.isAdmin && other && !isPrimary;
+  const canRemove = powers.isAdmin && other && !isPrimary && (m.role !== 'admin' || powers.manageAdmins); // only the primary admin removes an admin
   return (
     <li className={ui.dueRow()}>
       <span className={ui.rowMain(true)}>
