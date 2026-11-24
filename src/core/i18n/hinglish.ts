@@ -1203,4 +1203,12 @@ export const HINGLISH: Record<string, string> = {
   'Your debts are {0} of what you own.': 'Aapki dendari aapki sampatti ka {0} hai.',
   'Group balances (owed to you less what you owe)': 'Group ka hisaab (aapka baaki ghata aap par baaki)',
   'Udhaar (lent less borrowed)': 'Udhaar (diya ghata liya)',
+  'Copied': 'Copy ho gaya',
+  'Copy report': 'Report copy karein',
+  'The browser would not copy it. Select the text below and copy it yourself.': 'Browser ne ise copy nahi kiya. Neeche ka text chunkar khud copy karein.',
+  'Something went wrong. Your payments on this phone are safe.': 'Kuch gadbad ho gayi. Is phone par aapke payments surakshit hain.',
+  'Something went wrong': 'Kuch gadbad ho gayi',
+  'Money Log hit a problem it could not recover from. Your payments are kept on this phone and are not lost. Reloading usually fixes it.': 'Money Log mein ek aisi samasya aayi jisse woh ubar nahi saka. Aapke payments isi phone par rakhe hain aur khoye nahi hain. Dobara load karne se aamtaur par theek ho jaata hai.',
+  'Reload': 'Dobara load karein',
+  'The report holds the error, the app version and the page name. It has none of your payments or details, and nothing is sent anywhere unless you send it.': 'Report mein gadbadi, app ka version aur page ka naam hota hai. Ismein aapke payments ya nijee jaankari nahi hoti, aur jab tak aap khud na bhejein kuch bhi kahin nahi bheja jaata.',
 };

@@ -1203,4 +1203,12 @@ export const HI: Record<string, string> = {
   'Your debts are {0} of what you own.': 'आपकी देनदारी आपकी संपत्ति का {0} है।',
   'Group balances (owed to you less what you owe)': 'ग्रुप का हिसाब (आपका बकाया घटा आप पर बकाया)',
   'Udhaar (lent less borrowed)': 'उधार (दिया घटा लिया)',
+  'Copied': 'कॉपी हो गया',
+  'Copy report': 'रिपोर्ट कॉपी करें',
+  'The browser would not copy it. Select the text below and copy it yourself.': 'ब्राउज़र ने इसे कॉपी नहीं किया। नीचे का टेक्स्ट चुनकर ख़ुद कॉपी करें।',
+  'Something went wrong. Your payments on this phone are safe.': 'कुछ गड़बड़ हो गई। इस फ़ोन पर आपके भुगतान सुरक्षित हैं।',
+  'Something went wrong': 'कुछ गड़बड़ हो गई',
+  'Money Log hit a problem it could not recover from. Your payments are kept on this phone and are not lost. Reloading usually fixes it.': 'Money Log में एक ऐसी समस्या आई जिससे वह उबर नहीं सका। आपके भुगतान इसी फ़ोन पर रखे हैं और खोए नहीं हैं। दोबारा लोड करने से आमतौर पर ठीक हो जाता है।',
+  'Reload': 'दोबारा लोड करें',
+  'The report holds the error, the app version and the page name. It has none of your payments or details, and nothing is sent anywhere unless you send it.': 'रिपोर्ट में गड़बड़ी, ऐप का वर्ज़न और पेज का नाम होता है। इसमें आपके भुगतान या निजी जानकारी नहीं होती, और जब तक आप ख़ुद न भेजें कुछ भी कहीं नहीं भेजा जाता।',
 };
