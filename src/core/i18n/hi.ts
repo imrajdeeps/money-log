@@ -251,8 +251,6 @@ export const HI: Record<string, string> = {
   'Your name in this group': 'इस ग्रुप में आपका नाम',
   'Nothing has been shared this month yet.': 'इस महीने अभी कुछ साझा नहीं हुआ।',
   'This month · {0}': 'इस महीने · {0}',
-  ' · your share {0}': ' · आपका हिस्सा {0}',
-  '{0} · {1} paid{2}': '{0} · {1} ने चुकाया{2}',
   '{0} · payment recorded': '{0} · भुगतान दर्ज हुआ',
   '{0} (left)': '{0} (छोड़ चुके)',
   '{0} copied.': '{0} कॉपी हो गया।',
@@ -1215,4 +1213,6 @@ export const HI: Record<string, string> = {
   'Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.': 'इसे इस्तेमाल करने के लिए दोबारा लोड करें। जो भुगतान आप आधा लिख चुके हैं वह दोबारा लोड करने पर मिट जाता है, इसलिए पहले उसे पूरा कर लें।',
   'Later': 'बाद में',
   'That language could not be loaded. Check your connection and try again.': 'वह भाषा लोड नहीं हो सकी। अपना कनेक्शन देखें और फिर कोशिश करें।',
+  '{0} · {1} paid': '{0} · {1} ने चुकाया',
+  'you are owed {0}': 'आपको {0} मिलने हैं',
 };

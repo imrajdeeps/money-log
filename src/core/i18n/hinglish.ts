@@ -251,8 +251,6 @@ export const HINGLISH: Record<string, string> = {
   'Your name in this group': 'Is group mein aapka naam',
   'Nothing has been shared this month yet.': 'Is mahine abhi kuch share nahi hua.',
   'This month · {0}': 'Is mahine · {0}',
-  ' · your share {0}': ' · aapka hissa {0}',
-  '{0} · {1} paid{2}': '{0} · {1} ne chukaya{2}',
   '{0} · payment recorded': '{0} · payment record hua',
   '{0} (left)': '{0} (chhod chuke)',
   '{0} copied.': '{0} copy ho gaya.',
@@ -1215,4 +1213,6 @@ export const HINGLISH: Record<string, string> = {
   'Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.': 'Ise istemaal karne ke liye dobara load karein. Jo payment aap aadha likh chuke hain woh dobara load karne par mit jaata hai, isliye pehle use poora kar lein.',
   'Later': 'Baad mein',
   'That language could not be loaded. Check your connection and try again.': 'Woh bhasha load nahi ho saki. Apna connection dekhein aur phir koshish karein.',
+  '{0} · {1} paid': '{0} · {1} ne chukaya',
+  'you are owed {0}': 'aapko {0} milne hain',
 };

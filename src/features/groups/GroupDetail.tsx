@@ -7,8 +7,9 @@ import { shortDate } from '../../core/format.ts';
 import { activeMembers, fromPaise, groupBalances, ledger, memberName, simplifyDebts } from '../../core/groups.ts';
 import type { Group, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
+import { expenseEffect } from '../../core/groupHistory.ts';
 import { kindLabel } from '../../core/groupKinds.ts';
-import { fmtINR, isValidDate, isoDate, myShare, parseAmount } from '../../core/logic.ts';
+import { fmtINR, isValidDate, isoDate, parseAmount } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import { ActivityBanner } from './ActivityBanner.tsx';
 import { DebtRow } from './DebtRow.tsx';
@@ -105,7 +106,7 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
             </ul>
           </>
         ) : <p className="text-muted text-[13px]">{tr('Nobody owes anybody anything.')}</p>}
-        {!settle && <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => setSettle({ dir: 'paid', other: people.find((m) => m.user_id !== me)?.user_id ?? '', amount: '', date: isoDate() })}>{tr('Record a payment')}</button>}
+        {!settle && !debts.some((d) => d.from === me || d.to === me) && <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => setSettle({ dir: 'paid', other: people.find((m) => m.user_id !== me)?.user_id ?? '', amount: '', date: isoDate() })}>{tr('Record a payment')}</button>}
         {settle && (
           <form onSubmit={record} noValidate className={ui.settleForm}>
             <h3>{tr('Record a payment')}</h3>
@@ -151,14 +152,17 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
               );
             }
             const e = it.e;
-            const share = myShare(e, me);
+            const effect = expenseEffect(e, me); // green where you are owed, red where you owe
             const body = (
               <>
                 <span className={ui.rowMain()}>
                   <b>{e.category}{e.note ? ` · ${e.note}` : ''}</b>
-                  <small>{tr('{0} · {1} paid{2}', shortDate(e.entry_date), nameOf(e.paid_by ?? ''), share > 0 ? tr(' · your share {0}', fmtINR(share)) : '')}</small>
+                  <small>
+                    {tr('{0} · {1} paid', shortDate(e.entry_date), nameOf(e.paid_by ?? ''))}
+                    {effect.side !== 'none' && <> · <span className={effect.side === 'owed' ? ui.owed : ui.late}>{effect.side === 'owed' ? tr('you are owed {0}', fmtINR(effect.amount)) : tr('you owe {0}', fmtINR(effect.amount))}</span></>}
+                  </small>
                 </span>
-                <span className="font-bold tabular-nums">{fmtINR(e.amount)}</span>
+                <span className={`font-bold tabular-nums ${effect.side === 'owed' ? 'text-good' : effect.side === 'owe' ? 'text-bad' : ''}`}>{fmtINR(e.amount)}</span>
               </>
             );
             return <li key={e.id}><button type="button" className={ui.row} onClick={() => (e.owner_id === me ? setEditing(e) : setViewing(e))}>{body}</button></li>;
