@@ -67,8 +67,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   const udhaar = useMemo(() => udhaarTotals(app.goals), [app.goals]);
   // what is safe to spend each day for the rest of the month, once there is a budget (after what is still to come this month)
   const safe = useMemo(
-    () => (ov.budgeted ? safeToSpend(ov.budget, ov.spent, upcomingThisMonth(app.dueItems, app.recurring, today), today) : null),
-    [ov.budgeted, ov.budget, ov.spent, app.dueItems, app.recurring, today],
+    () => (ov.budgeted ? safeToSpend(ov.budget, ov.spent, upcomingThisMonth(app.dueItems, app.recurring, today, groupLookup(app.categories)), today) : null),
+    [ov.budgeted, ov.budget, ov.spent, app.dueItems, app.recurring, app.categories, today],
   );
   const tiles = overviewGroups(ov.summary.groups, starting);
   const tileSpan = (12 / Math.max(1, tiles.length)) as 3 | 4 | 6 | 12;

@@ -24,3 +24,11 @@ test('the reminder names the amount and the group, and carries the UPI id and li
   const loan = udhaarRemindText({ name: 'Rohit', amount: 2000, upi: '', payeeName: 'Asha' });
   assert.ok(loan.includes('Rohit') && loan.includes('₹2,000') && !loan.includes('upi://'));
 });
+
+test('a UPI id is found in a pasted reminder, and a typed bad value is not quietly replaced', async () => {
+  const { extractUpi } = await import('../../src/core/upi.ts');
+  assert.equal(extractUpi('asha@okaxis'), 'asha@okaxis');
+  assert.equal(extractUpi('You can pay me on UPI: Asha.K@OKAxis upi://pay?pa=asha.k@okaxis&pn=Asha'), 'asha.k@okaxis', 'the first id in the text');
+  assert.equal(extractUpi('pay asha@ybl.'), 'asha@ybl', 'a full stop after it is not part of it');
+  for (const bad of ['', 'no id here', 'asha@', 5, null]) assert.equal(extractUpi(bad), '', String(bad));
+});

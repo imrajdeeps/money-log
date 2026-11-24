@@ -7,6 +7,9 @@ import { localPref } from './localPref.ts';
 
 export const shareSwitches = localPref<ShareSwitches>('money-log.count-shares', cleanShareSwitches, {});
 
+/** The day counting a friend's share began on this phone for groups that count by default (set once, the first time it ran). */
+export const sharesFrom = localPref<string>('money-log.shares-from', (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''), '');
+
 /** My own UPI id: shared only inside a reminder I send. */
 export const myUpi = localPref<string>('money-log.upi', (v) => cleanUpi(v), '');
 
@@ -17,9 +20,13 @@ export const theirUpi = localPref<Record<string, string>>('money-log.upi-of', (v
   return out;
 }, {});
 
-/** The time of my last look at each group, by group id (an ISO time). */
-export const groupSeen = localPref<Record<string, string>>('money-log.group-seen', (v) => {
-  const out: Record<string, string> = {};
-  if (v && typeof v === 'object' && !Array.isArray(v)) for (const [k, t] of Object.entries(v as Record<string, unknown>)) if (/^[0-9a-f-]{36}$/i.test(k) && typeof t === 'string' && Number.isFinite(Date.parse(t))) out[k.toLowerCase()] = t;
+/** What I had seen in each group at my last look, by group id: the keys of its rows (see core/groupActivity.ts). */
+export const groupSeen = localPref<Record<string, string[]>>('money-log.group-seen-keys', (v) => {
+  const out: Record<string, string[]> = {};
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (const [k, list] of Object.entries(v as Record<string, unknown>)) {
+      if (/^[0-9a-f-]{36}$/i.test(k) && Array.isArray(list)) out[k.toLowerCase()] = list.filter((x): x is string => typeof x === 'string' && x.length < 100).slice(0, 400);
+    }
+  }
   return out;
 }, {});

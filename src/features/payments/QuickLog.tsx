@@ -128,13 +128,13 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
 
   // A message arrived in the address (#sms=..., from a phone shortcut): read it as if it had been pasted, once
   useEffect(() => {
-    if (!sms) return;
+    if (!sms || app.locked) return; // a PIN screen is up: wait, so the message is not lost on a page nobody can see
     setPasteOpen(true);
     setMessage(sms);
     readMessage(sms);
     onSms?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sms]);
+  }, [sms, app.locked]);
 
   async function pasteAndRead() {
     setPasteOpen(true);
@@ -163,16 +163,30 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     setCategory('');
     setDate(null);
     setRepeat(false);
+    setError('');
+    if (stay) {
+      // "Save and add another": the form stays, ready for the next one, for the same group (with a fresh split) or the same Received
+      const g = groupId ? app.groups.find((x) => x.id === groupId) : undefined;
+      if (g && app.me) setSplit(freshSplit(app.me, activeMembers(app.members, g.id), g.usual_split ?? null));
+      amountRef.current?.focus();
+      return;
+    }
     setGroupId(''); // the next payment is private unless chosen otherwise
     setSplit(null);
     setKind('out'); // the next one is spending unless chosen otherwise
-    setError('');
-    if (stay) amountRef.current?.focus(); // "Save and add another": the form stays, ready for the next one
-    else onSaved();
+    onSaved();
   }
 
+  // one save at a time: a quick second tap must not save the payment twice
+  const saving = useRef(false);
   async function save(ev?: FormEvent, stay = false) {
     ev?.preventDefault();
+    if (saving.current) return;
+    saving.current = true;
+    try { await doSave(stay); } finally { saving.current = false; }
+  }
+
+  async function doSave(stay: boolean) {
     const amt = parseAmount(amount);
     if (amt === null) return fail(amount.trim() === '' ? tr('Enter an amount.') : tr('Amount must be a positive number with at most 2 decimals.'));
     if (!category) return fail(tr('Pick a category.'));
@@ -225,7 +239,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
         {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
         <p className="m-0 mt-2 text-[13px]"><button type="button" className={ui.linkBtn} onClick={() => setBatch(true)}>{tr('Several messages? Review them together')}</button></p>
       </details>
-      {batch && <BatchReview onDone={() => { setBatch(false); onSaved(); }} />}
+      {batch && <BatchReview onClose={() => setBatch(false)} onSaved={() => { setBatch(false); onSaved(); }} />}
 
       {!isIn && <QuickLineBox onFill={fillFromLine} />}
 

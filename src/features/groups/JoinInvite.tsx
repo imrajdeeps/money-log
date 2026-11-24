@@ -42,7 +42,7 @@ export function JoinInvite() {
   return (
     <form className={ui.card('notice')} onSubmit={(ev) => { void submit(ev); }} noValidate>
       <h2>{tr('You were invited to a group')}</h2>
-      <p className="text-muted text-[13px]">{tr('Make an account (or sign in) and you can join it in a moment. Your own payments stay on this phone; only what you share in a group is seen by its members.')}</p>
+      <p className="text-muted text-[13px]">{tr('Make an account (or sign in) and you can join it in a moment. Your own payments are kept on this phone, and signing in adds a copy to your account; what you share in a group is seen by its members.')}</p>
       <div className={ui.chips} role="group" aria-label={tr('How to sign in')}>
         <button type="button" className={ui.chip} aria-pressed={how === 'signup'} onClick={() => { setHow('signup'); setMsg(null); }}>{tr('Create account')}</button>
         <button type="button" className={ui.chip} aria-pressed={how === 'signin'} onClick={() => { setHow('signin'); setMsg(null); }}>{tr('Sign in')}</button>

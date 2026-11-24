@@ -7,8 +7,8 @@ import { shortDate } from '../../core/format.ts';
 import { fmtINR, isoDate, myShare } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import { CategorySelect } from '../../ui/CategorySelect.tsx';
-import { countsShare } from '../../core/groupShares.ts';
-import { shareSwitches } from '../../data/phonePrefs.ts';
+import { shareFrom } from '../../core/groupShares.ts';
+import { shareSwitches, sharesFrom } from '../../data/phonePrefs.ts';
 import { HistoryList } from './HistoryList.tsx';
 import { PhotoStrip } from './PhotoStrip.tsx';
 import * as ui from '../../ui/styles.ts';
@@ -21,7 +21,8 @@ export function ExpenseDialog({ entry, group, onClose }: Readonly<{ entry: Entry
   const ref = useRef<HTMLDialogElement>(null);
   const share = myShare(entry, app.me);
   const added = app.entries.find((x) => x.share_of === entry.id);
-  const counted = countsShare(group, shareSwitches.use()); // the group's switch: your share counts in your Month by itself
+  const from = shareFrom(group, shareSwitches.use(), sharesFrom.use() || isoDate()); // the group's switch: your share counts in your Month by itself, from a day on
+  const counted = from !== null && entry.entry_date >= from;
   const [adding, setAdding] = useState(false);
   const [category, setCategory] = useState('');
   const [note, setNote] = useState(tr('{0} (my share, {1})', entry.note || entry.category, group.name));
