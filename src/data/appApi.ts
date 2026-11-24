@@ -13,6 +13,7 @@ import type { CircleMember } from '../core/circle.ts';
 import type { SharedGoal } from '../core/sharedGoals.ts';
 import type { UdhaarItem } from '../core/goals.ts';
 import type { UdhaarInput } from '../core/udhaar.ts';
+import type { AutoLine, WorthInput } from '../core/worth.ts';
 
 // Shared goals live on the server: each call asks it and throws when offline (or when the database has no 1.29 yet).
 export interface SharedGoalsApi {
@@ -73,6 +74,11 @@ export interface AppApi {
   removeRecurring: (id: string) => Promise<void>;
   logRecurring: (id: string, how: 'log' | 'skip') => Promise<void>;
   goals: Goals; // goals and their top-ups, removed ones included
+  // net worth items (version 1.33): each change also writes today's snapshot into the history; `auto` is the automatic lines in force
+  addWorthItem: (i: WorthInput, auto: readonly AutoLine[]) => Promise<string | null>;
+  editWorthItem: (id: string, i: WorthInput, auto: readonly AutoLine[]) => Promise<string | null>;
+  checkInWorth: (values: Readonly<Record<string, number>>, auto: readonly AutoLine[]) => Promise<void>;
+  removeWorthItem: (id: string, auto: readonly AutoLine[]) => Promise<void>;
   udhaar: UdhaarItem[]; // money lent or borrowed, open ones first
   addUdhaar: (i: UdhaarInput) => Promise<string | null>; // null when it worked, else what to tell the person
   editUdhaar: (id: string, i: UdhaarInput) => Promise<string | null>;

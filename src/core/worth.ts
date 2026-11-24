@@ -5,6 +5,8 @@ import { ASSET_CLASSES, DEBT_CLASSES, MAX_WORTH, addNetUpdate, parseNetAmount, n
 import type { Goals, WorthItem, WorthSide } from './goals.ts';
 import { monthlyTotals, monthsEnding, averageOf } from './analytics.ts';
 import type { GroupOf } from './analytics.ts';
+import { groupBalances, fromPaise } from './groups.ts';
+import type { Group, Settlement } from './groups.ts';
 import { laterThan, newId, normName, round2, shiftMonth } from './logic.ts';
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';
@@ -203,3 +205,11 @@ export function snapshotWorth(items: Goals, net: number, todayIso: string, nowIs
   return r.ok ? r.items : items;
 }
 
+
+/** What friends owe the person less what the person owes them, across every group (above zero: owed to them). */
+export function groupsNet(groups: readonly Pick<Group, 'id'>[], entries: readonly Entry[], settlements: readonly Settlement[], me: string | null): number {
+  if (!me) return 0;
+  let paise = 0;
+  for (const g of groups) paise += groupBalances(g.id, [...entries], [...settlements])[me] ?? 0;
+  return fromPaise(paise);
+}
