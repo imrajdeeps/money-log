@@ -155,6 +155,17 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Keeping it running, and fixes from the phone (version 1.34)
+No SQL. From `docs/prd-networth-reliability.md` and the owner's screenshots.
+
+- **Caps count live items only.** A removed goal, top-up, net worth update, due item, income category, Udhaar entry or net worth item used to count toward its cap for ever, until "add" failed with an error nothing could fix. Now only live items count. Data read back from the cloud or a backup keeps every live item and up to the same number of removed ones (newest first); any change clears removed items older than 180 days, and the top-ups of a goal cleared that way. A phone that has not synced for over 180 days could bring back something that was removed elsewhere.
+- **Failures are visible.** A page that fails to draw shows a crash screen (*Reload*, *Copy report*) instead of a blank page; an error or rejected promise nobody caught shows a banner with *Copy report*. The report is plain text: the error and where it happened, the app version, the page name (no ids, nothing after it in the address, so no pasted message), and the browser, language, online and installed-app facts. It holds none of the person's payments, and the app sends it nowhere: the person decides whether to send it. A browser's harmless layout notice, an error from another site's script, an extension's error and a request the page itself cancelled are ignored.
+- **"A new version of Money Log is ready."** The service worker replaces the app's files as soon as it has them while an open page keeps running the old code. When a later version takes over, a bar offers *Reload* or *Later* (the first takeover, on the first visit, is not an update). An app left open is checked for a new version when it is opened again, at most once an hour. A half-typed payment is lost on reload, which the bar says.
+- **Smaller and quicker to start.** Hindi and Hinglish are separate files fetched only when that language is chosen or stored (the main script went from 1,005,739 to 742,453 bytes, 294 KB to 221 KB gzipped); the first screen waits for the stored language's text, English at once. The offline cache still holds both files. The start screen stays 500 ms, not 900.
+- **Checks that cover the work.** `npm run check` type-checks the app and the tests (`tsconfig.tests.json`; eleven errors in six test files were fixed), CI runs it, and CI now runs for pull requests into `version/*` branches as well as `main`.
+- **Group page, from the owner's phone:** in *Group settings*, *People*, a person's name keeps a line and the buttons wrap under it (they used to squeeze it to a letter per line); the general *Record a payment* button shows only when no line of *To settle up* is yours (otherwise that line's *Record* opens the same form, filled in); *Expenses and payments* reads *you are owed X* in green where you paid and others owe their shares, and *you owe X* in red where someone else paid and you share. Recorded payments stay plain.
+- Checked in the browser against the stand-in server; the service-worker update could not be run there (the browser pane cannot register a worker), so that bar was driven by simulated events. Not yet on a real phone.
+
 ## Net worth that earns its place (version 1.33)
 No SQL. From `docs/prd-networth-reliability.md`.
 
@@ -530,7 +541,7 @@ it, sync stops but logging on the phone keeps working and catches up afterwards.
 npm ci           # install exactly the versions in package-lock.json
 npm run dev      # local dev server (local-only mode unless you create .env.local, see .env.example)
 npm test         # tests: logic, blocks, groups and splits, dashboard figures, and sync against a stand-in for Supabase
-npm run check    # type check
+npm run check    # type check, the app and the tests
 npm run build    # production build into dist/
 ```
 
