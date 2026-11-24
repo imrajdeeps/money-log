@@ -5,3 +5,4 @@ export { EditDialog } from './EditDialog.tsx';
 export { ExpenseDialog } from './ExpenseDialog.tsx';
 export { QuickLog } from './QuickLog.tsx';
 export { RecentList } from './RecentList.tsx';
+export { smsFromHash } from './smsParse.ts';

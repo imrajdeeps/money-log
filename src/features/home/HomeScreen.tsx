@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { udhaarTotals } from '../../core/udhaar.ts';
+import { safeToSpend } from '../../core/safeToSpend.ts';
+import { WeekRecapCard } from './WeekRecapCard.tsx';
 import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { BentoCard, BentoEmpty, BentoGrid } from '../../ui/Bento.tsx';
 import { BudgetLine } from '../../ui/BudgetLine.tsx';
@@ -11,7 +13,7 @@ import { dueRelative } from '../../core/blocks.ts';
 import { netNow } from '../../core/goals.ts';
 import { planForMonth } from '../../core/categories.ts';
 import { cashFlow } from '../../core/income.ts';
-import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, topCategories } from './dashboard.ts';
+import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, topCategories, upcomingThisMonth } from './dashboard.ts';
 import { monthLabel, monthShort, shortDate } from '../../core/format.ts';
 import { averageOf, groupLookup, monthlyTotals, monthsEnding, projectedMonthEnd } from '../../core/analytics.ts';
 import type { Group } from '../../core/logic.ts';
@@ -63,6 +65,11 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   // by themselves once there is something to show, and every page is still one tap away in the menu.
   const starting = app.entries.length < GETTING_STARTED;
   const udhaar = useMemo(() => udhaarTotals(app.goals), [app.goals]);
+  // what is safe to spend each day for the rest of the month, once there is a budget (after what is still to come this month)
+  const safe = useMemo(
+    () => (ov.budgeted ? safeToSpend(ov.budget, ov.spent, upcomingThisMonth(app.dueItems, app.recurring, today), today) : null),
+    [ov.budgeted, ov.budget, ov.spent, app.dueItems, app.recurring, today],
+  );
   const tiles = overviewGroups(ov.summary.groups, starting);
   const tileSpan = (12 / Math.max(1, tiles.length)) as 3 | 4 | 6 | 12;
 
@@ -102,6 +109,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
           <p className={hs.status(ov.budgeted && left < 0 ? 'bad' : ov.budgeted && nearBudget(ov.spent, ov.budget) ? 'warn' : '')}>
             {!ov.budgeted ? tr('No budgets yet: open to set them.') : left >= 0 ? tr('{0} left this month{1}', fmtINR(left), nearBudget(ov.spent, ov.budget) ? tr(', budget nearly used') : '') : tr('{0} over budget', fmtINR(-left))}
           </p>
+          {safe && !(ov.day >= ov.days && safe.left <= 0) && safe.left > 0 && <p className={hs.note}>{tr('About {0} a day is safe to spend for the {1} days left{2}', fmtINR(safe.perDay), safe.daysLeft, safe.upcoming > 0 ? tr(' (after {0} still to come this month)', fmtINR(safe.upcoming)) : '')}</p>}
           {toDate === 0 && (ov.lastDaily.at(-1) ?? 0) === 0 ? (
             // nothing to draw yet: a flat line at zero would say less than these words
             <BentoEmpty cta={tr('Add expense')} onCta={openAdd}>{tr('No spending logged this month or last (savings are not counted here). Your spending by day shows here once you log a payment.')}</BentoEmpty>
@@ -118,6 +126,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
             </>
           )}
         </BentoCard>
+
+        <WeekRecapCard />
 
         {net ? (
           <BentoCard title={tr('Net worth')} span={4} onOpen={() => open('plan', 'networth')} openLabel={tr('Open net worth and goals')}>

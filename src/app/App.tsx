@@ -7,7 +7,7 @@ import type { SettingsSection } from '../features/settings/index.ts';
 import { Splash } from '../ui/Splash.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import type { IconName } from '../ui/Icon.tsx';
-import { AllPayments, QuickLog } from '../features/payments/index.ts';
+import { AllPayments, QuickLog, smsFromHash } from '../features/payments/index.ts';
 import { SyncPill } from '../ui/SyncPill.tsx';
 import { AnalyticsScreen } from '../features/analytics/index.ts';
 import { CashFlowScreen } from '../features/cashflow/index.ts';
@@ -71,6 +71,8 @@ function Shell() {
   const addCategory = addSearch?.category; // Add expense starts with this category
   const addKind = addSearch?.kind; // or on Received
   const addGroup = addSearch?.group; // or for one group
+  // a bank message handed over in the address (#sms=...) by a phone shortcut: Add expense reads it once
+  const [sms, setSms] = useState<string | null>(() => smsFromHash(window.location.hash));
   // The start screen stays for at least a moment (not at all with reduced motion), then fades while the app appears under it.
   const [held, setHeld] = useState(false);
   const [splashGone, setSplashGone] = useState(false);
@@ -89,6 +91,15 @@ function Shell() {
   const anchor = useRef<string | undefined>(undefined); // a part of the next page to scroll to (net worth, on the Plan page)
 
   const goHome = useCallback(() => { void navigate({ to: '/' }); }, [navigate]);
+  const clearSms = useCallback(() => {
+    setSms(null);
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* the address bar is only cosmetic */ }
+  }, []);
+  useEffect(() => {
+    const onHash = () => { const t = smsFromHash(window.location.hash); if (t) setSms(t); };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const goAdd = useCallback(() => { void navigate({ to: '/add' }); }, [navigate]);
   const goAddIncome = useCallback(() => { void navigate({ to: '/add', search: { kind: 'in' } }); }, [navigate]);
   const goAddGroup = useCallback((id: string) => { void navigate({ to: '/add', search: { group: id } }); }, [navigate]);
@@ -129,6 +140,7 @@ function Shell() {
   }, [app.ready, app.recovering, app.authNotice, app.locked, goSettings]);
   // A join link was opened: show where it can be used, once the PIN screen (if any) is out of the way.
   useEffect(() => { if (app.ready && app.joinCode && !app.locked) goPage('groups'); }, [app.ready, app.joinCode, app.locked, goPage]);
+  useEffect(() => { if (sms && app.ready && !app.locked) goAdd(); }, [sms, app.ready, app.locked, goAdd]);
   useEffect(() => { if (app.ready && app.circleCode && !app.locked) goPage('circle'); }, [app.ready, app.circleCode, app.locked, goPage]);
   // The PIN screen must not sit under an open dialog (they are drawn above the page): close them all before it is painted
   // and before it puts the focus in its PIN field.
@@ -180,7 +192,7 @@ function Shell() {
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
         <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
-          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} /></PageBody>
+          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}

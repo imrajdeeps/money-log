@@ -5,6 +5,8 @@ import type { DueItem, DueView } from '../../core/blocks.ts';
 import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
 import type { Group as SharedGroup, Member, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
+import { recurringThisMonth } from '../../core/recurring.ts';
+import type { Recurring } from '../../core/recurring.ts';
 import { activeGoals, goalLine, goalProgress, goalTerm } from '../../core/goals.ts';
 import type { Goal, GoalLine, GoalProgress, Goals } from '../../core/goals.ts';
 import { GROUPS, budgetEntries, catKey, daysInMonth, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
@@ -95,6 +97,15 @@ export function topCategories(s: MonthSummary, n = 4): { top: CategoryShare[]; r
     rest: { count: restLines.length, spent: restSpent, share: share(restSpent) },
     total,
   };
+}
+
+// What is still to pay this month: unpaid one-off items with an amount, due by the end of the month (overdue ones too), and recurring
+// payments not yet logged. It is taken off the budget before "safe to spend" is worked out.
+export function upcomingThisMonth(items: DueItem[], recurring: Recurring, todayIso: string): number {
+  const monthEnd = `${monthOf(todayIso)}-${String(daysInMonth(monthOf(todayIso))).padStart(2, '0')}`;
+  const dues = classifyDue(items, {}, '', todayIso).filter((v) => !v.isDone && v.kind === 'oneoff' && !!v.due && v.due <= monthEnd).reduce((s, v) => s + (v.amount ?? 0), 0);
+  const repeats = recurringThisMonth(recurring, todayIso).reduce((s, r) => s + r.item.a, 0);
+  return round2(dues + repeats);
 }
 
 // The due list in one look: what is overdue, what is still open, and the next few, overdue first (blocks.ts classifyDue).

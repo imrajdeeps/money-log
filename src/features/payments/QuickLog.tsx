@@ -3,6 +3,9 @@ import type { FormEvent, RefObject } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { CategoryChips } from './CategoryChips.tsx';
 import { DateChips } from './DateChips.tsx';
+import { BatchReview } from './BatchReview.tsx';
+import { QuickLineBox } from './QuickLineBox.tsx';
+import type { QuickLine } from './quickLine.ts';
 import { KindSwitch } from './KindSwitch.tsx';
 import { MethodChips } from './MethodChips.tsx';
 import { PendingPhotos } from './PendingPhotos.tsx';
@@ -36,7 +39,7 @@ const saveLabel = (isIn: boolean, shared: boolean): string => {
 
 // The payment form behind the "+ Add expense" button. It lives in a sheet that stays mounted, so a half-typed payment
 // survives closing it; the sheet focuses the amount (amountRef) the moment it opens.
-export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind, group: presetGroup }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string; kind?: EntryKind; group?: string }>) {
+export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind, group: presetGroup, sms, onSms }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string; kind?: EntryKind; group?: string; sms?: string | null; onSms?: () => void }>) {
   const app = useApp();
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -50,6 +53,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
   const [message, setMessage] = useState(''); // a bank message pasted to fill the form from
   const [readNote, setReadNote] = useState<{ text: string; bad: boolean } | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [batch, setBatch] = useState(false); // several pasted messages, reviewed together
   const [repeat, setRepeat] = useState(false); // also make it a payment that repeats every month
   const [kind, setKind] = useState<EntryKind>('out'); // Spent or Received (income is private and has its own categories)
   const isIn = kind === 'in';
@@ -110,6 +114,27 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     const dup = alreadyAdded(app.entries, p.ref) ? ' A saved payment already has this reference, so save only if it is a different one.' : '';
     setReadNote({ text: tr('Filled in: {0}.{1} Check it, then save.{2}', bits, cat ? '' : ' ' + tr('Pick a category.'), dup), bad: dup !== '' });
   }
+
+  // "450 swiggy upi" typed in one line: fills the form, saves nothing
+  function fillFromLine(l: QuickLine) {
+    setKind('out');
+    setAmount(String(l.amount));
+    setNote(l.note);
+    if (l.method) pickMethod(l.method);
+    setDate(l.date);
+    setCategory(l.category ?? '');
+    setError('');
+  }
+
+  // A message arrived in the address (#sms=..., from a phone shortcut): read it as if it had been pasted, once
+  useEffect(() => {
+    if (!sms) return;
+    setPasteOpen(true);
+    setMessage(sms);
+    readMessage(sms);
+    onSms?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sms]);
 
   async function pasteAndRead() {
     setPasteOpen(true);
@@ -198,7 +223,11 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
           <button type="button" className={ui.btn()} disabled={message.trim() === ''} onClick={() => readMessage(message)}>{tr('Read message')}</button>
         </div>
         {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
+        <p className="m-0 mt-2 text-[13px]"><button type="button" className={ui.linkBtn} onClick={() => setBatch(true)}>{tr('Several messages? Review them together')}</button></p>
       </details>
+      {batch && <BatchReview onDone={() => { setBatch(false); onSaved(); }} />}
+
+      {!isIn && <QuickLineBox onFill={fillFromLine} />}
 
       <KindSwitch value={kind} onChange={pickKind} />
 
