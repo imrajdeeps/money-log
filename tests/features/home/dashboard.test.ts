@@ -133,6 +133,15 @@ test('the overview shows all four groups until a budget is set, then only the gr
   assert.deepEqual(overviewGroups(none.summary.groups), ['Spending', 'EMI', 'Family', 'Saving']);
   const some = monthOverview([], ME, planForMonth(mineWithBudgets(), '2026-11'), planForMonth(mineWithBudgets(), '2026-10'), '2026-11-10');
   assert.deepEqual(overviewGroups(some.summary.groups), ['Spending', 'EMI', 'Saving'], 'Family has no budget, so no tile');
+  assert.deepEqual(overviewGroups(some.summary.groups, true), ['Spending', 'EMI', 'Saving'], 'budgets decide, getting started or not');
+});
+
+test('getting started with no budget: only the groups that have spending get a tile', () => {
+  const empty = monthOverview([], ME, planForMonth({}, '2026-11'), planForMonth({}, '2026-10'), '2026-11-10');
+  assert.deepEqual(overviewGroups(empty.summary.groups, true), [], 'nothing spent: no empty tiles');
+  const spent = monthOverview([mk(450, 'Groceries', '2026-11-05')], ME, planForMonth({}, '2026-11'), planForMonth({}, '2026-10'), '2026-11-10');
+  assert.deepEqual(overviewGroups(spent.summary.groups, true), ['Spending'], 'only the group with spending');
+  assert.deepEqual(overviewGroups(spent.summary.groups), ['Spending', 'EMI', 'Family', 'Saving'], 'not getting started: all four, as before');
 });
 
 // ---------------------------------------------------------------- All payments: search and filters

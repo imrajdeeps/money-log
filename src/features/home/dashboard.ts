@@ -10,10 +10,12 @@ import type { Goal, GoalLine, GoalProgress, Goals } from '../../core/goals.ts';
 import { GROUPS, budgetEntries, catKey, daysInMonth, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from '../../core/logic.ts';
 
-// Which of the four groups get a tile on the Overview: once any group has a budget, only those; with none set, all four.
-export function overviewGroups(groups: MonthSummary['groups']): Group[] {
+// Which of the four groups get a tile on the Overview: once any group has a budget, only those; with none set, all four. While the
+// person is getting started and has set no budget, only the groups that have any spending (a new person has no use for "EMI ₹0").
+export function overviewGroups(groups: MonthSummary['groups'], starting = false): Group[] {
   const set = GROUPS.filter((g) => groups[g].budgeted);
-  return set.length > 0 ? [...set] : [...GROUPS];
+  if (set.length > 0) return [...set];
+  return starting ? GROUPS.filter((g) => groups[g].spent > 0) : [...GROUPS];
 }
 
 const savingKeys = (plan: PlanData): Set<string> => new Set(plan.rows.filter((r) => r.g === 'Saving').map((r) => catKey(r.c)));

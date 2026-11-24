@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react';
 import { compareVersions, pickTour, replay } from '../../core/tour.ts';
 import type { Tour, TourKind, TourPage } from '../../core/tour.ts';
 import { loadTourSeen, saveTourSeen } from '../../data/tour.ts';
+import { WelcomeFlow } from './WelcomeFlow.tsx';
+import type { StartChoice } from './WelcomeFlow.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -22,8 +24,9 @@ function findTarget(name: string | undefined): HTMLElement | null {
   return [...document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }) ?? null;
 }
 
-export function TourHost({ version, ready, hasData, go }: Readonly<{ version: string; ready: boolean; hasData: boolean; go: (to: TourPage) => void }>) {
+export function TourHost({ version, ready, hasData, go, onStart }: Readonly<{ version: string; ready: boolean; hasData: boolean; go: (to: TourPage) => void; onStart: (choice: StartChoice) => void }>) {
   const [tour, setTour] = useState<Tour | null>(null);
+  const [welcome, setWelcome] = useState(false); // a person new to the app gets the short welcome, not the long tour
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const goRef = useRef(go);
@@ -37,7 +40,8 @@ export function TourHost({ version, ready, hasData, go }: Readonly<{ version: st
     decided.current = true;
     const seen = loadTourSeen();
     const t = pickTour(seen, version, hasData);
-    if (t) { setTour(t); setI(0); } else if (seen === null || compareVersions(version, seen) > 0) saveTourSeen(version);
+    if (t?.kind === 'first') setWelcome(true);
+    else if (t) { setTour(t); setI(0); } else if (seen === null || compareVersions(version, seen) > 0) saveTourSeen(version);
   }, [ready, version, hasData]);
 
   // when asked to
@@ -47,7 +51,7 @@ export function TourHost({ version, ready, hasData, go }: Readonly<{ version: st
     return () => { listeners.delete(on); };
   }, [version]);
 
-  const close = useCallback(() => { saveTourSeen(version); setTour(null); setRect(null); }, [version]);
+  const close = useCallback(() => { saveTourSeen(version); setTour(null); setRect(null); setWelcome(false); }, [version]);
   const step = tour?.steps[i];
 
   // show the page of the step, then find the part to point at (the page needs a moment to appear, so look for a little while)
@@ -74,6 +78,7 @@ export function TourHost({ version, ready, hasData, go }: Readonly<{ version: st
     return () => { alive = false; cancelAnimationFrame(raf); window.removeEventListener('resize', again); window.removeEventListener('scroll', again, true); };
   }, [step]);
 
+  if (welcome) return <WelcomeFlow onSkip={close} onStart={(c) => { close(); onStart(c); }} />;
   if (!tour || !step) return null;
   const last = i === tour.steps.length - 1;
   const forward = () => { if (last) close(); else setI(i + 1); };

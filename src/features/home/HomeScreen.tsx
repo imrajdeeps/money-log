@@ -31,6 +31,9 @@ interface Props {
   manageRecurring: () => void;
 }
 
+/** Fewer payments than this and the Overview shows only what is useful on day one. */
+export const GETTING_STARTED = 5;
+
 const pct = (f: number): string => { const v = Math.abs(f * 100); return `${v < 100 ? v.toFixed(1) : Math.round(v)}%`; };
 const whole = (f: number): string => `${Math.round(f * 100)}%`;
 
@@ -53,8 +56,11 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
 
   const flow = useMemo(() => cashFlow(app.entries, app.me, groupLookup(app.categories), month), [app.entries, app.me, app.categories, month]);
 
-  const tiles = overviewGroups(ov.summary.groups);
-  const tileSpan = (12 / tiles.length) as 3 | 4 | 6 | 12;
+  // Getting started (fewer than five payments logged): tiles that would only show an empty invitation stay out of the way. They come
+  // by themselves once there is something to show, and every page is still one tap away in the menu.
+  const starting = app.entries.length < GETTING_STARTED;
+  const tiles = overviewGroups(ov.summary.groups, starting);
+  const tileSpan = (12 / Math.max(1, tiles.length)) as 3 | 4 | 6 | 12;
 
   const mon = monthShort(month);
   const lastMon = monthShort(shiftMonth(month, -1));
@@ -117,7 +123,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
             )}
             <p className={hs.noteFoot}>{tr('As of {0}', shortDate(net.date))}</p>
           </BentoCard>
-        ) : (
+        ) : starting ? null : (
           <BentoCard title={tr('Net worth')} span={4}>
             <BentoEmpty cta={tr('Add your net worth')} onCta={() => open('plan', 'networth')}>
               {tr('Add what you own minus what you owe, and update it now and then to see it move.')}
@@ -164,7 +170,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
               </ul>
             )}
           </BentoCard>
-        ) : (
+        ) : starting ? null : (
           <BentoCard title={tr('Due soon')} span={4}>
             <BentoEmpty cta={tr('Add an item')} onCta={() => open('plan', 'due')}>
               {tr('Add one-off payments and to-dos, with a date, and see what is due soon.')}
@@ -172,7 +178,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
           </BentoCard>
         )}
 
-        <BentoCard title={tr('Cash flow')} span={4} onOpen={() => open('cashflow')} openLabel={tr('Open the cash flow for this month')}>
+        {(!starting || flow.income > 0) && <BentoCard title={tr('Cash flow')} span={4} onOpen={() => open('cashflow')} openLabel={tr('Open the cash flow for this month')}>
           {flow.income === 0 && flow.out === 0 ? (
             <BentoEmpty cta={tr('Add income')} onCta={openAddIncome}>{tr('Log what you receive (salary, refunds, cashback) to see what is left each month.')}</BentoEmpty>
           ) : (
@@ -182,9 +188,9 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
               <p className={hs.noteFoot}>{flow.income === 0 ? tr('No income logged yet this month.') : tr('Savings are counted apart.')}</p>
             </>
           )}
-        </BentoCard>
+        </BentoCard>}
 
-        <BentoCard title={tr('Insights')} span={4} onOpen={() => open('analytics')} openLabel={tr('Open insights')}>
+        {(!starting || usual > 0) && <BentoCard title={tr('Insights')} span={4} onOpen={() => open('analytics')} openLabel={tr('Open insights')}>
           {usual > 0 ? (
             <>
               <p className={hs.statNum()}>{fmtINR(usual)} <span className={hs.statUnit}>{tr('a usual month')}</span></p>
@@ -194,9 +200,9 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
           ) : (
             <BentoEmpty>{tr('Insights fill in once you have logged a month or two of payments.')}</BentoEmpty>
           )}
-        </BentoCard>
+        </BentoCard>}
 
-        <BentoCard title={tr('Where it went')} span={4} onOpen={cats.total > 0 ? () => open('month') : undefined} openLabel={tr('Open this month\'s categories')}>
+        {(!starting || cats.total > 0) && <BentoCard title={tr('Where it went')} span={4} onOpen={cats.total > 0 ? () => open('month') : undefined} openLabel={tr('Open this month\'s categories')}>
           {cats.total === 0 ? (
             <BentoEmpty cta={tr('Add expense')} onCta={openAdd}>{tr('Nothing spent yet this month.')}</BentoEmpty>
           ) : (
@@ -210,7 +216,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
               {cats.rest.count > 0 && <li className={hs.note}>{tr('{0} more {1} · {2} ({3})', cats.rest.count, cats.rest.count === 1 ? 'category' : 'categories', fmtINR(cats.rest.spent), whole(cats.rest.share))}</li>}
             </ul>
           )}
-        </BentoCard>
+        </BentoCard>}
 
         {couples.map((c) => (
           <BentoCard key={c.id} title={tr('You and {0}', c.partner)} span={4} onOpen={() => openGroup(c.id)} openLabel={`Open your couple group with ${c.partner}`}>
@@ -252,7 +258,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
             <div className={ui.meter(goalTile.line.state === 'reached' ? 'good' : goalTile.line.state === 'passed' ? 'bad' : 'accent')} aria-hidden="true"><i style={{ width: `${Math.round(goalTile.progress.fraction * 100)}%` }} /></div>
             <p className={hs.note}>{goalTile.line.state === 'reached' ? tr('Reached') : goalTile.line.state === 'passed' ? tr('The date has passed') : tr('Needs {0} a month', fmtINR(goalTile.line.monthly))}</p>
           </BentoCard>
-        ) : (
+        ) : starting ? null : (
           <BentoCard title={tr('Goals')} span={4}>
             <BentoEmpty cta={tr('Make a goal')} onCta={() => open('plan', 'goals')}>{tr('No goals yet. Set a target and a date, and see what to set aside each month.')}</BentoEmpty>
           </BentoCard>

@@ -20,7 +20,7 @@ const owes = (paise: number): string => (paise === 0 ? tr('All settled') : paise
 
 type LedgerItem = { kind: 'expense'; date: string; at: string; e: Entry } | { kind: 'settle'; date: string; at: string; s: Settlement };
 
-export function GroupDetail({ group, onBack, onSettings }: Readonly<{ group: Group; onBack: () => void; onSettings: () => void }>) {
+export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ group: Group; onBack: () => void; onSettings: () => void; onAdd: () => void }>) {
   const app = useApp();
   const me = app.me ?? '';
   const [editing, setEditing] = useState<Entry | null>(null);
@@ -75,8 +75,9 @@ export function GroupDetail({ group, onBack, onSettings }: Readonly<{ group: Gro
       {dates && <p className="text-muted text-[13px]">{dates}</p>}
       <p className="text-muted text-[13px]">
         {people.length} {people.length === 1 ? 'person' : 'people'}.
-        {closed ? ' This trip is closed: it takes no new expenses.' : ' Add a shared expense with + Add expense by choosing this group under "Share with".'}
+        {closed ? ' This trip is closed: it takes no new expenses.' : ''}
       </p>
+      {!closed && <button type="button" className={ui.btn('solid', 'md', 'mb-3')} onClick={onAdd}>{tr('Add a shared expense')}</button>}
 
       <div className={ui.card()}>
         {partner && group.kind === 'couple' ? (
