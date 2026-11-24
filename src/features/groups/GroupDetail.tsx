@@ -155,7 +155,7 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
             const effect = expenseEffect(e, me); // green where you are owed, red where you owe
             const body = (
               <>
-                <span className={ui.rowMain()}>
+                <span className={ui.rowMain(true)}>
                   <b>{e.category}{e.note ? ` · ${e.note}` : ''}</b>
                   <small>
                     {tr('{0} · {1} paid', shortDate(e.entry_date), nameOf(e.paid_by ?? ''))}
