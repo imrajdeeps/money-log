@@ -145,7 +145,7 @@ test('goals are in a backup and come back from it; an old backup without them st
 });
 
 const pay = (o: Partial<Entry>): Entry => ({
-  id: `p${Math.random()}`, owner_id: null, entry_date: '2026-11-10', category: 'Savings', amount: 1000, note: '', method: null, created_at: NOW, updated_at: NOW,
+  id: `p${Math.random()}`, owner_id: null, entry_date: '2026-11-10', category: 'Savings', amount: 1000, note: '', method: null, kind: 'out', created_at: NOW, updated_at: NOW,
   deleted_at: null, exported_at: null, group_id: null, paid_by: null, shares: null, share_of: null, dirty: 0, ...o,
 });
 

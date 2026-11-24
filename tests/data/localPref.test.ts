@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { localPref } from '../../src/data/localPref.ts';
 
-type G = typeof globalThis & { localStorage?: unknown };
-const g = globalThis as G;
+type G = Omit<typeof globalThis, 'localStorage'> & { localStorage?: unknown }; // the tests put stand-ins here, not a real Storage
+const g = globalThis as unknown as G;
 const stash = g.localStorage;
 const withStore = (store: unknown, f: () => void) => { g.localStorage = store; try { f(); } finally { g.localStorage = stash; } };
 const memory = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } }; };

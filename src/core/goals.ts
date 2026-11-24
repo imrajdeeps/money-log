@@ -8,16 +8,21 @@ import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, newId, n
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';
 
-export const MAX_GOALS = 30; // what one account may keep, removed ones included
+// What one account may keep of each kind: live items only. Removed ones are kept for REMOVED_KEEP_DAYS (so every phone sees the removal) and
+// then cleared; on top of the live ones up to REMOVED_ROOM times the cap of removed ones is allowed, far more than 180 days of use removes.
+export const MAX_GOALS = 30;
 export const MAX_TOPUPS = 500;
 export const MAX_NET_UPDATES = 400;
-export const MAX_DUE_ENTRIES = 400; // removed ones included
+export const MAX_DUE_ENTRIES = 400;
 export const MAX_DUE_TITLE = 120;
 export const MAX_DISMISSALS = 1000; // dismissals read back; the app itself keeps the newest 500
 export const MAX_NOTICE_KEY = 120;
-export const MAX_INCOME_CATS = 50; // the person's own income categories, removed ones included
+export const MAX_INCOME_CATS = 50; // the person's own income categories
 export const incomeCatId = (name: string): string => uuidFromKey(`incomecat|${catKey(name)}`);
-export const MAX_UDHAAR = 500; // money lent or borrowed, settled and removed ones included (the list the person sees is far shorter)
+export const MAX_WORTH = 100; // what the person owns and owes (net worth items)
+export const MAX_UDHAAR = 500; // money lent or borrowed, settled ones included (the list the person sees is far shorter)
+export const REMOVED_KEEP_DAYS = 180; // how long a removed item stays before it is cleared
+const REMOVED_ROOM = 4; // removed items kept per kind: this many times the cap of live ones
 const NET_LIMIT = 1e12;
 export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is short term, later is long term
 
@@ -47,7 +52,14 @@ export interface IncomeCat { id: string; k: 'i'; n: string; x: 0 | 1; t: string 
 // name (any name: they need not use the app), a the amount, w the way it went (I gave, or I took), d the day, m a note, s settled. Logic: udhaar.ts.
 export type UdhaarWay = 'gave' | 'took';
 export interface UdhaarItem { id: string; k: 'u'; n: string; a: number; w: UdhaarWay; d: string; m: string; s: 0 | 1; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem;
+// One thing the person owns or owes, for net worth (version 1.33); the logic is in worth.ts. n the name, s the side (a: owned, d: owed),
+// c the kind (ASSET_CLASSES or DEBT_CLASSES), a the amount (0 or more) as of day d, p and pd the amount and day at the check-in before
+// (null and '' before the second one), e and r an EMI and a yearly interest rate (a loan only; 0 when none).
+export type WorthSide = 'a' | 'd';
+export const ASSET_CLASSES = ['liquid', 'invest', 'retire', 'gold', 'property', 'other'] as const;
+export const DEBT_CLASSES = ['loan', 'card', 'other'] as const;
+export interface WorthItem { id: string; k: 'w'; n: string; s: WorthSide; c: string; a: number; d: string; p: number | null; pd: string; e: number; r: number; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem | WorthItem;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -68,7 +80,9 @@ export function checkGoalInput(i: GoalInput): string | null {
 
 export type GoalResult = { ok: true; items: Goals } | { ok: false; error: string };
 
-const count = (items: Goals, k: 'g' | 't' | 'n' | 'd') => Object.values(items).filter((x) => x.k === k).length;
+/** How many live (not removed) items of one kind: what the caps count. */
+export const liveCount = (items: Goals, k: GoalItem['k']): number => Object.values(items).filter((x) => x.k === k && !x.x).length;
+const count = liveCount;
 
 export function addGoal(items: Goals, i: GoalInput, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
   const error = checkGoalInput(i);
@@ -191,6 +205,7 @@ function sameItem(x: GoalItem, y: GoalItem | undefined): boolean {
     case 'd': return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.a === y.a && x.d === y.d && x.f === y.f;
     case 'k': return y.k === 'k' && x.key === y.key;
     case 'i': return y.k === 'i' && x.n === y.n;
+    case 'w': return y.k === 'w' && x.n === y.n && x.s === y.s && x.c === y.c && x.a === y.a && x.d === y.d && x.p === y.p && x.pd === y.pd && x.e === y.e && x.r === y.r;
     case 'u': return y.k === 'u' && x.n === y.n && x.a === y.a && x.w === y.w && x.d === y.d && x.m === y.m && x.s === y.s;
     default: return y.k === 's' && x.off.join() === y.off.join();
   }
@@ -202,7 +217,7 @@ export function sameGoals(a: Goals, b: Goals): boolean {
 }
 
 // Validate what comes from the server or a backup. Anything malformed is dropped, never repaired. Each kind of item has its own
-// check and its own cap (removed items count); anything of an unknown kind is dropped.
+// check and its own cap (live items and removed items are counted apart); anything of an unknown kind is dropped.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Raw = any;
 const isDay = (d: unknown): d is string => typeof d === 'string' && isValidDate(d);
@@ -249,6 +264,19 @@ function cleanUdhaarItem(k: string, v: Raw): UdhaarItem | null {
   return { id: k, k: 'u', n: v.n, a: v.a, w: v.w, d: v.d, m: v.m, s: v.s, x: v.x, t: v.t };
 }
 
+const worthAmountOk = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < NET_LIMIT && round2(n) === n;
+
+function cleanWorthItem(k: string, v: Raw): WorthItem | null {
+  if (!isTidy(v.n) || v.n === '' || v.n.length > 40 || (v.s !== 'a' && v.s !== 'd') || !isDay(v.d)) return null;
+  const classes: readonly string[] = v.s === 'a' ? ASSET_CLASSES : DEBT_CLASSES;
+  if (typeof v.c !== 'string' || !classes.includes(v.c) || !worthAmountOk(v.a)) return null;
+  if (v.p !== null && !worthAmountOk(v.p)) return null;
+  if (v.pd !== '' && !isDay(v.pd)) return null;
+  if (!worthAmountOk(v.e) || typeof v.r !== 'number' || !Number.isFinite(v.r) || v.r < 0 || v.r > 60 || round2(v.r) !== v.r) return null;
+  if ((v.e > 0 || v.r > 0) && !(v.s === 'd' && v.c === 'loan')) return null; // an EMI and a rate belong to a loan only
+  return { id: k, k: 'w', n: v.n, s: v.s, c: v.c, a: v.a, d: v.d, p: v.p, pd: v.pd, e: v.e, r: v.r, x: v.x, t: v.t };
+}
+
 function cleanNoticeSettingsItem(k: string, v: Raw): NoticeSettings | null {
   if (k !== NOTICE_SETTINGS_ID || !Array.isArray(v.off) || !v.off.every(isNoticeKind)) return null;
   return { id: k, k: 's', off: [...new Set<NoticeKind>(v.off)].sort((a, b) => a.localeCompare(b)), x: v.x, t: v.t };
@@ -263,6 +291,7 @@ const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => Go
   s: { max: 1, clean: cleanNoticeSettingsItem },
   i: { max: MAX_INCOME_CATS, clean: cleanIncomeCatItem },
   u: { max: MAX_UDHAAR, clean: cleanUdhaarItem },
+  w: { max: MAX_WORTH, clean: cleanWorthItem },
 };
 
 const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id === k && (v.x === 0 || v.x === 1) && Number.isFinite(parseTs(v.t));
@@ -270,16 +299,44 @@ const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id
 export function cleanGoals(p: Raw): Goals {
   const out: Goals = {};
   if (!p || typeof p !== 'object') return out;
-  const counts: Record<string, number> = {};
-  for (const [k, v] of Object.entries(p as Record<string, Raw>)) {
-    if (!hasCommonFields(k, v)) continue;
+  const live: Record<string, number> = {};
+  const gone: Record<string, number> = {};
+  const room = (n: Record<string, number>, kind: string, max: number): boolean => (n[kind] ?? 0) < max;
+  // newest removals first, so that when there are too many it is the oldest that go
+  const entries = Object.entries(p as Record<string, Raw>).filter(([k, v]) => hasCommonFields(k, v));
+  entries.sort(([, a], [, b]) => a.x - b.x || parseTs(b.t) - parseTs(a.t));
+  for (const [k, v] of entries) {
     const kind = Object.hasOwn(ITEM_KINDS, v.k) ? ITEM_KINDS[v.k] : undefined;
-    if (!kind || (counts[v.k] ?? 0) >= kind.max) continue;
+    const counts = v.x === 1 ? gone : live;
+    if (!kind || !room(counts, v.k, v.x === 1 ? kind.max * REMOVED_ROOM : kind.max)) continue;
     const item = kind.clean(k, v);
     if (!item) continue;
     out[k] = item;
     counts[v.k] = (counts[v.k] ?? 0) + 1;
   }
+  return out;
+}
+
+/**
+ * Tidies the removed items: those older than REMOVED_KEEP_DAYS are cleared (with the top-ups of a goal cleared that way, which would be
+ * left with nothing to belong to), and if a kind still has more removed ones than its room, the oldest go. The same object comes back
+ * when there is nothing to clear. It is applied to a phone's own copy after a change AND to both copies on every pull, so a removal
+ * cleared here is not brought back by the cloud's older copy and the two settle on the same block. A phone that has not synced for
+ * longer than that (or a backup older than that) could bring back something removed elsewhere: the price of not keeping every removal
+ * for ever.
+ */
+export function purgeRemoved(items: Goals, nowIso: string): Goals {
+  const cutoff = parseTs(nowIso) - REMOVED_KEEP_DAYS * 86_400_000;
+  const drop = new Set(Object.values(items).filter((x) => x.x === 1 && parseTs(x.t) < cutoff).map((x) => x.id));
+  const left = Object.values(items).filter((x) => x.x === 1 && !drop.has(x.id));
+  for (const kind of new Set(left.map((x) => x.k))) {
+    const max = ITEM_KINDS[kind]?.max;
+    const mine = left.filter((x) => x.k === kind).sort((a, b) => parseTs(b.t) - parseTs(a.t)); // newest first
+    if (max !== undefined) for (const x of mine.slice(max * REMOVED_ROOM)) drop.add(x.id);
+  }
+  if (drop.size === 0) return items;
+  const out: Goals = {};
+  for (const [id, v] of Object.entries(items)) if (!drop.has(id) && !(v.k === 't' && drop.has(v.g))) out[id] = v;
   return out;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

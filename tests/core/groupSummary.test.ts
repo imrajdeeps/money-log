@@ -8,7 +8,7 @@ const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 let n = 0;
 const e = (o: Partial<Entry>): Entry => ({
-  id: `e${++n}`, owner_id: A, entry_date: '2026-12-02', category: 'Food', amount: 100, note: '', method: null, created_at: '2026-12-02T10:00:00Z',
+  id: `e${++n}`, owner_id: A, entry_date: '2026-12-02', category: 'Food', amount: 100, note: '', method: null, kind: 'out', created_at: '2026-12-02T10:00:00Z',
   updated_at: '2026-12-02T10:00:00Z', deleted_at: null, exported_at: null, group_id: G, paid_by: A, shares: { [A]: 50, [B]: 50 }, share_of: null, dirty: 0, ...o,
 });
 

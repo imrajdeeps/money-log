@@ -4,7 +4,7 @@
 // brings an already imported list across once.
 import { isDone, isRemoved } from './blocks.ts';
 import type { DoneMap, DueItem } from './blocks.ts';
-import { MAX_DUE_ENTRIES, MAX_DUE_TITLE } from './goals.ts';
+import { MAX_DUE_ENTRIES, MAX_DUE_TITLE, liveCount } from './goals.ts';
 import type { DueEntry, DueEntryKind, GoalResult, Goals } from './goals.ts';
 import { MAX_AMOUNT, isValidDate, newId, normName, parseTs, round2, uuidFromKey } from './logic.ts';
 import { tr } from './i18n.ts';
@@ -25,7 +25,7 @@ export function checkDueInput(i: DueInput): string | null {
 const entryOf = (i: DueInput, id: string, f: 0 | 1, nowIso: string): DueEntry =>
   ({ id, k: 'd', kind: i.kind, n: normName(i.title), d: i.date, a: i.kind === 'oneoff' ? i.amount : 0, f, x: 0, t: nowIso });
 
-const dueCount = (items: Goals) => Object.values(items).filter((x) => x.k === 'd').length;
+const dueCount = (items: Goals) => liveCount(items, 'd');
 
 export function addDueItem(items: Goals, i: DueInput, nowIso: string, id: string = newId()): GoalResult {
   const error = checkDueInput(i);

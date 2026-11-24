@@ -10,6 +10,13 @@ export const shareSwitches = localPref<ShareSwitches>('money-log.count-shares', 
 /** The day counting a friend's share began on this phone for groups that count by default (set once, the first time it ran). */
 export const sharesFrom = localPref<string>('money-log.shares-from', (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''), '');
 
+/** Which automatic lines the person added to net worth: what friends owe (group balances) and money lent and borrowed (Udhaar). */
+export interface WorthAuto { groups: boolean; udhaar: boolean }
+export const worthAuto = localPref<WorthAuto>('money-log.worth-auto', (v) => {
+  const x = (v ?? {}) as { groups?: unknown; udhaar?: unknown };
+  return { groups: x.groups === true, udhaar: x.udhaar === true };
+}, { groups: false, udhaar: false });
+
 /** My own UPI id: shared only inside a reminder I send. */
 export const myUpi = localPref<string>('money-log.upi', (v) => cleanUpi(v), '');
 
