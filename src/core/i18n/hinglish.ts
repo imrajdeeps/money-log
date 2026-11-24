@@ -1211,4 +1211,7 @@ export const HINGLISH: Record<string, string> = {
   'Money Log hit a problem it could not recover from. Your payments are kept on this phone and are not lost. Reloading usually fixes it.': 'Money Log mein ek aisi samasya aayi jisse woh ubar nahi saka. Aapke payments isi phone par rakhe hain aur khoye nahi hain. Dobara load karne se aamtaur par theek ho jaata hai.',
   'Reload': 'Dobara load karein',
   'The report holds the error, the app version and the page name. It has none of your payments or details, and nothing is sent anywhere unless you send it.': 'Report mein gadbadi, app ka version aur page ka naam hota hai. Ismein aapke payments ya nijee jaankari nahi hoti, aur jab tak aap khud na bhejein kuch bhi kahin nahi bheja jaata.',
+  'A new version of Money Log is ready.': 'Money Log ka naya version taiyaar hai.',
+  'Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.': 'Ise istemaal karne ke liye dobara load karein. Jo payment aap aadha likh chuke hain woh dobara load karne par mit jaata hai, isliye pehle use poora kar lein.',
+  'Later': 'Baad mein',
 };

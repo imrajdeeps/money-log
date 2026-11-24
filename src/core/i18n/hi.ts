@@ -1211,4 +1211,7 @@ export const HI: Record<string, string> = {
   'Money Log hit a problem it could not recover from. Your payments are kept on this phone and are not lost. Reloading usually fixes it.': 'Money Log में एक ऐसी समस्या आई जिससे वह उबर नहीं सका। आपके भुगतान इसी फ़ोन पर रखे हैं और खोए नहीं हैं। दोबारा लोड करने से आमतौर पर ठीक हो जाता है।',
   'Reload': 'दोबारा लोड करें',
   'The report holds the error, the app version and the page name. It has none of your payments or details, and nothing is sent anywhere unless you send it.': 'रिपोर्ट में गड़बड़ी, ऐप का वर्ज़न और पेज का नाम होता है। इसमें आपके भुगतान या निजी जानकारी नहीं होती, और जब तक आप ख़ुद न भेजें कुछ भी कहीं नहीं भेजा जाता।',
+  'A new version of Money Log is ready.': 'Money Log का नया वर्ज़न तैयार है।',
+  'Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.': 'इसे इस्तेमाल करने के लिए दोबारा लोड करें। जो भुगतान आप आधा लिख चुके हैं वह दोबारा लोड करने पर मिट जाता है, इसलिए पहले उसे पूरा कर लें।',
+  'Later': 'बाद में',
 };

@@ -6,8 +6,10 @@ import '../styles/index.css';
 import { startTheme } from '../features/settings/index.ts';
 import { initLang } from '../data/lang.ts';
 import { installCrashHandlers } from '../data/crashes.ts';
+import { startWorker } from '../data/updates.ts';
 import { CrashBar } from '../ui/CrashBar.tsx';
 import { RootErrorBoundary } from '../ui/RootErrorBoundary.tsx';
+import { UpdateBar } from '../ui/UpdateBar.tsx';
 
 installCrashHandlers(); // first of all: an error from here on is recorded, not lost
 startTheme(); // before anything is drawn by React: paint the stored theme and follow the phone's setting
@@ -20,14 +22,11 @@ if (root) {
       <RootErrorBoundary>
         <RouterProvider router={router} />
         <CrashBar />
+        <UpdateBar />
       </RootErrorBoundary>
     </StrictMode>,
   );
 }
 
-// Offline support. The app works without it, just not without a connection.
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined);
-  });
-}
+// Offline support. The app works without it, just not without a connection. A newer version taking over is offered as a reload.
+if (import.meta.env.PROD) startWorker(`${import.meta.env.BASE_URL}sw.js`);
