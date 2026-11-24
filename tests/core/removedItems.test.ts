@@ -65,17 +65,18 @@ test('removed due items and income categories no longer count toward their caps'
   assert.equal(addIncomeCategory(added.items, 'Source 1', NOW).ok, false);
 });
 
-test('reading data back keeps every live item and room for as many removed ones, the newest first', () => {
+test('reading data back keeps every live item and room for four times as many removed ones, the newest first', () => {
+  const room = MAX_WORTH * 4;
   const raw: Goals = {};
   for (let n = 1; n <= MAX_WORTH; n++) raw[id(n)] = worth(n, 0);
-  // more removed ones than the cap, each a day older than the one before
-  for (let n = 1; n <= MAX_WORTH + 5; n++) raw[id(1000 + n)] = worth(1000 + n, 1, daysAgo(n));
+  // more removed ones than the room, each an hour older than the one before
+  for (let n = 1; n <= room + 5; n++) raw[id(1000 + n)] = worth(1000 + n, 1, new Date(Date.parse(NOW) - n * 3_600_000).toISOString());
   const out = cleanGoals(raw);
   assert.equal(liveCount(out, 'w'), MAX_WORTH, 'no live item is dropped for the sake of removed ones');
-  const removed = Object.values(out).filter((v) => v.x === 1);
-  assert.equal(removed.length, MAX_WORTH);
+  assert.equal(Object.values(out).filter((v) => v.x === 1).length, room);
   assert.ok(Object.hasOwn(out, id(1001)), 'the newest removal is kept');
-  assert.ok(!Object.hasOwn(out, id(1000 + MAX_WORTH + 5)), 'the oldest is the one that goes');
+  assert.ok(!Object.hasOwn(out, id(1000 + room + 5)), 'the oldest is the one that goes');
+  assert.equal(purgeRemoved(out, NOW), out, 'what was read back is already tidy: nothing more to clear');
   // still capped when there are too many live ones
   const tooMany: Goals = {};
   for (let n = 1; n <= MAX_WORTH + 10; n++) tooMany[id(n)] = worth(n, 0);
@@ -103,4 +104,15 @@ test('clearing a removed goal also clears its top-ups; a goal that stays keeps i
   // a top-up added elsewhere to a goal that was cleared is left with nothing to belong to, so it goes too
   const withLate: Goals = { ...items, [id(14)]: { id: id(14), k: 't', g: id(1), a: 5, d: TODAY, x: 0, t: NOW } };
   assert.ok(!Object.hasOwn(purgeRemoved(withLate, NOW), id(14)));
+});
+
+test('tidying also trims a kind that has more removed items than its room, the oldest first, and leaves live ones alone', () => {
+  const room = MAX_WORTH * 4;
+  const items: Goals = {};
+  for (let n = 1; n <= 3; n++) items[id(n)] = worth(n, 0, daysAgo(400)); // live and old: never cleared
+  for (let n = 1; n <= room + 3; n++) items[id(1000 + n)] = worth(1000 + n, 1, new Date(Date.parse(NOW) - n * 3_600_000).toISOString());
+  const out = purgeRemoved(items, NOW);
+  assert.equal(Object.values(out).filter((v) => v.x === 1).length, room);
+  assert.equal(liveCount(out, 'w'), 3);
+  assert.ok(Object.hasOwn(out, id(1001)) && !Object.hasOwn(out, id(1000 + room + 3)));
 });

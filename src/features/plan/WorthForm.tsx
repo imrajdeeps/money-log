@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
-import { classLabel, classesOf } from '../../core/worth.ts';
+import { classLabel, classesOf, valueNow } from '../../core/worth.ts';
+import { isoDate } from '../../core/logic.ts';
 import type { AutoLine, WorthItem, WorthSide } from '../../core/worth.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -13,7 +14,7 @@ export function WorthForm({ item, auto, onDone }: Readonly<{ item?: WorthItem; a
   const [side, setSide] = useState<WorthSide>(item?.s ?? 'a');
   const [cls, setCls] = useState(item?.c ?? 'liquid');
   const [name, setName] = useState(item?.n ?? '');
-  const [amount, setAmount] = useState(item ? String(item.a) : '');
+  const [amount, setAmount] = useState(item ? String(valueNow(item, isoDate())) : ''); // a loan shows its estimate: saving without a change must not put back the balance typed months ago
   const [emi, setEmi] = useState(item && item.e > 0 ? String(item.e) : '');
   const [rate, setRate] = useState(item && item.r > 0 ? String(item.r) : '');
   const [error, setError] = useState('');

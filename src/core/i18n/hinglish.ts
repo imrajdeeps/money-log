@@ -1210,11 +1210,11 @@ export const HINGLISH: Record<string, string> = {
   'Something went wrong': 'Kuch gadbad ho gayi',
   'Money Log hit a problem it could not recover from. Your payments are kept on this phone and are not lost. Reloading usually fixes it.': 'Money Log mein ek aisi samasya aayi jisse woh ubar nahi saka. Aapke payments isi phone par rakhe hain aur khoye nahi hain. Dobara load karne se aamtaur par theek ho jaata hai.',
   'Reload': 'Dobara load karein',
-  'The report holds the error, the app version and the page name. It has none of your payments or details, and nothing is sent anywhere unless you send it.': 'Report mein gadbadi, app ka version aur page ka naam hota hai. Ismein aapke payments ya nijee jaankari nahi hoti, aur jab tak aap khud na bhejein kuch bhi kahin nahi bheja jaata.',
   'A new version of Money Log is ready.': 'Money Log ka naya version taiyaar hai.',
   'Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.': 'Ise istemaal karne ke liye dobara load karein. Jo payment aap aadha likh chuke hain woh dobara load karne par mit jaata hai, isliye pehle use poora kar lein.',
   'Later': 'Baad mein',
-  'That language could not be loaded. Check your connection and try again.': 'Woh bhasha load nahi ho saki. Apna connection dekhein aur phir koshish karein.',
   '{0} · {1} paid': '{0} · {1} ne chukaya',
   'you are owed {0}': 'aapko {0} milne hain',
+  'The report holds the error, the app version, the page name and a few facts about this browser. It is not meant to hold any of your payments or details, and nothing is sent anywhere unless you send it.': 'Report mein gadbadi, app ka version, page ka naam aur is browser ki kuch jaankari hoti hai. Ismein aapke payments ya nijee jaankari rakhne ka irada nahi hai, aur jab tak aap khud na bhejein kuch bhi kahin nahi bheja jaata.',
+  'That language could not be loaded. Check your connection, or reload the app, and try again.': 'Woh bhasha load nahi ho saki. Apna connection dekhein, ya app dobara load karein, aur phir koshish karein.',
 };

@@ -1520,3 +1520,63 @@ test('a phone that does not sync cannot ask for the record', async () => {
   await d.sync.init();
   await assert.rejects(d.sync.fetchSessions(), /not set up/);
 });
+
+// ------------------------------------------------------------------ old removals are cleared, and the phones still settle
+import { purgeRemoved } from '../../src/core/goals.ts';
+
+const DAY_MS = 86_400_000;
+// a change made the way the app makes it: old removals are cleared as part of it
+const tidyChange = (d: ReturnType<typeof device>, f: (g: Goals) => Goals) =>
+  d.store.mutateMeta<GoalsBlock>('goals', (cur) => ({ items: purgeRemoved(f(cur?.items ?? {}), iso()), dirty: 1 }));
+const removedAt = (id: string, at: string) => (g: Goals): Goals => ({ ...g, [id]: { ...g[id]!, x: 1, t: at } });
+
+test('a removal cleared on a phone is not brought back by the cloud, and the cloud copy is cleaned too', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeGoals(a, makeGoal(RID(1), iso(-300 * DAY_MS)));
+  await changeGoals(a, removedAt(RID(1), iso(-200 * DAY_MS)));
+  await a.sync.sync();
+  const stored = () => [...mock.state.plans.values()].find((p) => p.block === 'goals')!.payload.items as Record<string, unknown>;
+  assert.ok(Object.hasOwn(stored(), RID(1)), 'the cloud holds the old removal');
+  await tidyChange(a, makeGoal(RID(2), iso())); // any change clears it on this phone
+  assert.equal(Object.hasOwn(await goalsOf(a), RID(1)), false);
+  await a.sync.sync(); await a.sync.sync();
+  assert.equal(Object.hasOwn(await goalsOf(a), RID(1)), false, 'a pull does not bring it back');
+  assert.equal(Object.hasOwn(stored(), RID(1)), false, 'and the next upload cleans the cloud copy');
+  assert.equal((await a.store.getMeta<GoalsBlock>('goals'))!.dirty, 0);
+  await b.sync.sync();
+  assert.deepEqual(Object.keys(await goalsOf(b)).sort(), [RID(2)]);
+});
+
+test('a phone that still holds an old removal does not push it back once the cloud has cleared it', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  await changeGoals(a, makeGoal(RID(1), iso(-300 * DAY_MS)));
+  await changeGoals(a, removedAt(RID(1), iso(-200 * DAY_MS)));
+  await a.sync.sync(); await b.sync.sync(); // both hold the old removal
+  await tidyChange(a, makeGoal(RID(2), iso()));
+  await a.sync.sync(); // the cloud is cleaned
+  await b.sync.sync(); await b.sync.sync();
+  assert.equal(Object.hasOwn(await goalsOf(b), RID(1)), false, 'b drops it when it pulls');
+  assert.equal(b.sync.getState().pending, 0, 'and has nothing to upload because of it');
+});
+
+test('more removals than a kind has room for: the oldest go on every phone and the phones settle', async () => {
+  reset();
+  const a = device(); const b = device();
+  await a.signIn(); await b.signIn();
+  for (let n = 1; n <= 125; n++) { // goals have room for 4 x 30 = 120 removed ones
+    await changeGoals(a, makeGoal(RID(n), iso(-(n + 1) * 1000)));
+    await changeGoals(a, removedAt(RID(n), iso(-n * 1000)));
+  }
+  await a.sync.sync(); await b.sync.sync(); await a.sync.sync(); await b.sync.sync();
+  const removed = (g: Goals) => Object.values(g).filter((x) => x.x === 1);
+  assert.equal(removed(await goalsOf(a)).length, 120);
+  assert.deepEqual(Object.keys(await goalsOf(a)).sort(), Object.keys(await goalsOf(b)).sort());
+  assert.equal(a.sync.getState().pending, 0);
+  assert.equal(b.sync.getState().pending, 0);
+  assert.equal(Object.hasOwn(await goalsOf(a), RID(125)), false, 'the oldest removal is the one that went');
+  assert.equal(Object.hasOwn(await goalsOf(a), RID(1)), true);
+});

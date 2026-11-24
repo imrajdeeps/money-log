@@ -4,6 +4,7 @@ import type { Lang } from '../core/i18n.ts';
 // The chosen language, kept on this phone (localStorage). It is read before the first screen is drawn. Reads and writes never
 // throw: without storage the app simply starts in English each time.
 const KEY = 'money-log.lang';
+const LOAD_MS = 5000; // how long the first screen waits for a language's text before it starts in English
 const listeners = new Set<() => void>();
 let current: Lang = DEFAULT_LANG;
 
@@ -15,7 +16,9 @@ function apply(l: Lang) {
 
 /** Fetches a language's text; false when that was not possible (then the app stays as it was). English is always there. */
 async function ready(l: Lang): Promise<boolean> {
-  try { await loadDictionary(l); return true; } catch { return false; }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const tooSlow = new Promise<never>((_, no) => { timer = setTimeout(() => { no(new Error('The language took too long to load')); }, LOAD_MS); });
+  try { await Promise.race([loadDictionary(l), tooSlow]); return true; } catch { return false; } finally { clearTimeout(timer); }
 }
 
 /** Once, before anything is drawn: the chosen language, with its text fetched first (English without waiting). Stays English if it cannot be fetched. */

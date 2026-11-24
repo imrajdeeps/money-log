@@ -20,7 +20,7 @@ Net worth is one number the person types ("6,21,302") and a date. Working the nu
 - **Automatic lines, switched on by the person (off by default):** *Group balances* (what friends owe you less what you owe them) and *Udhaar* (money lent less borrowed) are added from what the app already holds, labelled as automatic, and counted in the snapshot.
 
 ### Where it lives
-Items are a new kind of item (`w`) in the same private block as goals, net worth snapshots and Udhaar, so they sync (merged item by item), are in the backup, and need no SQL. At most 100 items, removed ones included. The automatic switches are kept on the phone only.
+Items are a new kind of item (`w`) in the same private block as goals, net worth snapshots and Udhaar, so they sync (merged item by item), are in the backup, and need no SQL. At most 100 live items (removed ones are cleared after 180 days). The automatic switches are kept on the phone only.
 
 ### Not in this version
 Per-item history charts, projections and milestones ("₹10 lakh by 2030"), asset prices pulled from outside (live fund or gold prices; the app never calls out), linking a goal to an item.
@@ -32,7 +32,7 @@ Per-item history charts, projections and milestones ("₹10 lakh by 2030"), asse
 
 ## 1.34 Reliability and housekeeping
 From an independent engineering review (the product-side findings went into 1.30 to 1.32).
-1. **Deleted items stop counting forever.** Removed goals, due items, top-ups, net worth updates and Udhaar entries count toward a lifetime cap and are never cleared, so after enough use "add" fails with an error that cannot be fixed. Caps count only live items; removed items older than 180 days are cleared when something changes; the clean-up cap leaves room for removed ones so nothing is dropped on sync.
+1. **Deleted items stop counting forever.** Removed goals, due items, top-ups, net worth updates and Udhaar entries count toward a lifetime cap and are never cleared, so after enough use "add" fails with an error that cannot be fixed. Caps count only live items; removed items older than 180 days are cleared when something changes on a phone and on every pull from the cloud (both copies, so a cleared removal is not merged back and the phones settle on the same block); a kind keeps up to four times its cap of removed items (the oldest go beyond that), far more than 180 days of use removes.
 2. **Failures are visible.** A root error screen with "Copy report" and "Reload" instead of a blank page; unhandled errors and rejected promises show a message with the same copy button. Nothing is sent anywhere.
 3. **"A new version is ready, reload."** The service worker updates itself without telling the page, so a phone can run old code against new data; the page now says so.
 4. **Checks that cover the work.** CI also runs for pull requests into `version/*` branches (they only ran for main); the tests are type-checked (nine errors found are fixed).

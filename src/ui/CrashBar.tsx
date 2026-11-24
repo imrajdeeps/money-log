@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { clearCrashes, crashReportText, useCrashes } from '../data/crashes.ts';
+import { clearCrashes, crashReportText, useCrashScreenShown, useCrashes } from '../data/crashes.ts';
 import { copyText } from './files.ts';
 import { tr } from '../core/i18n.ts';
 import * as ui from './styles.ts';
@@ -29,7 +29,8 @@ export function CopyReport({ colour = 'ghost' }: Readonly<{ colour?: 'ghost' | '
 /** Shown over the app when something broke that nothing handled: it says so, and offers the report. Nothing is sent anywhere. */
 export function CrashBar() {
   const crashes = useCrashes();
-  if (crashes.length === 0 || crashes.some((c) => c.where === 'screen')) return null; // a failed screen already says so, in full
+  const screenShown = useCrashScreenShown();
+  if (crashes.length === 0 || screenShown) return null; // a crash screen already says so, in full
   return (
     <div role="alert" className="fixed inset-x-3 top-[calc(8px+env(safe-area-inset-top))] z-[80] mx-auto flex max-w-[528px] flex-col gap-2 rounded-xl border border-bad bg-bad-bg px-3 py-2.5 text-[14px] text-bad shadow-lg">
       <span className="font-semibold">{tr('Something went wrong. Your payments on this phone are safe.')}</span>

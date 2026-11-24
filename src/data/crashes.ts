@@ -25,6 +25,27 @@ export function clearCrashes(): void {
 
 export const useCrashes = (): readonly Crash[] => useSyncExternalStore(subscribe, () => list);
 
+let showing = 0;
+/**
+ * Called by the crash screen while it is on show: the banner stays away (the screen says it all). When the screen goes (the person went
+ * to another page) what made it is forgotten, so the banner is there again for the next thing that goes wrong. The tidy-up waits a
+ * moment so that React's own unmount-and-mount in development does not count as the screen going.
+ */
+export function crashScreenShown(): () => void {
+  showing++;
+  emit();
+  return () => {
+    showing--;
+    emit();
+    queueMicrotask(() => {
+      if (showing > 0 || !list.some((c) => c.where === 'screen')) return;
+      list = list.filter((c) => c.where !== 'screen');
+      emit();
+    });
+  };
+}
+export const useCrashScreenShown = (): boolean => useSyncExternalStore(subscribe, () => showing > 0);
+
 /** The report as text, with the facts about this phone's browser as they are now. */
 export function crashReportText(): string {
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches === true || (navigator as Navigator & { standalone?: boolean }).standalone === true;

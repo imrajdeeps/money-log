@@ -95,13 +95,20 @@ export function addWorthItem(items: Goals, i: WorthInput, todayIso: string, nowI
   return { ok: true, items: { ...items, [id]: item } };
 }
 
+type Terms = Pick<WorthItem, 'n' | 'c' | 'e' | 'r'>;
+
 /**
  * Set an item's value as of today. The first change on a new day remembers the value it had (p, pd) for "what moved"; another change
  * the same day only replaces the value, so the memory stays the value at the last check-in before today.
+ * A loan left at its estimate (same terms) is only confirmed: its balance keeps counting from the day it was typed, so the part of a
+ * month already run is not thrown away each time (checking in every few weeks would otherwise freeze it).
  */
-function setValue(cur: WorthItem, amount: number, todayIso: string, nowIso: string): WorthItem {
-  const sameDay = cur.d === todayIso;
-  return { ...cur, a: amount, d: todayIso, p: sameDay ? cur.p : valueNow(cur, todayIso), pd: sameDay ? cur.pd : cur.d, t: laterThan(cur.t, nowIso) };
+function setValue(cur: WorthItem, amount: number, todayIso: string, nowIso: string, terms: Terms = cur): WorthItem {
+  const sameDay = cur.d === todayIso || cur.pd === todayIso; // pd is today when a loan was confirmed today without a new balance
+  const t = laterThan(cur.t, nowIso);
+  const confirmed = isLoanWithEmi(cur) && terms.e === cur.e && terms.r === cur.r && amount === valueNow(cur, todayIso);
+  if (confirmed) return { ...cur, n: terms.n, c: terms.c, p: sameDay ? cur.p : amount, pd: sameDay ? cur.pd : todayIso, t };
+  return { ...cur, n: terms.n, c: terms.c, e: terms.e, r: terms.r, a: amount, d: todayIso, p: sameDay ? cur.p : valueNow(cur, todayIso), pd: sameDay ? cur.pd : cur.d, t };
 }
 
 export function editWorthItem(items: Goals, id: string, i: WorthInput, todayIso: string, nowIso: string): WorthResult {
@@ -110,8 +117,9 @@ export function editWorthItem(items: Goals, id: string, i: WorthInput, todayIso:
   const c = checkWorth(i);
   if (!c.ok) return c;
   if (c.side !== cur.s) return { ok: false, error: tr('An item cannot change from owned to owed: remove it and add it again.') };
-  const base = { ...cur, n: c.name, c: c.cls, e: c.emi, r: c.rate };
-  const next = c.amount === valueNow(cur, todayIso) && c.emi === cur.e && c.rate === cur.r ? base : setValue(base, c.amount, todayIso, nowIso);
+  const terms: Terms = { n: c.name, c: c.cls, e: c.emi, r: c.rate };
+  const unchanged = c.amount === valueNow(cur, todayIso) && c.emi === cur.e && c.rate === cur.r; // a rename or a kind alone is not a new value
+  const next = unchanged ? { ...cur, ...terms } : setValue(cur, c.amount, todayIso, nowIso, terms);
   return { ok: true, items: { ...items, [id]: { ...next, t: laterThan(cur.t, nowIso) } } };
 }
 
