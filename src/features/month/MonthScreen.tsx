@@ -1,6 +1,7 @@
 import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { suggestBudgets } from '../../core/suggestBudgets.ts';
 import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { monthLabel } from '../../core/format.ts';
 import { BudgetLine as Line } from '../../ui/BudgetLine.tsx';
@@ -27,6 +28,12 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readon
     [spend, app.me, app.mine, month],
   );
   const noBudgets = app.categories.every((c) => c.budget === 0);
+  // with no budgets yet, last month's spending can become them in one tap
+  const prevMonth = shiftMonth(current, -1);
+  const suggestion = useMemo(
+    () => (noBudgets ? suggestBudgets(summarizeMonth(budgetEntries(spend, app.me), planForMonth(app.mine, prevMonth), prevMonth).rows).filter((b) => app.categories.some((c) => c.name === b.name)) : []),
+    [noBudgets, spend, app.me, app.mine, app.categories, prevMonth],
+  );
   const monthIsOver = month < current;
   const shown = s.rows.filter((r) => (r.planned > 0 || r.spent > 0) && (!group || r.group === group));
 
@@ -42,6 +49,12 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readon
         <div className={ui.card('notice')}>
           <p>{tr('No budgets yet, so there is nothing to compare against. Give each category a monthly amount to see what is left.')}</p>
           <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => setEditing(true)}>{tr('Set budgets')}</button>
+          {suggestion.length > 0 && month === current && (
+            <>
+              <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => { void app.saveBudgets(suggestion).then(() => app.toast(tr('Budgets set from last month: {0} categories', suggestion.length))); }}>{tr('Use last month\'s spending as my budgets')}</button>
+              <p className="text-muted text-[13px]">{tr('{0} categories, each last month\'s spending rounded up. You can change any of them afterwards.', suggestion.length)}</p>
+            </>
+          )}
         </div>
       )}
 
