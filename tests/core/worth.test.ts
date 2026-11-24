@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addWorthItem, checkInWorth, checkWorth, debtShare, editWorthItem, estimateLoan, isEstimated, removeWorthItem, runwayMonths, snapshotWorth, usualMonthlySpend, valueNow, worthItems, worthMoves, worthSummary } from '../../src/core/worth.ts';
+import { addWorthItem, checkInWorth, checkWorth, debtShare, editWorthItem, estimateLoan, isEstimated, movedUp, removeWorthItem, runwayMonths, snapshotWorth, usualMonthlySpend, valueNow, worthItems, worthMoves, worthSummary } from '../../src/core/worth.ts';
 import type { WorthInput } from '../../src/core/worth.ts';
 import { MAX_WORTH, cleanGoals, netUpdates } from '../../src/core/goals.ts';
 import type { Goals, WorthItem } from '../../src/core/goals.ts';
@@ -80,6 +80,7 @@ test('what moved: the biggest effect on net worth first (assets up or debts down
   assert.deepEqual(worthMoves(r, D2).map((m) => [m.name, m.change]), [['Gold', 8000], ['Card', 6000], ['Savings', 2000]]);
   assert.deepEqual(worthMoves(items, D2), [], 'nothing before a second check-in');
   assert.equal(worthMoves(r, D2, 1).length, 1);
+  assert.deepEqual(worthMoves(r, D2).map((m) => [m.name, movedUp(m)]), [['Gold', true], ['Card', false], ['Savings', true]], 'a debt paid down moved down, though it raised net worth');
 });
 
 test('editing an item: the value, the kind, the loan details; the side cannot change; a removed item is gone', () => {

@@ -170,6 +170,8 @@ export function worthSummary(items: Goals, todayIso: string, auto: readonly Auto
 }
 
 export interface Move { id: string; name: string; side: WorthSide; change: number } // change: the effect on net worth
+/** Whether the item's own number went up: an asset rising, or a debt growing (a debt paid down went down, though it raises net worth). */
+export const movedUp = (m: Move): boolean => (m.side === 'a' ? m.change > 0 : m.change < 0);
 /** The items that moved the most since the check-in before (assets up or debts down raise net worth), the largest first. */
 export function worthMoves(items: Goals, todayIso: string, n = 3): Move[] {
   return all(items)

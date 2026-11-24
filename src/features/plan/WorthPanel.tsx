@@ -4,8 +4,8 @@ import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { worthAuto } from '../../data/phonePrefs.ts';
 import { groupLookup } from '../../core/analytics.ts';
 import { budgetEntries, fmtINR, isoDate } from '../../core/logic.ts';
-import { classLabel, debtShare, isEstimated, runwayMonths, usualMonthlySpend, valueNow, worthItems, worthMoves, worthSummary } from '../../core/worth.ts';
-import type { WorthItem } from '../../core/worth.ts';
+import { classLabel, debtShare, isEstimated, movedUp, runwayMonths, usualMonthlySpend, valueNow, worthItems, worthMoves, worthSummary } from '../../core/worth.ts';
+import type { AutoLine, WorthItem } from '../../core/worth.ts';
 import { WorthCheckIn } from './WorthCheckIn.tsx';
 import { WorthForm } from './WorthForm.tsx';
 import { useAutoLines } from './useAutoLines.ts';
@@ -28,6 +28,18 @@ function Row({ item, today, onEdit }: Readonly<{ item: WorthItem; today: string;
   );
 }
 
+function AutoRow({ line }: Readonly<{ line: AutoLine }>) {
+  return (
+    <li className={ui.rowStatic}>
+      <span className={ui.rowMain()}>
+        <b>{line.label}</b>
+        <small>{tr('automatic')}</small>
+      </span>
+      <b className={`tabular-nums ${line.amount > 0 ? 'text-good' : 'text-bad'}`}>{fmtINR(Math.abs(line.amount))}</b>
+    </li>
+  );
+}
+
 // What the net worth is made of: the things owned and owed (with a monthly check-in), where it sits, what moved, and two honest numbers
 // (how long the liquid money would last, and how big the debts are against what is owned). Automatic lines are the person's choice.
 export function WorthPanel() {
@@ -45,6 +57,8 @@ export function WorthPanel() {
   const runway = runwayMonths(sum.liquid, usual);
   const share = debtShare(sum.assets, sum.debts);
   const total = sum.assets + sum.debts;
+  const autoOwn = auto.filter((l) => l.amount > 0); // an automatic line counts on the side its sign puts it
+  const autoOwe = auto.filter((l) => l.amount < 0);
 
   if (mode === 'add') return <WorthForm auto={auto} onDone={() => setMode(null)} />;
   if (mode === 'checkin') return <WorthCheckIn auto={auto} onDone={() => setMode(null)} />;
@@ -85,25 +99,15 @@ export function WorthPanel() {
           <button type="button" className={ui.btn()} onClick={() => setMode('checkin')}>{tr('Check in')}</button>
           <button type="button" className={ui.btn('ghost')} onClick={() => setMode('add')}>{tr('Add an item')}</button>
         </div>
-        {assets.length > 0 && (<><h3 className="mt-3 mb-1 text-[15px]">{tr('You own')} · {fmtINR(sum.assets)}</h3><ul className={ui.list(true)}>{assets.map((i) => <Row key={i.id} item={i} today={today} onEdit={() => setMode(i)} />)}</ul></>)}
-        {debts.length > 0 && (<><h3 className="mt-3 mb-1 text-[15px]">{tr('You owe')} · {fmtINR(sum.debts)}</h3><ul className={ui.list(true)}>{debts.map((i) => <Row key={i.id} item={i} today={today} onEdit={() => setMode(i)} />)}</ul></>)}
-        {auto.length > 0 && (
-          <ul className={ui.list(true, 'mt-3')}>
-            {auto.map((l) => (
-              <li key={l.key} className="flex items-center justify-between px-3 py-2">
-                <span><b>{l.label}</b> <small className="text-muted">{tr('automatic')}</small></span>
-                <b className={`tabular-nums ${l.amount > 0 ? 'text-good' : l.amount < 0 ? 'text-bad' : ''}`}>{l.amount < 0 ? '−' : ''}{fmtINR(Math.abs(l.amount))}</b>
-              </li>
-            ))}
-          </ul>
-        )}
+        {(assets.length > 0 || autoOwn.length > 0) && (<><h3 className="mt-3 mb-1 text-[15px]">{tr('You own')} · {fmtINR(sum.assets)}</h3><ul className={ui.list(true)}>{assets.map((i) => <Row key={i.id} item={i} today={today} onEdit={() => setMode(i)} />)}{autoOwn.map((l) => <AutoRow key={l.key} line={l} />)}</ul></>)}
+        {(debts.length > 0 || autoOwe.length > 0) && (<><h3 className="mt-3 mb-1 text-[15px]">{tr('You owe')} · {fmtINR(sum.debts)}</h3><ul className={ui.list(true)}>{debts.map((i) => <Row key={i.id} item={i} today={today} onEdit={() => setMode(i)} />)}{autoOwe.map((l) => <AutoRow key={l.key} line={l} />)}</ul></>)}
       </div>
 
       {moves.length > 0 && (
         <div className={ui.card()}>
           <h3>{tr('What moved since the last check-in')}</h3>
           <ul className="m-0 list-none p-0 text-[14px]">
-            {moves.map((m) => <li key={m.id} className="flex justify-between py-0.5"><span>{m.name}</span><b className={`tabular-nums ${m.change > 0 ? 'text-good' : 'text-bad'}`}>{m.change > 0 ? '▲ ' : '▼ '}{fmtINR(Math.abs(m.change))}</b></li>)}
+            {moves.map((m) => <li key={m.id} className="flex justify-between py-0.5"><span>{m.name}</span><b className={`tabular-nums ${m.change > 0 ? 'text-good' : 'text-bad'}`}>{movedUp(m) ? '▲ ' : '▼ '}{fmtINR(Math.abs(m.change))}</b></li>)}
           </ul>
         </div>
       )}
