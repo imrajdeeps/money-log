@@ -34,7 +34,7 @@ export function WelcomeFlow({ onStart, onSkip }: Readonly<{ onStart: (choice: St
             <p className="m-0 mb-3 text-[15px]">{tr('Choose your language. You can change it later in Settings.')}</p>
             <div className={ui.chips} role="group" aria-label={tr('Language')}>
               {LANGS.map((l) => (
-                <button key={l.id} type="button" className={ui.chip} aria-pressed={lang === l.id} lang={l.html} onClick={() => chooseLang(l.id)}>{l.native}</button>
+                <button key={l.id} type="button" className={ui.chip} aria-pressed={lang === l.id} lang={l.html} onClick={() => { void chooseLang(l.id); }}>{l.native}</button>
               ))}
             </div>
             <div className="mt-4 flex items-center justify-between gap-2.5">

@@ -1,10 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_LANG, LANGS, cleanLang, fill, getLang, setLang, tr, translation } from '../../src/core/i18n.ts';
+import { DEFAULT_LANG, LANGS, cleanLang, fill, getLang, loadDictionary, setLang, tr, translation } from '../../src/core/i18n.ts';
 import { HI } from '../../src/core/i18n/hi.ts';
 import { HINGLISH } from '../../src/core/i18n/hinglish.ts';
 
 const holes = (s: string) => new Set(s.match(/\{\d+\}/g) ?? []);
+
+test('a dictionary is fetched on demand, once; English needs none; a language with none loaded shows English', async () => {
+  setLang('hi');
+  assert.equal(tr('Add expense'), 'Add expense', 'Hindi is not loaded yet: English shows');
+  assert.equal(translation('hi', 'Add expense'), undefined);
+  await loadDictionary('en');
+  await loadDictionary('hi');
+  await loadDictionary('hi'); // again: nothing to do
+  assert.equal(tr('Add expense'), 'खर्च जोड़ें');
+  assert.equal(translation('en', 'Add expense'), undefined, 'English is the key, not a dictionary');
+  await loadDictionary('hinglish');
+  assert.equal(translation('hinglish', 'Add expense'), 'Kharcha jodein');
+  setLang('en');
+});
 
 test('English is the key and the default', () => {
   setLang('en');

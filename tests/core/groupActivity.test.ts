@@ -14,7 +14,7 @@ const name = (u: string | null) => (u === ME ? 'You' : u === PRIYA ? 'Priya' : u
 const entry = (id: string, owner: string, amount: number, created: string, updated = created, over: Partial<Entry> = {}): Entry =>
   ({ ...makeEntry({ amount, category: 'Dinner', date: '2026-11-11', method: null, note: '' }, created), id, owner_id: owner, group_id: G, paid_by: owner, shares: { [ME]: amount / 2, [owner]: amount / 2 }, updated_at: updated, ...over });
 const settle = (id: string, by: string, from: string, to: string, amount: number, created: string): Settlement =>
-  ({ id, group_id: G, from_user: from, to_user: to, amount, settle_date: '2026-11-11', created_by: by, created_at: created, updated_at: created, deleted_at: null, synced_at: created } as Settlement);
+  ({ id, group_id: G, from_user: from, to_user: to, amount, settle_date: '2026-11-11', created_by: by, created_at: created, updated_at: created, deleted_at: null, dirty: 0 });
 
 const NOW_ENTRIES = (e: Entry[], st: Settlement[] = []) => seenKeys(e, st, G);
 

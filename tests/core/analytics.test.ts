@@ -5,7 +5,7 @@ import type { Entry } from '../../src/core/logic.ts';
 
 const mk = (date: string, category: string, amount: number, extra: Partial<Entry> = {}): Entry => ({
   id: `${date}-${category}-${amount}`, owner_id: 'u', entry_date: date, category, amount, note: '', method: null, created_at: date, updated_at: date,
-  deleted_at: null, exported_at: null, group_id: null, paid_by: null, shares: null, share_of: null, dirty: 0, ...extra,
+  kind: 'out', deleted_at: null, exported_at: null, group_id: null, paid_by: null, shares: null, share_of: null, dirty: 0, ...extra,
 });
 const groupOf = groupLookup([{ name: 'Groceries', group: 'Spending' }, { name: 'Rent', group: 'Family' }, { name: 'Savings', group: 'Saving' }, { name: 'Bike EMI', group: 'EMI' }]);
 

@@ -39,7 +39,7 @@ const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/
 const SECTIONS = Object.keys(ROUTES) as Section[];
 const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Circle', udhaar: 'Udhaar', notifications: 'Notifications' };
 
-const SPLASH_MS = 900; // how long the start screen stays, at least
+const SPLASH_MS = 500; // how long the start screen stays, at least
 
 const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'month', label: 'Month', icon: 'month' },
