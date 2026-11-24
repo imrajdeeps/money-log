@@ -117,8 +117,8 @@ the field before its keyboard comes up).
 **+ Add expense** (the round button in the middle of the bottom bar on a phone, the button at the top right on a wider
 screen) opens the payment form with the amount ready to type; saving closes it. The bottom bar on a phone also has Home,
 Month, Plan and Groups; Settings is the gear at the top right. On a wider screen all of them are
-links at the top. The app shows no income, cash flow or net worth history, because it does not record them; tiles without
-data say where the data comes from instead.
+links at the top. Tiles without data say where the data comes from instead, and while you have logged fewer than five payments the
+Overview hides the tiles that would only be empty.
 
 **Settings** is a short list of headings (Cloud sync, Password and sessions, Appearance, and so on); tapping one opens
 just that part on a page of its own (`/settings/password`), and the back arrow returns to the list. An older link such as
@@ -154,6 +154,18 @@ alter table public.plan_blocks add constraint plan_blocks_block_known
 everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
+
+## Getting started, faster logging and reminders (version 1.30)
+No SQL. From `docs/prd-product-roadmap.md`.
+
+- **A short welcome** replaces the nine-step tour for a person new to the app: *Choose your language*, then *What do you want to do first?* (Track my spending, Split with others, Both), which lands on Add expense or on Groups. The full tour is still in Settings, About; people who already use the app still get the what's-new tour.
+- **An invitation link opens a one-screen start.** Someone who opens a group link while signed out sees *You were invited to a group* with *Create account* or *Sign in* right there; then the join form appears with the code filled in. No tour in between.
+- **Add expense:** every category is a chip from the first entry (the ones you use most first, up to 16; *More categories, or a new one* holds the full list and the way to make a new category). The date is *Today*, *Yesterday* or *Another day*. **Save and add another** keeps the form open for the next payment. *paste a bank message* under the amount fills the form from a copied message.
+- **The group page has *Add a shared expense***, which opens Add with that group and its usual split chosen (`/add?group=<id>`).
+- **A lighter Overview while fewer than five payments are logged:** tiles that would only show an empty invitation (net worth, due soon, insights, goals, cash flow before any income, where it went) and group tiles with no budget and no spending stay out of the way. They appear by themselves at the fifth payment, and every page is still reachable from the menu.
+- **Share on WhatsApp** next to *Copy link* for group invitations (Group settings, Invite people) and Circle codes: a `wa.me` link with the text ready; you pick who gets it inside WhatsApp. No phone number is used or sent anywhere.
+- **Daily reminder** (Settings, Notifications): pick a time, *Make the reminder file*, open it, and the phone's calendar repeats a daily event ("Log today's spending") with an alert. Nothing is sent from a server and the app stores only the chosen time (on this phone). It is a calendar alert, not a push message: on some phones tapping it opens the browser instead of the installed app. To stop it, delete the event in the calendar.
+- **For whoever runs the project:** password-reset and confirmation emails reach only addresses the project's own email can send to (today the owner's). For other people, set up a custom SMTP provider in the Supabase dashboard (Authentication, SMTP).
 
 ## Shared goals (version 1.29)
 **Needs the SQL at the end of `supabase/schema.sql` run once** (the whole file is safe to run again). Builds on the Circle (1.28). Without the SQL the section on the Goals page says it is not available yet.
@@ -508,8 +520,8 @@ It records how those APIs are understood to behave; it is not the real service. 
   refuses short, very common and email-like passwords itself.
 - Sessions: Supabase keeps a signed-in device signed in until it signs out; the free plan cannot time sessions out. Settings,
   *Password and sessions* signs out your other devices or every device (a device that is open at that moment drops out when it
-  next renews its sign-in, within about an hour) and changes the password. Supabase gives an app no list of signed-in devices,
-  so the app cannot show one. The "sign out other devices and everywhere" calls are written to Supabase's documented sign-out
+  next renews its sign-in, within about an hour) and changes the password. Since 1.25 the same page lists where the account is
+  signed in now and what happened to it lately (from the server's own sign-in record). The "sign out other devices and everywhere" calls are written to Supabase's documented sign-out
   options but are checked here only against my stand-in server: try them once on your own project.
 - Every table has row-level security, and `supabase/rls_tests.sql` checks it. You read and write your own private rows
   and nothing else of anyone's. A shared expense or payment is readable by the current members of its group and changed

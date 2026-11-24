@@ -1050,4 +1050,6 @@ export const HI: Record<string, string> = {
   'What do you want to do first?': 'आप पहले क्या करना चाहते हैं?',
   'Your payments stay on this phone. Signing in adds a cloud copy, and a group lives in the app owner\'s database so its members can see what is shared there.': 'आपके भुगतान इसी फ़ोन पर रहते हैं। साइन इन करने पर क्लाउड कॉपी जुड़ती है, और ग्रुप ऐप के मालिक के डेटाबेस में रहता है ताकि उसके सदस्य वहाँ साझा चीज़ें देख सकें।',
   'Share on WhatsApp': 'WhatsApp पर भेजें',
+  'New: faster logging and a daily reminder': 'नया: तेज़ दर्ज करना और रोज़ का रिमाइंडर',
+  'Add expense shows every category as a button, with Today and Yesterday, and Save and add another. A group page has Add a shared expense, and invitations can be shared on WhatsApp. Settings, Notifications can make a daily reminder in your calendar.': 'ख़र्च जोड़ने में हर श्रेणी एक बटन है, साथ में आज, कल और सेव करके एक और जोड़ना। ग्रुप के पेज पर साझा ख़र्च जोड़ने का बटन है, और न्योते WhatsApp पर भेजे जा सकते हैं। सेटिंग्स, नोटिफ़िकेशन में कैलेंडर में रोज़ का रिमाइंडर बन सकता है।',
 };

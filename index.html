@@ -8,7 +8,7 @@
     <script id="base-init">
       (function () {
         var seg = location.pathname.split('/');
-        var pages = ['month', 'plan', 'groups', 'export', 'payments', 'settings', 'add'];
+        var pages = ['month', 'plan', 'groups', 'payments', 'settings', 'add'];
         var cut = seg.length - 1;
         for (var i = 1; i < seg.length; i++) if (pages.indexOf(seg[i]) >= 0) { cut = i; break; }
         var base = document.createElement('base');
