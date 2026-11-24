@@ -14,7 +14,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // group: show only that group's categories (a tile on the Overview was tapped); onGroup() shows them all again.
-export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readonly<{ group?: Group; onGroup: (g?: Group) => void; onAddExpense: (category: string) => void; onInsights: () => void }>) {
+export function MonthScreen({ group, onGroup, onAddExpense, onInsights, onCashFlow }: Readonly<{ group?: Group; onGroup: (g?: Group) => void; onAddExpense: (category: string) => void; onInsights: () => void; onCashFlow: () => void }>) {
   const app = useApp();
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);
@@ -110,6 +110,7 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readon
       <div className={ui.btnRowOf('mt-3.5 mb-0')}>
         <button type="button" className={ui.btn('ghost')} onClick={() => setEditing(true)}>{tr('Categories and budgets')}</button>
         <button type="button" className={ui.btn('ghost')} onClick={onInsights}>{tr('Insights')}</button>
+        <button type="button" className={ui.btn('ghost')} onClick={onCashFlow}>{tr('Cash flow')}</button>
       </div>
       {picked && (
         <CategoryActions

@@ -1022,7 +1022,6 @@ export const HINGLISH: Record<string, string> = {
   'Add a shared expense': 'Shared kharcha jodein',
   'Join "{0}" on Money Log: {1} (code {2})': 'Money Log par "{0}" se judein: {1} (code {2})',
   'Almost there: open the confirmation link we emailed to {0}, then come back to this invitation and sign in.': 'Bas thoda aur: {0} par bheja confirmation link kholein, phir is invitation par lautkar sign in karein.',
-  'Make an account (or sign in) and you can join it in a moment. Your own payments stay on this phone; only what you share in a group is seen by its members.': 'Account banayein (ya sign in karein) aur aap kuch hi pal mein jud sakte hain. Aapke apne payments isi phone par rehte hain; group mein jo share karte hain wahi uske members dekhte hain.',
   'Create account and continue': 'Account banayein aur aage badhein',
   'Sign in and continue': 'Sign in karein aur aage badhein',
   'Not now': 'Abhi nahi',
@@ -1141,4 +1140,8 @@ export const HINGLISH: Record<string, string> = {
   'The amount must be above zero, with at most 2 decimals.': 'Raqam zero se upar ho, zyada se zyada 2 decimal ke saath.',
   'New: less typing': 'Naya: kam typing',
   'Add expense has a one-line box: type 450 swiggy upi and press Enter. You can review several bank messages together, the Overview says how much is safe to spend each day and recaps last week on Mondays, and the Month page can set budgets from last month.': 'Kharcha jodne mein ek line ka box hai: 450 swiggy upi likhein aur Enter dabayein. Kai bank messages saath mein dekh sakte hain, Overview batata hai ki roz kitna kharch karna surakshit hai aur somvaar ko pichhle hafte ka saar deta hai, aur Month page pichhle mahine se budget bana sakta hai.',
+  'Make an account (or sign in) and you can join it in a moment. Your own payments are kept on this phone, and signing in adds a copy to your account; what you share in a group is seen by its members.': 'Account banayein (ya sign in karein) aur aap kuch hi pal mein jud sakte hain. Aapke apne payments isi phone par rakhe jate hain, aur sign in karne par aapke account mein ek copy judti hai; group mein jo share karte hain woh uske members dekhte hain.',
+  'Counted from {0}: earlier months never change by themselves.': '{0} se gina jata hai: pichhle mahine apne aap nahi badalte.',
+  'Saved {0} of {1}, then it stopped: {2}': '{1} mein se {0} save hue, phir ruk gaya: {2}',
+  'Udhaar: money lent and borrowed': 'Udhaar: diya aur liya hua paisa',
 };

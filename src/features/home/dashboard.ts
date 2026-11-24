@@ -99,12 +99,15 @@ export function topCategories(s: MonthSummary, n = 4): { top: CategoryShare[]; r
   };
 }
 
-// What is still to pay this month: unpaid one-off items with an amount, due by the end of the month (overdue ones too), and recurring
-// payments not yet logged. It is taken off the budget before "safe to spend" is worked out.
-export function upcomingThisMonth(items: DueItem[], recurring: Recurring, todayIso: string): number {
-  const monthEnd = `${monthOf(todayIso)}-${String(daysInMonth(monthOf(todayIso))).padStart(2, '0')}`;
-  const dues = classifyDue(items, {}, '', todayIso).filter((v) => !v.isDone && v.kind === 'oneoff' && !!v.due && v.due <= monthEnd).reduce((s, v) => s + (v.amount ?? 0), 0);
-  const repeats = recurringThisMonth(recurring, todayIso).reduce((s, r) => s + r.item.a, 0);
+// What is still to pay this month: unpaid one-off items with an amount, due in the month, and recurring payments not yet logged (savings
+// left out, like the budget). It is taken off the budget before "safe to spend" is worked out.
+export function upcomingThisMonth(items: DueItem[], recurring: Recurring, todayIso: string, groupOf: (category: string) => Group): number {
+  const month = monthOf(todayIso);
+  const monthStart = `${month}-01`;
+  const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`;
+  // the month's budget and its spending leave savings out, so what is still to come must too; and an item left over from an earlier month is not this month's
+  const dues = classifyDue(items, {}, '', todayIso).filter((v) => !v.isDone && v.kind === 'oneoff' && !!v.due && v.due >= monthStart && v.due <= monthEnd).reduce((s, v) => s + (v.amount ?? 0), 0);
+  const repeats = recurringThisMonth(recurring, todayIso).filter((r) => groupOf(r.item.c) !== 'Saving').reduce((s, r) => s + r.item.a, 0);
   return round2(dues + repeats);
 }
 

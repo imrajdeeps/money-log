@@ -1022,7 +1022,6 @@ export const HI: Record<string, string> = {
   'Add a shared expense': 'साझा ख़र्च जोड़ें',
   'Join "{0}" on Money Log: {1} (code {2})': 'Money Log पर "{0}" से जुड़ें: {1} (कोड {2})',
   'Almost there: open the confirmation link we emailed to {0}, then come back to this invitation and sign in.': 'बस थोड़ा और: {0} पर भेजा पुष्टि का लिंक खोलें, फिर इस न्योते पर लौटकर साइन इन करें।',
-  'Make an account (or sign in) and you can join it in a moment. Your own payments stay on this phone; only what you share in a group is seen by its members.': 'खाता बनाएँ (या साइन इन करें) और आप कुछ ही पल में जुड़ सकते हैं। आपके अपने भुगतान इसी फ़ोन पर रहते हैं; ग्रुप में जो साझा करते हैं वही उसके सदस्य देखते हैं।',
   'Create account and continue': 'खाता बनाएँ और आगे बढ़ें',
   'Sign in and continue': 'साइन इन करें और आगे बढ़ें',
   'Not now': 'अभी नहीं',
@@ -1141,4 +1140,8 @@ export const HI: Record<string, string> = {
   'The amount must be above zero, with at most 2 decimals.': 'राशि शून्य से ऊपर हो, ज़्यादा से ज़्यादा 2 दशमलव के साथ।',
   'New: less typing': 'नया: कम टाइपिंग',
   'Add expense has a one-line box: type 450 swiggy upi and press Enter. You can review several bank messages together, the Overview says how much is safe to spend each day and recaps last week on Mondays, and the Month page can set budgets from last month.': 'ख़र्च जोड़ने में एक लाइन का बॉक्स है: 450 swiggy upi लिखें और Enter दबाएँ। कई बैंक मैसेज साथ में देख सकते हैं, ओवरव्यू बताता है कि रोज़ कितना ख़र्च करना सुरक्षित है और सोमवार को पिछले हफ़्ते का सार देता है, और महीना पेज पिछले महीने से बजट बना सकता है।',
+  'Make an account (or sign in) and you can join it in a moment. Your own payments are kept on this phone, and signing in adds a copy to your account; what you share in a group is seen by its members.': 'खाता बनाएँ (या साइन इन करें) और आप कुछ ही पल में जुड़ सकते हैं। आपके अपने भुगतान इसी फ़ोन पर रखे जाते हैं, और साइन इन करने पर आपके खाते में एक कॉपी जुड़ती है; ग्रुप में जो साझा करते हैं वह उसके सदस्य देखते हैं।',
+  'Counted from {0}: earlier months never change by themselves.': '{0} से गिना जाता है: पिछले महीने अपने आप नहीं बदलते।',
+  'Saved {0} of {1}, then it stopped: {2}': '{1} में से {0} सेव हुए, फिर रुक गया: {2}',
+  'Udhaar: money lent and borrowed': 'उधार: दिया और लिया हुआ पैसा',
 };

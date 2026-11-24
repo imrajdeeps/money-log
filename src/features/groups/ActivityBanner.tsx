@@ -1,27 +1,32 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../../data/context.tsx';
-import { groupActivity } from '../../core/groupActivity.ts';
+import { groupActivity, seenKeys } from '../../core/groupActivity.ts';
 import type { Group } from '../../core/groups.ts';
 import { memberName } from '../../core/groups.ts';
 import { groupSeen } from '../../data/phonePrefs.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
-const markSeen = (id: string) => groupSeen.save({ ...groupSeen.load(), [id]: new Date().toISOString() });
-
 // At the top of a group: what others added or changed since this phone last looked. The last look is noted when the page is left (and the
 // first time ever, so a first visit does not start with old news); it is kept on this phone only.
 export function ActivityBanner({ group }: Readonly<{ group: Group }>) {
   const app = useApp();
   const seen = groupSeen.use();
-  const since = seen[group.id] ?? null;
+  const known = seen[group.id] ?? null;
   const nameOf = (uid: string | null) => (uid === app.me ? tr('You') : memberName(app.members, group.id, uid));
   const { items, more } = useMemo(
-    () => groupActivity(app.groupEntries, app.settlements, group.id, app.me, since, nameOf),
+    () => groupActivity(app.groupEntries, app.settlements, group.id, app.me, known, nameOf),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [app.groupEntries, app.settlements, app.members, group.id, app.me, since],
+    [app.groupEntries, app.settlements, app.members, group.id, app.me, known],
   );
-  useEffect(() => { if (!groupSeen.load()[group.id]) markSeen(group.id); return () => markSeen(group.id); }, [group.id]);
+  // what is in the group right now is "seen" the first time, and again when the page is left (read from a ref: the latest rows at that moment)
+  const latest = useRef({ entries: app.groupEntries, settlements: app.settlements });
+  latest.current = { entries: app.groupEntries, settlements: app.settlements };
+  useEffect(() => {
+    const mark = () => groupSeen.save({ ...groupSeen.load(), [group.id]: seenKeys(latest.current.entries, latest.current.settlements, group.id) });
+    if (!groupSeen.load()[group.id]) mark();
+    return mark;
+  }, [group.id]);
   if (items.length === 0) return null;
   return (
     <div className={ui.card('notice')} role="status">

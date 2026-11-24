@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { fmtINR } from '../../core/logic.ts';
-import { cleanUpi, remindText, upiLink } from '../../core/upi.ts';
+import { extractUpi, remindText, upiLink } from '../../core/upi.ts';
 import { myUpi, theirUpi } from '../../data/phonePrefs.ts';
 import { WhatsAppButton } from '../../ui/WhatsAppButton.tsx';
 import * as ui from '../../ui/styles.ts';
@@ -20,13 +20,14 @@ export function DebtRow({ debt, group, me, myName, nameOf, onRecord }: Readonly<
   const involved = iOwe || debt.to === me;
   // whole sentences, so each language can put the words in its own order
   const who = iOwe ? tr('You pay {0}', nameOf(debt.to)) : debt.to === me ? tr('{0} pays you', nameOf(debt.from)) : tr('{0} pays {1}', nameOf(debt.from), nameOf(debt.to));
-  const payeeId = cleanUpi(typed) || known[debt.to] || '';
+  // what is typed (or pasted from a reminder) wins; the remembered id is used only while the box is empty
+  const payeeId = typed.trim() ? extractUpi(typed) : (known[debt.to] ?? '');
 
   function openPay() {
     if (!paying) setTyped(known[debt.to] ?? '');
     setPaying(!paying);
   }
-  function rememberIt() { const id = cleanUpi(typed); if (id) theirUpi.save({ ...known, [debt.to]: id }); }
+  function rememberIt() { if (payeeId) theirUpi.save({ ...known, [debt.to]: payeeId }); }
 
   return (
     <li className="px-3 py-2">

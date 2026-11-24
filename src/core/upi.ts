@@ -11,6 +11,16 @@ export function cleanUpi(v: unknown): string {
   return UPI_RE.test(s) ? s : '';
 }
 
+const INSIDE = /[a-z0-9._-]{2,64}@[a-z][a-z0-9.-]{1,30}/i;
+
+/** The UPI id in a text a person pasted (a reminder, a message): "You can pay me on UPI: asha@ybl ..." gives asha@ybl; '' when there is none. */
+export function extractUpi(text: unknown): string {
+  const direct = cleanUpi(text);
+  if (direct) return direct;
+  const m = typeof text === 'string' ? INSIDE.exec(text) : null;
+  return m ? cleanUpi(m[0].replace(/[.]+$/, '')) : '';
+}
+
 const enc = (s: string): string => encodeURIComponent(s);
 
 /** The upi://pay link: payee, name, amount (two decimals) and a note, in rupees. */
