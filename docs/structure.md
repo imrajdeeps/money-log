@@ -6,11 +6,11 @@ ones after. `tests/app/structure.test.ts` checks these rules on every test run.
 ```
 src/
   core/       shared plain TypeScript: the data models and rules (entries, groups, categories and budgets,
-              recurring, goals with net worth updates and the due list (`goals.ts`, `dueItems.ts`), net worth items, check-ins, loan estimates, runway (`worth.ts`), receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
+              recurring, goals with net worth updates and the due list (`goals.ts`, `dueItems.ts`), net worth items, check-ins, loan estimates, runway (`worth.ts`), crash reports (`crashReport.ts`), what a shared expense means for one person (`groupHistory.ts`), receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
   data/       keeping and syncing: the on-phone store, cloud sync, backup, sign-in helpers, PIN lock, the app state
-              (context.tsx) that every screen reads. `legacy.ts` brings what older versions imported from the spreadsheet into the app's own data, once.
+              (context.tsx) that every screen reads; `crashes.ts` keeps what went wrong this session (and installs the global error handlers) and `updates.ts` registers the service worker and notices a newer version. `legacy.ts` brings what older versions imported from the spreadsheet into the app's own data, once.
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
-              the sync pill, file helpers.
+              the sync pill, file helpers, and the safety nets: `RootErrorBoundary.tsx`, `CrashScreen.tsx` (what replaces a blank page), `CrashBar.tsx` (the banner and *Copy report*) and `UpdateBar.tsx` (a new version is ready).
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
     home/  payments/  recurring/  month/  plan/  goals/  groups/  circle/  notifications/  settings/  tour/  analytics/  cashflow/
       index.ts    the only file other code may import from this folder
