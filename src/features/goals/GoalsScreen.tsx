@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { activeGoals, goalLine, goalPlan, goalProgress, goalTerm, topUpsOf } from '../../core/goals.ts';
 import { planForMonth } from '../../core/categories.ts';
 import type { Goal } from '../../core/goals.ts';
@@ -18,7 +19,8 @@ export function GoalsScreen() {
   const today = isoDate();
   const [form, setForm] = useState<'new' | Goal | null>(null);
   const goals = useMemo(() => activeGoals(app.goals), [app.goals]);
-  const entries = useMemo(() => budgetEntries(app.entries, app.me), [app.entries, app.me]);
+  const spend = useSpendEntries();
+  const entries = useMemo(() => budgetEntries(spend, app.me), [spend, app.me]);
   const rows = useMemo(() => goals.map((goal) => {
     const progress = goalProgress(goal, app.goals, entries);
     return { goal, progress, line: goalLine(goal, progress, today), term: goalTerm(goal.d, today), topUps: topUpsOf(app.goals, goal.id) };

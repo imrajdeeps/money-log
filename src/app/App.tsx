@@ -12,6 +12,7 @@ import { SyncPill } from '../ui/SyncPill.tsx';
 import { AnalyticsScreen } from '../features/analytics/index.ts';
 import { CashFlowScreen } from '../features/cashflow/index.ts';
 import { CircleScreen } from '../features/circle/index.ts';
+import { UdhaarScreen } from '../features/udhaar/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
 import type { Section } from '../features/home/index.ts';
@@ -34,9 +35,9 @@ import { tr } from '../core/i18n.ts';
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', notifications: '/notifications' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', udhaar: '/udhaar', notifications: '/notifications' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Circle', notifications: 'Notifications' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Circle', udhaar: 'Udhaar', notifications: 'Notifications' };
 
 const SPLASH_MS = 900; // how long the start screen stays, at least
 
@@ -184,6 +185,7 @@ function Shell() {
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} onAdd={goAddGroup} /></PageBody>}
+        {page === 'udhaar' && <PageBody title={TITLES.udhaar} back onBack={goHome}><UdhaarScreen /></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { useLastBackup } from '../../data/useLastBackup.ts';
 import { planForMonth } from '../../core/categories.ts';
 import { activeGoals, goalLine, goalProgress, netNow } from '../../core/goals.ts';
@@ -14,9 +15,10 @@ export function useNotices(): Notice[] {
   const app = useApp();
   const lastBackup = useLastBackup();
   const today = isoDate();
+  const spend = useSpendEntries();
   const { dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, noticeKinds, dismissed, sessions } = app;
   return useMemo(() => {
-    const own = budgetEntries(entries, me);
+    const own = budgetEntries(spend, me);
     const month = monthOf(today);
     const input: NoticeInput = {
       today,
@@ -38,5 +40,5 @@ export function useNotices(): Notice[] {
       sessions,
     };
     return buildNotices(input, noticeKinds, dismissed);
-  }, [today, dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, lastBackup, noticeKinds, dismissed, sessions]);
+  }, [today, dueItems, recurring, entries, spend, me, mine, goals, groups, members, groupEntries, settlements, sync, lastBackup, noticeKinds, dismissed, sessions]);
 }

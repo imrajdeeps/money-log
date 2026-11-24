@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { udhaarTotals } from '../../core/udhaar.ts';
+import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { BentoCard, BentoEmpty, BentoGrid } from '../../ui/Bento.tsx';
 import { BudgetLine } from '../../ui/BudgetLine.tsx';
 import { PaceChart } from './PaceChart.tsx';
@@ -19,7 +21,7 @@ import * as hs from '../../ui/tileStyles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
-export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'goals' | 'analytics' | 'cashflow' | 'circle' | 'notifications';
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'goals' | 'analytics' | 'cashflow' | 'circle' | 'udhaar' | 'notifications';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;
@@ -43,22 +45,24 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   const app = useApp();
   const today = isoDate();
   const month = monthOf(today);
+  const spend = useSpendEntries(); // your own payments, plus your share of friends' group expenses where that counts
   const ov = useMemo(() => monthOverview(
-    app.entries, app.me, planForMonth(app.mine, month), planForMonth(app.mine, shiftMonth(month, -1)), today,
-  ), [app.entries, app.me, app.mine, month, today]);
+    spend, app.me, planForMonth(app.mine, month), planForMonth(app.mine, shiftMonth(month, -1)), today,
+  ), [spend, app.me, app.mine, month, today]);
   const cats = useMemo(() => topCategories(ov.summary), [ov]);
   const due = useMemo(() => dueOverview(app.dueItems, today), [app.dueItems, today]);
   const net = useMemo(() => netNow(app.goals), [app.goals]);
   // two more of the snapshot's figures for context; the Plan sheet lists them all
   const shared = useMemo(() => groupsOverview(app.groups, app.groupEntries, app.settlements, app.me), [app.groups, app.groupEntries, app.settlements, app.me]);
   const couples = useMemo(() => coupleTiles(app.groups, app.members, app.groupEntries, app.settlements, app.me), [app.groups, app.members, app.groupEntries, app.settlements, app.me]);
-  const goalTile = useMemo(() => nearestGoal(app.goals, budgetEntries(app.entries, app.me), today), [app.goals, app.entries, app.me, today]);
+  const goalTile = useMemo(() => nearestGoal(app.goals, budgetEntries(spend, app.me), today), [app.goals, spend, app.me, today]);
 
-  const flow = useMemo(() => cashFlow(app.entries, app.me, groupLookup(app.categories), month), [app.entries, app.me, app.categories, month]);
+  const flow = useMemo(() => cashFlow(spend, app.me, groupLookup(app.categories), month), [spend, app.me, app.categories, month]);
 
   // Getting started (fewer than five payments logged): tiles that would only show an empty invitation stay out of the way. They come
   // by themselves once there is something to show, and every page is still one tap away in the menu.
   const starting = app.entries.length < GETTING_STARTED;
+  const udhaar = useMemo(() => udhaarTotals(app.goals), [app.goals]);
   const tiles = overviewGroups(ov.summary.groups, starting);
   const tileSpan = (12 / Math.max(1, tiles.length)) as 3 | 4 | 6 | 12;
 
@@ -67,9 +71,9 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   const projected = projectedMonthEnd(ov.daily, month, ov.lastDaily); // where the month ends at this pace, once there are days enough to say
   // a usual month: the average of the three months before this one that had any spending
   const usual = useMemo(() => {
-    const prev = monthlyTotals(budgetEntries(app.entries, app.me), groupLookup(app.categories), monthsEnding(shiftMonth(month, -1), 3));
+    const prev = monthlyTotals(budgetEntries(spend, app.me), groupLookup(app.categories), monthsEnding(shiftMonth(month, -1), 3));
     return averageOf(prev.filter((t) => t.spent > 0).map((t) => t.spent));
-  }, [app.entries, app.me, app.categories, month]);
+  }, [spend, app.me, app.categories, month]);
   const toDate = ov.daily.at(-1) ?? 0;
   const left = ov.budget - ov.spent;
   const paceLabel = tr('Spending this month by day: {0} by {1} {2}; last month {3} by the same day', fmtINR(toDate), ov.day, mon, fmtINR(ov.lastToDate))
@@ -261,6 +265,22 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
         ) : starting ? null : (
           <BentoCard title={tr('Goals')} span={4}>
             <BentoEmpty cta={tr('Make a goal')} onCta={() => open('plan', 'goals')}>{tr('No goals yet. Set a target and a date, and see what to set aside each month.')}</BentoEmpty>
+          </BentoCard>
+        )}
+
+        {app.udhaar.length > 0 ? (
+          <BentoCard title={tr('Udhaar')} span={4} onOpen={() => open('udhaar')} openLabel={tr('Open Udhaar: money lent and borrowed')}>
+            {udhaar.owedToMe === 0 && udhaar.iOwe === 0 ? <p className={hs.statNum()}>{tr('All settled')}</p> : (
+              <>
+                {udhaar.owedToMe > 0 && <p className={hs.statNum()}><span className={ui.owed}>{fmtINR(udhaar.owedToMe)}</span> <span className={hs.statUnit}>{tr('owed to you')}</span></p>}
+                {udhaar.iOwe > 0 && <p className={udhaar.owedToMe > 0 ? hs.note : hs.statNum()}><span className={ui.late}>{fmtINR(udhaar.iOwe)}</span> <span className={hs.statUnit}>{tr('you owe')}</span></p>}
+              </>
+            )}
+            <p className={hs.noteFoot}>{tr('Money lent and borrowed, outside your groups.')}</p>
+          </BentoCard>
+        ) : starting ? null : (
+          <BentoCard title={tr('Udhaar')} span={4}>
+            <BentoEmpty cta={tr('Add an entry')} onCta={() => open('udhaar')}>{tr('Lent someone money, or borrowed some? Write it down here and tick it off when it comes back.')}</BentoEmpty>
           </BentoCard>
         )}
 

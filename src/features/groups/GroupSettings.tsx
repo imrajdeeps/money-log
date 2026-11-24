@@ -6,6 +6,7 @@ import type { Group } from '../../core/groups.ts';
 import { kindLabel } from '../../core/groupKinds.ts';
 import { InviteCard } from './InviteCard.tsx';
 import { PeopleCard } from './PeopleCard.tsx';
+import { ShareCountCard } from './ShareCountCard.tsx';
 import { TripSettings } from './TripSettings.tsx';
 import { UsualSplitCard } from './UsualSplitCard.tsx';
 import * as ui from '../../ui/styles.ts';
@@ -25,6 +26,7 @@ export function GroupSettings({ group, onBack, onLeft }: Readonly<{ group: Group
       <button type="button" className={ui.btn('ghost', 'md', 'w-auto mb-2')} onClick={onBack}><span className="inline-flex rotate-180"><Icon name="chevron" size={18} /></span>{' '}{group.name}</button>
       <h2>{tr('Group settings')} <span className={ui.tag}>{kindLabel(group.kind)}</span></h2>
       <p className="text-muted text-[13px]">{tr('These apply to {0} only.', group.name)}</p>
+      <ShareCountCard group={group} />
       {isAdmin && <InviteCard group={group} people={people} />}
       {group.kind === 'flatmates' && <UsualSplitCard group={group} people={people} isAdmin={isAdmin} />}
       {group.kind === 'trip' && <TripSettings group={group} isAdmin={isAdmin} />}

@@ -10,6 +10,8 @@ import { coupleLine } from '../../core/couple.ts';
 import { kindLabel } from '../../core/groupKinds.ts';
 import { fmtINR, isValidDate, isoDate, myShare, parseAmount } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
+import { ActivityBanner } from './ActivityBanner.tsx';
+import { DebtRow } from './DebtRow.tsx';
 import { TripSummary } from './TripSummary.tsx';
 import { FamilyMonth } from './FamilyMonth.tsx';
 import { tripDatesLabel } from '../../core/groupSummary.ts';
@@ -79,6 +81,8 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
       </p>
       {!closed && <button type="button" className={ui.btn('solid', 'md', 'mb-3')} onClick={onAdd}>{tr('Add a shared expense')}</button>}
 
+      <ActivityBanner group={group} />
+
       <div className={ui.card()}>
         {partner && group.kind === 'couple' ? (
           <p className={ui.coupleLine(line.tone)}>{line.text}</p>
@@ -97,13 +101,7 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
           <>
             <h3 className="text-[16px] mt-5 mb-2">{tr('To settle up')}</h3>
             <ul className={ui.list(true)}>
-              {debts.map((d) => (
-                <li key={`${d.from}>${d.to}`} className={ui.dueRow()}>
-                  <span className={ui.rowMain(true)}><b>{nameOf(d.from)} {d.from === me ? 'pay' : 'pays'} {nameOf(d.to)}</b></span>
-                  <span className="font-bold tabular-nums">{fmtINR(d.amount)}</span>
-                  {(d.from === me || d.to === me) && <button type="button" className={ui.btn('ghost', 'small')} onClick={() => startSettle(d)}>{tr('Record')}</button>}
-                </li>
-              ))}
+              {debts.map((d) => <DebtRow key={`${d.from}>${d.to}`} debt={d} group={group.name} me={me} myName={people.find((m) => m.user_id === me)?.display_name ?? ''} nameOf={nameOf} onRecord={() => startSettle(d)} />)}
             </ul>
           </>
         ) : <p className="text-muted text-[13px]">{tr('Nobody owes anybody anything.')}</p>}

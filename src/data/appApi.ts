@@ -11,6 +11,8 @@ import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit 
 import type { GroupKind } from '../core/groupKinds.ts';
 import type { CircleMember } from '../core/circle.ts';
 import type { SharedGoal } from '../core/sharedGoals.ts';
+import type { UdhaarItem } from '../core/goals.ts';
+import type { UdhaarInput } from '../core/udhaar.ts';
 
 // Shared goals live on the server: each call asks it and throws when offline (or when the database has no 1.29 yet).
 export interface SharedGoalsApi {
@@ -71,6 +73,11 @@ export interface AppApi {
   removeRecurring: (id: string) => Promise<void>;
   logRecurring: (id: string, how: 'log' | 'skip') => Promise<void>;
   goals: Goals; // goals and their top-ups, removed ones included
+  udhaar: UdhaarItem[]; // money lent or borrowed, open ones first
+  addUdhaar: (i: UdhaarInput) => Promise<string | null>; // null when it worked, else what to tell the person
+  editUdhaar: (id: string, i: UdhaarInput) => Promise<string | null>;
+  setUdhaarSettled: (id: string, settled: boolean) => Promise<void>;
+  removeUdhaar: (id: string) => Promise<void>;
   addGoal: (i: GoalInput) => Promise<string | null>; // null when it worked, else what to tell the person
   editGoal: (id: string, i: GoalInput) => Promise<string | null>;
   removeGoal: (id: string) => Promise<void>;

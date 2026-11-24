@@ -20,6 +20,7 @@ import { Route as MonthRouteImport } from './routes/month'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as PlanRouteImport } from './routes/plan'
+import { Route as UdhaarRouteImport } from './routes/udhaar'
 import { Route as GroupsIndexRouteImport } from './routes/groups.index'
 import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as SettingsIndexRouteImport } from './routes/settings.index'
@@ -81,6 +82,11 @@ const PlanRoute = PlanRouteImport.update({
   path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UdhaarRoute = UdhaarRouteImport.update({
+  id: '/udhaar',
+  path: '/udhaar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GroupsIndexRoute = GroupsIndexRouteImport.update({
   id: '/groups/',
   path: '/groups/',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
+  '/udhaar': typeof UdhaarRoute
   '/groups/$groupId': typeof GroupsGroupIdRouteWithChildren
   '/settings/$part': typeof SettingsPartRoute
   '/groups/': typeof GroupsIndexRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
+  '/udhaar': typeof UdhaarRoute
   '/groups/$groupId': typeof GroupsGroupIdRouteWithChildren
   '/settings/$part': typeof SettingsPartRoute
   '/groups': typeof GroupsIndexRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/payments': typeof PaymentsRoute
   '/plan': typeof PlanRoute
+  '/udhaar': typeof UdhaarRoute
   '/groups/$groupId': typeof GroupsGroupIdRouteWithChildren
   '/settings/$part': typeof SettingsPartRoute
   '/groups/': typeof GroupsIndexRoute
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/payments'
     | '/plan'
+    | '/udhaar'
     | '/groups/$groupId'
     | '/settings/$part'
     | '/groups/'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/payments'
     | '/plan'
+    | '/udhaar'
     | '/groups/$groupId'
     | '/settings/$part'
     | '/groups'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/payments'
     | '/plan'
+    | '/udhaar'
     | '/groups/$groupId'
     | '/settings/$part'
     | '/groups/'
@@ -231,6 +243,7 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   PaymentsRoute: typeof PaymentsRoute
   PlanRoute: typeof PlanRoute
+  UdhaarRoute: typeof UdhaarRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRouteWithChildren
   SettingsPartRoute: typeof SettingsPartRoute
   GroupsIndexRoute: typeof GroupsIndexRoute
@@ -316,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/udhaar': {
+      id: '/udhaar'
+      path: '/udhaar'
+      fullPath: '/udhaar'
+      preLoaderRoute: typeof UdhaarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/groups/': {
       id: '/groups/'
       path: '/groups'
@@ -378,6 +398,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   PaymentsRoute: PaymentsRoute,
   PlanRoute: PlanRoute,
+  UdhaarRoute: UdhaarRoute,
   GroupsGroupIdRoute: GroupsGroupIdRouteWithChildren,
   SettingsPartRoute: SettingsPartRoute,
   GroupsIndexRoute: GroupsIndexRoute,

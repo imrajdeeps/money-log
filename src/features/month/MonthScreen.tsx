@@ -1,6 +1,7 @@
 import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { monthLabel } from '../../core/format.ts';
 import { BudgetLine as Line } from '../../ui/BudgetLine.tsx';
 import { BudgetsDialog } from './BudgetsDialog.tsx';
@@ -20,9 +21,10 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readon
   const [focusCat, setFocusCat] = useState<string | undefined>(undefined); // the budgets dialog opens on this category
   const [picked, setPicked] = useState<string | null>(null); // the category whose button was tapped
   // Shared expenses count at this account's own share; other people's expenses never count. The budgets are the ones set in the app.
+  const spend = useSpendEntries(); // your own payments, plus your share of friends' group expenses where that counts
   const s = useMemo(
-    () => summarizeMonth(budgetEntries(app.entries, app.me), planForMonth(app.mine, month), month),
-    [app.entries, app.me, app.mine, month],
+    () => summarizeMonth(budgetEntries(spend, app.me), planForMonth(app.mine, month), month),
+    [spend, app.me, app.mine, month],
   );
   const noBudgets = app.categories.every((c) => c.budget === 0);
   const monthIsOver = month < current;
