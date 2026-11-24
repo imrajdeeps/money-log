@@ -1050,4 +1050,6 @@ export const HINGLISH: Record<string, string> = {
   'What do you want to do first?': 'Aap pehle kya karna chahte hain?',
   'Your payments stay on this phone. Signing in adds a cloud copy, and a group lives in the app owner\'s database so its members can see what is shared there.': 'Aapke payments isi phone par rehte hain. Sign in karne par cloud copy judti hai, aur group app ke maalik ke database mein rehta hai taaki uske members wahan share ki gayi cheezein dekh sakein.',
   'Share on WhatsApp': 'WhatsApp par bhejein',
+  'New: faster logging and a daily reminder': 'Naya: tez darj karna aur roz ka reminder',
+  'Add expense shows every category as a button, with Today and Yesterday, and Save and add another. A group page has Add a shared expense, and invitations can be shared on WhatsApp. Settings, Notifications can make a daily reminder in your calendar.': 'Kharcha jodne mein har category ek button hai, saath mein aaj, kal aur save karke ek aur jodna. Group ke page par shared kharcha jodne ka button hai, aur invitations WhatsApp par bheje ja sakte hain. Settings, Notifications mein calendar mein roz ka reminder ban sakta hai.',
 };
