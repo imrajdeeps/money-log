@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
+import { groupActivity } from '../../core/groupActivity.ts';
+import { groupSeen } from '../../data/phonePrefs.ts';
 import { kindLabel } from '../../core/groupKinds.ts';
 import { fmtINR } from '../../core/logic.ts';
 import { GroupDetail } from './GroupDetail.tsx';
@@ -16,6 +18,7 @@ import { tr } from '../../core/i18n.ts';
 export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle, onAdd }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void; onAdd: (id: string) => void }>) {
   const app = useApp();
   const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
+  const seen = groupSeen.use();
   // An invitation arrived (a tapped link): go back to the list, where the join form is.
   useEffect(() => { if (app.joinCode && groupId) onOpen(); }, [app.joinCode, groupId, onOpen]);
 
@@ -42,6 +45,9 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
     );
   }
 
+  // what others did in a group since this phone last looked (the same figure the group page lists)
+  const news = (id: string): number => { const r = groupActivity(app.groupEntries, app.settlements, id, app.me, seen[id] ?? null, () => ''); return r.items.length + r.more; };
+
   return (
     <section aria-label={tr('Groups')} className="[&>*+*]:mt-4 [&>p]:mb-0">
       <JoinCard />
@@ -58,7 +64,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
                 <button type="button" className={ui.row} onClick={() => onOpen(g.id)}>
                   <span className={ui.rowMain()}>
                     <b>{g.name}</b>
-                    <small>{tr('{0}{1} · {2} people', kindLabel(g.kind), g.closed_at ? tr(' (closed)') : '', activeMembers(app.members, g.id).length)}</small>
+                    <small>{tr('{0}{1} · {2} people', kindLabel(g.kind), g.closed_at ? tr(' (closed)') : '', activeMembers(app.members, g.id).length)}{news(g.id) > 0 && <b className="ml-1.5 text-accent"> · {tr('{0} new', news(g.id))}</b>}</small>
                   </span>
                   <span className={`tabular-nums ${bal > 0 ? ui.owed : bal < 0 ? ui.late : 'font-bold text-muted'}`}>{bal === 0 ? tr('Settled') : bal > 0 ? `+${fmtINR(fromPaise(bal))}` : `−${fmtINR(fromPaise(-bal))}`}</span>
                 </button>

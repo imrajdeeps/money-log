@@ -20,6 +20,8 @@ import { MAX_ACCOUNT_PHOTOS, MAX_PHOTOS, liveFor, makeReceipt, markDeleted, phot
 import type { Receipt } from '../core/receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from '../core/groups.ts';
 import { circleCodeFromHash } from '../core/circle.ts';
+import type { UdhaarInput } from '../core/udhaar.ts';
+import { addUdhaar as addUdhaarTo, editUdhaar as editUdhaarIn, removeUdhaar as removeUdhaarFrom, setUdhaarSettled as setUdhaarSettledIn, udhaarList } from '../core/udhaar.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import { editEntry, isMine, isoDate, makeEntry, monthOf, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
@@ -544,6 +546,11 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     return error;
   }, [changeGoals]);
 
+  const addUdhaar = useCallback((i: UdhaarInput) => runGoals((items, nowIso) => addUdhaarTo(items, i, isoDate(), nowIso)), [runGoals]);
+  const editUdhaar = useCallback((id: string, i: UdhaarInput) => runGoals((items, nowIso) => editUdhaarIn(items, id, i, isoDate(), nowIso)), [runGoals]);
+  const setUdhaarSettled = useCallback((id: string, settled: boolean) => changeGoals((items, nowIso) => setUdhaarSettledIn(items, id, settled, nowIso)), [changeGoals]);
+  const removeUdhaar = useCallback((id: string) => changeGoals((items, nowIso) => removeUdhaarFrom(items, id, nowIso)), [changeGoals]);
+  const udhaar = useMemo(() => udhaarList(goals), [goals]);
   const addGoal = useCallback((i: GoalInput) => runGoals((items, nowIso) => addGoalTo(items, i, isoDate(), nowIso)), [runGoals]);
   const editGoal = useCallback((id: string, i: GoalInput) => runGoals((items, nowIso) => editGoalIn(items, id, i, nowIso)), [runGoals]);
   const removeGoal = useCallback((id: string) => changeGoals((items, nowIso) => removeGoalFrom(items, id, nowIso)), [changeGoals]);
@@ -694,7 +701,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
     dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
-    goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions,
+    goals, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions,
     sync,
     syncEnabled,
     toastMsg,
@@ -703,7 +710,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

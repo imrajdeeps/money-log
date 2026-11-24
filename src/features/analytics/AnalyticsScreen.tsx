@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { activeGoals, goalLine, goalProgress } from '../../core/goals.ts';
 import { averageOf, biggestPayments, categoryTrends, cumulativeByDay, groupLookup, groupShares, monthlyTotals, monthsEnding, pctChange, projectedMonthEnd, weekdaySpend } from '../../core/analytics.ts';
 import { monthLabel, monthShort, shortDate, weekdayShort } from '../../core/format.ts';
@@ -21,7 +22,8 @@ export function AnalyticsScreen() {
   const [range, setRange] = useState<Range>(6);
   const today = isoDate();
   const thisMonth = monthOf(today);
-  const entries = useMemo(() => budgetEntries(app.entries, app.me), [app.entries, app.me]);
+  const spend = useSpendEntries();
+  const entries = useMemo(() => budgetEntries(spend, app.me), [spend, app.me]);
   const groupOf = useMemo(() => groupLookup(app.categories), [app.categories]);
   const months = useMemo(() => monthsEnding(thisMonth, range), [thisMonth, range]);
   const totals = useMemo(() => monthlyTotals(entries, groupOf, months), [entries, groupOf, months]);
@@ -30,9 +32,9 @@ export function AnalyticsScreen() {
   const biggest = useMemo(() => biggestPayments(entries, groupOf, thisMonth, 5), [entries, groupOf, thisMonth]);
   const shares = useMemo(() => groupShares(entries, groupOf, thisMonth), [entries, groupOf, thisMonth]);
   const goals = useMemo(() => activeGoals(app.goals).map((goal) => {
-    const progress = goalProgress(goal, app.goals, app.entries);
+    const progress = goalProgress(goal, app.goals, entries);
     return { goal, progress, line: goalLine(goal, progress, today) };
-  }), [app.goals, app.entries, today]);
+  }), [app.goals, entries, today]);
 
   const day = Number(today.slice(8, 10));
   const daily = cumulativeByDay(entries, groupOf, thisMonth, day);

@@ -7,6 +7,8 @@ import { shortDate } from '../../core/format.ts';
 import { fmtINR, isoDate, myShare } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import { CategorySelect } from '../../ui/CategorySelect.tsx';
+import { countsShare } from '../../core/groupShares.ts';
+import { shareSwitches } from '../../data/phonePrefs.ts';
 import { HistoryList } from './HistoryList.tsx';
 import { PhotoStrip } from './PhotoStrip.tsx';
 import * as ui from '../../ui/styles.ts';
@@ -19,6 +21,7 @@ export function ExpenseDialog({ entry, group, onClose }: Readonly<{ entry: Entry
   const ref = useRef<HTMLDialogElement>(null);
   const share = myShare(entry, app.me);
   const added = app.entries.find((x) => x.share_of === entry.id);
+  const counted = countsShare(group, shareSwitches.use()); // the group's switch: your share counts in your Month by itself
   const [adding, setAdding] = useState(false);
   const [category, setCategory] = useState('');
   const [note, setNote] = useState(tr('{0} (my share, {1})', entry.note || entry.category, group.name));
@@ -47,7 +50,10 @@ export function ExpenseDialog({ entry, group, onClose }: Readonly<{ entry: Entry
       </ul>
       <PhotoStrip entryId={entry.id} canEdit={false} />
 
-      {share > 0 && (added ? (
+      {share > 0 && !added && counted && (
+        <p className={ui.msg('good')} role="status">{tr('Your {0} is counted in your Month automatically. You can switch that off in Group settings.', fmtINR(share))}</p>
+      )}
+      {share > 0 && !(counted && !added) && (added ? (
         <p className={ui.msg('good')} role="status">{tr('Added to your budget: {0} under {1} on {2}.', fmtINR(added.amount), added.category, shortDate(added.entry_date))}</p>
       ) : adding ? (
         <form onSubmit={save} noValidate className={ui.settleForm}>

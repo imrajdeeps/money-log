@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import * as ui from '../../ui/styles.ts';
 import { biggestOutflows, cashFlow, cashFlowSeries } from '../../core/income.ts';
@@ -28,9 +29,10 @@ export function CashFlowScreen({ onAdd }: Readonly<{ onAdd: () => void }>) {
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);
   const groupOf = useMemo(() => groupLookup(app.categories), [app.categories]);
-  const flow = useMemo(() => cashFlow(app.entries, app.me, groupOf, month), [app.entries, app.me, groupOf, month]);
-  const series = useMemo(() => cashFlowSeries(app.entries, app.me, groupOf, monthsEnding(month, MONTHS_SHOWN)), [app.entries, app.me, groupOf, month]);
-  const biggest = useMemo(() => biggestOutflows(app.entries, app.me, groupOf, month), [app.entries, app.me, groupOf, month]);
+  const spend = useSpendEntries(); // your own payments, plus your share of friends' group expenses where that counts
+  const flow = useMemo(() => cashFlow(spend, app.me, groupOf, month), [spend, app.me, groupOf, month]);
+  const series = useMemo(() => cashFlowSeries(spend, app.me, groupOf, monthsEnding(month, MONTHS_SHOWN)), [spend, app.me, groupOf, month]);
+  const biggest = useMemo(() => biggestOutflows(spend, app.me, groupOf, month), [spend, app.me, groupOf, month]);
   const empty = flow.income === 0 && flow.out === 0 && flow.saved === 0;
   const leftTone = flow.left >= 0 ? 'good' : 'bad';
 

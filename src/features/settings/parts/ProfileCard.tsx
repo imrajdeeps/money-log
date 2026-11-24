@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { saveProfile } from '../../../data/profile.ts';
+import { myUpi } from '../../../data/phonePrefs.ts';
+import { cleanUpi } from '../../../core/upi.ts';
 import { useProfile } from '../../../data/useProfile.ts';
 import { COUNTRY_PREFIX, MAX_PROFILE_NAME, cleanName, initials, isIndianNumber, localDigits, normalizeWhatsapp } from '../../../core/profile.ts';
 import * as ui from '../../../ui/styles.ts';
@@ -17,6 +19,7 @@ export function ProfileCard() {
   const email = app.sync.email;
   const [name, setName] = useState(profile.name);
   const [number, setNumber] = useState(localDigits(profile.whatsapp));
+  const [upi, setUpi] = useState(myUpi.load());
   const [note, setNote] = useState<{ text: string; bad: boolean } | null>(null);
   const oldNumber = profile.whatsapp !== '' && !isIndianNumber(profile.whatsapp); // saved before only Indian numbers were allowed
 
@@ -24,6 +27,8 @@ export function ProfileCard() {
     ev.preventDefault();
     const n = normalizeWhatsapp(number);
     if (!n.ok) return setNote({ text: n.error, bad: true });
+    if (upi.trim() !== '' && cleanUpi(upi) === '') return setNote({ text: tr('That does not look like a UPI id (name@bank).'), bad: true });
+    myUpi.save(cleanUpi(upi));
     saveProfile({ name: cleanName(name), whatsapp: n.value });
     setName(cleanName(name));
     setNumber(localDigits(n.value));
@@ -61,6 +66,11 @@ export function ProfileCard() {
             <input value={number} inputMode="tel" autoComplete="tel-national" maxLength={20} aria-label={tr('10-digit mobile number after +91')} onChange={(e) => { setNumber(e.target.value); setNote(null); }} placeholder="98765 43210" />
           </div>
         </div>
+        <label className={ui.field}>
+          <span>{tr('Your UPI id (optional)')}</span>
+          <input value={upi} autoCapitalize="none" autoComplete="off" spellCheck={false} placeholder="name@bank" onChange={(e) => { setUpi(e.target.value); setNote(null); }} />
+        </label>
+        <p className="text-muted text-[13px]">{tr('Kept on this phone only. It goes out only inside a reminder you send from a group or from Udhaar, so people can pay you.')}</p>
         {oldNumber && <p className={ui.msg('bad')} role="status">{tr('The number saved here, {0}, is not an Indian number. Only Indian numbers are accepted now: type a 10-digit number, or leave the field empty and save to remove it.', profile.whatsapp)}</p>}
         <p className="text-muted text-[13px]">{email ? tr('Kept on this phone and in your account, where only you can see it. It is not verified, and nothing is sent to it.') : tr('Kept on this phone. Sign in and it also follows you to your other phones. It is not verified, and nothing is sent to it.')}</p>
         {note && <p className={ui.msg(note.bad ? 'bad' : 'good')} role={note.bad ? 'alert' : 'status'}>{note.text}</p>}
