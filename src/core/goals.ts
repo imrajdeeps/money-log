@@ -8,17 +8,20 @@ import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, newId, n
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';
 
-export const MAX_GOALS = 30; // what one account may keep, removed ones included
+// What one account may keep of each kind: live items only. Removed ones are kept for REMOVED_KEEP_DAYS (so every phone sees the removal) and
+// then cleared, and when data is read back up to the same number of removed ones is allowed on top of the live ones.
+export const MAX_GOALS = 30;
 export const MAX_TOPUPS = 500;
 export const MAX_NET_UPDATES = 400;
-export const MAX_DUE_ENTRIES = 400; // removed ones included
+export const MAX_DUE_ENTRIES = 400;
 export const MAX_DUE_TITLE = 120;
 export const MAX_DISMISSALS = 1000; // dismissals read back; the app itself keeps the newest 500
 export const MAX_NOTICE_KEY = 120;
-export const MAX_INCOME_CATS = 50; // the person's own income categories, removed ones included
+export const MAX_INCOME_CATS = 50; // the person's own income categories
 export const incomeCatId = (name: string): string => uuidFromKey(`incomecat|${catKey(name)}`);
-export const MAX_WORTH = 100; // what the person owns and owes (net worth items), removed ones included
-export const MAX_UDHAAR = 500; // money lent or borrowed, settled and removed ones included (the list the person sees is far shorter)
+export const MAX_WORTH = 100; // what the person owns and owes (net worth items)
+export const MAX_UDHAAR = 500; // money lent or borrowed, settled ones included (the list the person sees is far shorter)
+export const REMOVED_KEEP_DAYS = 180; // how long a removed item stays before it is cleared
 const NET_LIMIT = 1e12;
 export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is short term, later is long term
 
@@ -76,7 +79,9 @@ export function checkGoalInput(i: GoalInput): string | null {
 
 export type GoalResult = { ok: true; items: Goals } | { ok: false; error: string };
 
-const count = (items: Goals, k: 'g' | 't' | 'n' | 'd') => Object.values(items).filter((x) => x.k === k).length;
+/** How many live (not removed) items of one kind: what the caps count. */
+export const liveCount = (items: Goals, k: GoalItem['k']): number => Object.values(items).filter((x) => x.k === k && !x.x).length;
+const count = liveCount;
 
 export function addGoal(items: Goals, i: GoalInput, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
   const error = checkGoalInput(i);
@@ -211,7 +216,7 @@ export function sameGoals(a: Goals, b: Goals): boolean {
 }
 
 // Validate what comes from the server or a backup. Anything malformed is dropped, never repaired. Each kind of item has its own
-// check and its own cap (removed items count); anything of an unknown kind is dropped.
+// check and its own cap (live items and removed items are counted apart); anything of an unknown kind is dropped.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Raw = any;
 const isDay = (d: unknown): d is string => typeof d === 'string' && isValidDate(d);
@@ -293,16 +298,35 @@ const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id
 export function cleanGoals(p: Raw): Goals {
   const out: Goals = {};
   if (!p || typeof p !== 'object') return out;
-  const counts: Record<string, number> = {};
-  for (const [k, v] of Object.entries(p as Record<string, Raw>)) {
-    if (!hasCommonFields(k, v)) continue;
+  const live: Record<string, number> = {};
+  const gone: Record<string, number> = {};
+  const room = (n: Record<string, number>, kind: string, max: number): boolean => (n[kind] ?? 0) < max;
+  // newest removals first, so that when there are too many it is the oldest that go
+  const entries = Object.entries(p as Record<string, Raw>).filter(([k, v]) => hasCommonFields(k, v));
+  entries.sort(([, a], [, b]) => a.x - b.x || parseTs(b.t) - parseTs(a.t));
+  for (const [k, v] of entries) {
     const kind = Object.hasOwn(ITEM_KINDS, v.k) ? ITEM_KINDS[v.k] : undefined;
-    if (!kind || (counts[v.k] ?? 0) >= kind.max) continue;
+    const counts = v.x === 1 ? gone : live;
+    if (!kind || !room(counts, v.k, kind.max)) continue;
     const item = kind.clean(k, v);
     if (!item) continue;
     out[k] = item;
     counts[v.k] = (counts[v.k] ?? 0) + 1;
   }
+  return out;
+}
+
+/**
+ * Clears removed items that are older than REMOVED_KEEP_DAYS, and the top-ups of a goal that has been cleared (they would be left with
+ * nothing to belong to). The same object comes back when there is nothing to clear. A phone that has not synced for longer than that
+ * could bring back an item removed here; that is the price of not keeping every removal for ever.
+ */
+export function purgeRemoved(items: Goals, nowIso: string): Goals {
+  const cutoff = parseTs(nowIso) - REMOVED_KEEP_DAYS * 86_400_000;
+  const old = new Set(Object.values(items).filter((x) => x.x === 1 && parseTs(x.t) < cutoff).map((x) => x.id));
+  if (old.size === 0) return items;
+  const out: Goals = {};
+  for (const [id, v] of Object.entries(items)) if (!old.has(id) && !(v.k === 't' && old.has(v.g))) out[id] = v;
   return out;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

@@ -90,7 +90,7 @@ export const isEstimated = (it: WorthItem, todayIso: string): boolean => isLoanW
 export function addWorthItem(items: Goals, i: WorthInput, todayIso: string, nowIso: string, id: string = newId()): WorthResult {
   const c = checkWorth(i);
   if (!c.ok) return c;
-  if (all(items).length >= MAX_WORTH) return { ok: false, error: tr('That is the most items one account can keep.') };
+  if (all(items).filter((i) => !i.x).length >= MAX_WORTH) return { ok: false, error: tr('That is the most items one account can keep.') };
   const item: WorthItem = { id, k: 'w', n: c.name, s: c.side, c: c.cls, a: c.amount, d: todayIso, p: null, pd: '', e: c.emi, r: c.rate, x: 0, t: nowIso };
   return { ok: true, items: { ...items, [id]: item } };
 }

@@ -28,7 +28,7 @@ const live = (items: Goals): UdhaarItem[] => all(items).filter((u) => !u.x);
 export function addUdhaar(items: Goals, i: UdhaarInput, todayIso: string, nowIso: string, id: string = newId()): UdhaarResult {
   const c = checkUdhaar(i, todayIso);
   if (!c.ok) return c;
-  if (all(items).length >= MAX_UDHAAR) return { ok: false, error: tr('That is the most entries one account can keep.') };
+  if (live(items).length >= MAX_UDHAAR) return { ok: false, error: tr('That is the most entries one account can keep.') };
   const item: UdhaarItem = { id, k: 'u', n: c.name, a: c.amount, w: c.way, d: c.date, m: c.note, s: 0, x: 0, t: nowIso };
   return { ok: true, items: { ...items, [id]: item } };
 }

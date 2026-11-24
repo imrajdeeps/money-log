@@ -32,7 +32,7 @@ import { openStore } from './store.ts';
 import { BASEPATH, appRootUrl } from '../core/paths.ts';
 import { addRecurring as addRecurringTo, editRecurring as editRecurringIn, markHandled, mergeRecurring, removeRecurring as removeRecurringFrom, scheduledDate } from '../core/recurring.ts';
 import type { RecurInput, Recurring } from '../core/recurring.ts';
-import { addGoal as addGoalTo, addNetUpdate as addNetUpdateTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, removeGoal as removeGoalFrom, removeNetUpdate as removeNetUpdateFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
+import { addGoal as addGoalTo, addNetUpdate as addNetUpdateTo, addTopUp as addTopUpTo, editGoal as editGoalIn, mergeGoals, purgeRemoved, removeGoal as removeGoalFrom, removeNetUpdate as removeNetUpdateFrom, removeTopUp as removeTopUpFrom } from '../core/goals.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import { addIncomeCategory as addIncomeCategoryTo, incomeCategories, removeIncomeCategory as removeIncomeCategoryFrom } from '../core/income.ts';
 import type { IncomeCatResult } from '../core/income.ts';
@@ -533,7 +533,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     await e.store.mutateMeta<GoalsBlock>('goals', (cur) => {
       const before = cur?.items ?? {};
       const next = f(before, nowIso);
-      return next === before ? undefined : { items: next, dirty: 1 };
+      return next === before ? undefined : { items: purgeRemoved(next, nowIso), dirty: 1 }; // old removals are cleared whenever something changes
     });
     await afterChange();
   }, [afterChange]);

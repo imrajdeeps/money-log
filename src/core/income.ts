@@ -53,7 +53,7 @@ export function addIncomeCategory(items: Goals, rawName: string, nowIso: string)
   const id = incomeCatId(name);
   const prev = items[id];
   if (prev?.k === 'i' && !prev.x) return { ok: true, items, name: prev.n };
-  if (!prev && own(items).length >= MAX_INCOME_CATS) return { ok: false, error: tr('You can keep at most {0} income categories of your own.', MAX_INCOME_CATS) };
+  if (own(items).filter((v) => !v.x).length >= MAX_INCOME_CATS) return { ok: false, error: tr('You can keep at most {0} income categories of your own.', MAX_INCOME_CATS) };
   const t = prev ? laterThan(prev.t, nowIso) : nowIso;
   return { ok: true, items: { ...items, [id]: { id, k: 'i', n: name, x: 0, t } }, name };
 }
