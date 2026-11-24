@@ -162,7 +162,7 @@ function Shell() {
     <>
       {!splashGone && <Splash leaving />}
       {app.locked && <LockScreen />}
-      <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0 || app.groups.length > 0} go={tourGo} onStart={(c) => { if (c === 'split') goPage('groups'); else goAdd(); }} />
+      <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0} go={tourGo} onStart={(c) => { if (c === 'split') goPage('groups'); else goAdd(); }} />
       <div className={sh.app} inert={app.locked}>
       <header className={sh.top}>
         <div className={sh.brand}><h1>{tr('Money Log')}</h1></div>

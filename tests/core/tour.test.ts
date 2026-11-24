@@ -43,3 +43,9 @@ test('replaying gives the full tour or everything new since the baseline', () =>
   assert.equal(replay('first', '1.14.0').steps, FIRST_STEPS);
   assert.deepEqual(replay('news', '1.14.0').steps, newsSince(BASELINE, '1.14.0'));
 });
+
+test('a person who has never seen the app gets the short welcome (a "first" tour), not twenty what\'s-new steps, when they have no payments', () => {
+  // the shell passes hasData = "has at least one payment": a friend who just joined a group by an invitation has a group and nothing else
+  assert.equal(pickTour(null, '1.32.0', false)!.kind, 'first');
+  assert.equal(pickTour(null, '1.32.0', true)!.kind, 'news', 'someone with payments who never saw the tour gets what is new since the baseline');
+});
