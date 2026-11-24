@@ -1,6 +1,7 @@
 name: Deploy to GitHub Pages
 
-# Pull requests run the tests and the build, so a change is checked before it can be merged; nothing is published.
+# Pull requests into main and into a version branch (version/1.34 and so on) run the type checks, the tests and the build, so a
+# change is checked before it can be merged; nothing is published.
 # A push to main runs the same checks and then publishes the built site to GitHub Pages.
 # One-time setup in the repository (see README.md):
 #   Settings -> Pages -> Source: "GitHub Actions"
@@ -11,7 +12,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, 'version/**']
   workflow_dispatch:
 
 permissions:
@@ -35,6 +36,7 @@ jobs:
           cache: npm
       # Install exactly what package-lock.json says, without running any package install scripts.
       - run: npm ci --ignore-scripts
+      - run: npm run check # the app and the tests, type-checked
       - run: npm test
       - run: npm run build
         env:
