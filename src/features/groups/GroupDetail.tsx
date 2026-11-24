@@ -101,7 +101,7 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
           <>
             <h3 className="text-[16px] mt-5 mb-2">{tr('To settle up')}</h3>
             <ul className={ui.list(true)}>
-              {debts.map((d) => <DebtRow key={`${d.from}>${d.to}`} debt={d} group={group.name} me={me} nameOf={nameOf} onRecord={() => startSettle(d)} />)}
+              {debts.map((d) => <DebtRow key={`${d.from}>${d.to}`} debt={d} group={group.name} me={me} myName={people.find((m) => m.user_id === me)?.display_name ?? ''} nameOf={nameOf} onRecord={() => startSettle(d)} />)}
             </ul>
           </>
         ) : <p className="text-muted text-[13px]">{tr('Nobody owes anybody anything.')}</p>}

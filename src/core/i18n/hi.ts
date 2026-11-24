@@ -1098,7 +1098,6 @@ export const HI: Record<string, string> = {
   'Opened again': 'फिर खोला गया',
   'Marked as settled': 'निपटा हुआ चिह्नित किया',
   'Open again': 'फिर खोलें',
-  'me': 'मैं',
   'Delete this entry with {0}? This cannot be undone.': '{0} वाली यह प्रविष्टि हटाएँ? इसे वापस नहीं किया जा सकता।',
   'Delete': 'हटाएँ',
   'Money you lent to someone, or borrowed from them: write it down once, tick it off when it comes back. Only you see this.': 'किसी को दिया या उससे लिया पैसा: एक बार लिख लें, लौटने पर निशान लगा दें। इसे सिर्फ़ आप देखते हैं।',

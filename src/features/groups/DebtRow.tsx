@@ -9,8 +9,8 @@ import { tr } from '../../core/i18n.ts';
 // One line of "To settle up": who pays whom and how much. When it involves you there is something to do about it: record it (as before),
 // remind the person who owes you through WhatsApp (your UPI id, if you set one, rides in the message), or pay the person you owe by
 // opening your UPI app with their id and the amount filled in. Money never moves through this app.
-export function DebtRow({ debt, group, me, nameOf, onRecord }: Readonly<{
-  debt: { from: string; to: string; amount: number }; group: string; me: string; nameOf: (uid: string) => string; onRecord: () => void;
+export function DebtRow({ debt, group, me, myName, nameOf, onRecord }: Readonly<{
+  debt: { from: string; to: string; amount: number }; group: string; me: string; myName: string; nameOf: (uid: string) => string; onRecord: () => void;
 }>) {
   const mine = myUpi.use();
   const known = theirUpi.use();
@@ -37,7 +37,7 @@ export function DebtRow({ debt, group, me, nameOf, onRecord }: Readonly<{
       </div>
       {involved && (
         <div className="mt-1.5 flex flex-wrap gap-2">
-          {debt.to === me && <WhatsAppButton size="small" label={tr('Remind')} text={remindText({ name: nameOf(debt.from), amount: debt.amount, group, upi: mine, payeeName: nameOf(me) })} />}
+          {debt.to === me && <WhatsAppButton size="small" label={tr('Remind')} text={remindText({ name: nameOf(debt.from), amount: debt.amount, group, upi: mine, payeeName: myName })} />}
           {iOwe && <button type="button" className={ui.btn('ghost', 'small')} aria-expanded={paying} onClick={openPay}>{tr('Pay')}</button>}
         </div>
       )}

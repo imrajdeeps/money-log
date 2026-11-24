@@ -1098,7 +1098,6 @@ export const HINGLISH: Record<string, string> = {
   'Opened again': 'Phir khola gaya',
   'Marked as settled': 'Nipta hua chihnit kiya',
   'Open again': 'Phir kholein',
-  'me': 'main',
   'Delete this entry with {0}? This cannot be undone.': '{0} wali yeh entry hatayein? Ise wapas nahi kiya ja sakta.',
   'Delete': 'Hatayein',
   'Money you lent to someone, or borrowed from them: write it down once, tick it off when it comes back. Only you see this.': 'Kisi ko diya ya usse liya paisa: ek baar likh lein, lautne par nishaan laga dein. Ise sirf aap dekhte hain.',

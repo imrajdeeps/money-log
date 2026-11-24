@@ -28,7 +28,7 @@ function Row({ u, onEdit }: Readonly<{ u: UdhaarItem; onEdit: () => void }>) {
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" className={ui.btn('ghost', 'small')} onClick={() => { void app.setUdhaarSettled(u.id, !u.s).then(() => app.toast(u.s ? tr('Opened again') : tr('Marked as settled'))); }}>{u.s ? tr('Open again') : tr('Settled')}</button>
-        {lent && !u.s && <WhatsAppButton size="small" label={tr('Remind')} text={udhaarRemindText({ name: u.n, amount: u.a, upi, payeeName: profile.name || tr('me') })} />}
+        {lent && !u.s && <WhatsAppButton size="small" label={tr('Remind')} text={udhaarRemindText({ name: u.n, amount: u.a, upi, payeeName: profile.name || (app.sync.email ?? '').split('@')[0] || 'Me' })} />}
         <button type="button" className={ui.btn('ghost', 'small')} onClick={onEdit}>{tr('Change')}</button>
         <button type="button" className={ui.btn('danger', 'small')} onClick={() => { if (window.confirm(tr('Delete this entry with {0}? This cannot be undone.', u.n))) void app.removeUdhaar(u.id).then(() => app.toast(tr('Removed: {0}', u.n))); }}>{tr('Delete')}</button>
       </div>
