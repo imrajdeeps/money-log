@@ -155,6 +155,14 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Groups close the loop, and Udhaar (version 1.31)
+No SQL. From `docs/prd-product-roadmap.md`.
+
+- **Your share counts in your own Month by itself.** Until now a shared expense reached your budget only if you made it, or tapped *Add my share to my budget* on a friend's. Now, in a group whose switch is on, your share of what others add counts in your Month, budgets, goals, Insights, cash flow and notifications (`useSpendEntries` adds them as private payments of your own, only for the sums: they are not saved, listed or synced). The switch is in *Group settings, In my Month*, kept on this phone, **on for flatmates and couples, off for families and trips**. **Never twice:** an expense you already added by hand (an entry of yours with `share_of` its id) is not counted again, and while the switch is on, the expense dialog says it is counted instead of offering the button.
+- **Remind and Pay in settle-up.** On a line where someone owes you, *Remind* opens WhatsApp with the amount and the group in the text, plus your UPI id and a `upi://pay` link when you set your UPI id in *Settings, Profile*. On a line where you owe, *Pay* asks for their UPI id (remembered on this phone) and opens your UPI app with the payee, amount and note filled in; then *Record* notes it. Money never moves through the app, ids never leave the phone except inside a reminder you send, and whether `upi://` and `wa.me` open the right app depends on the phone.
+- **Since you last opened.** The top of a group lists what others added, changed or recorded since this phone last looked (up to five, newest first, with "and N more"), and the group list shows "N new". The time of the last look is noted when you leave the group page (and the first time ever, so a first visit has no old news); kept on this phone only.
+- **Udhaar** (Overview tile, `/udhaar`): money you lent to or borrowed from anyone (they need not use the app): a name, an amount, which way, a day and a note. Totals of what is open (owed to you, you owe, by person; names that differ only in case or spacing are one person), *Settled* / *Open again*, *Change*, *Delete* (asked first), and *Remind* (a WhatsApp text, with your UPI id if set) on money you lent. Private: items of their own kind (`u`) in the same block as goals, so they sync, merge item by item and are in the backup file, with no new database line. At most 500 entries, removed ones included.
+
 ## Getting started, faster logging and reminders (version 1.30)
 No SQL. From `docs/prd-product-roadmap.md`.
 
