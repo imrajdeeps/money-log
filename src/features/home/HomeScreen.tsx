@@ -59,8 +59,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   // Getting started (fewer than five payments logged): tiles that would only show an empty invitation stay out of the way. They come
   // by themselves once there is something to show, and every page is still one tap away in the menu.
   const starting = app.entries.length < GETTING_STARTED;
-  const tiles = overviewGroups(ov.summary.groups);
-  const tileSpan = (12 / tiles.length) as 3 | 4 | 6 | 12;
+  const tiles = overviewGroups(ov.summary.groups, starting);
+  const tileSpan = (12 / Math.max(1, tiles.length)) as 3 | 4 | 6 | 12;
 
   const mon = monthShort(month);
   const lastMon = monthShort(shiftMonth(month, -1));
@@ -178,7 +178,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
           </BentoCard>
         )}
 
-        {(!starting || flow.income > 0 || flow.out > 0) && <BentoCard title={tr('Cash flow')} span={4} onOpen={() => open('cashflow')} openLabel={tr('Open the cash flow for this month')}>
+        {(!starting || flow.income > 0) && <BentoCard title={tr('Cash flow')} span={4} onOpen={() => open('cashflow')} openLabel={tr('Open the cash flow for this month')}>
           {flow.income === 0 && flow.out === 0 ? (
             <BentoEmpty cta={tr('Add income')} onCta={openAddIncome}>{tr('Log what you receive (salary, refunds, cashback) to see what is left each month.')}</BentoEmpty>
           ) : (
