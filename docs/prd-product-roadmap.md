@@ -1,6 +1,6 @@
 # PRD: the product roadmap after the group release (versions 1.30 to 1.32)
 
-**Status:** approved by the owner on 2026-11-24 ("Opus is right in many cases, so continue with the releases"); 1.30 and 1.31 built; 1.32 next.
+**Status:** approved by the owner on 2026-11-24 ("Opus is right in many cases, so continue with the releases"); 1.30, 1.31 and 1.32 built.
 **Source:** an independent senior-product-manager review (an Opus reviewer who read the README, the TODO and every PRD), judged and adjusted. The review's own words and the owner's reasons are kept in the conversation, not here; this file is the decision.
 
 ## The problem
