@@ -556,9 +556,10 @@ export function createSync(opts: SyncOptions) {
       const kind = MERGED.find((m) => m.block === row.block);
       if (kind) {
         // Merge per item; if this phone knows something the cloud does not, mark it to be pushed.
-        const remote = kind.clean(row.payload?.items);
+        const nowIso = new Date(now()).toISOString();
+        const remote = kind.tidy(kind.clean(row.payload?.items), nowIso);
         await store.mutateMeta<{ items: Items; dirty: 0 | 1 }>(kind.meta, (cur) => {
-          const merged = kind.merge(cur?.items ?? {}, remote);
+          const merged = kind.tidy(kind.merge(cur?.items ?? {}, remote), nowIso);
           const dirty: 0 | 1 = cur?.dirty || !kind.same(merged, remote) ? 1 : 0;
           return cur && kind.same(cur.items, merged) && cur.dirty === dirty ? undefined : { items: merged, dirty };
         });

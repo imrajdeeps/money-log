@@ -12,8 +12,8 @@ const STACK_LINES = 8;
 const STACK_MAX = 1500;
 const UUID_G = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
-/** Text with what follows ? or # in any web address cut off, so a copied report cannot carry a pasted message or a token. */
-const scrub = (text: string): string => text.replace(/(https?:\/\/[^\s)#?]+)[#?][^\s)]*/g, '$1');
+/** Text with what follows ? or # in any web address cut off, so a copied report cannot carry a pasted message or a token, and email addresses hidden. */
+const scrub = (text: string): string => text.replace(/(https?:\/\/[^\s)#?]+)[#?][^\s)]*/g, '$1').replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '(email)');
 const clip = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max)}…` : text);
 
 /** What can be read from whatever was thrown: an Error, text, or anything else. */

@@ -154,3 +154,47 @@ test('there is a cap on how many items one account keeps', () => {
   for (let i = 0; i < MAX_WORTH; i++) full[ID(i + 1)] = { id: ID(i + 1), k: 'w', n: 'x', s: 'a', c: 'liquid', a: 1, d: D1, p: null, pd: '', e: 0, r: 0, x: 0, t: NOW(D1) };
   assert.equal(addWorthItem(full, input(), D2, NOW(D2), ID(9999)).ok, false);
 });
+
+const LOAN = { name: 'Car loan', side: 'd' as const, cls: 'loan', amount: '1000000', emi: '20000', rate: '9' };
+
+test('saving an estimated loan without changing its balance keeps the estimate; typing a balance puts it back to what was typed', () => {
+  const items = add({}, 1, LOAN, '2026-01-10');
+  const today = '2026-11-25';
+  const estimate = valueNow(item(items, 1), today);
+  assert.ok(estimate < 1000000 && estimate > 0, 'the estimate has paid some down');
+  // the form is prefilled with the estimate, so a rename sends that amount back
+  const renamed = editWorthItem(items, ID(1), input({ ...LOAN, name: 'Car', amount: String(estimate) }), today, NOW(today));
+  assert.ok(renamed.ok);
+  assert.equal(valueNow(item(renamed.items, 1), today), estimate, 'a rename does not change the balance');
+  assert.deepEqual([item(renamed.items, 1).a, item(renamed.items, 1).d], [1000000, '2026-01-10'], 'it still counts from the day it was typed');
+  // a balance typed on purpose is a new anchor
+  const typed = editWorthItem(items, ID(1), input({ ...LOAN, amount: '800000' }), today, NOW(today));
+  assert.ok(typed.ok);
+  assert.deepEqual([item(typed.items, 1).a, item(typed.items, 1).d, item(typed.items, 1).p], [800000, today, estimate]);
+});
+
+test('checking in a loan at its estimate, however often, does not slow the paydown', () => {
+  const start = '2026-01-31';
+  const base = add({}, 1, LOAN, start);
+  const untouched = (day: string) => valueNow(item(base, 1), day);
+  let items = base;
+  for (const day of ['2026-02-14', '2026-02-28', '2026-03-14', '2026-03-31', '2026-04-14', '2026-04-30', '2026-05-31', '2026-06-30', '2026-07-31']) {
+    items = checkInWorth(items, { [ID(1)]: valueNow(item(items, 1), day) }, day, NOW(day));
+    assert.equal(valueNow(item(items, 1), day), untouched(day), `after the check-in of ${day}`);
+  }
+  assert.deepEqual([item(items, 1).a, item(items, 1).d], [1000000, start], 'the balance typed first is still the anchor');
+});
+
+test('a loan left at its estimate shows its paydown under "what moved" at the next check-in, and a second save the same day keeps that', () => {
+  let items = add({}, 1, LOAN, '2026-01-10');
+  items = checkInWorth(items, { [ID(1)]: valueNow(item(items, 1), '2026-02-10') }, '2026-02-10', NOW('2026-02-10'));
+  const before = valueNow(item(items, 1), '2026-02-10');
+  const later = '2026-04-10';
+  assert.deepEqual(worthMoves(items, later).map((m) => m.name), ['Car loan'], 'two months of paydown since the check-in');
+  assert.ok(worthMoves(items, later)[0]!.change > 0 && !movedUp(worthMoves(items, later)[0]!), 'the debt went down, which raises net worth');
+  const again = checkInWorth(items, { [ID(1)]: valueNow(item(items, 1), later) }, later, NOW(later));
+  assert.equal(worthMoves(again, later).length, 0, 'confirmed at its estimate: nothing left to show today');
+  const twice = checkInWorth(again, { [ID(1)]: valueNow(item(again, 1), later) }, later, NOW(later));
+  assert.deepEqual([item(twice, 1).p, item(twice, 1).pd], [item(again, 1).p, item(again, 1).pd], 'a second save the same day keeps what the first remembered');
+  assert.ok(before > valueNow(item(items, 1), later));
+});

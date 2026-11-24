@@ -27,6 +27,12 @@ test('a long message is cut, and anything after ? or # in an address is removed'
   assert.ok(m.includes('https://example.github.io/money-log/add'), m);
 });
 
+test('an email address in an error text is hidden', () => {
+  const d = describeError(new Error('Sign-in failed for rajdeep.s+test@example.co.in: not allowed'));
+  assert.ok(!d.message.includes('@') && d.message.includes('(email)'), d.message);
+  assert.equal(describeError('Mail a@b to c').message, 'Mail a@b to c', 'something that is not an address is left alone');
+});
+
 test('harmless noise is ignored; real errors are not', () => {
   assert.equal(isIgnorable({ message: 'ResizeObserver loop completed with undelivered notifications.', name: 'Error' }), true);
   assert.equal(isIgnorable({ message: 'Script error.', name: 'Error' }), true);

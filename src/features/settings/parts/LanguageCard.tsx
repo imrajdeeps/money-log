@@ -19,7 +19,7 @@ export function LanguageCard() {
           <button key={l.id} type="button" className={ui.chip} aria-pressed={lang === l.id} lang={l.html} onClick={() => { void chooseLang(l.id).then((ok) => setFailed(!ok)); }}>{l.native}</button>
         ))}
       </div>
-      {failed && <p className="mt-3 text-[13px] text-bad" role="alert">{tr('That language could not be loaded. Check your connection and try again.')}</p>}
+      {failed && <p className="mt-3 text-[13px] text-bad" role="alert">{tr('That language could not be loaded. Check your connection, or reload the app, and try again.')}</p>}
       <p className="text-muted text-[13px] mt-3">{SAMPLE[lang]}</p>
     </div>
   );
