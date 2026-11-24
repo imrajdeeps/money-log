@@ -155,6 +155,17 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Net worth that earns its place (version 1.33)
+No SQL. From `docs/prd-networth-reliability.md`.
+
+- **A list, not one number** (Plan page, under the net worth figure): *Add an item* for what you own (Cash and bank, Investments, Retirement, Gold, Property, Other) and what you owe (Loans, Credit card, Other debts), each with a name and a value. Net worth is what you own less what you owe, and it is shown once there are items; with none, the old way (type one number) stays, and every earlier update stays in the history. Items live in the same private block as goals and Udhaar, so they sync, are in the backup, and need no SQL (at most 100).
+- **A monthly check-in** (*Check in*): every item with its last value; change what moved and save. What you leave as it is counts as checked today. One save is one point in the history, and a second save the same day replaces that day's point.
+- **Loans that pay themselves down:** a loan with an EMI and a yearly rate is worked out month by month from the day its balance was last set (the interest first, the rest of the EMI reduces it; if the EMI does not cover the interest the balance does not fall), shown as *estimated*, and the check-in shows it ready to confirm or correct. Typing a balance resets it.
+- **What moved** (the three biggest changes since the last check-in): the arrow follows the item's own number (a card paid down shows a down arrow), the colour says whether net worth got better or worse. **Where it sits:** bars by kind, and cash and bank against everything else.
+- **Two honest numbers:** *how long your cash and bank would last* (cash and bank divided by a usual month's spending, the average of the last three whole months that had any; shown only once there is spending) and *your debts as a share of what you own*.
+- **Automatic lines, off by default and kept on this phone only:** *Group balances* (what friends owe you less what you owe them) and *Udhaar* (money lent less borrowed) are worked out from what the app already holds, shown under *You own* or *You owe* by their sign, and counted in each check-in. Do not also type them as items.
+- Checked in the browser against the stand-in server (phone and wide width, dark and light, English and Hindi); not yet on a real phone.
+
 ## Less typing (version 1.32)
 No SQL. From `docs/prd-product-roadmap.md`.
 
