@@ -6,7 +6,7 @@ ones after. `tests/app/structure.test.ts` checks these rules on every test run.
 ```
 src/
   core/       shared plain TypeScript: the data models and rules (entries, groups, categories and budgets,
-              recurring, goals with net worth updates and the due list (`goals.ts`, `dueItems.ts`), receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
+              recurring, goals with net worth updates and the due list (`goals.ts`, `dueItems.ts`), net worth items, check-ins, loan estimates, runway (`worth.ts`), receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
   data/       keeping and syncing: the on-phone store, cloud sync, backup, sign-in helpers, PIN lock, the app state
               (context.tsx) that every screen reads. `legacy.ts` brings what older versions imported from the spreadsheet into the app's own data, once.
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
@@ -113,7 +113,7 @@ point at, and bump `core/version.ts` and `package.json` together.
 - `features/settings/SettingsScreen.tsx` is only the list; each part is a file in `features/settings/parts/` (one per
   `/settings/<part>` page, plus `shared.ts` for the version number and two small helpers).
 - `features/groups/GroupsScreen.tsx` is the list; `GroupDetail.tsx` is one group's page and `GroupSettings.tsx` its settings page
-  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx` with `PersonRow.tsx`; `JoinInvite.tsx` is the signed-out invitation start; `DebtRow.tsx` and `ActivityBanner.tsx` are on the group page); `features/udhaar/` is the Udhaar page; `JoinCard.tsx`,
+  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx` with `PersonRow.tsx`; `JoinInvite.tsx` is the signed-out invitation start; `DebtRow.tsx` and `ActivityBanner.tsx` are on the group page); `features/udhaar/` is the Udhaar page; `features/plan/` holds the net worth card (`NetWorthCard.tsx`) and its items, check-in and automatic lines (`WorthPanel.tsx`, `WorthForm.tsx`, `WorthCheckIn.tsx`, `useAutoLines.ts`); `JoinCard.tsx`,
   `CreateCard.tsx` and `useAction.ts` hold the rest.
 - `data/sync.ts` is the sync engine: one closure over the store, the session and the state, so it stays in one file. What
   does not touch that state is beside it: `syncTypes.ts` (state, error, options), `syncBlocks.ts` (the table of blocks) and

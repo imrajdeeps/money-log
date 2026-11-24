@@ -1,6 +1,6 @@
 # PRD: net worth you can keep up (1.33), and reliability and housekeeping (1.34)
 
-**Status:** approved by the owner on 2026-11-25 ("continue with other releases"); the net worth part answers the owner's own complaint ("net worth calculator is not so good, how can we make this a really useful feature") and an independent product review's advice; the reliability part comes from an independent engineering review. Both are built without any database change.
+**Status:** approved by the owner on 2026-11-25 ("continue with other releases"); the net worth part answers the owner's own complaint ("net worth calculator is not so good, how can we make this a really useful feature") and an independent product review's advice; the reliability part comes from an independent engineering review. Both are built without any database change. **1.33 built and merged into `version/1.33`** (2026-11-25); 1.34 follows.
 
 ## 1.33 Net worth that earns its place
 
