@@ -1214,4 +1214,5 @@ export const HI: Record<string, string> = {
   'A new version of Money Log is ready.': 'Money Log का नया वर्ज़न तैयार है।',
   'Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.': 'इसे इस्तेमाल करने के लिए दोबारा लोड करें। जो भुगतान आप आधा लिख चुके हैं वह दोबारा लोड करने पर मिट जाता है, इसलिए पहले उसे पूरा कर लें।',
   'Later': 'बाद में',
+  'That language could not be loaded. Check your connection and try again.': 'वह भाषा लोड नहीं हो सकी। अपना कनेक्शन देखें और फिर कोशिश करें।',
 };

@@ -4,8 +4,8 @@
 //   en        English
 //   hi        Hindi, in Devanagari
 //   hinglish  Hindi written in the Roman letters people use on WhatsApp
-import { HI } from './i18n/hi.ts';
-import { HINGLISH } from './i18n/hinglish.ts';
+// The Hindi and Hinglish dictionaries are large, so they are fetched only when a person uses that language (loadDictionary), not with
+// every start of the app. Until one is loaded, its texts show in English.
 
 export type Lang = 'en' | 'hi' | 'hinglish';
 export const LANGS: readonly { id: Lang; label: string; native: string; html: string }[] = [
@@ -19,7 +19,14 @@ export function cleanLang(v: unknown): Lang {
   return LANGS.find((l) => l.id === v)?.id ?? DEFAULT_LANG;
 }
 
-const DICTS: Record<Exclude<Lang, 'en'>, Readonly<Record<string, string>>> = { hi: HI, hinglish: HINGLISH };
+type Dictionary = Readonly<Record<string, string>>;
+const DICTS: Partial<Record<Exclude<Lang, 'en'>, Dictionary>> = {};
+
+/** Fetches a language's dictionary once (English has none). Rejects when it cannot be fetched; the caller keeps the language it had. */
+export async function loadDictionary(l: Lang): Promise<void> {
+  if (l === 'en' || DICTS[l]) return;
+  DICTS[l] = l === 'hi' ? (await import('./i18n/hi.ts')).HI : (await import('./i18n/hinglish.ts')).HINGLISH;
+}
 
 let current: Lang = DEFAULT_LANG;
 export const setLang = (l: Lang): void => { current = l; };
@@ -34,11 +41,11 @@ export function fill(text: string, args: readonly Value[]): string {
 
 /** The text in the chosen language (English when it has no translation yet), with the values filled in. */
 export function tr(text: string, ...args: Value[]): string {
-  const hit = current === 'en' ? undefined : Object.hasOwn(DICTS[current], text) ? DICTS[current][text] : undefined;
-  return fill(hit ?? text, args);
+  return fill(translation(current, text) ?? text, args);
 }
 
 /** A text's translation in a given language, or undefined (for tests and for the missing-text list). */
-export function translation(lang: Exclude<Lang, 'en'>, text: string): string | undefined {
-  return Object.hasOwn(DICTS[lang], text) ? DICTS[lang][text] : undefined;
+export function translation(lang: Lang, text: string): string | undefined {
+  const dict = lang === 'en' ? undefined : DICTS[lang];
+  return dict && Object.hasOwn(dict, text) ? dict[text] : undefined;
 }

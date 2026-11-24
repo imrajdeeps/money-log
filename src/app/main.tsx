@@ -13,19 +13,21 @@ import { UpdateBar } from '../ui/UpdateBar.tsx';
 
 installCrashHandlers(); // first of all: an error from here on is recorded, not lost
 startTheme(); // before anything is drawn by React: paint the stored theme and follow the phone's setting
-initLang(); // and the chosen language
 
+// The chosen language's text is fetched first (at once for English), so the first screen is not drawn in English and then redrawn.
 const root = document.getElementById('root');
 if (root) {
-  createRoot(root).render(
-    <StrictMode>
-      <RootErrorBoundary>
-        <RouterProvider router={router} />
-        <CrashBar />
-        <UpdateBar />
-      </RootErrorBoundary>
-    </StrictMode>,
-  );
+  void initLang().then(() => {
+    createRoot(root).render(
+      <StrictMode>
+        <RootErrorBoundary>
+          <RouterProvider router={router} />
+          <CrashBar />
+          <UpdateBar />
+        </RootErrorBoundary>
+      </StrictMode>,
+    );
+  });
 }
 
 // Offline support. The app works without it, just not without a connection. A newer version taking over is offered as a reload.

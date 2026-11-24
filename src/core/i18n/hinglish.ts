@@ -1214,4 +1214,5 @@ export const HINGLISH: Record<string, string> = {
   'A new version of Money Log is ready.': 'Money Log ka naya version taiyaar hai.',
   'Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.': 'Ise istemaal karne ke liye dobara load karein. Jo payment aap aadha likh chuke hain woh dobara load karne par mit jaata hai, isliye pehle use poora kar lein.',
   'Later': 'Baad mein',
+  'That language could not be loaded. Check your connection and try again.': 'Woh bhasha load nahi ho saki. Apna connection dekhein aur phir koshish karein.',
 };
