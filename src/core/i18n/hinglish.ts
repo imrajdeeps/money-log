@@ -1110,4 +1110,6 @@ export const HINGLISH: Record<string, string> = {
   'You pay {0}': 'Aap {0} ko dete hain',
   '{0} pays you': '{0} aapko deta hai',
   '{0} pays {1}': '{0} {1} ko deta hai',
+  'New: your share counts, remind and pay, and Udhaar': 'Naya: aapka hissa ginta hai, yaad dilana aur payment, aur Udhaar',
+  'In flatmate and couple groups your share of what others add now counts in your own Month. Where someone owes you, Remind opens WhatsApp; where you owe, Pay opens your UPI app. A group shows what is new since you last opened it. Udhaar keeps track of money you lent or borrowed.': 'Flatmates aur jodi wale group mein doosron ke jode kharche mein aapka hissa ab aapke apne mahine mein ginta hai. Jahan kisi par aapka baaki hai wahan Yaad dilayein WhatsApp kholta hai; jahan aap par baaki hai wahan Pay karein aapka UPI app kholta hai. Group dikhata hai ki aapke pichhli baar kholne ke baad kya naya hai. Udhaar mein diya-liya paisa darj rehta hai.',
 };
