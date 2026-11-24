@@ -1139,4 +1139,6 @@ export const HINGLISH: Record<string, string> = {
   'Several messages? Review them together': 'Kai messages hain? Saath mein dekhein',
   'Type the amount first, like 450 swiggy upi.': 'Pehle raqam likhein, jaise 450 swiggy upi.',
   'The amount must be above zero, with at most 2 decimals.': 'Raqam zero se upar ho, zyada se zyada 2 decimal ke saath.',
+  'New: less typing': 'Naya: kam typing',
+  'Add expense has a one-line box: type 450 swiggy upi and press Enter. You can review several bank messages together, the Overview says how much is safe to spend each day and recaps last week on Mondays, and the Month page can set budgets from last month.': 'Kharcha jodne mein ek line ka box hai: 450 swiggy upi likhein aur Enter dabayein. Kai bank messages saath mein dekh sakte hain, Overview batata hai ki roz kitna kharch karna surakshit hai aur somvaar ko pichhle hafte ka saar deta hai, aur Month page pichhle mahine se budget bana sakta hai.',
 };

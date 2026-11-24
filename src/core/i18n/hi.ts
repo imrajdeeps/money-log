@@ -1139,4 +1139,6 @@ export const HI: Record<string, string> = {
   'Several messages? Review them together': 'कई मैसेज हैं? साथ में देखें',
   'Type the amount first, like 450 swiggy upi.': 'पहले राशि लिखें, जैसे 450 swiggy upi।',
   'The amount must be above zero, with at most 2 decimals.': 'राशि शून्य से ऊपर हो, ज़्यादा से ज़्यादा 2 दशमलव के साथ।',
+  'New: less typing': 'नया: कम टाइपिंग',
+  'Add expense has a one-line box: type 450 swiggy upi and press Enter. You can review several bank messages together, the Overview says how much is safe to spend each day and recaps last week on Mondays, and the Month page can set budgets from last month.': 'ख़र्च जोड़ने में एक लाइन का बॉक्स है: 450 swiggy upi लिखें और Enter दबाएँ। कई बैंक मैसेज साथ में देख सकते हैं, ओवरव्यू बताता है कि रोज़ कितना ख़र्च करना सुरक्षित है और सोमवार को पिछले हफ़्ते का सार देता है, और महीना पेज पिछले महीने से बजट बना सकता है।',
 };

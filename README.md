@@ -155,6 +155,16 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Less typing (version 1.32)
+No SQL. From `docs/prd-product-roadmap.md`.
+
+- **In one line** (top of Add expense): type `450 swiggy upi` and press Enter. The first number is the amount (`450`, `1,200`, `₹450`, `1.5k`, `2l` for a lakh); `upi`, `gpay`, `phonepe`, `paytm`, `card` and `cash` set the method; `yesterday` sets the day; the rest is the note, and the category is what you chose the last time for the same merchant, else a well-known word (Swiggy, Uber, BigBasket...), always one of your own categories. It only fills the form: nothing is saved until you tap Save.
+- **A bank message in the address** (`#sms=<the message, URL-encoded>`): opening the app at `https://.../#sms=...` goes to Add expense and reads the message as if it had been pasted, once, then clears the address. It rides after the `#`, which a browser never sends to a server. For an iPhone Shortcut: *Get Clipboard* (or the message text), *URL Encode*, then *Open URLs* with `https://<your-address>/#sms=<encoded text>`; the app is checked here only against a simulated address, so try the Shortcut once on your phone. (An Android share target needs a service-worker change and is not built.)
+- **Review several messages together** (*Paste a payment message*, then *Several messages? Review them together*): paste messages separated by a blank line (or one per line when each is a payment), tap *Read them*, tick the right ones, choose a category for any without one, *Save N payments*. A message whose reference matches a saved payment or an earlier one in the list starts unticked ("Looks already saved"); text that is not a payment (an OTP) is skipped. Up to 30 at a time.
+- **Safe to spend:** under the hero tile, once there is a budget: *About ₹N a day is safe to spend for the K days left*, where N is (budget, less spent, less what is still to come this month) divided by the days left, today included. What is still to come is unpaid one-off items with an amount due by the end of the month (overdue ones too) and recurring payments not yet logged. It is a figure to steer by, not a forecast.
+- **Monday recap** (Monday and Tuesday): last week (Monday to Sunday) as a card on the Overview: the total (savings left out), the top three categories, and how it compares with a usual week (the average of the four weeks before it that had spending). *Dismiss* hides it for that week (this phone only).
+- **Suggested budgets** (Month page, with no budgets yet and last month's spending): *Use last month's spending as my budgets* sets one budget for each of your own categories that had spending last month, rounded up (to the next 100, or 500 above 5,000). Any can be changed afterwards.
+
 ## Groups close the loop, and Udhaar (version 1.31)
 No SQL. From `docs/prd-product-roadmap.md`.
 
