@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, RefObject } from 'react';
 import { useApp } from '../../data/context.tsx';
-import { KindCategory } from './KindCategory.tsx';
+import { CategoryChips } from './CategoryChips.tsx';
+import { DateChips } from './DateChips.tsx';
+import { BatchReview } from './BatchReview.tsx';
+import { QuickLineBox } from './QuickLineBox.tsx';
+import type { QuickLine } from './quickLine.ts';
 import { KindSwitch } from './KindSwitch.tsx';
 import { MethodChips } from './MethodChips.tsx';
 import { PendingPhotos } from './PendingPhotos.tsx';
@@ -10,7 +14,7 @@ import { SplitEditor, freshSplit } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
 import { activeMembers, computeShares } from '../../core/groups.ts';
 import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse.ts';
-import { METHODS, catKey, fmtINR, frequentCategories, isValidDate, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
+import { METHODS, catKey, fmtINR, isValidDate, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
 import { checkRecurInput } from '../../core/recurring.ts';
 import { ordinal } from '../../core/format.ts';
 import type { EntryKind, Method, NewEntryInput } from '../../core/logic.ts';
@@ -35,7 +39,7 @@ const saveLabel = (isIn: boolean, shared: boolean): string => {
 
 // The payment form behind the "+ Add expense" button. It lives in a sheet that stays mounted, so a half-typed payment
 // survives closing it; the sheet focuses the amount (amountRef) the moment it opens.
-export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string; kind?: EntryKind }>) {
+export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind, group: presetGroup, sms, onSms }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string; kind?: EntryKind; group?: string; sms?: string | null; onSms?: () => void }>) {
   const app = useApp();
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -49,6 +53,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
   const [message, setMessage] = useState(''); // a bank message pasted to fill the form from
   const [readNote, setReadNote] = useState<{ text: string; bad: boolean } | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [batch, setBatch] = useState(false); // several pasted messages, reviewed together
   const [repeat, setRepeat] = useState(false); // also make it a payment that repeats every month
   const [kind, setKind] = useState<EntryKind>('out'); // Spent or Received (income is private and has its own categories)
   const isIn = kind === 'in';
@@ -59,17 +64,20 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     const known = preset && app.categories.find((c) => catKey(c.name) === catKey(preset));
     if (known) { setKind('out'); setCategory(known.name); }
   }, [preset, app.categories]);
+  // Add expense was opened from a group page: start with that group chosen and its usual split
+  const appliedGroup = useRef('');
+  useEffect(() => {
+    if (!presetGroup) { appliedGroup.current = ''; return; }
+    const g = app.groups.find((x) => x.id === presetGroup && !x.closed_at);
+    if (!g || !app.me || appliedGroup.current === presetGroup) return;
+    appliedGroup.current = presetGroup;
+    setKind('out');
+    setGroupId(g.id);
+    setSplit(freshSplit(app.me, activeMembers(app.members, g.id), g.usual_split ?? null));
+  }, [presetGroup, app.groups, app.members, app.me]);
   const today = isoDate();
   const people = useMemo(() => (groupId ? activeMembers(app.members, groupId) : []), [app.members, groupId]);
   const groupName = (id: string | null) => app.groups.find((g) => g.id === id)?.name ?? 'a group';
-
-  const frequent = useMemo(() => {
-    // shown under the list's spelling, so a plan that spells "rent" differently from older payments ("Rent") still counts
-    const names = isIn ? app.incomeCats : app.categories.map((c) => c.name);
-    const canonical = new Map(names.map((n) => [catKey(n), n]));
-    const used = frequentCategories(app.entries, Date.now(), 12, 90, kind).flatMap((c) => canonical.get(catKey(c)) ?? []);
-    return [...new Set(used)].slice(0, 6);
-  }, [app.entries, app.categories, app.incomeCats, isIn, kind]);
 
   // Switching between Spent and Received starts the category again and drops what only spending has (group, photos, repeat).
   function pickKind(next: EntryKind) {
@@ -107,6 +115,27 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     setReadNote({ text: tr('Filled in: {0}.{1} Check it, then save.{2}', bits, cat ? '' : ' ' + tr('Pick a category.'), dup), bad: dup !== '' });
   }
 
+  // "450 swiggy upi" typed in one line: fills the form, saves nothing
+  function fillFromLine(l: QuickLine) {
+    setKind('out');
+    setAmount(String(l.amount));
+    setNote(l.note);
+    if (l.method) pickMethod(l.method);
+    setDate(l.date);
+    setCategory(l.category ?? '');
+    setError('');
+  }
+
+  // A message arrived in the address (#sms=..., from a phone shortcut): read it as if it had been pasted, once
+  useEffect(() => {
+    if (!sms || app.locked) return; // a PIN screen is up: wait, so the message is not lost on a page nobody can see
+    setPasteOpen(true);
+    setMessage(sms);
+    readMessage(sms);
+    onSms?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sms, app.locked]);
+
   async function pasteAndRead() {
     setPasteOpen(true);
     try {
@@ -119,13 +148,13 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
   }
 
   // Money received: always private, no photos, no split, no repeat. Everything else is cleared as after a payment.
-  async function saveIncome(amt: number, d: string) {
+  async function saveIncome(amt: number, d: string, stay: boolean) {
     await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, kind: 'in' });
     app.toast(tr('Received {0} · {1}', fmtINR(amt), category));
-    clearForm();
+    clearForm(stay);
   }
 
-  function clearForm() {
+  function clearForm(stay = false) {
     setPhotos([]);
     setMessage('');
     setReadNote(null);
@@ -134,22 +163,37 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     setCategory('');
     setDate(null);
     setRepeat(false);
+    setError('');
+    if (stay) {
+      // "Save and add another": the form stays, ready for the next one, for the same group (with a fresh split) or the same Received
+      const g = groupId ? app.groups.find((x) => x.id === groupId) : undefined;
+      if (g && app.me) setSplit(freshSplit(app.me, activeMembers(app.members, g.id), g.usual_split ?? null));
+      amountRef.current?.focus();
+      return;
+    }
     setGroupId(''); // the next payment is private unless chosen otherwise
     setSplit(null);
     setKind('out'); // the next one is spending unless chosen otherwise
-    setError('');
     onSaved();
   }
 
-  async function save(ev: FormEvent) {
-    ev.preventDefault();
+  // one save at a time: a quick second tap must not save the payment twice
+  const saving = useRef(false);
+  async function save(ev?: FormEvent, stay = false) {
+    ev?.preventDefault();
+    if (saving.current) return;
+    saving.current = true;
+    try { await doSave(stay); } finally { saving.current = false; }
+  }
+
+  async function doSave(stay: boolean) {
     const amt = parseAmount(amount);
     if (amt === null) return fail(amount.trim() === '' ? tr('Enter an amount.') : tr('Amount must be a positive number with at most 2 decimals.'));
     if (!category) return fail(tr('Pick a category.'));
     const d = date ?? today;
     if (!isValidDate(d)) return fail(tr('Pick a valid date.'));
     if (d > today) return fail(tr('The date cannot be in the future.'));
-    if (isIn) return saveIncome(amt, d);
+    if (isIn) return saveIncome(amt, d, stay);
     let group: NewEntryInput['group'] = null;
     if (groupId) {
       if (!app.me || !split) return fail(tr('Sign in to share an expense with a group.'));
@@ -172,11 +216,11 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
       try { await app.addReceipts(id, photos); } catch (e) { toast += tr('. The photo could not be attached: {0}', e instanceof Error ? e.message : String(e)); }
     }
     app.toast(toast);
-    clearForm();
+    clearForm(stay);
   }
 
   return (
-    <form onSubmit={save} noValidate autoComplete="off" className="quicklog" aria-label={tr('Log a payment')}>
+    <form onSubmit={(ev) => { void save(ev); }} noValidate autoComplete="off" className="quicklog" aria-label={tr('Log a payment')}>
       <details className={ui.pasteBox} open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
         <summary>{tr('Paste a payment message')}</summary>
         <p className="text-muted text-[13px]">{tr('Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.')}</p>
@@ -193,7 +237,11 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
           <button type="button" className={ui.btn()} disabled={message.trim() === ''} onClick={() => readMessage(message)}>{tr('Read message')}</button>
         </div>
         {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
+        <p className="m-0 mt-2 text-[13px]"><button type="button" className={ui.linkBtn} onClick={() => setBatch(true)}>{tr('Several messages? Review them together')}</button></p>
       </details>
+      {batch && <BatchReview onClose={() => setBatch(false)} onSaved={() => { setBatch(false); onSaved(); }} />}
+
+      {!isIn && <QuickLineBox onFill={fillFromLine} />}
 
       <KindSwitch value={kind} onChange={pickKind} />
 
@@ -210,18 +258,9 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
         />
       </label>
 
-      {frequent.length > 0 && (
-        <div className={ui.chips} role="group" aria-label={tr('Frequent categories')}>
-          {frequent.map((c) => (
-            <button key={c} type="button" className={ui.chip} aria-pressed={category === c} onClick={() => { setCategory(c); setError(''); }}>
-              {c}
-            </button>
-          ))}
-        </div>
-      )}
+      <p className="m-0 mt-1.5 text-[13px] text-muted">{tr('Or')} <button type="button" className={ui.linkBtn} onClick={() => { void pasteAndRead(); }}>{tr('paste a bank message')}</button> {tr('to fill this in.')}</p>
 
-      <label className={ui.field} htmlFor="log-cat"><span>{tr('Category')}</span></label>
-      <KindCategory kind={kind} id="log-cat" value={category} onChange={(v) => { setCategory(v); setError(''); }} />
+      <CategoryChips kind={kind} value={category} onChange={(v) => { setCategory(v); setError(''); }} />
 
       <MethodChips value={method} onChange={pickMethod} options={METHODS} />
 
@@ -230,10 +269,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
         <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. lunch with team" />
       </label>
 
-      <label className={ui.field}>
-        <span>{tr('Date')}</span>
-        <input type="date" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
-      </label>
+      <DateChips date={date} today={today} onChange={setDate} />
 
       {!isIn && app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
 
@@ -274,7 +310,10 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
       )}
 
       <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
-      <button type="submit" className={ui.btn('solid', 'big')}>{saveLabel(isIn, groupId !== '')}</button>
+      <div className={ui.btnRowOf('mt-3.5 mb-1')}>
+        <button type="submit" className={ui.btn('solid', 'big')}>{saveLabel(isIn, groupId !== '')}</button>
+        <button type="button" className={ui.btn('ghost', 'big')} onClick={() => { void save(undefined, true); }}>{tr('Save and add another')}</button>
+      </div>
     </form>
   );
 }

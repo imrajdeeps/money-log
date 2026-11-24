@@ -136,7 +136,7 @@ function DueSection() {
   );
 }
 
-export function PlanScreen() {
+export function PlanScreen({ onUdhaar }: Readonly<{ onUdhaar: () => void }>) {
   return (
     <div>
       <section aria-label={tr('Net worth and goals')}>
@@ -144,6 +144,7 @@ export function PlanScreen() {
         <GoalsScreen />
       </section>
       <DueSection />
+      <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={onUdhaar}>{tr('Udhaar: money lent and borrowed')}</button>
     </div>
   );
 }

@@ -1,0 +1,40 @@
+import { useEffect, useMemo, useRef } from 'react';
+import { useApp } from '../../data/context.tsx';
+import { groupActivity, seenKeys } from '../../core/groupActivity.ts';
+import type { Group } from '../../core/groups.ts';
+import { memberName } from '../../core/groups.ts';
+import { groupSeen } from '../../data/phonePrefs.ts';
+import * as ui from '../../ui/styles.ts';
+import { tr } from '../../core/i18n.ts';
+
+// At the top of a group: what others added or changed since this phone last looked. The last look is noted when the page is left (and the
+// first time ever, so a first visit does not start with old news); it is kept on this phone only.
+export function ActivityBanner({ group }: Readonly<{ group: Group }>) {
+  const app = useApp();
+  const seen = groupSeen.use();
+  const known = seen[group.id] ?? null;
+  const nameOf = (uid: string | null) => (uid === app.me ? tr('You') : memberName(app.members, group.id, uid));
+  const { items, more } = useMemo(
+    () => groupActivity(app.groupEntries, app.settlements, group.id, app.me, known, nameOf),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [app.groupEntries, app.settlements, app.members, group.id, app.me, known],
+  );
+  // what is in the group right now is "seen" the first time, and again when the page is left (read from a ref: the latest rows at that moment)
+  const latest = useRef({ entries: app.groupEntries, settlements: app.settlements });
+  latest.current = { entries: app.groupEntries, settlements: app.settlements };
+  useEffect(() => {
+    const mark = () => groupSeen.save({ ...groupSeen.load(), [group.id]: seenKeys(latest.current.entries, latest.current.settlements, group.id) });
+    if (!groupSeen.load()[group.id]) mark();
+    return mark;
+  }, [group.id]);
+  if (items.length === 0) return null;
+  return (
+    <div className={ui.card('notice')} role="status">
+      <h3>{tr('Since you last opened')}</h3>
+      <ul className="m-0 list-none p-0 text-[14px]">
+        {items.map((a, i) => <li key={`${a.at}${i}`} className="py-0.5">{a.text}</li>)}
+      </ul>
+      {more > 0 && <p className="m-0 mt-1 text-[13px] text-muted">{tr('and {0} more', more)}</p>}
+    </div>
+  );
+}

@@ -154,3 +154,14 @@ export function suggestCategory(
   for (const [re, cat] of WORDS) if (re.test(merchant)) return known.get(catKey(cat)) ?? null;
   return null;
 }
+
+// A message handed to the app in its address (https://.../#sms=<the message, URL-encoded>), for a phone shortcut that sends a bank message
+// straight to Add expense. It rides after the #, which browsers never send to a server.
+export function smsFromHash(hash: string): string | null {
+  const m = /^#sms=([\s\S]+)$/.exec(hash);
+  if (!m) return null;
+  let text: string;
+  try { text = decodeURIComponent(m[1]!.replace(/\+/g, ' ')); } catch { return null; }
+  text = text.trim().slice(0, 2000);
+  return text === '' ? null : text;
+}

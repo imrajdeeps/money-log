@@ -6,6 +6,7 @@ import type { CircleMember } from '../../core/circle.ts';
 import { formatCode } from '../../core/groups.ts';
 import { BASEPATH, appRootUrl } from '../../core/paths.ts';
 import { useAction } from '../groups/index.ts';
+import { WhatsAppButton } from '../../ui/WhatsAppButton.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -50,6 +51,9 @@ export function CircleScreen() {
             <div className={ui.btnRow}>
               <button type="button" className={ui.btn()} onClick={() => { void copy(circleLink(appRootUrl(window.location.href, BASEPATH), code), 'Link'); }}>{tr('Copy link')}</button>
               <button type="button" className={ui.btn('ghost')} onClick={() => { void copy(formatCode(code), 'Code'); }}>{tr('Copy code')}</button>
+            </div>
+            <div className="mt-2.5 [&>a]:block">
+              <WhatsAppButton text={tr('Add me to your Circle on Money Log: {0} (code {1})', circleLink(appRootUrl(window.location.href, BASEPATH), code), formatCode(code))} />
             </div>
           </>
         ) : null}

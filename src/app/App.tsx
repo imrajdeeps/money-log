@@ -7,11 +7,12 @@ import type { SettingsSection } from '../features/settings/index.ts';
 import { Splash } from '../ui/Splash.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import type { IconName } from '../ui/Icon.tsx';
-import { AllPayments, QuickLog } from '../features/payments/index.ts';
+import { AllPayments, QuickLog, smsFromHash } from '../features/payments/index.ts';
 import { SyncPill } from '../ui/SyncPill.tsx';
 import { AnalyticsScreen } from '../features/analytics/index.ts';
 import { CashFlowScreen } from '../features/cashflow/index.ts';
 import { CircleScreen } from '../features/circle/index.ts';
+import { UdhaarScreen } from '../features/udhaar/index.ts';
 import { GroupsScreen } from '../features/groups/index.ts';
 import { HomeScreen } from '../features/home/index.ts';
 import type { Section } from '../features/home/index.ts';
@@ -34,9 +35,9 @@ import { tr } from '../core/i18n.ts';
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', notifications: '/notifications' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', udhaar: '/udhaar', notifications: '/notifications' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Circle', notifications: 'Notifications' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Circle', udhaar: 'Udhaar', notifications: 'Notifications' };
 
 const SPLASH_MS = 900; // how long the start screen stays, at least
 
@@ -69,6 +70,9 @@ function Shell() {
   const addSearch = useSearch({ from: '/add', shouldThrow: false });
   const addCategory = addSearch?.category; // Add expense starts with this category
   const addKind = addSearch?.kind; // or on Received
+  const addGroup = addSearch?.group; // or for one group
+  // a bank message handed over in the address (#sms=...) by a phone shortcut: Add expense reads it once
+  const [sms, setSms] = useState<string | null>(() => smsFromHash(window.location.hash));
   // The start screen stays for at least a moment (not at all with reduced motion), then fades while the app appears under it.
   const [held, setHeld] = useState(false);
   const [splashGone, setSplashGone] = useState(false);
@@ -87,8 +91,18 @@ function Shell() {
   const anchor = useRef<string | undefined>(undefined); // a part of the next page to scroll to (net worth, on the Plan page)
 
   const goHome = useCallback(() => { void navigate({ to: '/' }); }, [navigate]);
+  const clearSms = useCallback(() => {
+    setSms(null);
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* the address bar is only cosmetic */ }
+  }, []);
+  useEffect(() => {
+    const onHash = () => { const t = smsFromHash(window.location.hash); if (t) setSms(t); };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const goAdd = useCallback(() => { void navigate({ to: '/add' }); }, [navigate]);
   const goAddIncome = useCallback(() => { void navigate({ to: '/add', search: { kind: 'in' } }); }, [navigate]);
+  const goAddGroup = useCallback((id: string) => { void navigate({ to: '/add', search: { group: id } }); }, [navigate]);
   const goAddFor = useCallback((category: string) => { void navigate({ to: '/add', search: { category } }); }, [navigate]);
   const goPage = useCallback((to: Section, part?: string) => { anchor.current = part; void navigate({ to: ROUTES[to] }); }, [navigate]);
   const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
@@ -126,6 +140,7 @@ function Shell() {
   }, [app.ready, app.recovering, app.authNotice, app.locked, goSettings]);
   // A join link was opened: show where it can be used, once the PIN screen (if any) is out of the way.
   useEffect(() => { if (app.ready && app.joinCode && !app.locked) goPage('groups'); }, [app.ready, app.joinCode, app.locked, goPage]);
+  useEffect(() => { if (sms && app.ready && !app.locked) goAdd(); }, [sms, app.ready, app.locked, goAdd]);
   useEffect(() => { if (app.ready && app.circleCode && !app.locked) goPage('circle'); }, [app.ready, app.circleCode, app.locked, goPage]);
   // The PIN screen must not sit under an open dialog (they are drawn above the page): close them all before it is painted
   // and before it puts the focus in its PIN field.
@@ -147,7 +162,7 @@ function Shell() {
     <>
       {!splashGone && <Splash leaving />}
       {app.locked && <LockScreen />}
-      <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0 || app.groups.length > 0} go={tourGo} />
+      <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0} go={tourGo} onStart={(c) => { if (c === 'split') goPage('groups'); else goAdd(); }} />
       <div className={sh.app} inert={app.locked}>
       <header className={sh.top}>
         <div className={sh.brand}><h1>{tr('Money Log')}</h1></div>
@@ -177,11 +192,12 @@ function Shell() {
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
         <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
-          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} /></PageBody>
+          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} /></PageBody>
         </div>
-        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
-        {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}
-        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} /></PageBody>}
+        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></PageBody>}
+        {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen onUdhaar={() => goPage('udhaar')} /></PageBody>}
+        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} onAdd={goAddGroup} /></PageBody>}
+        {page === 'udhaar' && <PageBody title={TITLES.udhaar} back onBack={goHome}><UdhaarScreen /></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}

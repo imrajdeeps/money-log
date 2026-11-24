@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
+import { upcomingThisMonth, coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, spentByDay, topCategories } from '../../../src/features/home/dashboard.ts';
 import { NO_FILTER, filterPayments, isFiltered, paymentCategories, paymentMonths, totalShare } from '../../../src/features/payments/payments.ts';
 import { planForMonth, setBudget, categoryList } from '../../../src/core/categories.ts';
 import type { Mine } from '../../../src/core/categories.ts';
@@ -133,6 +133,15 @@ test('the overview shows all four groups until a budget is set, then only the gr
   assert.deepEqual(overviewGroups(none.summary.groups), ['Spending', 'EMI', 'Family', 'Saving']);
   const some = monthOverview([], ME, planForMonth(mineWithBudgets(), '2026-11'), planForMonth(mineWithBudgets(), '2026-10'), '2026-11-10');
   assert.deepEqual(overviewGroups(some.summary.groups), ['Spending', 'EMI', 'Saving'], 'Family has no budget, so no tile');
+  assert.deepEqual(overviewGroups(some.summary.groups, true), ['Spending', 'EMI', 'Saving'], 'budgets decide, getting started or not');
+});
+
+test('getting started with no budget: only the groups that have spending get a tile', () => {
+  const empty = monthOverview([], ME, planForMonth({}, '2026-11'), planForMonth({}, '2026-10'), '2026-11-10');
+  assert.deepEqual(overviewGroups(empty.summary.groups, true), [], 'nothing spent: no empty tiles');
+  const spent = monthOverview([mk(450, 'Groceries', '2026-11-05')], ME, planForMonth({}, '2026-11'), planForMonth({}, '2026-10'), '2026-11-10');
+  assert.deepEqual(overviewGroups(spent.summary.groups, true), ['Spending'], 'only the group with spending');
+  assert.deepEqual(overviewGroups(spent.summary.groups), ['Spending', 'EMI', 'Family', 'Saving'], 'not getting started: all four, as before');
 });
 
 // ---------------------------------------------------------------- All payments: search and filters
@@ -229,4 +238,16 @@ test('the Overview goal tile: the nearest short-term goal that still needs money
   const all = linked(['B', 1000, '2027-02-01'], ['A', 1000, '2027-01-01']);
   const r = nearestGoal(all, [savingPay(5000)], GT)!;
   assert.deepEqual([r.goal.n, r.line.state], ['A', 'reached']);
+});
+
+test('what is still to come this month leaves out savings and anything dated before the month, like the budget does', () => {
+  const groupOf = (c: string) => (c === 'SIP' ? 'Saving' as const : 'Spending' as const);
+  const recurring = {
+    a: { id: 'a', c: 'SIP', a: 10000, d: 5, m: null, n: '', l: '2026-10', x: 0, t: T0 },
+    b: { id: 'b', c: 'Rent', a: 9000, d: 28, m: null, n: '', l: '2026-10', x: 0, t: T0 },
+  } as never;
+  const due = (title: string, date: string, amount: number) => ({ k: title, kind: 'oneoff', title, due: date, amount, note: '' }) as never;
+  const items = [due('This month', '2026-11-27', 500), due('Left over from September', '2026-09-10', 4000), due('Next month', '2026-12-02', 700)];
+  assert.equal(upcomingThisMonth(items, recurring, '2026-11-24', groupOf), 9500, 'the rent (9000) and the item due this month (500); not the SIP, September or December');
+  assert.equal(upcomingThisMonth([], {} as never, '2026-11-24', groupOf), 0);
 });

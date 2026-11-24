@@ -117,8 +117,8 @@ the field before its keyboard comes up).
 **+ Add expense** (the round button in the middle of the bottom bar on a phone, the button at the top right on a wider
 screen) opens the payment form with the amount ready to type; saving closes it. The bottom bar on a phone also has Home,
 Month, Plan and Groups; Settings is the gear at the top right. On a wider screen all of them are
-links at the top. The app shows no income, cash flow or net worth history, because it does not record them; tiles without
-data say where the data comes from instead.
+links at the top. Tiles without data say where the data comes from instead, and while you have logged fewer than five payments the
+Overview hides the tiles that would only be empty.
 
 **Settings** is a short list of headings (Cloud sync, Password and sessions, Appearance, and so on); tapping one opens
 just that part on a page of its own (`/settings/password`), and the back arrow returns to the list. An older link such as
@@ -154,6 +154,36 @@ alter table public.plan_blocks add constraint plan_blocks_block_known
 everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
+
+## Less typing (version 1.32)
+No SQL. From `docs/prd-product-roadmap.md`.
+
+- **In one line** (top of Add expense): type `450 swiggy upi` and press Enter. The first number is the amount (`450`, `1,200`, `₹450`, `1.5k`, `2l` for a lakh); `upi`, `gpay`, `phonepe`, `paytm`, `card` and `cash` set the method; `yesterday` sets the day; the rest is the note, and the category is what you chose the last time for the same merchant, else a well-known word (Swiggy, Uber, BigBasket...), always one of your own categories. It only fills the form: nothing is saved until you tap Save.
+- **A bank message in the address** (`#sms=<the message, URL-encoded>`): opening the app at `https://.../#sms=...` goes to Add expense and reads the message as if it had been pasted, once, then clears the address. It rides after the `#`, which a browser never sends to a server. For an iPhone Shortcut: *Get Clipboard* (or the message text), *URL Encode*, then *Open URLs* with `https://<your-address>/#sms=<encoded text>`; the app is checked here only against a simulated address, so try the Shortcut once on your phone. **Caution:** on an iPhone, *Open URLs* usually opens Safari, whose storage is kept apart from the installed home-screen app, so for someone who is not signed in the payment can land in a different copy of the app; signed in, both copies sync to the same account. (An Android share target needs a service-worker change and is not built.)
+- **Review several messages together** (*Paste a payment message*, then *Several messages? Review them together*): paste messages separated by a blank line (or one per line when each is a payment), tap *Read them*, tick the right ones, choose a category for any without one, *Save N payments*. A message whose reference matches a saved payment or an earlier one in the list starts unticked ("Looks already saved"); text that is not a payment (an OTP) is skipped. Up to 30 at a time.
+- **Safe to spend:** under the hero tile, once there is a budget: *About ₹N a day is safe to spend for the K days left*, where N is (budget, less spent, less what is still to come this month) divided by the days left, today included. What is still to come is unpaid one-off items with an amount that are due in this month and recurring payments not yet logged, savings left out (the budget and the spending leave savings out too); an item left over from an earlier month is not counted. It is a figure to steer by, not a forecast.
+- **Monday recap** (Monday and Tuesday): last week (Monday to Sunday) as a card on the Overview: the total (savings left out), the top three categories, and how it compares with a usual week (the average of the four weeks before it that had spending). *Dismiss* hides it for that week (this phone only).
+- **Suggested budgets** (Month page, with no budgets yet and last month's spending): *Use last month's spending as my budgets* sets one budget for each of your own categories that had spending last month, rounded up (to the next 100, or 500 above 5,000). Any can be changed afterwards.
+
+## Groups close the loop, and Udhaar (version 1.31)
+No SQL. From `docs/prd-product-roadmap.md`.
+
+- **Your share counts in your own Month by itself.** Until now a shared expense reached your budget only if you made it, or tapped *Add my share to my budget* on a friend's. Now, in a group whose switch is on, your share of what others add counts in your Month, budgets, goals, Insights, cash flow and notifications (`useSpendEntries` adds them as private payments of your own, only for the sums: they are not saved, listed or synced). The switch is in *Group settings, In my Month*, kept on this phone, **on for flatmates and couples, off for families and trips**. **It counts from a day on, never backwards:** the day this phone first ran 1.31 for a group that counts by default, or the day you switched a group on, so no past month changes by itself (a flatmate who used to log their rent share by hand does not suddenly see it twice). **Never twice:** an expense you already added by hand (an entry of yours with `share_of` its id) is not counted again, and while the switch is on, the expense dialog says it is counted instead of offering the button.
+- **Remind and Pay in settle-up.** On a line where someone owes you, *Remind* opens WhatsApp with the amount and the group in the text, plus your UPI id and a `upi://pay` link when you set your UPI id in *Settings, Profile*. On a line where you owe, *Pay* asks for their UPI id (remembered on this phone) and opens your UPI app with the payee, amount and note filled in; then *Record* notes it. Money never moves through the app, ids never leave the phone except inside a reminder you send, and whether `upi://` and `wa.me` open the right app depends on the phone.
+- **Since you last opened.** The top of a group lists what others added, changed or recorded since this phone last looked (up to five, newest first, with "and N more"), and the group list shows "N new". What you had seen is noted when you leave the group page (and the first time ever, so a first visit has no old news), as the keys of the rows (an id and its last change), not as a time: another phone sets the times on its own rows, so an expense made offline and synced later still shows as new. Kept on this phone only.
+- **Udhaar** (Overview tile, `/udhaar`): money you lent to or borrowed from anyone (they need not use the app): a name, an amount, which way, a day and a note. Totals of what is open (owed to you, you owe, by person; names that differ only in case or spacing are one person), *Settled* / *Open again*, *Change*, *Delete* (asked first), and *Remind* (a WhatsApp text, with your UPI id if set) on money you lent. Private: items of their own kind (`u`) in the same block as goals, so they sync, merge item by item and are in the backup file, with no new database line. At most 500 entries, removed ones included.
+
+## Getting started, faster logging and reminders (version 1.30)
+No SQL. From `docs/prd-product-roadmap.md`.
+
+- **A short welcome** replaces the nine-step tour for a person new to the app: *Choose your language*, then *What do you want to do first?* (Track my spending, Split with others, Both), which lands on Add expense or on Groups. The full tour is still in Settings, About; people who already use the app still get the what's-new tour.
+- **An invitation link opens a one-screen start.** Someone who opens a group link while signed out sees *You were invited to a group* with *Create account* or *Sign in* right there; then the join form appears with the code filled in. No tour in between.
+- **Add expense:** every category is a chip from the first entry (the ones you use most first, up to 16; *More categories, or a new one* holds the full list and the way to make a new category). The date is *Today*, *Yesterday* or *Another day*. **Save and add another** keeps the form open for the next payment. *paste a bank message* under the amount fills the form from a copied message.
+- **The group page has *Add a shared expense***, which opens Add with that group and its usual split chosen (`/add?group=<id>`).
+- **A lighter Overview while fewer than five payments are logged:** tiles that would only show an empty invitation (net worth, due soon, insights, goals, cash flow before any income, where it went) and group tiles with no budget and no spending stay out of the way. They appear by themselves at the fifth payment, and every page is still reachable from the menu.
+- **Share on WhatsApp** next to *Copy link* for group invitations (Group settings, Invite people) and Circle codes: a `wa.me` link with the text ready; you pick who gets it inside WhatsApp. No phone number is used or sent anywhere.
+- **Daily reminder** (Settings, Notifications): pick a time, *Make the reminder file*, open it, and the phone's calendar repeats a daily event ("Log today's spending") with an alert. Nothing is sent from a server and the app stores only the chosen time (on this phone). It is a calendar alert, not a push message: on some phones tapping it opens the browser instead of the installed app. To stop it, delete the event in the calendar.
+- **For whoever runs the project:** password-reset and confirmation emails reach only addresses the project's own email can send to (today the owner's). For other people, set up a custom SMTP provider in the Supabase dashboard (Authentication, SMTP).
 
 ## Shared goals (version 1.29)
 **Needs the SQL at the end of `supabase/schema.sql` run once** (the whole file is safe to run again). Builds on the Circle (1.28). Without the SQL the section on the Goals page says it is not available yet.
@@ -508,8 +538,8 @@ It records how those APIs are understood to behave; it is not the real service. 
   refuses short, very common and email-like passwords itself.
 - Sessions: Supabase keeps a signed-in device signed in until it signs out; the free plan cannot time sessions out. Settings,
   *Password and sessions* signs out your other devices or every device (a device that is open at that moment drops out when it
-  next renews its sign-in, within about an hour) and changes the password. Supabase gives an app no list of signed-in devices,
-  so the app cannot show one. The "sign out other devices and everywhere" calls are written to Supabase's documented sign-out
+  next renews its sign-in, within about an hour) and changes the password. Since 1.25 the same page lists where the account is
+  signed in now and what happened to it lately (from the server's own sign-in record). The "sign out other devices and everywhere" calls are written to Supabase's documented sign-out
   options but are checked here only against my stand-in server: try them once on your own project.
 - Every table has row-level security, and `supabase/rls_tests.sql` checks it. You read and write your own private rows
   and nothing else of anyone's. A shared expense or payment is readable by the current members of its group and changed

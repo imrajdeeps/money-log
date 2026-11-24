@@ -113,7 +113,7 @@ point at, and bump `core/version.ts` and `package.json` together.
 - `features/settings/SettingsScreen.tsx` is only the list; each part is a file in `features/settings/parts/` (one per
   `/settings/<part>` page, plus `shared.ts` for the version number and two small helpers).
 - `features/groups/GroupsScreen.tsx` is the list; `GroupDetail.tsx` is one group's page and `GroupSettings.tsx` its settings page
-  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx` with `PersonRow.tsx`); `JoinCard.tsx`,
+  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx` with `PersonRow.tsx`; `JoinInvite.tsx` is the signed-out invitation start; `DebtRow.tsx` and `ActivityBanner.tsx` are on the group page); `features/udhaar/` is the Udhaar page; `JoinCard.tsx`,
   `CreateCard.tsx` and `useAction.ts` hold the rest.
 - `data/sync.ts` is the sync engine: one closure over the store, the session and the state, so it stays in one file. What
   does not touch that state is beside it: `syncTypes.ts` (state, error, options), `syncBlocks.ts` (the table of blocks) and

@@ -1,6 +1,8 @@
 import { Icon } from '../../ui/Icon.tsx';
 import { useMemo, useState } from 'react';
 import { useApp } from '../../data/context.tsx';
+import { suggestBudgets } from '../../core/suggestBudgets.ts';
+import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { monthLabel } from '../../core/format.ts';
 import { BudgetLine as Line } from '../../ui/BudgetLine.tsx';
 import { BudgetsDialog } from './BudgetsDialog.tsx';
@@ -12,7 +14,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // group: show only that group's categories (a tile on the Overview was tapped); onGroup() shows them all again.
-export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readonly<{ group?: Group; onGroup: (g?: Group) => void; onAddExpense: (category: string) => void; onInsights: () => void }>) {
+export function MonthScreen({ group, onGroup, onAddExpense, onInsights, onCashFlow }: Readonly<{ group?: Group; onGroup: (g?: Group) => void; onAddExpense: (category: string) => void; onInsights: () => void; onCashFlow: () => void }>) {
   const app = useApp();
   const current = monthOf(isoDate());
   const [month, setMonth] = useState(current);
@@ -20,11 +22,18 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readon
   const [focusCat, setFocusCat] = useState<string | undefined>(undefined); // the budgets dialog opens on this category
   const [picked, setPicked] = useState<string | null>(null); // the category whose button was tapped
   // Shared expenses count at this account's own share; other people's expenses never count. The budgets are the ones set in the app.
+  const spend = useSpendEntries(); // your own payments, plus your share of friends' group expenses where that counts
   const s = useMemo(
-    () => summarizeMonth(budgetEntries(app.entries, app.me), planForMonth(app.mine, month), month),
-    [app.entries, app.me, app.mine, month],
+    () => summarizeMonth(budgetEntries(spend, app.me), planForMonth(app.mine, month), month),
+    [spend, app.me, app.mine, month],
   );
   const noBudgets = app.categories.every((c) => c.budget === 0);
+  // with no budgets yet, last month's spending can become them in one tap
+  const prevMonth = shiftMonth(current, -1);
+  const suggestion = useMemo(
+    () => (noBudgets ? suggestBudgets(summarizeMonth(budgetEntries(spend, app.me), planForMonth(app.mine, prevMonth), prevMonth).rows).filter((b) => app.categories.some((c) => c.name === b.name)) : []),
+    [noBudgets, spend, app.me, app.mine, app.categories, prevMonth],
+  );
   const monthIsOver = month < current;
   const shown = s.rows.filter((r) => (r.planned > 0 || r.spent > 0) && (!group || r.group === group));
 
@@ -40,6 +49,12 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readon
         <div className={ui.card('notice')}>
           <p>{tr('No budgets yet, so there is nothing to compare against. Give each category a monthly amount to see what is left.')}</p>
           <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => setEditing(true)}>{tr('Set budgets')}</button>
+          {suggestion.length > 0 && month === current && (
+            <>
+              <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => { void app.saveBudgets(suggestion).then(() => app.toast(tr('Budgets set from last month: {0} categories', suggestion.length))); }}>{tr('Use last month\'s spending as my budgets')}</button>
+              <p className="text-muted text-[13px]">{tr('{0} categories, each last month\'s spending rounded up. You can change any of them afterwards.', suggestion.length)}</p>
+            </>
+          )}
         </div>
       )}
 
@@ -95,6 +110,7 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights }: Readon
       <div className={ui.btnRowOf('mt-3.5 mb-0')}>
         <button type="button" className={ui.btn('ghost')} onClick={() => setEditing(true)}>{tr('Categories and budgets')}</button>
         <button type="button" className={ui.btn('ghost')} onClick={onInsights}>{tr('Insights')}</button>
+        <button type="button" className={ui.btn('ghost')} onClick={onCashFlow}>{tr('Cash flow')}</button>
       </div>
       {picked && (
         <CategoryActions

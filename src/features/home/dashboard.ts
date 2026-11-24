@@ -5,15 +5,19 @@ import type { DueItem, DueView } from '../../core/blocks.ts';
 import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
 import type { Group as SharedGroup, Member, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
+import { recurringThisMonth } from '../../core/recurring.ts';
+import type { Recurring } from '../../core/recurring.ts';
 import { activeGoals, goalLine, goalProgress, goalTerm } from '../../core/goals.ts';
 import type { Goal, GoalLine, GoalProgress, Goals } from '../../core/goals.ts';
 import { GROUPS, budgetEntries, catKey, daysInMonth, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from '../../core/logic.ts';
 
-// Which of the four groups get a tile on the Overview: once any group has a budget, only those; with none set, all four.
-export function overviewGroups(groups: MonthSummary['groups']): Group[] {
+// Which of the four groups get a tile on the Overview: once any group has a budget, only those; with none set, all four. While the
+// person is getting started and has set no budget, only the groups that have any spending (a new person has no use for "EMI ₹0").
+export function overviewGroups(groups: MonthSummary['groups'], starting = false): Group[] {
   const set = GROUPS.filter((g) => groups[g].budgeted);
-  return set.length > 0 ? [...set] : [...GROUPS];
+  if (set.length > 0) return [...set];
+  return starting ? GROUPS.filter((g) => groups[g].spent > 0) : [...GROUPS];
 }
 
 const savingKeys = (plan: PlanData): Set<string> => new Set(plan.rows.filter((r) => r.g === 'Saving').map((r) => catKey(r.c)));
@@ -93,6 +97,18 @@ export function topCategories(s: MonthSummary, n = 4): { top: CategoryShare[]; r
     rest: { count: restLines.length, spent: restSpent, share: share(restSpent) },
     total,
   };
+}
+
+// What is still to pay this month: unpaid one-off items with an amount, due in the month, and recurring payments not yet logged (savings
+// left out, like the budget). It is taken off the budget before "safe to spend" is worked out.
+export function upcomingThisMonth(items: DueItem[], recurring: Recurring, todayIso: string, groupOf: (category: string) => Group): number {
+  const month = monthOf(todayIso);
+  const monthStart = `${month}-01`;
+  const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`;
+  // the month's budget and its spending leave savings out, so what is still to come must too; and an item left over from an earlier month is not this month's
+  const dues = classifyDue(items, {}, '', todayIso).filter((v) => !v.isDone && v.kind === 'oneoff' && !!v.due && v.due >= monthStart && v.due <= monthEnd).reduce((s, v) => s + (v.amount ?? 0), 0);
+  const repeats = recurringThisMonth(recurring, todayIso).filter((r) => groupOf(r.item.c) !== 'Saving').reduce((s, r) => s + r.item.a, 0);
+  return round2(dues + repeats);
 }
 
 // The due list in one look: what is overdue, what is still open, and the next few, overdue first (blocks.ts classifyDue).

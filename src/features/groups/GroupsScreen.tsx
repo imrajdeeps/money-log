@@ -1,20 +1,24 @@
 import { useEffect } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { activeMembers, fromPaise, groupBalances } from '../../core/groups.ts';
+import { groupActivity } from '../../core/groupActivity.ts';
+import { groupSeen } from '../../data/phonePrefs.ts';
 import { kindLabel } from '../../core/groupKinds.ts';
 import { fmtINR } from '../../core/logic.ts';
 import { GroupDetail } from './GroupDetail.tsx';
 import { GroupSettings } from './GroupSettings.tsx';
 import { CreateCard } from './CreateCard.tsx';
 import { JoinCard } from './JoinCard.tsx';
+import { JoinInvite } from './JoinInvite.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // groupId: the group named in the address (/groups/<id>), or none for the list. settings: that group's settings are open
 // (/groups/<id>/settings). onOpen(id) goes to a group, onOpen(id, true) to its settings, onOpen() to the list.
-export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void }>) {
+export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle, onAdd }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void; onAdd: (id: string) => void }>) {
   const app = useApp();
   const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
+  const seen = groupSeen.use();
   // An invitation arrived (a tapped link): go back to the list, where the join form is.
   useEffect(() => { if (app.joinCode && groupId) onOpen(); }, [app.joinCode, groupId, onOpen]);
 
@@ -22,6 +26,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
     return <div className={ui.card('notice')}><p><strong>{tr('Groups need cloud sync.')}</strong>{' '}{tr('It is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.')}</p></div>;
   }
   if (app.sync.mode === 'signedout' || !app.me) {
+    if (app.joinCode) return <JoinInvite />; // an invitation link: the way in is on this screen
     return (
       <div className={ui.card('notice')}>
         <p><strong>{tr('Sign in first.')}</strong>{' '}{tr('Groups live in your cloud account, so they need you to be signed in{0}.', app.joinCode ? tr('. Your invitation is kept: sign in, then come back here to join') : '')}</p>
@@ -30,7 +35,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
     );
   }
   if (open && settings) return <GroupSettings group={open} onBack={() => onOpen(open.id)} onLeft={() => onOpen()} />;
-  if (open) return <GroupDetail group={open} onBack={() => onOpen()} onSettings={() => onOpen(open.id, true)} />;
+  if (open) return <GroupDetail group={open} onBack={() => onOpen()} onSettings={() => onOpen(open.id, true)} onAdd={() => onAdd(open.id)} />;
   if (groupId) {
     return (
       <div className={ui.card('notice')}>
@@ -39,6 +44,9 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
       </div>
     );
   }
+
+  // what others did in a group since this phone last looked (the same figure the group page lists)
+  const news = (id: string): number => { const r = groupActivity(app.groupEntries, app.settlements, id, app.me, seen[id] ?? null, () => ''); return r.items.length + r.more; };
 
   return (
     <section aria-label={tr('Groups')} className="[&>*+*]:mt-4 [&>p]:mb-0">
@@ -56,7 +64,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
                 <button type="button" className={ui.row} onClick={() => onOpen(g.id)}>
                   <span className={ui.rowMain()}>
                     <b>{g.name}</b>
-                    <small>{tr('{0}{1} · {2} people', kindLabel(g.kind), g.closed_at ? tr(' (closed)') : '', activeMembers(app.members, g.id).length)}</small>
+                    <small>{tr('{0}{1} · {2} people', kindLabel(g.kind), g.closed_at ? tr(' (closed)') : '', activeMembers(app.members, g.id).length)}{news(g.id) > 0 && <b className="ml-1.5 text-accent"> · {tr('{0} new', news(g.id))}</b>}</small>
                   </span>
                   <span className={`tabular-nums ${bal > 0 ? ui.owed : bal < 0 ? ui.late : 'font-bold text-muted'}`}>{bal === 0 ? tr('Settled') : bal > 0 ? `+${fmtINR(fromPaise(bal))}` : `−${fmtINR(fromPaise(-bal))}`}</span>
                 </button>

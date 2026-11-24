@@ -6,6 +6,7 @@ import type { Group, Member } from '../../core/groups.ts';
 import { hasRoom, kindLabel, kindMax } from '../../core/groupKinds.ts';
 import { BASEPATH, appRootUrl } from '../../core/paths.ts';
 import { useAction } from './useAction.ts';
+import { WhatsAppButton } from '../../ui/WhatsAppButton.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -34,6 +35,9 @@ export function InviteCard({ group, people }: Readonly<{ group: Group; people: M
           <div className={ui.btnRow}>
             <button type="button" className={ui.btn()} onClick={() => { void copy(inviteLink(appRootUrl(window.location.href, BASEPATH), live.code), 'Link'); }}>{tr('Copy link')}</button>
             <button type="button" className={ui.btn('ghost')} onClick={() => { void copy(formatCode(live.code), 'Code'); }}>{tr('Copy code')}</button>
+          </div>
+          <div className="mt-2.5 [&>a]:block">
+            <WhatsAppButton text={tr('Join "{0}" on Money Log: {1} (code {2})', group.name, inviteLink(appRootUrl(window.location.href, BASEPATH), live.code), formatCode(live.code))} />
           </div>
         </>
       )}
