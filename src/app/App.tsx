@@ -69,6 +69,7 @@ function Shell() {
   const addSearch = useSearch({ from: '/add', shouldThrow: false });
   const addCategory = addSearch?.category; // Add expense starts with this category
   const addKind = addSearch?.kind; // or on Received
+  const addGroup = addSearch?.group; // or for one group
   // The start screen stays for at least a moment (not at all with reduced motion), then fades while the app appears under it.
   const [held, setHeld] = useState(false);
   const [splashGone, setSplashGone] = useState(false);
@@ -89,6 +90,7 @@ function Shell() {
   const goHome = useCallback(() => { void navigate({ to: '/' }); }, [navigate]);
   const goAdd = useCallback(() => { void navigate({ to: '/add' }); }, [navigate]);
   const goAddIncome = useCallback(() => { void navigate({ to: '/add', search: { kind: 'in' } }); }, [navigate]);
+  const goAddGroup = useCallback((id: string) => { void navigate({ to: '/add', search: { group: id } }); }, [navigate]);
   const goAddFor = useCallback((category: string) => { void navigate({ to: '/add', search: { category } }); }, [navigate]);
   const goPage = useCallback((to: Section, part?: string) => { anchor.current = part; void navigate({ to: ROUTES[to] }); }, [navigate]);
   const goMonth = useCallback((g?: Group) => { void navigate({ to: '/month', search: g ? { g } : {} }); }, [navigate]);
@@ -147,7 +149,7 @@ function Shell() {
     <>
       {!splashGone && <Splash leaving />}
       {app.locked && <LockScreen />}
-      <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0 || app.groups.length > 0} go={tourGo} />
+      <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0 || app.groups.length > 0} go={tourGo} onStart={(c) => { if (c === 'split') goPage('groups'); else goAdd(); }} />
       <div className={sh.app} inert={app.locked}>
       <header className={sh.top}>
         <div className={sh.brand}><h1>{tr('Money Log')}</h1></div>
@@ -177,11 +179,11 @@ function Shell() {
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
         <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
-          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} /></PageBody>
+          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen /></PageBody>}
-        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} /></PageBody>}
+        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} onAdd={goAddGroup} /></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}

@@ -1,6 +1,7 @@
 import { useApp } from '../../data/context.tsx';
 import { NOTICE_KINDS } from '../../core/noticeKinds.ts';
 import type { NoticeKind } from '../../core/noticeKinds.ts';
+import { DailyReminder } from './DailyReminder.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -23,6 +24,8 @@ function describe(kind: NoticeKind): { name: string; example: string } {
 export function NotificationsCard() {
   const app = useApp();
   return (
+    <>
+    <DailyReminder />
     <div className={ui.card()}>
       <h2>{tr('Notifications')}</h2>
       <p className="text-muted text-[13px]">{tr('The bell at the top shows what needs you, worked out on this phone from your own data. Choose what to be told about. Your choices, and what you dismiss, follow you to your other phones.')}</p>
@@ -41,5 +44,6 @@ export function NotificationsCard() {
       </ul>
       <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => { void app.showDismissed().then(() => app.toast(tr('Dismissed notifications are back.'))); }}>{tr('Show dismissed notifications again')}</button>
     </div>
+    </>
   );
 }

@@ -7,12 +7,13 @@ import { GroupDetail } from './GroupDetail.tsx';
 import { GroupSettings } from './GroupSettings.tsx';
 import { CreateCard } from './CreateCard.tsx';
 import { JoinCard } from './JoinCard.tsx';
+import { JoinInvite } from './JoinInvite.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // groupId: the group named in the address (/groups/<id>), or none for the list. settings: that group's settings are open
 // (/groups/<id>/settings). onOpen(id) goes to a group, onOpen(id, true) to its settings, onOpen() to the list.
-export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void }>) {
+export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle, onAdd }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void; onAdd: (id: string) => void }>) {
   const app = useApp();
   const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
   // An invitation arrived (a tapped link): go back to the list, where the join form is.
@@ -22,6 +23,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
     return <div className={ui.card('notice')}><p><strong>{tr('Groups need cloud sync.')}</strong>{' '}{tr('It is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.')}</p></div>;
   }
   if (app.sync.mode === 'signedout' || !app.me) {
+    if (app.joinCode) return <JoinInvite />; // an invitation link: the way in is on this screen
     return (
       <div className={ui.card('notice')}>
         <p><strong>{tr('Sign in first.')}</strong>{' '}{tr('Groups live in your cloud account, so they need you to be signed in{0}.', app.joinCode ? tr('. Your invitation is kept: sign in, then come back here to join') : '')}</p>
@@ -30,7 +32,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
     );
   }
   if (open && settings) return <GroupSettings group={open} onBack={() => onOpen(open.id)} onLeft={() => onOpen()} />;
-  if (open) return <GroupDetail group={open} onBack={() => onOpen()} onSettings={() => onOpen(open.id, true)} />;
+  if (open) return <GroupDetail group={open} onBack={() => onOpen()} onSettings={() => onOpen(open.id, true)} onAdd={() => onAdd(open.id)} />;
   if (groupId) {
     return (
       <div className={ui.card('notice')}>
