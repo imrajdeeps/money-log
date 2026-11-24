@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { netNow, netUpdates, parseNetAmount } from '../../core/goals.ts';
+import { worthItems, worthSummary } from '../../core/worth.ts';
+import { WorthPanel } from './WorthPanel.tsx';
+import { useAutoLines } from './useAutoLines.ts';
 import type { NetUpdate } from '../../core/goals.ts';
 import { shortDate } from '../../core/format.ts';
 import { fmtINR, isoDate } from '../../core/logic.ts';
@@ -111,27 +114,37 @@ export function NetWorthCard() {
   const [editing, setEditing] = useState(false);
   const updates = useMemo(() => netUpdates(app.goals), [app.goals]);
   const now = useMemo(() => netNow(app.goals), [app.goals]);
+  // with items, the figure is worked out from them (and the automatic lines) now; without, it is the last number typed
+  const auto = useAutoLines();
+  const today = isoDate();
+  const items = useMemo(() => worthItems(app.goals, today), [app.goals, today]);
+  const hasItems = items.assets.length + items.debts.length > 0;
+  const live = useMemo(() => (hasItems ? worthSummary(app.goals, today, auto).net : null), [hasItems, app.goals, today, auto]);
+  const value = live ?? now?.value ?? null;
   const spark = useMemo(() => updates.slice(0, SPARK_POINTS).map((u) => u.a).reverse(), [updates]);
 
   return (
-    <section className={ui.card()} aria-label={tr('Net worth')} id="networth">
-      <h3 className="m-0 text-[13px] font-semibold uppercase tracking-wide text-muted">{tr('Net worth')}</h3>
-      {now ? (
-        <>
-          <p className="mt-1 mb-1 text-[34px] font-bold leading-tight tabular-nums">{fmtINR(now.value)}</p>
-          <p className="m-0 text-[13px] text-muted">{tr('As of {0}', shortDate(now.date))}</p>
-          {now.change !== null && now.previous && <div className="mt-1.5"><Change by={now.change} since={shortDate(now.previous.date)} /></div>}
-          {spark.length >= 2 && <Spark values={spark} label={tr('Your last {0} net worth updates, oldest first', spark.length)} />}
-        </>
-      ) : (
-        <p className="mt-1.5 mb-0 text-muted">{tr('Add what you own minus what you owe, and update it now and then. The app keeps each update, so you can see it move.')}</p>
-      )}
-      {editing ? (
-        <UpdateForm onDone={() => setEditing(false)} />
-      ) : (
-        <button type="button" className={ui.btn(now ? 'ghost' : 'solid', 'md', ui.inCard)} onClick={() => setEditing(true)}>{now ? tr('Update net worth') : tr('Add your net worth')}</button>
-      )}
-      {updates.length > 1 && <History updates={updates} />}
-    </section>
+    <>
+      <section className={ui.card()} aria-label={tr('Net worth')} id="networth">
+        <h3 className="m-0 text-[13px] font-semibold uppercase tracking-wide text-muted">{tr('Net worth')}</h3>
+        {value !== null ? (
+          <>
+            <p className="mt-1 mb-1 text-[34px] font-bold leading-tight tabular-nums">{fmtINR(value)}</p>
+            <p className="m-0 text-[13px] text-muted">{hasItems ? tr('From what you own and owe, as of today') : tr('As of {0}', shortDate(now!.date))}</p>
+            {now && now.change !== null && now.previous && <div className="mt-1.5"><Change by={now.change} since={shortDate(now.previous.date)} /></div>}
+            {spark.length >= 2 && <Spark values={spark} label={tr('Your last {0} net worth updates, oldest first', spark.length)} />}
+          </>
+        ) : (
+          <p className="mt-1.5 mb-0 text-muted">{tr('Add what you own minus what you owe, and update it now and then. The app keeps each update, so you can see it move.')}</p>
+        )}
+        {!hasItems && (editing ? (
+          <UpdateForm onDone={() => setEditing(false)} />
+        ) : (
+          <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => setEditing(true)}>{now ? tr('Type a new number') : tr('Or just type a number')}</button>
+        ))}
+        {updates.length > 1 && <History updates={updates} />}
+      </section>
+      <WorthPanel />
+    </>
   );
 }

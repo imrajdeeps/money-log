@@ -17,6 +17,7 @@ export const MAX_DISMISSALS = 1000; // dismissals read back; the app itself keep
 export const MAX_NOTICE_KEY = 120;
 export const MAX_INCOME_CATS = 50; // the person's own income categories, removed ones included
 export const incomeCatId = (name: string): string => uuidFromKey(`incomecat|${catKey(name)}`);
+export const MAX_WORTH = 100; // what the person owns and owes (net worth items), removed ones included
 export const MAX_UDHAAR = 500; // money lent or borrowed, settled and removed ones included (the list the person sees is far shorter)
 const NET_LIMIT = 1e12;
 export const SHORT_TERM_MONTHS = 12; // a goal due within this many months is short term, later is long term
@@ -47,7 +48,14 @@ export interface IncomeCat { id: string; k: 'i'; n: string; x: 0 | 1; t: string 
 // name (any name: they need not use the app), a the amount, w the way it went (I gave, or I took), d the day, m a note, s settled. Logic: udhaar.ts.
 export type UdhaarWay = 'gave' | 'took';
 export interface UdhaarItem { id: string; k: 'u'; n: string; a: number; w: UdhaarWay; d: string; m: string; s: 0 | 1; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem;
+// One thing the person owns or owes, for net worth (version 1.33); the logic is in worth.ts. n the name, s the side (a: owned, d: owed),
+// c the kind (ASSET_CLASSES or DEBT_CLASSES), a the amount (0 or more) as of day d, p and pd the amount and day at the check-in before
+// (null and '' before the second one), e and r an EMI and a yearly interest rate (a loan only; 0 when none).
+export type WorthSide = 'a' | 'd';
+export const ASSET_CLASSES = ['liquid', 'invest', 'retire', 'gold', 'property', 'other'] as const;
+export const DEBT_CLASSES = ['loan', 'card', 'other'] as const;
+export interface WorthItem { id: string; k: 'w'; n: string; s: WorthSide; c: string; a: number; d: string; p: number | null; pd: string; e: number; r: number; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem | WorthItem;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -191,6 +199,7 @@ function sameItem(x: GoalItem, y: GoalItem | undefined): boolean {
     case 'd': return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.a === y.a && x.d === y.d && x.f === y.f;
     case 'k': return y.k === 'k' && x.key === y.key;
     case 'i': return y.k === 'i' && x.n === y.n;
+    case 'w': return y.k === 'w' && x.n === y.n && x.s === y.s && x.c === y.c && x.a === y.a && x.d === y.d && x.p === y.p && x.pd === y.pd && x.e === y.e && x.r === y.r;
     case 'u': return y.k === 'u' && x.n === y.n && x.a === y.a && x.w === y.w && x.d === y.d && x.m === y.m && x.s === y.s;
     default: return y.k === 's' && x.off.join() === y.off.join();
   }
@@ -249,6 +258,19 @@ function cleanUdhaarItem(k: string, v: Raw): UdhaarItem | null {
   return { id: k, k: 'u', n: v.n, a: v.a, w: v.w, d: v.d, m: v.m, s: v.s, x: v.x, t: v.t };
 }
 
+const worthAmountOk = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < NET_LIMIT && round2(n) === n;
+
+function cleanWorthItem(k: string, v: Raw): WorthItem | null {
+  if (!isTidy(v.n) || v.n === '' || v.n.length > 40 || (v.s !== 'a' && v.s !== 'd') || !isDay(v.d)) return null;
+  const classes: readonly string[] = v.s === 'a' ? ASSET_CLASSES : DEBT_CLASSES;
+  if (typeof v.c !== 'string' || !classes.includes(v.c) || !worthAmountOk(v.a)) return null;
+  if (v.p !== null && !worthAmountOk(v.p)) return null;
+  if (v.pd !== '' && !isDay(v.pd)) return null;
+  if (!worthAmountOk(v.e) || typeof v.r !== 'number' || !Number.isFinite(v.r) || v.r < 0 || v.r > 60 || round2(v.r) !== v.r) return null;
+  if ((v.e > 0 || v.r > 0) && !(v.s === 'd' && v.c === 'loan')) return null; // an EMI and a rate belong to a loan only
+  return { id: k, k: 'w', n: v.n, s: v.s, c: v.c, a: v.a, d: v.d, p: v.p, pd: v.pd, e: v.e, r: v.r, x: v.x, t: v.t };
+}
+
 function cleanNoticeSettingsItem(k: string, v: Raw): NoticeSettings | null {
   if (k !== NOTICE_SETTINGS_ID || !Array.isArray(v.off) || !v.off.every(isNoticeKind)) return null;
   return { id: k, k: 's', off: [...new Set<NoticeKind>(v.off)].sort((a, b) => a.localeCompare(b)), x: v.x, t: v.t };
@@ -263,6 +285,7 @@ const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => Go
   s: { max: 1, clean: cleanNoticeSettingsItem },
   i: { max: MAX_INCOME_CATS, clean: cleanIncomeCatItem },
   u: { max: MAX_UDHAAR, clean: cleanUdhaarItem },
+  w: { max: MAX_WORTH, clean: cleanWorthItem },
 };
 
 const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id === k && (v.x === 0 || v.x === 1) && Number.isFinite(parseTs(v.t));
