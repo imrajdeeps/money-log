@@ -1,8 +1,1 @@
-{
-  "src/data/sync.ts::createSync>pullKeyset": 20,
-  "src/data/sync.ts::createSync>pushDirty": 19,
-  "src/features/home/HomeScreen.tsx::HomeScreen": 113,
-  "src/features/payments/QuickLog.tsx::QuickLog>doSave": 28,
-  "src/features/settings/parts/AccountCard.tsx::AccountCard": 20,
-  "src/ui/BudgetLine.tsx::BudgetLine": 29
-}
+{}

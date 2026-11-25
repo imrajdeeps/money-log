@@ -9,8 +9,10 @@ import { recurringThisMonth } from '../../core/recurring.ts';
 import type { Recurring } from '../../core/recurring.ts';
 import { activeGoals, goalLine, goalProgress, goalTerm } from '../../core/goals.ts';
 import type { Goal, GoalLine, GoalProgress, Goals } from '../../core/goals.ts';
-import { GROUPS, budgetEntries, catKey, daysInMonth, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
+import { GROUPS, budgetEntries, catKey, daysInMonth, fmtINR, monthOf, nearBudget, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from '../../core/logic.ts';
+import type { SafeToSpend } from '../../core/safeToSpend.ts';
+import { tr } from '../../core/i18n.ts';
 
 // Which of the four groups get a tile on the Overview: once any group has a budget, only those; with none set, all four. While the
 // person is getting started and has set no budget, only the groups that have any spending (a new person has no use for "EMI ₹0").
@@ -162,3 +164,17 @@ export function groupsOverview(groups: SharedGroup[], entries: Entry[], settleme
   return { owed: fromPaise(owed), owe: fromPaise(owe) };
 }
 
+/** The line under the month's figure: how much is left, how much is over, or that there are no budgets yet; and how it should be coloured. */
+export function monthStatus(ov: Pick<MonthOverview, 'budgeted' | 'budget' | 'spent'>): { tone: '' | 'bad' | 'warn'; text: string } {
+  if (!ov.budgeted) return { tone: '', text: tr('No budgets yet: open to set them.') };
+  const left = ov.budget - ov.spent;
+  const near = nearBudget(ov.spent, ov.budget);
+  if (left < 0) return { tone: 'bad', text: tr('{0} over budget', fmtINR(-left)) };
+  return { tone: near ? 'warn' : '', text: tr('{0} left this month{1}', fmtINR(left), near ? tr(', budget nearly used') : '') };
+}
+
+/** "About ₹N a day is safe to spend ...": said only while there is something left to spend, otherwise null. */
+export function safeLine(safe: SafeToSpend | null): string | null {
+  if (!safe || safe.left <= 0) return null;
+  return tr('About {0} a day is safe to spend for the {1} days left{2}', fmtINR(safe.perDay), safe.daysLeft, safe.upcoming > 0 ? tr(' (after {0} still to come this month)', fmtINR(safe.upcoming)) : '');
+}

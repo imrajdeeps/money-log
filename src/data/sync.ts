@@ -33,6 +33,25 @@ export { SyncError } from './syncTypes.ts';
 export type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock } from './syncBlocks.ts';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// What one page of rows holds: the rows not seen yet, cleaned (the boundary row comes back at the start of the next page and is skipped),
+// how many of those there were, and the latest sync time seen so far.
+function takePage<T extends { id: string }>(rows: any[], seen: Set<string>, clean: (row: any) => T | null, max: string | null): { remote: Map<string, T>; fresh: number; max: string | null } {
+  const remote = new Map<string, T>();
+  let fresh = 0;
+  let latest = max;
+  for (const r of rows) {
+    if (typeof r.synced_at === 'string' && (!latest || parseTs(r.synced_at) > parseTs(latest))) latest = r.synced_at;
+    const key = `${r.id}|${r.synced_at}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fresh++;
+    const e = clean({ ...r, dirty: 0 });
+    if (e) remote.set(e.id, e);
+  }
+  return { remote, fresh, max: latest };
+}
+
 export function createSync(opts: SyncOptions) {
   const { store, config } = opts;
   const now = opts.now ?? Date.now;
@@ -303,23 +322,29 @@ export function createSync(opts: SyncOptions) {
 
   // Sends dirty rows in chunks. One bad row must not block the others: when a chunk is refused, its rows go one at a time.
   async function pushDirty<T extends { id: string }>(path: string, list: T[], row: (x: T) => object, markClean: (chunk: T[]) => Promise<void>): Promise<void> {
-    let firstRefusal: SyncError | null = null;
     const send = async (chunk: T[]) => {
       await request(path, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: chunk.map(row) });
       await markClean(chunk);
     };
-    for (let i = 0; i < list.length; i += PUSH_CHUNK) {
-      const chunk = list.slice(i, i + PUSH_CHUNK);
+    // Sends one chunk and gives back the first refusal, if any (anything that is not a refusal is thrown). A refused chunk of many goes row by row.
+    const sendChunk = async (chunk: T[]): Promise<SyncError | null> => {
       try {
         await send(chunk);
-        continue;
+        return null;
       } catch (e) {
         if (!isRefusal(e)) throw e;
-        if (chunk.length === 1) { firstRefusal ??= e; continue; }
+        if (chunk.length === 1) return e;
       }
+      let first: SyncError | null = null;
       for (const one of chunk) {
-        try { await send([one]); } catch (e) { if (!isRefusal(e)) throw e; firstRefusal ??= e; }
+        try { await send([one]); } catch (e) { if (!isRefusal(e)) throw e; first ??= e; }
       }
+      return first;
+    };
+    let firstRefusal: SyncError | null = null;
+    for (let i = 0; i < list.length; i += PUSH_CHUNK) {
+      const refusal = await sendChunk(list.slice(i, i + PUSH_CHUNK)); // every chunk is sent, whatever an earlier one met
+      firstRefusal ??= refusal;
     }
     if (firstRefusal) throw firstRefusal;
   }
@@ -475,20 +500,11 @@ export function createSync(opts: SyncOptions) {
     for (;;) {
       const q = `/rest/v1/${table}?select=*&order=synced_at.asc,id.asc&limit=${PAGE}` + (since ? `&synced_at=gte.${encodeURIComponent(since)}` : '');
       const rows: any[] = (await request(q)) ?? [];
-      const remote = new Map<string, T>();
-      let fresh = 0;
-      for (const r of rows) {
-        if (typeof r.synced_at === 'string' && (!max || parseTs(r.synced_at) > parseTs(max))) max = r.synced_at;
-        const key = `${r.id}|${r.synced_at}`;
-        if (seen.has(key)) continue; // the boundary row comes back at the start of the next page
-        seen.add(key);
-        fresh++;
-        const e = clean({ ...r, dirty: 0 });
-        if (e) remote.set(e.id, e);
-      }
-      await merge(remote);
+      const page = takePage(rows, seen, clean, max);
+      max = page.max;
+      await merge(page.remote);
       const last = rows.at(-1)?.synced_at;
-      if (rows.length < PAGE || fresh === 0 || typeof last !== 'string') break;
+      if (rows.length < PAGE || page.fresh === 0 || typeof last !== 'string') break;
       since = last;
     }
     if (max) await store.setMeta(cursorKey, max);

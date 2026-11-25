@@ -251,3 +251,36 @@ test('what is still to come this month leaves out savings and anything dated bef
   assert.equal(upcomingThisMonth(items, recurring, '2026-11-24', groupOf), 9500, 'the rent (9000) and the item due this month (500); not the SIP, September or December');
   assert.equal(upcomingThisMonth([], {} as never, '2026-11-24', groupOf), 0);
 });
+
+// ---- the words under the month's figure, and the safe-to-spend line (they used to be written inside HomeScreen)
+import { monthStatus, safeLine } from '../../../src/features/home/dashboard.ts';
+import { fmtINR as fmt, nearBudget as near } from '../../../src/core/logic.ts';
+
+test('the line under the month: no budgets, room left, nearly used, over', () => {
+  assert.deepEqual(monthStatus({ budgeted: false, budget: 0, spent: 500 }), { tone: '', text: 'No budgets yet: open to set them.' });
+  assert.deepEqual(monthStatus({ budgeted: true, budget: 10000, spent: 2000 }), { tone: '', text: '₹8,000 left this month' });
+  assert.deepEqual(monthStatus({ budgeted: true, budget: 10000, spent: 8500 }), { tone: 'warn', text: '₹1,500 left this month, budget nearly used' });
+  assert.deepEqual(monthStatus({ budgeted: true, budget: 10000, spent: 10000 }), { tone: 'warn', text: '₹0 left this month, budget nearly used' });
+  assert.deepEqual(monthStatus({ budgeted: true, budget: 10000, spent: 10500 }), { tone: 'bad', text: '₹500 over budget' });
+});
+
+test('the line under the month is what it was before it moved out of HomeScreen, for a grid of budgets and spending', () => {
+  for (const budget of [0, 100, 20000]) {
+    for (const spent of [0, 50, 79, 80, 100, 101, 5000, 20000, 25000]) {
+      for (const budgeted of [false, true]) {
+        const left = budget - spent;
+        const tone = budgeted && left < 0 ? 'bad' : budgeted && near(spent, budget) ? 'warn' : '';
+        const text = !budgeted ? 'No budgets yet: open to set them.' : left >= 0 ? `${fmt(left)} left this month${near(spent, budget) ? ', budget nearly used' : ''}` : `${fmt(-left)} over budget`;
+        assert.deepEqual(monthStatus({ budgeted, budget, spent }), { tone, text }, `${budgeted} ${spent} of ${budget}`);
+      }
+    }
+  }
+});
+
+test('"about N a day is safe to spend": only while something is left, with what is still to come when there is any', () => {
+  assert.equal(safeLine(null), null);
+  assert.equal(safeLine({ perDay: 100, left: 0, upcoming: 0, daysLeft: 3 }), null);
+  assert.equal(safeLine({ perDay: 100, left: -5, upcoming: 0, daysLeft: 3 }), null);
+  assert.equal(safeLine({ perDay: 4933, left: 29600, upcoming: 0, daysLeft: 6 }), 'About ₹4,933 a day is safe to spend for the 6 days left');
+  assert.equal(safeLine({ perDay: 800, left: 6400, upcoming: 1200, daysLeft: 8 }), 'About ₹800 a day is safe to spend for the 8 days left (after ₹1,200 still to come this month)');
+});

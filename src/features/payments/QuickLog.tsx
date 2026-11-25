@@ -12,10 +12,11 @@ import { PendingPhotos } from './PendingPhotos.tsx';
 import { CoupleSplit } from './CoupleSplit.tsx';
 import { SplitEditor, freshSplit } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
-import { activeMembers, computeShares } from '../../core/groups.ts';
+import { activeMembers } from '../../core/groups.ts';
 import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse.ts';
-import { METHODS, catKey, fmtINR, isValidDate, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
-import { checkRecurInput } from '../../core/recurring.ts';
+import { METHODS, catKey, fmtINR, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
+import { readBasics, repeatPart, sharedPart } from './formChecks.ts';
+import type { RecurInput } from './formChecks.ts';
 import { ordinal } from '../../core/format.ts';
 import type { EntryKind, Method, NewEntryInput } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
@@ -186,27 +187,8 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     try { await doSave(stay); } finally { saving.current = false; }
   }
 
-  async function doSave(stay: boolean) {
-    const amt = parseAmount(amount);
-    if (amt === null) return fail(amount.trim() === '' ? tr('Enter an amount.') : tr('Amount must be a positive number with at most 2 decimals.'));
-    if (!category) return fail(tr('Pick a category.'));
-    const d = date ?? today;
-    if (!isValidDate(d)) return fail(tr('Pick a valid date.'));
-    if (d > today) return fail(tr('The date cannot be in the future.'));
-    if (isIn) return saveIncome(amt, d, stay);
-    let group: NewEntryInput['group'] = null;
-    if (groupId) {
-      if (!app.me || !split) return fail(tr('Sign in to share an expense with a group.'));
-      const r = computeShares(split.mode, amt, people.map((m) => m.user_id), new Set(split.included), split.values);
-      if (!r.shares) return fail(r.problem);
-      if (split.paidBy !== app.me && !(app.me in r.shares)) return fail(tr('You can only record an expense that you paid or share in.'));
-      group = { group_id: groupId, paid_by: split.paidBy, shares: r.shares };
-    }
-    // a payment that repeats every month (private payments only): check it first, so nothing is half done
-    const recur = repeat && !groupId ? { category, amount: amt, day: Number(d.slice(8, 10)), method, note: note.trim() } : null;
-    const recurError = recur ? checkRecurInput(recur) : null;
-    if (recurError) return fail(recurError);
-    const id = await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group });
+  // What to say after a save: the amount and category, whether it was set to repeat, and whether the photos could be attached.
+  async function saidAfter(id: string, amt: number, d: string, recur: RecurInput | null): Promise<string> {
     let toast = tr('Saved {0} · {1}', fmtINR(amt), category);
     if (recur) {
       const why = await app.addRecurring(recur, monthOf(d)); // done for the month it was logged in
@@ -215,7 +197,20 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     if (photos.length) {
       try { await app.addReceipts(id, photos); } catch (e) { toast += tr('. The photo could not be attached: {0}', e instanceof Error ? e.message : String(e)); }
     }
-    app.toast(toast);
+    return toast;
+  }
+
+  async function doSave(stay: boolean) {
+    const basics = readBasics(amount, category, date, today);
+    if ('problem' in basics) return fail(basics.problem);
+    const { amt, date: d } = basics;
+    if (isIn) return saveIncome(amt, d, stay);
+    const shared = sharedPart({ groupId, me: app.me, split, people, amt });
+    if ('problem' in shared) return fail(shared.problem);
+    const again = repeatPart({ repeat, groupId, category, amt, date: d, method, note: note.trim() });
+    if ('problem' in again) return fail(again.problem);
+    const id = await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group: shared.group });
+    app.toast(await saidAfter(id, amt, d, again.recur));
     clearForm(stay);
   }
 
