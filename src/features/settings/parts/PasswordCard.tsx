@@ -6,13 +6,47 @@ import { errText } from './shared.ts';
 import * as ui from '../../../ui/styles.ts';
 import { tr } from '../../../core/i18n.ts';
 
+type SignOut = 'others' | 'everywhere';
+
+type Note = { text: string; bad: boolean };
+
+// Signs out the other devices (and says so), or everywhere, this phone too (which shows the signed-out screen, so there is nothing to say).
+async function signOutBy(app: ReturnType<typeof useApp>, which: SignOut): Promise<Note | null> {
+  if (which === 'everywhere') {
+    await app.signOutEverywhere();
+    app.toast(tr('Signed out everywhere'));
+    return null;
+  }
+  await app.signOutOthers();
+  return { text: tr('Your other devices are signed out. A device that is open right now is signed out the next time it renews its sign-in, within about an hour.'), bad: false };
+}
+
+// The two ways to sign out other devices. Each waits for a second tap (ask says which one is waiting), and Cancel takes it back.
+function SignOutButtons({ ask, busy, onTap, onCancel }: Readonly<{ ask: SignOut | null; busy: boolean; onTap: (which: SignOut) => void; onCancel: () => void }>) {
+  return (
+    <>
+      <div className={ui.btnRow}>
+        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => onTap('others')}>
+          {ask === 'others' ? tr('Tap again: sign out other devices') : tr('Sign out my other devices')}
+        </button>
+      </div>
+      <div className={ui.btnRow}>
+        <button type="button" className={ui.btn('danger')} disabled={busy} onClick={() => onTap('everywhere')}>
+          {ask === 'everywhere' ? tr('Tap again: sign out everywhere') : tr('Sign out everywhere, this phone too')}
+        </button>
+      </div>
+      {ask && <button type="button" className={ui.btn('ghost', 'small', 'mt-1.5')} onClick={onCancel}>{tr('Cancel')}</button>}
+    </>
+  );
+}
+
 export function PasswordCard() {
   const app = useApp();
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
-  const [ask, setAsk] = useState<null | 'others' | 'everywhere'>(null); // a sign-out waits for a second tap
-  const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  const [ask, setAsk] = useState<SignOut | null>(null); // a sign-out waits for a second tap
+  const [msg, setMsg] = useState<Note | null>(null);
   if (!app.syncEnabled || app.sync.mode === 'signedout' || app.sync.mode === 'local') return null;
 
   async function save(ev: FormEvent) {
@@ -26,18 +60,10 @@ export function PasswordCard() {
     } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
   }
 
-  async function signOutFrom(which: 'others' | 'everywhere') {
+  async function signOutFrom(which: SignOut) {
     if (ask !== which) { setAsk(which); return; }
     setBusy(true); setMsg(null); setAsk(null);
-    try {
-      if (which === 'others') {
-        await app.signOutOthers();
-        setMsg({ text: tr('Your other devices are signed out. A device that is open right now is signed out the next time it renews its sign-in, within about an hour.'), bad: false });
-      } else {
-        await app.signOutEverywhere();
-        app.toast(tr('Signed out everywhere'));
-      }
-    } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
+    try { setMsg(await signOutBy(app, which)); } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
   }
 
   return (
@@ -64,17 +90,7 @@ export function PasswordCard() {
       <p className="text-muted text-[13px]">
         {tr('This phone stays signed in and renews its sign-in by itself until you sign out. If you lose a phone, sign out your other devices here, or everywhere, then change the password.')}
       </p>
-      <div className={ui.btnRow}>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => { void signOutFrom('others'); }}>
-          {ask === 'others' ? tr('Tap again: sign out other devices') : tr('Sign out my other devices')}
-        </button>
-      </div>
-      <div className={ui.btnRow}>
-        <button type="button" className={ui.btn('danger')} disabled={busy} onClick={() => { void signOutFrom('everywhere'); }}>
-          {ask === 'everywhere' ? tr('Tap again: sign out everywhere') : tr('Sign out everywhere, this phone too')}
-        </button>
-      </div>
-      {ask && <button type="button" className={ui.btn('ghost', 'small', 'mt-1.5')} onClick={() => setAsk(null)}>{tr('Cancel')}</button>}
+      <SignOutButtons ask={ask} busy={busy} onTap={(which) => { void signOutFrom(which); }} onCancel={() => setAsk(null)} />
     </div>
   );
 }
