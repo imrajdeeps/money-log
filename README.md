@@ -543,6 +543,7 @@ npm ci           # install exactly the versions in package-lock.json
 npm run dev      # local dev server (local-only mode unless you create .env.local, see .env.example)
 npm test         # tests: logic, blocks, groups and splits, dashboard figures, and sync against a stand-in for Supabase
 npm run check    # type check, the app and the tests
+npm run complexity   # which functions are too hard to read (SonarLint's limit of 15); -- --write updates the list after a cleanup
 npm run build    # production build into dist/
 ```
 
