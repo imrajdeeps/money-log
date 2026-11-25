@@ -34,16 +34,24 @@ export function afterExport(sent: SentMap, exported: readonly DueView[], cancell
   return all.length <= MAX_SENT ? out : Object.fromEntries(all.sort((a, b) => b.due.localeCompare(a.due)).slice(0, MAX_SENT).map((e) => [e.uid, e]));
 }
 
+// One remembered event from outside: the event, or null when anything about it is wrong.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanSentEvent(uid: string, v: any): SentEvent | null {
+  if (v?.uid !== uid || !/^[0-9a-f]{16}@money-log$/.test(uid)) return null;
+  if (typeof v.k !== 'string' || v.k.length > 400 || typeof v.title !== 'string' || !v.title || v.title.length > 200) return null;
+  if (typeof v.due !== 'string' || !isValidDate(v.due)) return null;
+  if (v.amount !== null && !(typeof v.amount === 'number' && Number.isFinite(v.amount) && v.amount > 0)) return null;
+  return { uid, k: v.k, title: v.title, due: v.due, amount: v.amount };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanSent(p: any): SentMap {
   const out: SentMap = {};
   if (!p || typeof p !== 'object') return out;
-  for (const [uid, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (v?.uid !== uid || !/^[0-9a-f]{16}@money-log$/.test(uid)) continue;
-    if (typeof v.k !== 'string' || v.k.length > 400 || typeof v.title !== 'string' || !v.title || v.title.length > 200) continue;
-    if (typeof v.due !== 'string' || !isValidDate(v.due)) continue;
-    if (v.amount !== null && !(typeof v.amount === 'number' && Number.isFinite(v.amount) && v.amount > 0)) continue;
-    out[uid] = { uid, k: v.k, title: v.title, due: v.due, amount: v.amount };
+  for (const [uid, v] of Object.entries(p as Record<string, unknown>)) {
+    const event = cleanSentEvent(uid, v);
+    if (!event) continue;
+    out[uid] = event;
     if (Object.keys(out).length >= MAX_SENT) break;
   }
   return out;

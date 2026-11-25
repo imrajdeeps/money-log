@@ -178,18 +178,26 @@ export function sameMine(a: Mine, b: Mine): boolean {
   });
 }
 
+// One category or budget from outside: the item, or null when anything about it is wrong.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanMineItem(k: string, v: any): MineItem | null {
+  if (!v || typeof v.n !== 'string' || checkName(v.n) !== null || normName(v.n) !== v.n || catKey(v.n) !== k) return null;
+  if (!(GROUPS as readonly string[]).includes(v.g)) return null;
+  if (typeof v.b !== 'number' || !Number.isFinite(v.b) || v.b < 0 || v.b >= MAX_AMOUNT || round2(v.b) !== v.b) return null;
+  if (v.x !== 0 && v.x !== 1) return null;
+  if (!Number.isFinite(parseTs(v.t))) return null;
+  return { n: v.n, g: v.g as Group, b: v.b, x: v.x, t: v.t };
+}
+
 // Validate what comes from the server or a backup. Anything malformed is dropped, never repaired.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanMine(p: any): Mine {
   const out: Mine = {};
   if (!p || typeof p !== 'object') return out;
-  for (const [k, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (!v || typeof v.n !== 'string' || checkName(v.n) !== null || normName(v.n) !== v.n || catKey(v.n) !== k) continue;
-    if (!(GROUPS as readonly string[]).includes(v.g)) continue;
-    if (typeof v.b !== 'number' || !Number.isFinite(v.b) || v.b < 0 || v.b >= MAX_AMOUNT || round2(v.b) !== v.b) continue;
-    if (v.x !== 0 && v.x !== 1) continue;
-    if (!Number.isFinite(parseTs(v.t))) continue;
-    out[k] = { n: v.n, g: v.g as Group, b: v.b, x: v.x, t: v.t };
+  for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
+    const item = cleanMineItem(k, v);
+    if (!item) continue;
+    out[k] = item;
     if (Object.keys(out).length >= MAX_ITEMS) break;
   }
   return out;

@@ -23,20 +23,30 @@ export interface DueSummary { oneoffs: number; todos: number; undated: number }
 const MAX_DUE = 200;
 const MAX_TITLE = 120;
 
-// Validate a due list that comes from the server or a backup (already parsed JSON).
+const goodAmount = (a: unknown): boolean => typeof a === 'number' && Number.isFinite(a) && a > 0 && a < MAX_AMOUNT;
+
+// One item of a due list from outside: the item, or null when anything about it is wrong or its key was seen before.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanDueRow(i: any, seen: ReadonlySet<string>): DueItem | null {
+  if (!i || typeof i.k !== 'string' || !i.k || i.k.length > 400 || seen.has(i.k)) return null;
+  if (i.kind !== 'oneoff' && i.kind !== 'todo') return null;
+  if (typeof i.title !== 'string' || !i.title || i.title.length > MAX_TITLE) return null;
+  if (i.due !== null && !isValidDate(i.due)) return null;
+  if (i.amount !== null && !goodAmount(i.amount)) return null;
+  return { k: i.k, kind: i.kind, title: i.title, due: i.due, amount: i.amount, done: i.done === true };
+}
+
+// Validate a due list that comes from the server or a backup (already parsed JSON). One bad item refuses the whole list.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanDue(p: any): DueData | null {
   if (!p || typeof p !== 'object' || p.v !== 1 || !Array.isArray(p.items) || p.items.length > MAX_DUE) return null;
   const items: DueItem[] = [];
   const seen = new Set<string>();
   for (const i of p.items) {
-    if (!i || typeof i.k !== 'string' || !i.k || i.k.length > 400 || seen.has(i.k)) return null;
-    if (i.kind !== 'oneoff' && i.kind !== 'todo') return null;
-    if (typeof i.title !== 'string' || !i.title || i.title.length > MAX_TITLE) return null;
-    if (i.due !== null && !isValidDate(i.due)) return null;
-    if (i.amount !== null && !(typeof i.amount === 'number' && Number.isFinite(i.amount) && i.amount > 0 && i.amount < MAX_AMOUNT)) return null;
-    seen.add(i.k);
-    items.push({ k: i.k, kind: i.kind, title: i.title, due: i.due, amount: i.amount, done: i.done === true });
+    const row = cleanDueRow(i, seen);
+    if (!row) return null;
+    seen.add(row.k);
+    items.push(row);
   }
   return { v: 1, items };
 }
@@ -111,18 +121,25 @@ export function daysBetween(fromIso: string, toIso: string): number {
 
 const RANK: Record<DueState, number> = { overdue: 0, today: 1, soon: 2, later: 3, nodate: 4, done: 5 };
 
+function dueState(done: boolean, days: number | null, soonDays: number): DueState {
+  if (done) return 'done';
+  if (days === null) return 'nodate';
+  if (days < 0) return 'overdue';
+  if (days === 0) return 'today';
+  return days <= soonDays ? 'soon' : 'later';
+}
+
+const byUrgency = (a: DueView, b: DueView): number =>
+  RANK[a.state] - RANK[b.state] || (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.title.localeCompare(b.title);
+
 // Overdue first (oldest first), then by date; undated items after dated ones; finished items last.
 export function classifyDue(items: DueItem[], map: DoneMap, importedAt: string, todayIso: string, soonDays = 14): DueView[] {
   const views = items.filter((i) => !isRemoved(i, map, importedAt)).map((i): DueView => {
     const done = isDone(i, map, importedAt);
     const days = i.due ? daysBetween(todayIso, i.due) : null;
-    const state: DueState = done ? 'done' : days === null ? 'nodate' : days < 0 ? 'overdue' : days === 0 ? 'today' : days <= soonDays ? 'soon' : 'later';
-    return { ...i, isDone: done, state, days };
+    return { ...i, isDone: done, state: dueState(done, days, soonDays), days };
   });
-  return views.sort((a, b) =>
-    RANK[a.state] - RANK[b.state]
-    || (a.due ?? '9999').localeCompare(b.due ?? '9999')
-    || a.title.localeCompare(b.title));
+  return views.sort(byUrgency);
 }
 
 export function dueRelative(days: number | null): string {
