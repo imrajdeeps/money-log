@@ -4,6 +4,34 @@ import { useApp } from '../../data/context.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
+// Counts the wait (seconds) down once a second for as long as there is one.
+function useCountdown(wait: number, setWait: (next: (w: number) => number) => void): void {
+  useEffect(() => {
+    if (wait <= 0) return undefined;
+    const t = window.setInterval(() => setWait((w) => Math.max(0, w - 1)), 1000);
+    return () => window.clearInterval(t);
+  }, [wait > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+// How long to wait before the next try, in words; nothing when there is no wait.
+const waitText = (wait: number): string => (wait > 0 ? ' ' + tr('Try again in {0} second{1}.', wait, wait === 1 ? '' : 's') : '');
+
+// The way out for someone who forgot the PIN: erase this phone's copy and sign in again (what is in the cloud stays).
+function ForgotPin() {
+  const app = useApp();
+  async function forgot() {
+    if (!window.confirm(tr('Erase everything on this phone and sign out? Data already in the cloud is not touched, and you can sign in again afterwards. Payments that have not been uploaded yet will be lost.'))) return;
+    await app.eraseAll();
+  }
+  return (
+    <details className="mt-6 text-left [&>summary]:cursor-pointer [&>summary]:text-muted">
+      <summary>{tr('Forgot your PIN?')}</summary>
+      <p className="text-muted text-[13px]">{tr('The PIN cannot be recovered. You can erase this phone\'s copy of your data and sign in again; what is in the cloud stays.')}</p>
+      <button type="button" className={ui.btn('danger')} onClick={() => { void forgot(); }}>{tr('Erase this phone and start again')}</button>
+    </details>
+  );
+}
+
 // Covers the whole app until the right PIN is typed. It is a privacy screen, not encryption (see data/lock.ts).
 export function LockScreen() {
   const app = useApp();
@@ -13,11 +41,7 @@ export function LockScreen() {
   const [wait, setWait] = useState(0);
   const [busy, setBusy] = useState(false);
   useEffect(() => { input.current?.focus(); }, []);
-  useEffect(() => {
-    if (wait <= 0) return undefined;
-    const t = window.setInterval(() => setWait((w) => Math.max(0, w - 1)), 1000);
-    return () => window.clearInterval(t);
-  }, [wait > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  useCountdown(wait, setWait);
 
   async function attempt(value: string) {
     if (busy || wait > 0 || !value) return;
@@ -42,11 +66,6 @@ export function LockScreen() {
     if (len !== undefined && value.length === len) void attempt(value);
   }
 
-  async function forgot() {
-    if (!window.confirm(tr('Erase everything on this phone and sign out? Data already in the cloud is not touched, and you can sign in again afterwards. Payments that have not been uploaded yet will be lost.'))) return;
-    await app.eraseAll();
-  }
-
   return (
     <div className="fixed inset-0 z-50 bg-bg flex items-center justify-center p-6 overflow-auto" role="dialog" aria-modal="true" aria-label={tr('Enter your PIN')}>
       <form onSubmit={submit} className="w-full max-w-[340px] text-center [&_h1]:mb-1" noValidate>
@@ -63,13 +82,9 @@ export function LockScreen() {
           value={pin}
           onChange={(e) => typed(e.target.value)}
         />
-        <p className={ui.msg('bad')} role="alert" hidden={!msg}>{msg}{wait > 0 ? ' ' + tr('Try again in {0} second{1}.', wait, wait === 1 ? '' : 's') : ''}</p>
+        <p className={ui.msg('bad')} role="alert" hidden={!msg}>{msg}{waitText(wait)}</p>
         <button type="submit" className={ui.btn('solid', 'big')} disabled={busy || wait > 0 || pin.length < (len ?? 4)}>{tr('Unlock')}</button>
-        <details className="mt-6 text-left [&>summary]:cursor-pointer [&>summary]:text-muted">
-          <summary>{tr('Forgot your PIN?')}</summary>
-          <p className="text-muted text-[13px]">{tr('The PIN cannot be recovered. You can erase this phone\'s copy of your data and sign in again; what is in the cloud stays.')}</p>
-          <button type="button" className={ui.btn('danger')} onClick={() => { void forgot(); }}>{tr('Erase this phone and start again')}</button>
-        </details>
+        <ForgotPin />
       </form>
     </div>
   );

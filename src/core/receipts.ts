@@ -31,16 +31,22 @@ export function makeReceipt(entryId: string, owner: string, bytes: number, nowIs
   return { id, entry_id: entryId, owner_id: owner, path: receiptPath(owner, id), bytes, created_at: nowIso, updated_at: nowIso, uploaded_at: null, deleted_at: null, purged_at: null, dirty: 1 };
 }
 
+const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID_RE.test(v);
+const goodTime = (v: unknown): boolean => Number.isFinite(parseTs(v as string));
+
+// The two times every row has, and the three that may be empty.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const timesOk = (r: any): boolean => ['created_at', 'updated_at'].every((k) => goodTime(r[k])) && ['uploaded_at', 'deleted_at', 'purged_at'].every((k) => r[k] == null || goodTime(r[k]));
+
 // Strict check for a row that comes from the server.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanReceipt(r: any): Receipt | null {
-  if (!r || typeof r.id !== 'string' || !UUID_RE.test(r.id) || typeof r.entry_id !== 'string' || !UUID_RE.test(r.entry_id) || typeof r.owner_id !== 'string' || !UUID_RE.test(r.owner_id)) return null;
+  if (!r || !isUuid(r.id) || !isUuid(r.entry_id) || !isUuid(r.owner_id)) return null;
   const id = r.id.toLowerCase();
   const owner = r.owner_id.toLowerCase();
   if (r.path !== receiptPath(owner, id)) return null;
   if (!Number.isInteger(r.bytes) || r.bytes < 1 || r.bytes > MAX_BYTES) return null;
-  for (const k of ['created_at', 'updated_at']) if (!Number.isFinite(parseTs(r[k]))) return null;
-  for (const k of ['uploaded_at', 'deleted_at', 'purged_at']) if (r[k] != null && !Number.isFinite(parseTs(r[k]))) return null;
+  if (!timesOk(r)) return null;
   return {
     id, entry_id: r.entry_id.toLowerCase(), owner_id: owner, path: r.path, bytes: r.bytes,
     created_at: r.created_at, updated_at: r.updated_at,

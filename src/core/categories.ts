@@ -97,6 +97,18 @@ function planStamp(plan: PlanData): string {
   return typeof stamp === 'string' && Number.isFinite(parseTs(stamp)) ? stamp : new Date(0).toISOString();
 }
 
+// What one row of the old plan brings across: the category (with whether it is a built-in one), or null when it is not wanted
+// (a bad name, one the person already has, or a built-in with no figure, which needs no item).
+function migratedItem(r: PlanData['rows'][number], out: Mine, near: number, t: string): { key: string; item: MineItem; builtin: boolean } | null {
+  const name = normName(r.c);
+  const key = catKey(name);
+  if (checkName(name) !== null || own(out, key)) return null;
+  const amount = round2(r.p[near] ?? 0);
+  const b = builtinOf(key);
+  if (b && !(amount > 0)) return null;
+  return { key, item: { n: b ? b.c : name, g: b ? b.g : r.g, b: amount, x: 0, t }, builtin: b !== undefined };
+}
+
 export function migratePlan(plan: PlanData | null, mine: Mine, month: string): { mine: Mine; added: number } {
   if (!plan?.months.length) return { mine, added: 0 };
   const near = nearestColumn(plan, month);
@@ -104,14 +116,10 @@ export function migratePlan(plan: PlanData | null, mine: Mine, month: string): {
   const out: Mine = { ...mine };
   let added = 0;
   for (const r of plan.rows) {
-    const name = normName(r.c);
-    const k = catKey(name);
-    if (checkName(name) !== null || own(out, k)) continue;
-    const amount = round2(r.p[near] ?? 0);
-    const b = builtinOf(k);
-    if (b && !(amount > 0)) continue; // a built-in with no figure needs no item
-    if (Object.keys(out).length >= MAX_ITEMS || (!b && ownCount(out) >= MAX_OWN)) break;
-    out[k] = { n: b ? b.c : name, g: b ? b.g : r.g, b: amount, x: 0, t };
+    const m = migratedItem(r, out, near, t);
+    if (!m) continue;
+    if (Object.keys(out).length >= MAX_ITEMS || (!m.builtin && ownCount(out) >= MAX_OWN)) break;
+    out[m.key] = m.item;
     added++;
   }
   return { mine: out, added };
@@ -178,18 +186,26 @@ export function sameMine(a: Mine, b: Mine): boolean {
   });
 }
 
+// One category or budget from outside: the item, or null when anything about it is wrong.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanMineItem(k: string, v: any): MineItem | null {
+  if (!v || typeof v.n !== 'string' || checkName(v.n) !== null || normName(v.n) !== v.n || catKey(v.n) !== k) return null;
+  if (!(GROUPS as readonly string[]).includes(v.g)) return null;
+  if (typeof v.b !== 'number' || !Number.isFinite(v.b) || v.b < 0 || v.b >= MAX_AMOUNT || round2(v.b) !== v.b) return null;
+  if (v.x !== 0 && v.x !== 1) return null;
+  if (!Number.isFinite(parseTs(v.t))) return null;
+  return { n: v.n, g: v.g as Group, b: v.b, x: v.x, t: v.t };
+}
+
 // Validate what comes from the server or a backup. Anything malformed is dropped, never repaired.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cleanMine(p: any): Mine {
   const out: Mine = {};
   if (!p || typeof p !== 'object') return out;
-  for (const [k, v] of Object.entries(p as Record<string, any>)) { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (!v || typeof v.n !== 'string' || checkName(v.n) !== null || normName(v.n) !== v.n || catKey(v.n) !== k) continue;
-    if (!(GROUPS as readonly string[]).includes(v.g)) continue;
-    if (typeof v.b !== 'number' || !Number.isFinite(v.b) || v.b < 0 || v.b >= MAX_AMOUNT || round2(v.b) !== v.b) continue;
-    if (v.x !== 0 && v.x !== 1) continue;
-    if (!Number.isFinite(parseTs(v.t))) continue;
-    out[k] = { n: v.n, g: v.g as Group, b: v.b, x: v.x, t: v.t };
+  for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
+    const item = cleanMineItem(k, v);
+    if (!item) continue;
+    out[k] = item;
     if (Object.keys(out).length >= MAX_ITEMS) break;
   }
   return out;

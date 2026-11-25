@@ -1580,3 +1580,52 @@ test('more removals than a kind has room for: the oldest go on every phone and t
   assert.equal(Object.hasOwn(await goalsOf(a), RID(125)), false, 'the oldest removal is the one that went');
   assert.equal(Object.hasOwn(await goalsOf(a), RID(1)), true);
 });
+
+// ------------------------------------------------------------------ pushing many rows: chunks of 200, refusals and server failures
+// n payments with ids in order (RID(1) first); the numbers in `bad` have an empty category, which the database refuses.
+const manyEntries = (n: number, bad: number[]): Entry[] =>
+  Array.from({ length: n }, (_, i) => ({ ...entry({ note: `n${i + 1}` }), id: RID(i + 1), category: bad.includes(i + 1) ? '' : 'Rent' }));
+
+test('rows refused in different chunks: every chunk is still sent, and only what was refused stays waiting', async () => {
+  reset();
+  const d = device();
+  await d.signIn();
+  await d.store.putEntries(manyEntries(450, [5, 250, 430])); // one refused row in each of the three chunks of 200, 200 and 50
+  await d.sync.sync();
+  assert.equal(mock.state.entries.size, 447, 'everything else went up, whatever an earlier chunk met');
+  assert.equal(d.sync.getState().mode, 'error', 'the refusal is reported at the end');
+  assert.equal(d.sync.getState().pending, 3);
+  for (const n of [5, 250, 430]) assert.equal((await d.store.getEntry(RID(n)))!.dirty, 1);
+  assert.equal((await d.store.getEntry(RID(6)))!.dirty, 0);
+});
+
+test('a server failure while a chunk is sent stops the sending at once; the next sync sends everything', async () => {
+  reset();
+  const d = device();
+  await d.signIn();
+  await d.store.putEntries(manyEntries(450, []));
+  d.net.beforePost = async () => { mock.state.failNext = { status: 500, body: { message: 'boom' } }; }; // the first chunk's request fails
+  await d.sync.sync();
+  assert.equal(d.sync.getState().error, 'boom');
+  assert.equal(mock.state.entries.size, 0, 'the later chunks were not tried after a failure that is not a refusal');
+  assert.equal(d.sync.getState().pending, 450);
+  await d.sync.sync();
+  assert.equal(mock.state.entries.size, 450);
+  assert.equal(d.sync.getState().pending, 0);
+});
+
+test('a server failure while a refused chunk is sent row by row stops there; the next sync finishes', async () => {
+  reset();
+  const d = device();
+  await d.signIn();
+  await d.store.putEntries(manyEntries(3, [1])); // one chunk of three with a bad row first
+  let posts = 0;
+  const hook = async () => { posts++; if (posts === 2) mock.state.failNext = { status: 500, body: { message: 'boom' } }; else d.net.beforePost = hook; };
+  d.net.beforePost = hook; // the chunk is refused (post 1); the first row on its own (post 2) fails with a server error
+  await d.sync.sync();
+  assert.equal(d.sync.getState().error, 'boom');
+  assert.equal(mock.state.entries.size, 0, 'the rows after it were not tried');
+  await d.sync.sync();
+  assert.equal(mock.state.entries.size, 2, 'the good rows go up, the refused one stays');
+  assert.equal(d.sync.getState().pending, 1);
+});

@@ -27,15 +27,21 @@ export function checkPassword(password: string, email: string): string | null {
 
 // What to show for a failed sign-in call. The service's own wording changes between versions, so match on its codes and a
 // few stable phrases, and pass anything else through.
+// [phrases to look for in the service's reply, what to say instead]: the first row that matches wins. null passes the service's own words through.
+const AUTH_REPLIES: readonly (readonly [readonly string[], () => string | null])[] = [
+  [['rate limit', 'too many'], () => tr('Too many tries. Wait a few minutes and try again.')],
+  [['invalid login credentials', 'invalid_credentials'], () => tr('The email or password is not right.')],
+  [['email not confirmed', 'email_not_confirmed'], () => tr('Confirm your email first: open the link we sent, then sign in.')],
+  [['already registered', 'already been registered', 'user_already_exists'], () => tr('There is already an account with this email. Sign in instead.')],
+  [['signups not allowed', 'signup is disabled', 'signups are disabled'], () => tr('New accounts are switched off right now. Ask whoever runs this app to switch sign-ups on.')],
+  [['different from the old password', 'same_password'], () => tr('Choose a password different from the current one.')],
+  [['weak_password', 'password should', 'password is known'], () => null],
+  [['not authorized', 'not authorised'], () => tr('The sign-in email could not be sent to this address. See the README (email setup).')],
+];
+
 export function authMessage(status: number, text: string): string {
+  if (status === 429) return tr('Too many tries. Wait a few minutes and try again.');
   const t = text.toLowerCase();
-  if (status === 429 || t.includes('rate limit') || t.includes('too many')) return tr('Too many tries. Wait a few minutes and try again.');
-  if (t.includes('invalid login credentials') || t.includes('invalid_credentials')) return tr('The email or password is not right.');
-  if (t.includes('email not confirmed') || t.includes('email_not_confirmed')) return tr('Confirm your email first: open the link we sent, then sign in.');
-  if (t.includes('already registered') || t.includes('already been registered') || t.includes('user_already_exists')) return tr('There is already an account with this email. Sign in instead.');
-  if (t.includes('signups not allowed') || t.includes('signup is disabled') || t.includes('signups are disabled')) return tr('New accounts are switched off right now. Ask whoever runs this app to switch sign-ups on.');
-  if (t.includes('different from the old password') || t.includes('same_password')) return tr('Choose a password different from the current one.');
-  if (t.includes('weak_password') || t.includes('password should') || t.includes('password is known')) return text;
-  if (t.includes('not authorized') || t.includes('not authorised')) return tr('The sign-in email could not be sent to this address. See the README (email setup).');
-  return text;
+  const reply = AUTH_REPLIES.find(([phrases]) => phrases.some((p) => t.includes(p)));
+  return reply?.[1]() ?? text;
 }

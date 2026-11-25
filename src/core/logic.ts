@@ -338,16 +338,24 @@ export function frequentCategories(entries: Entry[], nowMs: number, n = 6, days 
 // ---------------------------------------------------------------- the old imported plan (read only, to bring it across)
 // Validate a plan that comes from the server or a backup (already parsed JSON).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// One row of a plan from outside: the row, or null when anything about it is wrong (it must have one figure for each month).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanPlanRow(r: any, monthCount: number): PlanRow | null {
+  if (!r || typeof r.c !== 'string' || !r.c || r.c.length > 80 || !(GROUPS as readonly string[]).includes(r.g)) return null;
+  if (!Array.isArray(r.p) || r.p.length !== monthCount) return null;
+  if (!r.p.every((v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < MAX_AMOUNT)) return null;
+  return { c: r.c, g: r.g as Group, p: r.p as number[] };
+}
+
 export function cleanPlan(p: any): PlanData | null {
   if (!p || typeof p !== 'object' || p.v !== 1 || !Array.isArray(p.months) || !Array.isArray(p.rows)) return null;
   if (!p.months.length || p.months.length > 120 || !p.months.every((m: unknown) => typeof m === 'string' && MONTH_RE.test(m))) return null;
   if (p.rows.length < 1 || p.rows.length > 100) return null;
   const rows: PlanRow[] = [];
   for (const r of p.rows) {
-    if (!r || typeof r.c !== 'string' || !r.c || r.c.length > 80 || !(GROUPS as readonly string[]).includes(r.g)) return null;
-    if (!Array.isArray(r.p) || r.p.length !== p.months.length) return null;
-    if (!r.p.every((v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < MAX_AMOUNT)) return null;
-    rows.push({ c: r.c, g: r.g as Group, p: r.p as number[] });
+    const row = cleanPlanRow(r, p.months.length);
+    if (!row) return null;
+    rows.push(row);
   }
   return { v: 1, months: [...(p.months as string[])], rows };
 }
@@ -364,9 +372,11 @@ export interface MonthSummary {
   totalSpent: number;
 }
 
-export function summarizeMonth(entries: Entry[], plan: PlanData | null, month: string): MonthSummary {
-  // Spending is matched to categories by catKey, so "groceries" and "Groceries" are one line.
-  const spentBy = new Map<string, { name: string; spent: number }>();
+type SpentBy = Map<string, { name: string; spent: number }>;
+
+// What was spent in the month, by category. Spending is matched to categories by catKey, so "groceries" and "Groceries" are one line.
+function spentInMonth(entries: Entry[], month: string): { spentBy: SpentBy; count: number } {
+  const spentBy: SpentBy = new Map();
   let count = 0;
   for (const e of entries) {
     if (e.deleted_at || monthOf(e.entry_date) !== month) continue;
@@ -376,27 +386,36 @@ export function summarizeMonth(entries: Entry[], plan: PlanData | null, month: s
     cur.spent = round2(cur.spent + e.amount);
     spentBy.set(k, cur);
   }
-  const mi = plan ? plan.months.indexOf(month) : -1;
-  const rows: MonthRow[] = [];
-  const known = new Set<string>();
-  if (plan) {
-    for (const r of plan.rows) {
-      const k = catKey(r.c);
-      known.add(k);
-      const spent = spentBy.get(k)?.spent ?? 0;
-      const planned = mi >= 0 ? (r.p[mi] ?? 0) : 0;
-      rows.push({ category: r.c, group: r.g, spent, planned, left: round2(planned - spent), budgeted: !r.u });
-    }
-  }
-  const extra = [...spentBy].filter(([k]) => !known.has(k)).map(([, v]) => ({ category: v.name, spent: v.spent }));
-  const groups = Object.fromEntries(GROUPS.map((g) => [g, { spent: 0, planned: 0, budgeted: false }])) as Record<Group, { spent: number; planned: number; budgeted: boolean }>;
+  return { spentBy, count };
+}
+
+// A line for each category of the plan: what was spent, what was planned (month index mi, or nothing when the plan lacks the month), what is left.
+function planLines(plan: PlanData, mi: number, spentBy: SpentBy): MonthRow[] {
+  return plan.rows.map((r) => {
+    const spent = spentBy.get(catKey(r.c))?.spent ?? 0;
+    const planned = mi >= 0 ? (r.p[mi] ?? 0) : 0;
+    return { category: r.c, group: r.g, spent, planned, left: round2(planned - spent), budgeted: !r.u };
+  });
+}
+
+function groupTotals(rows: MonthRow[]): MonthSummary['groups'] {
+  const groups = Object.fromEntries(GROUPS.map((g) => [g, { spent: 0, planned: 0, budgeted: false }])) as MonthSummary['groups'];
   for (const r of rows) {
     groups[r.group].spent = round2(groups[r.group].spent + r.spent);
     groups[r.group].planned = round2(groups[r.group].planned + r.planned);
     if (r.budgeted) groups[r.group].budgeted = true;
   }
+  return groups;
+}
+
+export function summarizeMonth(entries: Entry[], plan: PlanData | null, month: string): MonthSummary {
+  const { spentBy, count } = spentInMonth(entries, month);
+  const mi = plan ? plan.months.indexOf(month) : -1;
+  const rows = plan ? planLines(plan, mi, spentBy) : [];
+  const known = new Set(rows.map((r) => catKey(r.category)));
+  const extra = [...spentBy].filter(([k]) => !known.has(k)).map(([, v]) => ({ category: v.name, spent: v.spent }));
   const totalSpent = round2([...spentBy.values()].reduce((a, b) => a + b.spent, 0));
-  return { month, hasPlan: mi >= 0, count, rows, extra, groups, totalSpent };
+  return { month, hasPlan: mi >= 0, count, rows, extra, groups: groupTotals(rows), totalSpent };
 }
 
 export type BudgetState = 'over' | 'ok' | 'short' | 'idle';

@@ -8,6 +8,10 @@ import type { Receipt } from '../../core/receipts.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
+const messageOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+// Why a picture could not be shown: being offline is said in one word, anything else as it was reported.
+const pictureError = (e: unknown): string => (e instanceof Error && e.message === 'No connection' ? tr('Offline') : messageOf(e));
+
 // The picture of one photo, loaded when it appears (from this phone, or fetched from the cloud) and released when it goes.
 function usePicture(r: Receipt): { url: string | null; error: string } {
   const app = useApp();
@@ -22,7 +26,7 @@ function usePicture(r: Receipt): { url: string | null; error: string } {
       if (!alive) return;
       made = URL.createObjectURL(b);
       setUrl(made);
-    }).catch((e: unknown) => { if (alive) setError(e instanceof Error ? (e.message === 'No connection' ? tr('Offline') : e.message) : String(e)); });
+    }).catch((e: unknown) => { if (alive) setError(pictureError(e)); });
     return () => { alive = false; if (made) URL.revokeObjectURL(made); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r.id, r.uploaded_at]);
@@ -61,6 +65,24 @@ function Viewer({ r, mine, onClose }: Readonly<{ r: Receipt; mine: boolean; onCl
   );
 }
 
+// The two ways to add photos: the camera, and choosing from the phone.
+function AddPhotoButtons({ busy, onPicked }: Readonly<{ busy: boolean; onPicked: (files: Blob[]) => void }>) {
+  function pickFiles(ev: ChangeEvent<HTMLInputElement>) {
+    const files = [...(ev.target.files ?? [])];
+    ev.target.value = '';
+    onPicked(files);
+  }
+  return (
+    <>
+      <TakePhoto busy={busy} onPicked={onPicked} />
+      <label className={ui.addPhoto(busy)}>
+        {tr('Choose photo')}
+        <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
+      </label>
+    </>
+  );
+}
+
 // The photos of one payment, with buttons to add more when the account may.
 export function PhotoStrip({ entryId, canEdit }: Readonly<{ entryId: string; canEdit: boolean }>) {
   const app = useApp();
@@ -78,16 +100,10 @@ export function PhotoStrip({ entryId, canEdit }: Readonly<{ entryId: string; can
     try {
       await app.addReceipts(entryId, await Promise.all(files.map((f) => shrinkImage(f))));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(messageOf(e));
     } finally {
       setBusy(false);
     }
-  }
-
-  function pickFiles(ev: ChangeEvent<HTMLInputElement>) {
-    const files = [...(ev.target.files ?? [])];
-    ev.target.value = '';
-    void add(files);
   }
 
   if (!photos.length && !canEdit) return null;
@@ -97,15 +113,7 @@ export function PhotoStrip({ entryId, canEdit }: Readonly<{ entryId: string; can
       <p className={ui.fieldLabel}>{tr('Receipt photos{0}', photos.length ? tr(' ({0} of {1})', photos.length, MAX_PHOTOS) : '')}</p>
       <div className={ui.thumbs}>
         {photos.map((r) => <Thumb key={r.id} r={r} mine={r.owner_id === app.me} onOpen={() => setOpen(r.id)} />)}
-        {canEdit && room > 0 && (
-          <>
-            <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
-            <label className={ui.addPhoto(busy)}>
-              {tr('Choose photo')}
-              <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
-            </label>
-          </>
-        )}
+        {canEdit && room > 0 && <AddPhotoButtons busy={busy} onPicked={(files) => void add(files)} />}
       </div>
       {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
       {canEdit && !app.me && <p className="text-muted text-[13px]">{tr('Sign in to attach photos.')}</p>}

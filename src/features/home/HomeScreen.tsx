@@ -4,22 +4,19 @@ import { udhaarTotals } from '../../core/udhaar.ts';
 import { safeToSpend } from '../../core/safeToSpend.ts';
 import { WeekRecapCard } from './WeekRecapCard.tsx';
 import { useSpendEntries } from '../../data/useSpendEntries.ts';
-import { BentoCard, BentoEmpty, BentoGrid } from '../../ui/Bento.tsx';
-import { BudgetLine } from '../../ui/BudgetLine.tsx';
-import { PaceChart } from './PaceChart.tsx';
+import { BentoGrid } from '../../ui/Bento.tsx';
+import { MonthTile } from './MonthTile.tsx';
+import { CashFlowTile, CategoryGroupTile, CoupleTile, DueTile, GoalsTile, GroupsTile, InsightsTile, NetWorthTile, RecentTile, UdhaarTile, WhereItWentTile } from './Tiles.tsx';
 import { RecurringTile } from '../recurring/index.ts';
-import { RecentList } from '../payments/index.ts';
-import { dueRelative } from '../../core/blocks.ts';
 import { netNow } from '../../core/goals.ts';
 import { planForMonth } from '../../core/categories.ts';
 import { cashFlow } from '../../core/income.ts';
 import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, topCategories, upcomingThisMonth } from './dashboard.ts';
-import { monthLabel, monthShort, shortDate } from '../../core/format.ts';
+import { monthLabel } from '../../core/format.ts';
 import { averageOf, groupLookup, monthlyTotals, monthsEnding, projectedMonthEnd } from '../../core/analytics.ts';
 import type { Group } from '../../core/logic.ts';
-import { budgetEntries, fmtINR, nearBudget, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
+import { budgetEntries, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
-import * as hs from '../../ui/tileStyles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
@@ -38,8 +35,6 @@ interface Props {
 /** Fewer payments than this and the Overview shows only what is useful on day one. */
 export const GETTING_STARTED = 5;
 
-const pct = (f: number): string => { const v = Math.abs(f * 100); return `${v < 100 ? v.toFixed(1) : Math.round(v)}%`; };
-const whole = (f: number): string => `${Math.round(f * 100)}%`;
 
 // The surface layer: one figure or picture per tile, every tile a door to its details. Everything shown is worked out from
 // what the app already holds; there is no tile for figures the app does not record.
@@ -73,18 +68,20 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   const tiles = overviewGroups(ov.summary.groups, starting);
   const tileSpan = (12 / Math.max(1, tiles.length)) as 3 | 4 | 6 | 12;
 
-  const mon = monthShort(month);
-  const lastMon = monthShort(shiftMonth(month, -1));
   const projected = projectedMonthEnd(ov.daily, month, ov.lastDaily); // where the month ends at this pace, once there are days enough to say
   // a usual month: the average of the three months before this one that had any spending
   const usual = useMemo(() => {
     const prev = monthlyTotals(budgetEntries(spend, app.me), groupLookup(app.categories), monthsEnding(shiftMonth(month, -1), 3));
     return averageOf(prev.filter((t) => t.spent > 0).map((t) => t.spent));
   }, [spend, app.me, app.categories, month]);
-  const toDate = ov.daily.at(-1) ?? 0;
-  const left = ov.budget - ov.spent;
-  const paceLabel = tr('Spending this month by day: {0} by {1} {2}; last month {3} by the same day', fmtINR(toDate), ov.day, mon, fmtINR(ov.lastToDate))
-    + (ov.budgeted ? tr('; budget {0}.', fmtINR(ov.budget)) : '.');
+  // which tiles are drawn: one with nothing to say yet stays out of the way while the person is getting started
+  const showNet = Boolean(net) || !starting;
+  const showDue = Boolean(due) || !starting;
+  const showGoals = Boolean(goalTile) || !starting;
+  const showUdhaar = app.udhaar.length > 0 || !starting;
+  const showFlow = !starting || flow.income > 0;
+  const showInsights = !starting || usual > 0;
+  const showWhere = !starting || cats.total > 0;
 
   return (
     <section aria-labelledby="home-title">
@@ -93,206 +90,33 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
         <p className="text-muted">{monthLabel(month)}</p>
       </div>
       <BentoGrid>
-        <BentoCard title={tr('This month')} span={8} hero onOpen={() => open('month')} openLabel={`Open ${monthLabel(month)}: groups, categories and budgets`}>
-          <div className={hs.heroTop}>
-            <div>
-              <p className={hs.heroNum}>{fmtINR(ov.spent)}</p>
-              <p className={hs.note}>{tr('spent{0} · savings not counted', ov.budgeted ? tr(' of {0} budget', fmtINR(ov.budget)) : '')}</p>
-            </div>
-            {ov.change !== null && (
-              <span className={hs.delta(ov.change > 0 ? 'bad' : ov.change < 0 ? 'good' : '')}>
-                <span aria-hidden="true">{ov.change > 0 ? '▲ ' : ov.change < 0 ? '▼ ' : ''}</span>
-                {ov.change === 0 ? tr('Same as') : <>{pct(ov.change)}<span className="sr-only">{ov.change > 0 ? ' more than' : ' less than'}</span></>}{' '}{tr('last month')}
-              </span>
-            )}
-          </div>
-          <p className={hs.status(ov.budgeted && left < 0 ? 'bad' : ov.budgeted && nearBudget(ov.spent, ov.budget) ? 'warn' : '')}>
-            {!ov.budgeted ? tr('No budgets yet: open to set them.') : left >= 0 ? tr('{0} left this month{1}', fmtINR(left), nearBudget(ov.spent, ov.budget) ? tr(', budget nearly used') : '') : tr('{0} over budget', fmtINR(-left))}
-          </p>
-          {safe && !(ov.day >= ov.days && safe.left <= 0) && safe.left > 0 && <p className={hs.note}>{tr('About {0} a day is safe to spend for the {1} days left{2}', fmtINR(safe.perDay), safe.daysLeft, safe.upcoming > 0 ? tr(' (after {0} still to come this month)', fmtINR(safe.upcoming)) : '')}</p>}
-          {toDate === 0 && (ov.lastDaily.at(-1) ?? 0) === 0 ? (
-            // nothing to draw yet: a flat line at zero would say less than these words
-            <BentoEmpty cta={tr('Add expense')} onCta={openAdd}>{tr('No spending logged this month or last (savings are not counted here). Your spending by day shows here once you log a payment.')}</BentoEmpty>
-          ) : (
-            <>
-              <PaceChart daily={ov.daily} lastDaily={ov.lastDaily} days={ov.days} budget={ov.budgeted ? ov.budget : 0} projected={ov.day < ov.days ? projected : null} label={paceLabel} />
-              <div className={hs.paceAxis} aria-hidden="true"><span>1 {mon}</span><span>{ov.days} {mon}</span></div>
-              <ul className={hs.legend}>
-                <li><i className={hs.key.now} aria-hidden="true" />{tr('This month')}{' '}<b>{fmtINR(toDate)}</b></li>
-                <li><i className={hs.key.last} aria-hidden="true" />{tr('{0}, by day {1}', lastMon, Math.min(ov.day, ov.lastDaily.length))}{' '}<b>{fmtINR(ov.lastToDate)}</b></li>
-                {projected !== null && ov.day < ov.days && <li><i className={hs.key.proj} aria-hidden="true" />{tr('Likely by month end')} <b>{fmtINR(Math.round(projected))}</b></li>}
-                {ov.budgeted && <li><i className={hs.key.budget} aria-hidden="true" />{tr('Budget')}{' '}<b>{fmtINR(ov.budget)}</b></li>}
-              </ul>
-            </>
-          )}
-        </BentoCard>
+        <MonthTile ov={ov} safe={safe} projected={projected} month={month} onOpen={() => open('month')} openAdd={openAdd} />
 
         <WeekRecapCard />
 
-        {net ? (
-          <BentoCard title={tr('Net worth')} span={4} onOpen={() => open('plan', 'networth')} openLabel={tr('Open net worth and goals')}>
-            <p className={hs.statNum()}>{fmtINR(net.value)}</p>
-            {net.change !== null && net.change !== 0 && net.previous && (
-              <p className={ui.leftText(net.change > 0 ? 'good' : 'bad')}>{net.change > 0 ? '▲ ' + tr('Up {0} since {1}', fmtINR(net.change), shortDate(net.previous.date)) : '▼ ' + tr('Down {0} since {1}', fmtINR(Math.abs(net.change)), shortDate(net.previous.date))}</p>
-            )}
-            <p className={hs.noteFoot}>{tr('As of {0}', shortDate(net.date))}</p>
-          </BentoCard>
-        ) : starting ? null : (
-          <BentoCard title={tr('Net worth')} span={4}>
-            <BentoEmpty cta={tr('Add your net worth')} onCta={() => open('plan', 'networth')}>
-              {tr('Add what you own minus what you owe, and update it now and then to see it move.')}
-            </BentoEmpty>
-          </BentoCard>
-        )}
+        {showNet && <NetWorthTile net={net} open={open} />}
 
-        {tiles.map((g, i) => {
-          const t = ov.summary.groups[g];
-          return (
-            <BentoCard key={g} title={tr(g)} span={tileSpan} compact fill={tiles.length % 2 === 1 && i === tiles.length - 1} onOpen={() => openMonth(g)} openLabel={`Open ${g} for the month`}>
-              <p className={hs.statNum(true)}>{fmtINR(t.spent)}</p>
-              <p className={hs.note}>{t.budgeted ? tr('of {0}', fmtINR(t.planned)) : ' '}</p>
-              <BudgetLine group={g} spent={t.spent} planned={t.planned} over={false} budgeted={t.budgeted} />
-            </BentoCard>
-          );
-        })}
+        {tiles.map((g, i) => <CategoryGroupTile key={g} g={g} ov={ov} span={tileSpan} fill={tiles.length % 2 === 1 && i === tiles.length - 1} openMonth={openMonth} />)}
 
         <RecurringTile onManage={manageRecurring} />
 
-        <BentoCard
-          title={tr('Recent payments')}
-          span={8}
-          action={app.entries.length > 0 ? <button type="button" className={hs.seeAll} onClick={() => open('payments')}>{tr('See all')}</button> : null}
-        >
-          <RecentList limit={5} plain empty={<BentoEmpty cta={tr('Add your first expense')} onCta={openAdd}>{tr('No payments yet. The latest ones show here.')}</BentoEmpty>} />
-        </BentoCard>
+        <RecentTile open={open} openAdd={openAdd} />
 
-        {due ? (
-          <BentoCard title={tr('Due soon')} span={4} onOpen={() => open('plan')} openLabel={tr('Open the due list')}>
-            <p className={hs.statNum()}>{due.open === 0 ? tr('All done') : due.overdue > 0 ? <span className={ui.late}>{tr('{0} overdue', due.overdue)}</span> : tr('{0} open', due.open)}</p>
-            {due.open > 0 && due.overdue > 0 && <p className={hs.note}>{tr('{0} open in all', due.open)}</p>}
-            {due.next.length > 0 && (
-              <ul className={hs.mini}>
-                {due.next.map((v) => (
-                  <li key={v.k}>
-                    <span className={ui.rowMain()}>
-                      <b>{v.title}</b>
-                      <small className={v.state === 'overdue' ? ui.late : undefined}>{v.due ? `${shortDate(v.due)} · ${dueRelative(v.days)}` : tr('No date')}</small>
-                    </span>
-                    {v.amount ? <span className="font-bold tabular-nums">{fmtINR(v.amount)}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </BentoCard>
-        ) : starting ? null : (
-          <BentoCard title={tr('Due soon')} span={4}>
-            <BentoEmpty cta={tr('Add an item')} onCta={() => open('plan', 'due')}>
-              {tr('Add one-off payments and to-dos, with a date, and see what is due soon.')}
-            </BentoEmpty>
-          </BentoCard>
-        )}
+        {showDue && <DueTile due={due} open={open} />}
 
-        {(!starting || flow.income > 0) && <BentoCard title={tr('Cash flow')} span={4} onOpen={() => open('cashflow')} openLabel={tr('Open the cash flow for this month')}>
-          {flow.income === 0 && flow.out === 0 ? (
-            <BentoEmpty cta={tr('Add income')} onCta={openAddIncome}>{tr('Log what you receive (salary, refunds, cashback) to see what is left each month.')}</BentoEmpty>
-          ) : (
-            <>
-              <p className={hs.statNum()}>{fmtINR(flow.left)} <span className={hs.statUnit}>{tr('left this month')}</span></p>
-              <p className={ui.leftText(flow.left >= 0 ? 'good' : 'bad')}>{tr('{0} in · {1} out', fmtINR(flow.income), fmtINR(flow.out))}</p>
-              <p className={hs.noteFoot}>{flow.income === 0 ? tr('No income logged yet this month.') : tr('Savings are counted apart.')}</p>
-            </>
-          )}
-        </BentoCard>}
+        {showFlow && <CashFlowTile flow={flow} open={open} openAddIncome={openAddIncome} />}
 
-        {(!starting || usual > 0) && <BentoCard title={tr('Insights')} span={4} onOpen={() => open('analytics')} openLabel={tr('Open insights')}>
-          {usual > 0 ? (
-            <>
-              <p className={hs.statNum()}>{fmtINR(usual)} <span className={hs.statUnit}>{tr('a usual month')}</span></p>
-              <p className={hs.note}>{projected !== null && ov.day < ov.days ? tr('This month will likely end near {0}.', fmtINR(Math.round(projected))) : tr('{0} so far this month.', fmtINR(toDate))}</p>
-              <p className={hs.noteFoot}>{tr('Months, categories, days of the week and goals, added up.')}</p>
-            </>
-          ) : (
-            <BentoEmpty>{tr('Insights fill in once you have logged a month or two of payments.')}</BentoEmpty>
-          )}
-        </BentoCard>}
+        {showInsights && <InsightsTile usual={usual} projected={projected} ov={ov} open={open} />}
 
-        {(!starting || cats.total > 0) && <BentoCard title={tr('Where it went')} span={4} onOpen={cats.total > 0 ? () => open('month') : undefined} openLabel={tr('Open this month\'s categories')}>
-          {cats.total === 0 ? (
-            <BentoEmpty cta={tr('Add expense')} onCta={openAdd}>{tr('Nothing spent yet this month.')}</BentoEmpty>
-          ) : (
-            <ul className={hs.shares}>
-              {cats.top.map((c) => (
-                <li key={c.category}>
-                  <span className={hs.shareLine}><span className={hs.shareName}>{c.category}</span><span className="text-muted">{whole(c.share)}</span><b>{fmtINR(c.spent)}</b></span>
-                  <span className={hs.shareBar} aria-hidden="true"><i style={{ width: `${Math.max(1, c.share * 100)}%` }} /></span>
-                </li>
-              ))}
-              {cats.rest.count > 0 && <li className={hs.note}>{tr('{0} more {1} · {2} ({3})', cats.rest.count, cats.rest.count === 1 ? 'category' : 'categories', fmtINR(cats.rest.spent), whole(cats.rest.share))}</li>}
-            </ul>
-          )}
-        </BentoCard>}
+        {showWhere && <WhereItWentTile cats={cats} open={open} openAdd={openAdd} />}
 
-        {couples.map((c) => (
-          <BentoCard key={c.id} title={tr('You and {0}', c.partner)} span={4} onOpen={() => openGroup(c.id)} openLabel={`Open your couple group with ${c.partner}`}>
-            <p className={`${hs.statNum()} ${c.tone === 'owed' ? 'text-good' : c.tone === 'late' ? 'text-bad' : 'text-muted'}`}>{c.text}</p>
-            <p className={hs.note}>{c.tone === 'muted' ? tr('Nothing to settle') : tr('Open to settle up')}</p>
-          </BentoCard>
-        ))}
+        {couples.map((c) => <CoupleTile key={c.id} c={c} openGroup={openGroup} />)}
 
-        {!app.syncEnabled ? (
-          <BentoCard title={tr('Groups')} span={4}><BentoEmpty>{tr('Groups need cloud sync, which is not set up in this build.')}</BentoEmpty></BentoCard>
-        ) : app.sync.mode === 'signedout' || !app.me ? (
-          <BentoCard title={tr('Groups')} span={4}>
-            <BentoEmpty cta={tr('Sign in')} onCta={goSettings}>{tr('Sign in to share expenses with the family or on a trip, and settle up.')}</BentoEmpty>
-          </BentoCard>
-        ) : app.groups.length === 0 ? (
-          <BentoCard title={tr('Groups')} span={4}>
-            <BentoEmpty cta={tr('Make or join a group')} onCta={() => open('groups')}>{tr('No groups yet. Make one for the family or a trip.')}</BentoEmpty>
-          </BentoCard>
-        ) : (
-          <BentoCard title={tr('Groups')} span={4} onOpen={() => open('groups')} openLabel={tr('Open groups and settle up')}>
-            {shared.owed === shared.owe ? (
-              <p className={hs.statNum()}>{tr('All settled')}</p>
-            ) : shared.owed > shared.owe ? (
-              <p className={hs.statNum()}><span className={ui.owed}>{fmtINR(shared.owed - shared.owe)}</span> <span className={hs.statUnit}>{tr('owed to you')}</span></p>
-            ) : (
-              <p className={hs.statNum()}><span className={ui.late}>{fmtINR(shared.owe - shared.owed)}</span> <span className={hs.statUnit}>{tr('you owe')}</span></p>
-            )}
-            <p className={hs.note}>
-              {app.groups.length} {app.groups.length === 1 ? 'group' : 'groups'}
-              {shared.owed > 0 && shared.owe > 0 ? tr(' · {0} owed to you, {1} you owe', fmtINR(shared.owed), fmtINR(shared.owe)) : ''}
-            </p>
-          </BentoCard>
-        )}
+        <GroupsTile shared={shared} open={open} goSettings={goSettings} />
 
-        {goalTile ? (
-          <BentoCard title={tr('Goals')} span={4} onOpen={() => open('plan', 'goals')} openLabel={tr('Open your goals and the plan')}>
-            <p className={hs.statNum()}>{fmtINR(goalTile.progress.saved)} <span className={hs.statUnit}>{tr('of {0}', fmtINR(goalTile.goal.a))}</span></p>
-            <p className={hs.note}>{goalTile.goal.n} · {goalTile.term === 'short' ? tr('short term') : tr('long term')}{goalTile.count > 1 ? tr(' · {0} goals', goalTile.count) : ''}</p>
-            <div className={ui.meter(goalTile.line.state === 'reached' ? 'good' : goalTile.line.state === 'passed' ? 'bad' : 'accent')} aria-hidden="true"><i style={{ width: `${Math.round(goalTile.progress.fraction * 100)}%` }} /></div>
-            <p className={hs.note}>{goalTile.line.state === 'reached' ? tr('Reached') : goalTile.line.state === 'passed' ? tr('The date has passed') : tr('Needs {0} a month', fmtINR(goalTile.line.monthly))}</p>
-          </BentoCard>
-        ) : starting ? null : (
-          <BentoCard title={tr('Goals')} span={4}>
-            <BentoEmpty cta={tr('Make a goal')} onCta={() => open('plan', 'goals')}>{tr('No goals yet. Set a target and a date, and see what to set aside each month.')}</BentoEmpty>
-          </BentoCard>
-        )}
+        {showGoals && <GoalsTile goal={goalTile} open={open} />}
 
-        {app.udhaar.length > 0 ? (
-          <BentoCard title={tr('Udhaar')} span={4} onOpen={() => open('udhaar')} openLabel={tr('Open Udhaar: money lent and borrowed')}>
-            {udhaar.owedToMe === 0 && udhaar.iOwe === 0 ? <p className={hs.statNum()}>{tr('All settled')}</p> : (
-              <>
-                {udhaar.owedToMe > 0 && <p className={hs.statNum()}><span className={ui.owed}>{fmtINR(udhaar.owedToMe)}</span> <span className={hs.statUnit}>{tr('owed to you')}</span></p>}
-                {udhaar.iOwe > 0 && <p className={udhaar.owedToMe > 0 ? hs.note : hs.statNum()}><span className={ui.late}>{fmtINR(udhaar.iOwe)}</span> <span className={hs.statUnit}>{tr('you owe')}</span></p>}
-              </>
-            )}
-            <p className={hs.noteFoot}>{tr('Money lent and borrowed, outside your groups.')}</p>
-          </BentoCard>
-        ) : starting ? null : (
-          <BentoCard title={tr('Udhaar')} span={4}>
-            <BentoEmpty cta={tr('Add an entry')} onCta={() => open('udhaar')}>{tr('Lent someone money, or borrowed some? Write it down here and tick it off when it comes back.')}</BentoEmpty>
-          </BentoCard>
-        )}
+        {showUdhaar && <UdhaarTile totals={udhaar} hasEntries={app.udhaar.length > 0} open={open} />}
 
       </BentoGrid>
     </section>

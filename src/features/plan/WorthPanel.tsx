@@ -40,31 +40,12 @@ function AutoRow({ line }: Readonly<{ line: AutoLine }>) {
   );
 }
 
-// What the net worth is made of: the things owned and owed (with a monthly check-in), where it sits, what moved, and two honest numbers
-// (how long the liquid money would last, and how big the debts are against what is owned). Automatic lines are the person's choice.
-export function WorthPanel() {
-  const app = useApp();
-  const today = isoDate();
-  const auto = useAutoLines();
-  const spend = useSpendEntries();
+type Summary = ReturnType<typeof worthSummary>;
+
+// Which automatic lines are on (group balances, Udhaar): each is the person's choice, and kept on this phone only.
+function AutoToggles() {
   const on = worthAuto.use();
-  const [mode, setMode] = useState<null | 'add' | 'checkin' | WorthItem>(null);
-  const { assets, debts } = worthItems(app.goals, today);
-  const none = assets.length + debts.length === 0;
-  const sum = worthSummary(app.goals, today, auto);
-  const moves = worthMoves(app.goals, today);
-  const usual = usualMonthlySpend(budgetEntries(spend, app.me), groupLookup(app.categories), today);
-  const runway = runwayMonths(sum.liquid, usual);
-  const share = debtShare(sum.assets, sum.debts);
-  const total = sum.assets + sum.debts;
-  const autoOwn = auto.filter((l) => l.amount > 0); // an automatic line counts on the side its sign puts it
-  const autoOwe = auto.filter((l) => l.amount < 0);
-
-  if (mode === 'add') return <WorthForm auto={auto} onDone={() => setMode(null)} />;
-  if (mode === 'checkin') return <WorthCheckIn auto={auto} onDone={() => setMode(null)} />;
-  if (mode) return <WorthForm key={mode.id} item={mode} auto={auto} onDone={() => setMode(null)} />;
-
-  const toggles = (
+  return (
     <div className={ui.card()}>
       <h3>{tr('Add automatically')}</h3>
       <label className={ui.check}>
@@ -78,6 +59,63 @@ export function WorthPanel() {
       <p className="text-muted text-[13px]">{tr('Worked out from what the app already holds, so do not also type them as items. The figure is counted in each check-in.')}</p>
     </div>
   );
+}
+
+// The biggest changes since the last check-in. The arrow follows the item's own number, the colour says whether net worth got better.
+function MovesCard({ moves }: Readonly<{ moves: ReturnType<typeof worthMoves> }>) {
+  return (
+    <div className={ui.card()}>
+      <h3>{tr('What moved since the last check-in')}</h3>
+      <ul className="m-0 list-none p-0 text-[14px]">
+        {moves.map((m) => <li key={m.id} className="flex justify-between py-0.5"><span>{m.name}</span><b className={`tabular-nums ${m.change > 0 ? 'text-good' : 'text-bad'}`}>{movedUp(m) ? '▲ ' : '▼ '}{fmtINR(Math.abs(m.change))}</b></li>)}
+      </ul>
+    </div>
+  );
+}
+
+// Where the money sits (bars by kind), cash and bank against the rest, and the two honest numbers: how long the cash would last, and the debts against what is owned.
+function SitsCard({ sum, today, spend }: Readonly<{ sum: Summary; today: string; spend: ReturnType<typeof useSpendEntries> }>) {
+  const app = useApp();
+  const usual = usualMonthlySpend(budgetEntries(spend, app.me), groupLookup(app.categories), today);
+  const runway = runwayMonths(sum.liquid, usual);
+  const share = debtShare(sum.assets, sum.debts);
+  const total = sum.assets + sum.debts;
+  return (
+    <div className={ui.card()}>
+      <h3>{tr('Where it sits')}</h3>
+      <ul className="m-0 list-none p-0">
+        {sum.byClass.map((c) => (
+          <li key={`${c.side}${c.cls}`} className="py-1">
+            <div className="flex justify-between text-[14px]"><span>{classLabel(c.side, c.cls)}{c.side === 'd' ? ` (${tr('owed')})` : ''}</span><b className="tabular-nums">{fmtINR(c.amount)}</b></div>
+            <div className={ui.meter(c.side === 'd' ? 'bad' : 'accent', 'mt-1 mb-0')} aria-hidden="true"><i style={{ width: `${total > 0 ? Math.max(2, Math.round((c.amount / total) * 100)) : 0}%` }} /></div>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 mb-0 text-[14px]">{tr('Cash and bank: {0}. Everything else you own: {1}.', fmtINR(sum.liquid), fmtINR(Math.max(0, sum.assets - sum.liquid)))}</p>
+      {runway !== null ? <p className="mt-1 mb-0 text-[14px]">{tr('Your cash and bank would cover about {0} months of a usual month\'s spending ({1}).', runway, fmtINR(usual))}</p> : <p className="mt-1 mb-0 text-[13px] text-muted">{tr('How long your cash and bank would last shows once there is a month or two of spending.')}</p>}
+      {share !== null && sum.debts > 0 && <p className="mt-1 mb-0 text-[14px]">{tr('Your debts are {0} of what you own.', pct(share))}</p>}
+    </div>
+  );
+}
+
+// What the net worth is made of: the things owned and owed (with a monthly check-in), where it sits, what moved, and two honest numbers
+// (how long the liquid money would last, and how big the debts are against what is owned). Automatic lines are the person's choice.
+export function WorthPanel() {
+  const app = useApp();
+  const today = isoDate();
+  const auto = useAutoLines();
+  const spend = useSpendEntries(); // read here, as before the split: the hook also sets the day your share starts counting, whichever form is open
+  const [mode, setMode] = useState<null | 'add' | 'checkin' | WorthItem>(null);
+  const { assets, debts } = worthItems(app.goals, today);
+  const none = assets.length + debts.length === 0;
+  const sum = worthSummary(app.goals, today, auto);
+  const moves = worthMoves(app.goals, today);
+  const autoOwn = auto.filter((l) => l.amount > 0); // an automatic line counts on the side its sign puts it
+  const autoOwe = auto.filter((l) => l.amount < 0);
+
+  if (mode === 'add') return <WorthForm auto={auto} onDone={() => setMode(null)} />;
+  if (mode === 'checkin') return <WorthCheckIn auto={auto} onDone={() => setMode(null)} />;
+  if (mode) return <WorthForm key={mode.id} item={mode} auto={auto} onDone={() => setMode(null)} />;
 
   if (none) {
     return (
@@ -87,7 +125,7 @@ export function WorthPanel() {
           <p className="text-muted text-[13px]">{tr('List what you own (bank, investments, gold, property) and what you owe (loans, cards). Net worth is worked out for you, a monthly check-in takes a minute, and you see where the money sits and how long it would last.')}</p>
           <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => setMode('add')}>{tr('Add what you own and owe')}</button>
         </div>
-        {toggles}
+        <AutoToggles />
       </>
     );
   }
@@ -103,30 +141,10 @@ export function WorthPanel() {
         {(debts.length > 0 || autoOwe.length > 0) && (<><h3 className="mt-3 mb-1 text-[15px]">{tr('You owe')} · {fmtINR(sum.debts)}</h3><ul className={ui.list(true)}>{debts.map((i) => <Row key={i.id} item={i} today={today} onEdit={() => setMode(i)} />)}{autoOwe.map((l) => <AutoRow key={l.key} line={l} />)}</ul></>)}
       </div>
 
-      {moves.length > 0 && (
-        <div className={ui.card()}>
-          <h3>{tr('What moved since the last check-in')}</h3>
-          <ul className="m-0 list-none p-0 text-[14px]">
-            {moves.map((m) => <li key={m.id} className="flex justify-between py-0.5"><span>{m.name}</span><b className={`tabular-nums ${m.change > 0 ? 'text-good' : 'text-bad'}`}>{movedUp(m) ? '▲ ' : '▼ '}{fmtINR(Math.abs(m.change))}</b></li>)}
-          </ul>
-        </div>
-      )}
+      {moves.length > 0 && <MovesCard moves={moves} />}
 
-      <div className={ui.card()}>
-        <h3>{tr('Where it sits')}</h3>
-        <ul className="m-0 list-none p-0">
-          {sum.byClass.map((c) => (
-            <li key={`${c.side}${c.cls}`} className="py-1">
-              <div className="flex justify-between text-[14px]"><span>{classLabel(c.side, c.cls)}{c.side === 'd' ? ` (${tr('owed')})` : ''}</span><b className="tabular-nums">{fmtINR(c.amount)}</b></div>
-              <div className={ui.meter(c.side === 'd' ? 'bad' : 'accent', 'mt-1 mb-0')} aria-hidden="true"><i style={{ width: `${total > 0 ? Math.max(2, Math.round((c.amount / total) * 100)) : 0}%` }} /></div>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 mb-0 text-[14px]">{tr('Cash and bank: {0}. Everything else you own: {1}.', fmtINR(sum.liquid), fmtINR(Math.max(0, sum.assets - sum.liquid)))}</p>
-        {runway !== null ? <p className="mt-1 mb-0 text-[14px]">{tr('Your cash and bank would cover about {0} months of a usual month\'s spending ({1}).', runway, fmtINR(usual))}</p> : <p className="mt-1 mb-0 text-[13px] text-muted">{tr('How long your cash and bank would last shows once there is a month or two of spending.')}</p>}
-        {share !== null && sum.debts > 0 && <p className="mt-1 mb-0 text-[14px]">{tr('Your debts are {0} of what you own.', pct(share))}</p>}
-      </div>
-      {toggles}
+      <SitsCard sum={sum} today={today} spend={spend} />
+      <AutoToggles />
     </>
   );
 }

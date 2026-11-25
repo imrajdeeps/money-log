@@ -17,36 +17,50 @@ export interface GroupSummary {
 // "food" and "Food" are one line; it is shown with a capital letter.
 const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function groupSummary(entries: Entry[], groupId: string, opts: { month?: string } = {}): GroupSummary {
-  const live = entries.filter((e) => e.group_id === groupId && !e.deleted_at && (!opts.month || e.entry_date.startsWith(`${opts.month}-`)));
-  const paid = new Map<string, number>();
-  const share = new Map<string, number>();
-  const cats = new Map<string, { name: string; paise: number }>();
-  const days = new Map<string, number>();
-  let total = 0;
+const bump = <K>(m: Map<K, number>, key: K, by: number): void => { m.set(key, (m.get(key) ?? 0) + by); };
+
+// What the live expenses add up to, in paise: in all, by who paid, by whose share it is, by category and by day.
+interface Tally {
+  total: number;
+  paid: Map<string, number>;
+  share: Map<string, number>;
+  cats: Map<string, { name: string; paise: number }>;
+  days: Map<string, number>;
+}
+
+function tally(live: Entry[]): Tally {
+  const t: Tally = { total: 0, paid: new Map(), share: new Map(), cats: new Map(), days: new Map() };
   for (const e of live) {
     const p = toPaise(e.amount);
-    total += p;
-    if (e.paid_by) paid.set(e.paid_by, (paid.get(e.paid_by) ?? 0) + p);
-    for (const [u, v] of Object.entries(e.shares ?? {})) share.set(u, (share.get(u) ?? 0) + toPaise(v));
+    t.total += p;
+    if (e.paid_by) bump(t.paid, e.paid_by, p);
+    for (const [u, v] of Object.entries(e.shares ?? {})) bump(t.share, u, toPaise(v));
     const k = catKey(e.category);
-    const c = cats.get(k) ?? { name: capital(normName(e.category)), paise: 0 };
+    const c = t.cats.get(k) ?? { name: capital(normName(e.category)), paise: 0 };
     c.paise += p;
-    cats.set(k, c);
-    days.set(e.entry_date, (days.get(e.entry_date) ?? 0) + p);
+    t.cats.set(k, c);
+    bump(t.days, e.entry_date, p);
   }
-  const users = [...new Set([...paid.keys(), ...share.keys()])];
-  return {
-    count: live.length,
-    total: fromPaise(total),
-    perPerson: users
-      .map((user) => ({ user, paid: fromPaise(paid.get(user) ?? 0), share: fromPaise(share.get(user) ?? 0) }))
-      .sort((a, b) => b.paid - a.paid || b.share - a.share || (a.user < b.user ? -1 : 1)),
-    byCategory: [...cats.values()]
-      .map((c) => ({ category: c.name, total: fromPaise(c.paise), share: total > 0 ? c.paise / total : 0 }))
-      .sort((a, b) => b.total - a.total || (a.category < b.category ? -1 : 1)),
-    byDay: [...days.entries()].map(([date, p]) => ({ date, total: fromPaise(p) })).sort((a, b) => (a.date < b.date ? -1 : 1)),
-  };
+  return t;
+}
+
+const perPersonOf = (t: Tally): GroupSummary['perPerson'] =>
+  [...new Set([...t.paid.keys(), ...t.share.keys()])]
+    .map((user) => ({ user, paid: fromPaise(t.paid.get(user) ?? 0), share: fromPaise(t.share.get(user) ?? 0) }))
+    .sort((a, b) => b.paid - a.paid || b.share - a.share || (a.user < b.user ? -1 : 1));
+
+const byCategoryOf = (t: Tally): GroupSummary['byCategory'] =>
+  [...t.cats.values()]
+    .map((c) => ({ category: c.name, total: fromPaise(c.paise), share: t.total > 0 ? c.paise / t.total : 0 }))
+    .sort((a, b) => b.total - a.total || (a.category < b.category ? -1 : 1));
+
+const byDayOf = (t: Tally): GroupSummary['byDay'] =>
+  [...t.days.entries()].map(([date, p]) => ({ date, total: fromPaise(p) })).sort((a, b) => (a.date < b.date ? -1 : 1));
+
+export function groupSummary(entries: Entry[], groupId: string, opts: { month?: string } = {}): GroupSummary {
+  const live = entries.filter((e) => e.group_id === groupId && !e.deleted_at && (!opts.month || e.entry_date.startsWith(`${opts.month}-`)));
+  const t = tally(live);
+  return { count: live.length, total: fromPaise(t.total), perPerson: perPersonOf(t), byCategory: byCategoryOf(t), byDay: byDayOf(t) };
 }
 
 // The trip's days, first and last included; null when either date is missing.
