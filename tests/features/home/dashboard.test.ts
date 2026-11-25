@@ -265,8 +265,8 @@ test('the line under the month: no budgets, room left, nearly used, over', () =>
 });
 
 test('the line under the month is what it was before it moved out of HomeScreen, for a grid of budgets and spending', () => {
-  for (const budget of [0, 100, 20000]) {
-    for (const spent of [0, 50, 79, 80, 100, 101, 5000, 20000, 25000]) {
+  for (const budget of [0, 100, 20000, Number.NaN]) {
+    for (const spent of [0, 50, 79, 80, 100, 101, 5000, 20000, 25000, Number.NaN]) {
       for (const budgeted of [false, true]) {
         const left = budget - spent;
         const tone = budgeted && left < 0 ? 'bad' : budgeted && near(spent, budget) ? 'warn' : '';
@@ -281,6 +281,7 @@ test('"about N a day is safe to spend": only while something is left, with what 
   assert.equal(safeLine(null), null);
   assert.equal(safeLine({ perDay: 100, left: 0, upcoming: 0, daysLeft: 3 }), null);
   assert.equal(safeLine({ perDay: 100, left: -5, upcoming: 0, daysLeft: 3 }), null);
+  assert.equal(safeLine({ perDay: 100, left: Number.NaN, upcoming: 0, daysLeft: 3 }), null, 'a figure that is not a number says nothing');
   assert.equal(safeLine({ perDay: 4933, left: 29600, upcoming: 0, daysLeft: 6 }), 'About ₹4,933 a day is safe to spend for the 6 days left');
   assert.equal(safeLine({ perDay: 800, left: 6400, upcoming: 1200, daysLeft: 8 }), 'About ₹800 a day is safe to spend for the 8 days left (after ₹1,200 still to come this month)');
 });

@@ -8,11 +8,11 @@ import { tr } from '../core/i18n.ts';
 export function budgetText(saving: boolean, spent: number, planned: number): string {
   const diff = planned - spent;
   if (saving) {
-    if (planned <= 0) return '';
+    if (!(planned > 0)) return '';
     return spent >= planned ? tr('on track') : tr('{0} to go', fmtINR(Math.max(0, diff)));
   }
-  if (diff < 0) return tr('{0} over', fmtINR(-diff));
-  return tr('{0} left{1}', fmtINR(diff), nearBudget(spent, planned) ? tr(', nearly used') : '');
+  if (diff >= 0) return tr('{0} left{1}', fmtINR(diff), nearBudget(spent, planned) ? tr(', nearly used') : '');
+  return tr('{0} over', fmtINR(-diff));
 }
 
 // The colour of the meter.

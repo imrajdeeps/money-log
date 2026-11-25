@@ -169,12 +169,12 @@ export function monthStatus(ov: Pick<MonthOverview, 'budgeted' | 'budget' | 'spe
   if (!ov.budgeted) return { tone: '', text: tr('No budgets yet: open to set them.') };
   const left = ov.budget - ov.spent;
   const near = nearBudget(ov.spent, ov.budget);
-  if (left < 0) return { tone: 'bad', text: tr('{0} over budget', fmtINR(-left)) };
-  return { tone: near ? 'warn' : '', text: tr('{0} left this month{1}', fmtINR(left), near ? tr(', budget nearly used') : '') };
+  const text = left >= 0 ? tr('{0} left this month{1}', fmtINR(left), near ? tr(', budget nearly used') : '') : tr('{0} over budget', fmtINR(-left));
+  return { tone: left < 0 ? 'bad' : near ? 'warn' : '', text };
 }
 
 /** "About ₹N a day is safe to spend ...": said only while there is something left to spend, otherwise null. */
 export function safeLine(safe: SafeToSpend | null): string | null {
-  if (!safe || safe.left <= 0) return null;
+  if (!safe || !(safe.left > 0)) return null;
   return tr('About {0} a day is safe to spend for the {1} days left{2}', fmtINR(safe.perDay), safe.daysLeft, safe.upcoming > 0 ? tr(' (after {0} still to come this month)', fmtINR(safe.upcoming)) : '');
 }

@@ -23,15 +23,15 @@ function before(group: Group, spent: number, planned: number, over: boolean) {
 
 test('the words, the colour and the fill are what they were before the meter was split up', () => {
   for (const group of GROUPS) {
-    for (const planned of [0, 100, 20000]) {
-      for (const spent of [0, 1, 79, 80, 99.5, 100, 101, 250, 20000, 30000]) {
+    for (const planned of [0, 100, 20000, Number.NaN]) {
+      for (const spent of [0, 1, 79, 80, 99.5, 100, 101, 250, 20000, 30000, Number.NaN]) {
         for (const over of [false, true]) {
           const want = before(group, spent, planned, over);
           const saving = group === 'Saving';
           const tone = meterTone(budgetState(group, spent, planned, over), saving, spent, planned);
           const label = `${group} spent ${spent} of ${planned}, month over ${over}`;
           assert.equal(budgetText(saving, spent, planned), want.text, label);
-          assert.equal(fillPercent(spent, planned), want.pct, label);
+          assert.ok(Object.is(fillPercent(spent, planned), want.pct), label);
           assert.equal(tone, want.tone, label);
         }
       }
