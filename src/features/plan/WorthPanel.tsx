@@ -74,9 +74,8 @@ function MovesCard({ moves }: Readonly<{ moves: ReturnType<typeof worthMoves> }>
 }
 
 // Where the money sits (bars by kind), cash and bank against the rest, and the two honest numbers: how long the cash would last, and the debts against what is owned.
-function SitsCard({ sum, today }: Readonly<{ sum: Summary; today: string }>) {
+function SitsCard({ sum, today, spend }: Readonly<{ sum: Summary; today: string; spend: ReturnType<typeof useSpendEntries> }>) {
   const app = useApp();
-  const spend = useSpendEntries();
   const usual = usualMonthlySpend(budgetEntries(spend, app.me), groupLookup(app.categories), today);
   const runway = runwayMonths(sum.liquid, usual);
   const share = debtShare(sum.assets, sum.debts);
@@ -105,6 +104,7 @@ export function WorthPanel() {
   const app = useApp();
   const today = isoDate();
   const auto = useAutoLines();
+  const spend = useSpendEntries(); // read here, as before the split: the hook also sets the day your share starts counting, whichever form is open
   const [mode, setMode] = useState<null | 'add' | 'checkin' | WorthItem>(null);
   const { assets, debts } = worthItems(app.goals, today);
   const none = assets.length + debts.length === 0;
@@ -143,7 +143,7 @@ export function WorthPanel() {
 
       {moves.length > 0 && <MovesCard moves={moves} />}
 
-      <SitsCard sum={sum} today={today} />
+      <SitsCard sum={sum} today={today} spend={spend} />
       <AutoToggles />
     </>
   );

@@ -1,6 +1,13 @@
-// Cognitive complexity of the functions in src/, by SonarSource's published rules (the rules SonarLint's S3776 applies, whose limit is 15).
+// Cognitive complexity of the functions in src/, counted the way SonarLint counts it (rule S3776, limit 15), following SonarJS as it is today
+// (its rule source, packages/analysis/src/jsts/rules/S3776/rule.ts and helpers/jsx.ts, read 2026-11-25):
+//   - every function is scored on its own, nested ones too (a callback or a handler inside a component is its own function): what a
+//     function holds counts for it, what a function inside it holds counts for that one, and nesting starts again at zero in each;
+//   - if, else if, else, switch, for, while, do, catch, a conditional expression and a jump to a label add one; inside another such
+//     structure they add one more for each level of nesting;
+//   - a run of && counts once; || and ?? do not count; && directly inside JSX ({ok && <p/>}) does not count.
 // It reads the source with the parser that comes with Vite (rolldown/utils), so nothing is added to the project.
-//   node tests/support/complexity.ts            lists every top-level function over the limit
+// SonarLint's own panel stays the last word: the version of SonarJS inside the editor may be older or newer than the one read here.
+//   node tests/support/complexity.ts            lists every function over the limit
 //   node tests/support/complexity.ts --write    rewrites tests/app/complexity-baseline.json to match (what a cleanup commits)
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -16,59 +23,95 @@ interface Node { type: string; [key: string]: unknown }
 const isNode = (v: unknown): v is Node => typeof v === 'object' && v !== null && typeof (v as Node).type === 'string';
 const children = (n: Node): Node[] => Object.entries(n).filter(([k]) => k !== 'type').flatMap(([, v]) => (Array.isArray(v) ? v : [v]).filter(isNode));
 const FUNCTIONS = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
+const WRAPPERS = new Set(['TSAsExpression', 'TSNonNullExpression', 'TSSatisfiesExpression', 'TSTypeAssertion', 'ParenthesizedExpression']);
+const unwrap = (n: Node): Node => (WRAPPERS.has(n.type) && isNode(n.expression) ? unwrap(n.expression) : n);
 
-/** The cognitive complexity of one function: its own structures, plus those of the functions written inside it (one level deeper each). */
-function score(fn: Node): number {
-  let total = 0;
-  // a run of the same logical operator counts once; each change of operator counts again
-  const logical = (n: Node, parentOp: unknown, nest: number): void => {
-    if (n.type !== 'LogicalExpression') { visit(n, nest); return; } // an operand is an ordinary expression: whatever it holds counts as usual
-    if (n.operator !== parentOp) total += 1;
-    for (const side of [n.left, n.right]) if (isNode(side)) logical(side, n.operator, nest);
-  };
-  function visit(n: Node, nest: number, elseIf = false): void {
+/** The logical expressions of a run, left to right (a && b || c gives the && node, the || node), looking through parentheses and `as`. */
+function flatten(n: Node, seen: Set<Node>): Node[] {
+  const u = unwrap(n);
+  if (u.type !== 'LogicalExpression') return [];
+  seen.add(u);
+  return [...flatten(u.left as Node, seen), u, ...flatten(u.right as Node, seen)];
+}
+
+/** The nodes of a short-circuit written straight inside JSX: all with the root's operator and no conditional in between; otherwise null. */
+function jsxRun(root: Node, n: Node): Node[] | null {
+  const u = unwrap(n);
+  if (u.type === 'ConditionalExpression' || (u.type === 'LogicalExpression' && u.operator !== root.operator)) return null;
+  if (u.type !== 'LogicalExpression') return [];
+  const left = jsxRun(root, u.left as Node);
+  const right = jsxRun(root, u.right as Node);
+  return left && right ? [...left, u, ...right] : null;
+}
+
+/** The complexity of one function by itself, and the functions written directly inside it (they are scored on their own). */
+function ownScore(fn: Node): { score: number; inner: { node: Node; parent: Node }[] } {
+  let score = 0;
+  const inner: { node: Node; parent: Node }[] = [];
+  const counted = new Set<Node>(); // logical expressions already counted as part of a run (or free, inside JSX)
+
+  function logical(n: Node, parents: Node[]): void {
+    if (counted.has(n)) return;
+    let i = parents.length - 1;
+    while (i >= 0 && unwrap(parents[i]!) === n) i--; // looking through `(…)` and `as` around it
+    if (parents[i]?.type === 'JSXExpressionContainer') {
+      const free = jsxRun(n, n);
+      if (free) { for (const f of free) counted.add(f); return; }
+    }
+    let previous: Node | undefined;
+    for (const current of flatten(n, counted)) {
+      if (current.operator !== '||' && current.operator !== '??' && previous?.operator !== current.operator) score += 1;
+      previous = current;
+    }
+  }
+
+  function visit(n: Node, parents: Node[], nest: number): void {
+    if (FUNCTIONS.has(n.type)) { inner.push({ node: n, parent: parents.at(-1)! }); return; }
+    const here = [...parents, n];
+    const to = (child: unknown, level: number): void => { if (isNode(child)) visit(child, here, level); };
     switch (n.type) {
       case 'IfStatement': {
-        total += elseIf ? 1 : 1 + nest;
-        for (const part of [n.test]) if (isNode(part)) visit(part, nest);
-        if (isNode(n.consequent)) visit(n.consequent, nest + 1);
-        const alt = n.alternate;
-        if (isNode(alt)) {
-          if (alt.type === 'IfStatement') visit(alt, nest, true);
-          else { total += 1; visit(alt, nest + 1); }
-        }
+        const parent = parents.at(-1);
+        score += parent?.type === 'IfStatement' && parent.alternate === n ? 1 : 1 + nest; // else if adds one, without nesting
+        to(n.test, nest);
+        to(n.consequent, nest + 1);
+        if (isNode(n.alternate) && n.alternate.type !== 'IfStatement') score += 1; // else
+        to(n.alternate, isNode(n.alternate) && n.alternate.type === 'IfStatement' ? nest : nest + 1);
         return;
       }
       case 'ConditionalExpression':
-        total += 1 + nest;
-        if (isNode(n.test)) visit(n.test, nest);
-        for (const part of [n.consequent, n.alternate]) if (isNode(part)) visit(part, nest + 1);
+        score += 1 + nest;
+        to(n.test, nest);
+        to(n.consequent, nest + 1);
+        to(n.alternate, nest + 1);
         return;
       case 'SwitchStatement':
-        total += 1 + nest;
-        if (isNode(n.discriminant)) visit(n.discriminant, nest);
-        for (const c of children(n).filter((x) => x.type === 'SwitchCase')) for (const part of children(c)) visit(part, nest + 1);
+        score += 1 + nest;
+        to(n.discriminant, nest);
+        for (const c of (n.cases as Node[])) to(c, nest + 1);
         return;
       case 'ForStatement': case 'ForInStatement': case 'ForOfStatement': case 'WhileStatement': case 'DoWhileStatement':
-        total += 1 + nest;
-        for (const c of children(n)) visit(c, c === n.body ? nest + 1 : nest);
+        score += 1 + nest;
+        for (const c of children(n)) visit(c, here, c === n.body ? nest + 1 : nest);
         return;
       case 'CatchClause':
-        total += 1 + nest;
-        for (const c of children(n)) visit(c, nest + 1);
-        return;
-      case 'LogicalExpression':
-        logical(n, null, nest);
+        score += 1 + nest;
+        for (const c of children(n)) visit(c, here, c === n.body ? nest + 1 : nest);
         return;
       case 'BreakStatement': case 'ContinueStatement':
-        if (n.label) total += 1; // only a jump to a label counts
+        if (n.label) score += 1; // only a jump to a label counts
         return;
+      case 'LogicalExpression':
+        logical(n, parents);
+        break;
       default:
-        for (const c of children(n)) visit(c, FUNCTIONS.has(n.type) ? nest + 1 : nest);
+        break;
     }
+    for (const c of children(n)) visit(c, here, nest);
   }
-  for (const c of children(fn)) visit(c, 0);
-  return total;
+
+  for (const c of children(fn)) visit(c, [fn], 0);
+  return { score, inner };
 }
 
 export interface Scored { name: string; line: number; score: number }
@@ -80,23 +123,30 @@ const nameOf = (n: Node, parent: Node | null): string => {
   return '(anonymous)';
 };
 
-/** Every function that is not inside another function, with its complexity. Two with the same name get #2, #3 in order. */
+/**
+ * Every function in the file with its own complexity. One inside another is named after the way in, "Outer>inner"; two with the same name
+ * get #2, #3 in the order they are met.
+ */
 export function scoreSource(filename: string, source: string): Scored[] {
-  const { program } = parseSync(filename, source, { lang: filename.endsWith('x') ? 'tsx' : 'ts' });
+  const { program } = parseSync(filename, source, { lang: filename.endsWith('x') ? 'tsx' : 'ts', preserveParens: false });
   const line = (pos: number) => source.slice(0, pos).split('\n').length;
-  const found: { fn: Node; parent: Node | null }[] = [];
+  const out: Scored[] = [];
+  const seen = new Map<string, number>();
+  const add = (fn: Node, parent: Node | null, path: string): void => {
+    const base = path ? `${path}>${nameOf(fn, parent)}` : nameOf(fn, parent);
+    const k = (seen.get(base) ?? 0) + 1;
+    seen.set(base, k);
+    const name = k === 1 ? base : `${base}#${k}`;
+    const { score, inner } = ownScore(fn);
+    out.push({ name, line: line(Number(fn.start)), score });
+    for (const i of inner) add(i.node, i.parent, name);
+  };
   const find = (n: Node, parent: Node | null): void => {
-    if (FUNCTIONS.has(n.type)) { found.push({ fn: n, parent }); return; } // what is inside it counts towards it
+    if (FUNCTIONS.has(n.type)) { add(n, parent, ''); return; }
     for (const c of children(n)) find(c, n);
   };
   find(program as unknown as Node, null);
-  const seen = new Map<string, number>();
-  return found.map(({ fn, parent }) => {
-    const base = nameOf(fn, parent);
-    const k = (seen.get(base) ?? 0) + 1;
-    seen.set(base, k);
-    return { name: k === 1 ? base : `${base}#${k}`, line: line(Number(fn.start)), score: score(fn) };
-  });
+  return out;
 }
 
 function sourceFiles(dir: string): string[] {
