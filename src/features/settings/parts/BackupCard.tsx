@@ -9,6 +9,10 @@ import { errText } from './shared.ts';
 import * as ui from '../../../ui/styles.ts';
 import { tr } from '../../../core/i18n.ts';
 
+// What to ask before restoring: how many payments the file holds, and how many unreadable ones will be skipped.
+const restoreQuestion = (r: { entries: readonly unknown[]; skipped: number }): string =>
+  tr('Restore from this backup? It holds {0} payment{1}{2}. Payments already here stay unless the backup copy is newer.', r.entries.length, r.entries.length === 1 ? '' : 's', r.skipped ? tr(" ({0} that can't be read will be skipped)", r.skipped) : '');
+
 export function BackupCard() {
   const app = useApp();
   const [msg, setMsg] = useState('');
@@ -28,7 +32,7 @@ export function BackupCard() {
     try {
       const r = parseBackup(await readTextFile(f, 20_000_000));
       if (!r.ok) { setMsg(r.error); return; }
-      if (!window.confirm(tr('Restore from this backup? It holds {0} payment{1}{2}. Payments already here stay unless the backup copy is newer.', r.entries.length, r.entries.length === 1 ? '' : 's', r.skipped ? tr(" ({0} that can't be read will be skipped)", r.skipped) : ''))) return;
+      if (!window.confirm(restoreQuestion(r))) return;
       const res = await app.restoreBackup(r);
       setMsg(tr('Restored: {0} added, {1} updated.', res.added, res.updated));
     } catch (e) { setMsg(errText(e)); }
