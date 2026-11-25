@@ -13,17 +13,24 @@ export type AuthLink =
 
 const TOKEN = /^[A-Za-z0-9._~-]{10,4096}$/; // JWTs and Supabase refresh tokens use these characters only
 
+// A link that failed: say it expired, or give the service's own reason, or a plain one.
+function failedLink(p: URLSearchParams): AuthLink {
+  if ((p.get('error_code') ?? '') === 'otp_expired') return { kind: 'error', message: tr('That link has expired or was already used. Ask for a new one.') };
+  const text = (p.get('error_description') ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  return { kind: 'error', message: text ? tr('That link did not work: {0}.', text) : tr('That link did not work. Ask for a new one.') };
+}
+
+// How long the link's token lives, in seconds: what it says if that is sensible, else an hour.
+const lifetimeOf = (raw: string | null): number => {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 && n <= 604800 ? Math.floor(n) : 3600;
+};
+
 export function parseAuthHash(hash: string): AuthLink | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!raw.includes('=')) return null;
   const p = new URLSearchParams(raw);
-
-  if (p.has('error') || p.has('error_code')) {
-    const code = p.get('error_code') ?? '';
-    if (code === 'otp_expired') return { kind: 'error', message: tr('That link has expired or was already used. Ask for a new one.') };
-    const text = (p.get('error_description') ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
-    return { kind: 'error', message: text ? tr('That link did not work: {0}.', text) : tr('That link did not work. Ask for a new one.') };
-  }
+  if (p.has('error') || p.has('error_code')) return failedLink(p);
 
   const access = p.get('access_token');
   if (access === null) return null; // not a Supabase link: leave the hash to whoever else uses it (the group join links)
@@ -31,6 +38,5 @@ export function parseAuthHash(hash: string): AuthLink | null {
   const refresh = p.get('refresh_token') ?? '';
   if (type !== 'recovery') return { kind: 'other', type };
   if (!TOKEN.test(access) || !TOKEN.test(refresh)) return { kind: 'error', message: tr('That link looks damaged. Ask for a new one.') };
-  const n = Number(p.get('expires_in'));
-  return { kind: 'recovery', accessToken: access, refreshToken: refresh, expiresIn: Number.isFinite(n) && n > 0 && n <= 604800 ? Math.floor(n) : 3600 };
+  return { kind: 'recovery', accessToken: access, refreshToken: refresh, expiresIn: lifetimeOf(p.get('expires_in')) };
 }

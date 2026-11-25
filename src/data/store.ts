@@ -255,24 +255,24 @@ function idbStore(db: IDBDatabase): Store {
 }
 
 // Opens IndexedDB; if the browser refuses (some private modes), falls back to memory so the app still runs.
+// Version 1 had entries and meta; version 2 added settlements; version 3 adds receipts and their picture files.
+const STORES: readonly (readonly [string, string])[] = [['entries', 'id'], ['meta', 'key'], ['settlements', 'id'], ['receipts', 'id'], ['blobs', 'id']];
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      for (const [name, keyPath] of STORES) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error(tr('Storage is blocked by another tab.')));
+  });
+}
+
 export async function openStore(): Promise<Store> {
   try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
-        // Version 1 had entries and meta; version 2 added settlements; version 3 adds receipts and their picture files.
-        const names = req.result.objectStoreNames;
-        if (!names.contains('entries')) req.result.createObjectStore('entries', { keyPath: 'id' });
-        if (!names.contains('meta')) req.result.createObjectStore('meta', { keyPath: 'key' });
-        if (!names.contains('settlements')) req.result.createObjectStore('settlements', { keyPath: 'id' });
-        if (!names.contains('receipts')) req.result.createObjectStore('receipts', { keyPath: 'id' });
-        if (!names.contains('blobs')) req.result.createObjectStore('blobs', { keyPath: 'id' });
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error(tr('Storage is blocked by another tab.')));
-    });
-    return idbStore(db);
+    return idbStore(await openDb());
   } catch {
     return memoryStore();
   }

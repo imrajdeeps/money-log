@@ -5,6 +5,14 @@ import { useSyncExternalStore } from 'react';
 
 export interface LocalPref<T> { load: () => T; save: (v: T) => void; subscribe: (fn: () => void) => () => void; use: () => T }
 
+// What was stored, as the preference's value: nothing stored, or text that is not JSON, counts as no choice (the fallback).
+function decode<T>(raw: string | null, clean: (raw: unknown) => T, fallback: T): T {
+  if (raw === null) return fallback;
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return fallback; }
+  return clean(parsed);
+}
+
 export function localPref<T>(key: string, clean: (raw: unknown) => T, fallback: T): LocalPref<T> {
   const listeners = new Set<() => void>();
   let cache: { raw: string | null; value: T } | null = null;
@@ -14,10 +22,7 @@ export function localPref<T>(key: string, clean: (raw: unknown) => T, fallback: 
     let raw: string | null = null;
     try { raw = localStorage.getItem(key); } catch { return fallback; }
     if (cache && cache.raw === raw) return cache.value; // the same object until it changes: React can compare it
-    let parsed: unknown = null;
-    let readable = true;
-    try { parsed = raw === null ? null : JSON.parse(raw); } catch { readable = false; } // text that is not JSON counts as nothing stored
-    cache = { raw, value: raw === null || !readable ? fallback : clean(parsed) };
+    cache = { raw, value: decode(raw, clean, fallback) };
     return cache.value;
   };
   const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
