@@ -19,9 +19,9 @@
   --animate-page-in: page-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   --animate-rise: rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   --animate-toast: toast-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-  --animate-splash-in: splash-in 700ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  --animate-splash-in: splash-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   --animate-ring: ring 1800ms ease-in-out infinite;
-  @keyframes splash-in { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: none; } }
+  @keyframes splash-in { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: none; } }
   @keyframes ring { 0%, 100% { stroke-opacity: 0.25; } 50% { stroke-opacity: 0.8; } }
   @keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
@@ -51,46 +51,68 @@
   --color-bad-bg: var(--bad-bg);
   --color-warn: var(--warn);
   --color-warn-bg: var(--warn-bg);
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  --color-control-line: var(--control-line);
+  --color-field-line: var(--field-line);
+  --color-press: var(--press);
+  --color-primary-press: var(--primary-press);
+  --color-disabled-bg: var(--disabled-bg);
+  --color-disabled-ink: var(--disabled-ink);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-line: var(--danger-line);
+  --color-danger-press: var(--danger-press);
+  --color-tab-pill: var(--tab-pill);
+  --color-toast-action: var(--toast-action);
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Devanagari', 'Kohinoor Devanagari', Mangal, system-ui, sans-serif;
   --radius-card: var(--radius);
   --radius-card-lg: var(--radius-lg);
+  --radius-field: var(--radius-field);
 }
 
 @layer base {
   html { scroll-padding-top: 96px; } /* a page jump (the net worth part of Plan) must not end up under the sticky header */
 
   h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
-  h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.005em; margin: 0 0 8px; }
+  h2 { font-size: 16px; line-height: 22px; font-weight: 650; letter-spacing: -0.005em; margin: 0 0 8px; } /* heading-2: 16 / 22 */
   h3 { font-size: 15px; margin: 0 0 4px; color: var(--muted); font-weight: 600; }
   p { margin: 0 0 10px; }
 
   input, select, textarea {
     width: 100%;
-    min-height: 46px;
+    min-height: 48px;
     font: inherit;
     font-size: 16px; /* 16px stops iPhone from zooming the page when a field is focused */
     color: var(--ink);
     background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 12px;
+    border: 1px solid var(--field-line); /* 3:1, so a field shows where to type */
+    border-radius: var(--radius-field);
+    padding: 11px 14px;
   }
+  /* a focused field: the border turns accent with a soft ring, instead of the outline every other control gets */
+  input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  input[aria-invalid='true'], select[aria-invalid='true'], textarea[aria-invalid='true'] { border-color: var(--bad); box-shadow: inset 0 0 0 0.5px var(--bad); }
+  input:disabled, select:disabled, textarea:disabled { background: var(--disabled-bg); color: var(--disabled-ink); border-color: var(--line); }
+  input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width: auto; min-height: 0; }
   textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; min-height: 90px; }
-  select { appearance: auto; }
+  /* our own arrow, 14px from the right edge, with room so long text never runs under it */
+  select { appearance: none; -webkit-appearance: none; padding-right: 44px; background-image: var(--chevron); background-repeat: no-repeat; background-position: right 14px center; background-size: 18px 18px; cursor: pointer; }
   input[type='file'] { display: none; }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } /* a 2px ring with a 2px gap: shows on lime, white and green */
 
   dialog {
     width: min(92vw, 480px);
     max-height: 92dvh;
     overflow: auto;
     border: 0;
-    border-radius: 18px;
-    padding: 18px;
+    border-radius: 20px;
+    padding: 20px;
     background: var(--card);
     color: var(--ink);
+    box-shadow: var(--shadow-pop);
   }
-  dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+  dialog::backdrop { background: rgba(12, 17, 14, 0.45); }
 
   /* dialogs open with a small scale and fade */
   dialog[open] { animation: dialog-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
@@ -122,13 +144,13 @@
    the generated classes, so it wins over the tile's own bg-card and border-line. */
 @layer utilities {
   .hero {
-    --card: var(--hero); --ink: #ffffff; --muted: #bcd5c7; --line: rgba(255, 255, 255, 0.2);
+    --card: var(--hero); --ink: #ffffff; --muted: #c6d9c9; --line: rgba(255, 255, 255, 0.2);
     --accent: #c9e96a; --good: #c9e96a; --bad: #ffb4b4; --warn: #ffd27a;
     --bg: rgba(255, 255, 255, 0.12); --good-bg: rgba(201, 233, 106, 0.16); --bad-bg: rgba(255, 180, 180, 0.16); --warn-bg: rgba(255, 210, 122, 0.16);
     --chart-ref: rgba(255, 255, 255, 0.5); --shadow: 0 12px 28px -16px rgba(16, 74, 48, 0.7); --inner: 0 0 0 0 transparent;
     background: var(--hero); color: var(--ink); border-color: transparent;
   }
-  :root[data-theme='dark'] .hero { border-color: rgba(201, 233, 106, 0.14); }
+  :root[data-theme='dark'] .hero { border-color: var(--hero-edge); }
 }
 
 /* the phone's reduced-motion setting: every animation and transition ends at once */

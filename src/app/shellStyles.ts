@@ -8,10 +8,10 @@ export const top =
   'sticky top-0 z-[6] flex items-center justify-between gap-3 px-0 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 bg-bg [box-shadow:0_1px_0_var(--line)] lg:pt-5 lg:pb-3.5';
 export const brand = 'flex-1 min-w-0 whitespace-nowrap max-lg:[&_h1]:text-[17px] lg:flex-none';
 export const topNav = 'hidden lg:flex flex-1 justify-center gap-0.5';
-const NAV_BTN = 'min-h-11 px-3.5 py-0 [line-height:inherit] border-0 rounded-[10px] [font-family:inherit] text-[15px] font-semibold cursor-pointer';
+const NAV_BTN = 'min-h-11 px-3.5 py-0 [line-height:inherit] border-0 rounded-[10px] [font-family:inherit] text-[15px] cursor-pointer';
 /** a section link in the header (wide screens only) */
 export const topNavBtn = (active: boolean) =>
-  cx(NAV_BTN, active ? 'bg-card text-ink [box-shadow:inset_0_0_0_1px_var(--line)]' : 'bg-transparent text-muted hover:bg-card hover:text-ink');
+  cx(NAV_BTN, active ? 'bg-tab-pill text-brand font-bold' : 'bg-transparent text-muted font-semibold hover:bg-card hover:text-ink');
 export const topActions = 'flex items-center gap-1.5 lg:gap-2';
 /** the Add expense button of the header (wide screens only); used with btn('solid', 'none', ...) */
 export const addBtn = 'max-lg:hidden gap-1.5 min-h-11 pl-3 pr-4 py-2';
@@ -28,8 +28,9 @@ export const tabs =
   'min-[600px]:left-1/2 min-[600px]:right-auto min-[600px]:w-[560px] min-[600px]:[transform:translateX(-50%)] min-[600px]:border-x min-[600px]:border-line';
 export const tabBtn = (active: boolean, add?: boolean) =>
   cx(
-    'flex-1 min-w-0 min-h-[62px] border-0 bg-transparent [font-family:inherit] [line-height:inherit] text-[12px] font-semibold flex flex-col items-center justify-center gap-[3px] cursor-pointer transition-colors duration-150',
-    active ? 'text-accent' : add ? 'text-ink' : 'text-muted',
+    'flex-1 min-w-0 min-h-[62px] border-0 bg-transparent [font-family:inherit] [line-height:inherit] text-[12px] flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors duration-150 ' +
+      '[&>svg]:box-content [&>svg]:px-3.5 [&>svg]:py-[3px] [&>svg]:rounded-full', // room for the pill behind the open tab's icon
+    active ? 'text-brand font-bold [&>svg]:bg-tab-pill' : add ? 'text-ink font-semibold' : 'text-muted font-medium', // the open tab: pill, bold word, aria-current
     add && 'group/fab focus-visible:outline-none',
   );
 export const fabCircle =
@@ -38,6 +39,7 @@ export const fabCircle =
   'transition-transform duration-150 group-active/fab:[transform:scale(0.94)] motion-reduce:group-active/fab:[transform:none] ' +
   'group-focus-visible/fab:[outline:3px_solid_var(--accent)] group-focus-visible/fab:outline-offset-[3px]';
 /** the button in a message (Undo): the message itself ignores taps, the button does not */
-export const toastButton = 'pointer-events-auto ml-3 px-2.5 py-1 min-h-9 rounded-lg border-0 bg-[color-mix(in_srgb,var(--bg)_16%,transparent)] text-inherit [font-family:inherit] text-[14px] font-bold cursor-pointer';
+export const toastButton = 'pointer-events-auto -my-2 -mr-2.5 ml-3 px-3.5 min-h-11 flex-none rounded-[10px] border-0 bg-transparent text-toast-action [font-family:inherit] text-[15px] font-bold cursor-pointer';
 export const toast =
-  'fixed inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] max-w-[528px] mx-auto px-4 py-3 rounded-xl bg-ink text-bg text-[14px] text-center z-10 pointer-events-none empty:hidden lg:bottom-6';
+  'fixed inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] max-w-[528px] mx-auto px-4 py-3 rounded-[14px] bg-ink text-bg text-[15px] font-semibold ' +
+  'flex items-center justify-between [box-shadow:var(--shadow-pop)] z-10 pointer-events-none empty:hidden lg:bottom-6';

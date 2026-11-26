@@ -8,7 +8,7 @@ import { tr } from '../core/i18n.ts';
 // alone. The meter is the brand colour while there is room, amber from 80% of the budget, rose once it is over; savings
 // fill in emerald as they grow toward the plan.
 export function BudgetLine({ group, spent, planned, over, budgeted }: Readonly<{ group: Group; spent: number; planned: number; over: boolean; budgeted: boolean }>) {
-  if (!budgeted) return <><div className={ui.meter('idle')} aria-hidden="true"><i style={{ width: '0%' }} /></div><span className={ui.leftText()}>{tr('no budget')}</span></>;
+  if (!budgeted) return <><div className={ui.meter('idle')} aria-hidden="true"><i style={{ width: '0%' }} /></div><span className={ui.meterWords()}>{tr('no budget')}</span></>;
   const state = budgetState(group, spent, planned, over);
   const saving = group === 'Saving';
   const tone = meterTone(state, saving, spent, planned);
@@ -16,7 +16,7 @@ export function BudgetLine({ group, spent, planned, over, budgeted }: Readonly<{
   return (
     <>
       <div className={ui.meter(tone)} aria-hidden="true"><i style={{ width: `${fillPercent(spent, planned)}%` }} /></div>
-      <span className={ui.leftText(words)}>{budgetText(saving, spent, planned)}</span>
+      <span className={ui.meterWords(words || (tone === 'accent' ? 'good' : ''))}>{budgetText(saving, spent, planned)}</span>
     </>
   );
 }

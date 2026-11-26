@@ -16,15 +16,16 @@ export const blockTitle = 'text-[16px] mt-5 mb-2';
 // ---- buttons ----------------------------------------------------------------------------------------------------------
 const BTN =
   'inline-flex items-center justify-center rounded-xl border cursor-pointer text-center font-semibold [font-family:inherit] [line-height:inherit] ' +
-  'disabled:opacity-45 disabled:cursor-not-allowed transition-[transform,background-color,border-color] duration-[120ms] enabled:active:scale-[0.97]';
+  'disabled:bg-disabled-bg disabled:text-disabled-ink disabled:border-transparent disabled:[box-shadow:none] disabled:cursor-not-allowed ' +
+  'transition-[translate,background-color,border-color] duration-[120ms] enabled:active:translate-y-px'; // pressed: one step darker and 1px down
 const BTN_COLOUR = {
-  solid: 'bg-primary text-primary-ink border-transparent [box-shadow:inset_0_0_0_1px_var(--primary-ring)]', // a pale lime fill gets a soft ring for an edge
-  ghost: 'bg-transparent text-ink border-line',
-  danger: 'bg-transparent text-bad border-bad',
+  solid: 'bg-primary text-primary-ink border-transparent [box-shadow:inset_0_0_0_1px_var(--primary-ring)] enabled:active:bg-primary-press', // a pale lime fill gets a soft ring for an edge
+  ghost: 'bg-transparent text-brand border-control-line enabled:active:bg-press',
+  danger: 'bg-danger-bg text-danger-ink border-danger-line enabled:active:bg-danger-press', // solid red in light, a red tint in dark
 } as const;
 const BTN_SIZE = {
   md: 'min-h-12 px-[18px] py-2.5 [font-size:inherit]',
-  big: 'min-h-[54px] px-[18px] py-2.5 w-full mt-3.5 text-[17px]',
+  big: 'min-h-14 px-[18px] py-2.5 w-full mt-3.5 text-[17px]',
   small: 'min-h-11 px-3 py-0 flex-none w-auto text-[14px]',
   sq: 'min-w-12 min-h-12 p-0 text-[22px]',
   none: '[font-size:inherit]', // the caller sets the height and padding
@@ -39,8 +40,10 @@ export const btnRow = btnRowOf('mt-3.5 mb-2.5');
 
 // ---- chips and fields -------------------------------------------------------------------------------------------------
 export const chip =
-  'border border-line bg-card text-ink rounded-full min-h-11 px-3.5 py-1.5 text-[14px] cursor-pointer [font-family:inherit] [line-height:inherit] ' +
-  'aria-pressed:bg-brand aria-pressed:text-brand-ink aria-pressed:border-brand transition-[transform,background-color,border-color] duration-[120ms] active:scale-[0.97]';
+  'border border-control-line bg-card text-ink rounded-full min-h-11 px-3.5 py-1.5 text-[15px] font-semibold cursor-pointer [font-family:inherit] [line-height:inherit] ' +
+  'aria-[pressed=false]:active:bg-press aria-pressed:bg-brand aria-pressed:text-brand-ink aria-pressed:border-brand ' +
+  "aria-pressed:before:content-['✓'] aria-pressed:before:mr-1.5 aria-pressed:before:font-bold " + // the chosen chip has a tick, not only a colour
+  'transition-[background-color,border-color] duration-[120ms]';
 /** a fieldset of chips; its legend is the label */
 export const chips =
   'border-0 p-0 mx-0 mt-3 mb-0 flex flex-wrap gap-2 [&>legend]:w-full [&>legend]:block [&>legend]:text-[13px] [&>legend]:text-muted [&>legend]:mb-1 [&>legend]:p-0 [&+form]:mt-3 [&+p]:mt-3';
@@ -98,7 +101,7 @@ export const late = 'text-bad font-semibold';
 /** a square icon button (44px target) */
 export const icoBtn = 'min-w-11 min-h-11 flex-none border border-line rounded-[10px] bg-transparent text-[18px] cursor-pointer';
 /** a small pill of text beside a heading */
-export const tag = 'ml-2 text-[12px] font-bold px-2 py-0.5 rounded-full bg-bad-bg text-bad align-middle';
+export const tag = 'ml-2 text-[12px] font-semibold px-2 py-0.5 rounded-md bg-bad-bg text-bad align-middle';
 /** a "Finished" fold: a details element with a muted summary */
 export function finished(margin = 'my-3.5') {
   return cx(margin, '[&>summary]:cursor-pointer [&>summary]:py-2 [&>summary]:text-muted [&>summary]:font-semibold');
@@ -115,18 +118,19 @@ export function dueRow(done?: boolean) {
 // ---- the page frame ---------------------------------------------------------------------------------------------------
 /** a square icon button in the header (44px) */
 export const iconBtn =
-  'inline-flex w-10 h-10 lg:w-11 lg:h-11 items-center justify-center border border-line rounded-xl bg-card text-ink cursor-pointer hover:bg-bg hover:text-ink aria-[current=page]:text-accent aria-[current=page]:border-accent';
+  'inline-flex w-11 h-11 items-center justify-center border-0 rounded-xl bg-transparent text-ink cursor-pointer hover:bg-press active:bg-press aria-[current=page]:text-brand aria-[current=page]:bg-tab-pill';
 const PILL =
   'relative rounded-full px-3 py-1.5 min-h-[34px] text-[13px] font-semibold cursor-pointer border max-lg:max-w-[7.5rem] max-lg:truncate ' +
   "after:content-[''] after:absolute after:-inset-x-0.5 after:-inset-y-[5px] " + // a 44px target without a taller pill
   'transition-[transform,background-color,border-color] duration-[120ms] active:scale-[0.97]';
+const DOT = "before:content-[''] before:inline-block before:w-[7px] before:h-[7px] before:rounded-full before:mr-1.5 before:align-[1px]";
 const PILL_TONE = {
   idle: 'border-line bg-card text-ink',
-  good: 'border-line bg-card text-good',
+  good: `border-transparent bg-good-bg text-good ${DOT} before:bg-good`,
   warn: 'border-transparent bg-warn-bg text-warn',
   bad: 'border-transparent bg-bad-bg text-bad',
-  busy: 'border-line bg-card text-accent',
-  muted: 'border-line bg-card text-muted',
+  busy: 'border-transparent bg-press text-ink',
+  muted: 'border-control-line bg-transparent text-muted',
 } as const;
 /** the sync pill in the header */
 export const pill = (tone: keyof typeof PILL_TONE) => cx(PILL, PILL_TONE[tone]);
@@ -146,10 +150,13 @@ const METER_TONE = {
 } as const;
 export type MeterTone = keyof typeof METER_TONE;
 /** a budget meter: the track is a light step of the fill's own colour; put an <i style={{ width }}> inside */
-export const meter = (tone: MeterTone, margin = 'mt-2 mb-1') =>
-  cx('h-2 rounded-full overflow-hidden bg-[color-mix(in_srgb,var(--meter)_16%,transparent)]', margin, METER_TONE[tone],
+export const meter = (tone: MeterTone, margin = 'mt-2 mb-1.5') =>
+  cx('h-1.5 rounded-full overflow-hidden bg-line', margin, METER_TONE[tone],
     '[&>i]:block [&>i]:h-full [&>i]:rounded-[0_4px_4px_0] [&>i]:bg-[var(--meter)]', `[&>i]:${GROW.split(' ').join(' [&>i]:')}`);
 /** the words beside a meter ("2,000 left") */
+/** the words beside a budget meter, as a small tinted tag, so "nearly used" and "over" read even without the bar's colour */
+export const meterWords = (tone?: 'good' | 'bad' | 'warn' | '') =>
+  cx('inline-block self-start px-2 py-0.5 rounded-md text-[13px] font-semibold', tone === 'good' ? 'text-good bg-good-bg' : tone === 'bad' ? 'text-bad bg-bad-bg' : tone === 'warn' ? 'text-warn bg-warn-bg' : 'text-muted bg-press');
 export const leftText = (tone?: 'good' | 'bad' | 'warn' | '') => cx('text-[13px] font-semibold', tone === 'good' ? 'text-good' : tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : 'text-muted');
 
 // ---- the page heading and the bits of a row ---------------------------------------------------------------------------
@@ -207,7 +214,8 @@ export const pasteBox =
   '[&_textarea]:w-full [&_textarea]:box-border [&_textarea]:mt-1';
 /** the big amount field of Add expense */
 export const amount =
-  'flex items-center gap-1.5 border border-line rounded-xl px-3.5 py-1 bg-bg focus-within:[outline:3px_solid_var(--accent)] focus-within:outline-offset-2 ' +
-  '[&_span]:text-[30px] [&_span]:text-muted [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[34px] [&_input]:font-bold [&_input]:min-h-[60px] [&_input]:p-0 [&_input:focus-visible]:outline-none';
+  'flex items-center gap-1.5 min-h-[72px] border border-field-line rounded-card px-4 py-1 bg-card focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_color-mix(in_srgb,var(--accent)_18%,transparent)] ' +
+  '[&_span]:text-[30px] [&_span]:font-semibold [&_span]:text-muted [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[40px] [&_input]:font-extrabold [&_input]:min-h-[60px] [&_input]:p-0 ' +
+  '[&_input:focus-visible]:outline-none [&_input:focus-visible]:[box-shadow:none]';
 export const payFilters = 'mb-3 [&_p]:m-0';
-export const paySelects = 'grid grid-cols-2 gap-2 my-2 mx-0 sm:grid-cols-4 [&_select]:px-2';
+export const paySelects = 'grid grid-cols-2 gap-2 my-2 mx-0 sm:grid-cols-4 [&_select]:pl-2';

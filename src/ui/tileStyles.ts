@@ -6,7 +6,7 @@ export const note = 'text-muted text-[13px] mt-0.5 mb-0';
 /** the same, pushed to the bottom of the tile */
 export const noteFoot = 'text-muted text-[13px] mt-auto mb-0 pt-2.5';
 export const heroTop = 'flex items-start justify-between gap-x-3 gap-y-2 flex-wrap';
-export const heroNum = 'text-[clamp(36px,7vw,52px)] font-bold leading-[1.05] tracking-[-0.02em] mt-0 mx-0 mb-1';
+export const heroNum = 'text-[clamp(36px,9vw,52px)] font-extrabold leading-[1.05] tracking-[-0.01em] mt-0 mx-0 mb-1';
 export const statNum = (compact?: boolean) => cx(compact ? 'text-[21px]' : 'text-[26px]', 'font-bold leading-[1.2] tracking-[-0.01em] m-0 [overflow-wrap:anywhere]');
 export const statUnit = 'text-[14px] font-semibold text-muted tracking-[0]';
 export const status = (tone?: 'bad' | 'warn' | '') => cx('text-[15px] font-semibold m-0', tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : '');

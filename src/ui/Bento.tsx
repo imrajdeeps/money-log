@@ -44,7 +44,7 @@ interface CardProps {
   children?: ReactNode;
 }
 
-const CARD = 'relative flex flex-col min-w-0 bg-card border border-line rounded-card-lg [box-shadow:var(--shadow),var(--inner)] animate-rise [animation-delay:calc(var(--i,0)*45ms)]';
+const CARD = 'relative flex flex-col min-w-0 bg-card border border-line [box-shadow:var(--shadow),var(--inner)] animate-rise [animation-delay:calc(var(--i,0)*45ms)]';
 const CARD_ACTION =
   'group/card transition-[transform,box-shadow,border-color] duration-[180ms] ease-[ease] ' +
   'hover:[transform:translateY(-2px)] hover:[box-shadow:var(--shadow-hover),var(--inner)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--line))] ' +
@@ -63,11 +63,11 @@ function place(span: Span, compact: boolean, fill: boolean) {
 // (an invisible button stretched over it), so its text stays plain text for screen readers and the button says what it opens.
 export function BentoCard({ title, span = 4, compact = false, fill = false, hero = false, onOpen, openLabel, action, children }: CardProps) {
   const id = useId();
-  const cls = ui.cx(CARD, place(span, compact, fill), onOpen && CARD_ACTION, hero && 'hero');
+  const cls = ui.cx(CARD, place(span, compact, fill), onOpen && CARD_ACTION, hero ? 'hero rounded-card-lg' : 'rounded-card'); // tiles 16, the hero 20
   return (
     <section className={cls} aria-labelledby={id}>
       <header className="flex items-center justify-between gap-2 min-h-6 mb-2">
-        <h3 id={id} className="m-0 text-[13px] font-semibold tracking-[0.02em] text-muted">{title}</h3>
+        <h3 id={id} className="m-0 text-[14px] font-semibold text-ink">{title}</h3>
         {action}
         {onOpen && (
           <span className="inline-flex text-muted transition-[transform,color] duration-[180ms] ease-[ease] group-hover/card:text-accent group-hover/card:[transform:translateX(2px)]" aria-hidden="true">
