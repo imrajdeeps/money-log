@@ -99,7 +99,7 @@ export const owed = 'text-good font-semibold';
 /** red and semibold: something overdue */
 export const late = 'text-bad font-semibold';
 /** a square icon button (44px target) */
-export const icoBtn = 'min-w-11 min-h-11 flex-none border border-line rounded-[10px] bg-transparent text-[18px] cursor-pointer';
+export const icoBtn = 'inline-flex items-center justify-center p-0 leading-none min-w-11 min-h-11 flex-none border border-line rounded-[10px] bg-transparent text-[18px] cursor-pointer';
 /** a small pill of text beside a heading */
 export const tag = 'ml-2 text-[12px] font-semibold px-2 py-0.5 rounded-md bg-bad-bg text-bad align-middle';
 /** a "Finished" fold: a details element with a muted summary */
