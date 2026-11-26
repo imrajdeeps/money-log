@@ -46,7 +46,7 @@ function SpendingPace({ ov, projected, month }: Readonly<{ ov: MonthOverview; pr
 }
 
 const LIME_BTN = 'relative z-[2] inline-flex items-center min-h-12 px-[18px] rounded-xl border-0 bg-primary text-primary-ink text-[16px] font-bold cursor-pointer [font-family:inherit]';
-const OUTLINE_BTN = 'relative z-[2] inline-flex items-center min-h-12 px-[18px] rounded-xl border border-[rgba(255,255,255,0.35)] bg-transparent text-white text-[16px] font-[650] cursor-pointer [font-family:inherit]';
+const OUTLINE_BTN = 'relative z-[2] inline-flex items-center min-h-12 px-[18px] rounded-xl border border-[rgba(255,255,255,0.35)] bg-transparent text-[#fff] text-[16px] font-[650] cursor-pointer [font-family:inherit]';
 
 export type MonthTileState = 'full' | 'getting' | 'empty';
 

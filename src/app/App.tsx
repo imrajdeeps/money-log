@@ -204,7 +204,7 @@ function Shell() {
           <PageBody title={tr('Add expense')} back onBack={goHome} wide><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} onSeeAll={() => goPage('payments')} /></PageBody>
         </div>
         {page === 'month' && <div className="animate-page-in"><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></div>}
-        {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen onUdhaar={() => goPage('udhaar')} /></PageBody>}
+        {(page === 'plan' || page === 'goals') && <div className="animate-page-in"><PlanScreen onUdhaar={() => goPage('udhaar')} /></div>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} openUdhaar={() => goPage('udhaar')} onAdd={goAddGroup} /></PageBody>}
         {page === 'udhaar' && <PageBody title={TITLES.udhaar} back onBack={goHome}><UdhaarScreen /></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}

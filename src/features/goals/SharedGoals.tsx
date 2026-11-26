@@ -42,25 +42,25 @@ export function SharedGoals() {
   const { goals, circle, problem, load } = useSharedGoals(available);
 
   const header = (
-    <div className="mt-6 mb-2 flex items-center justify-between gap-3">
-      <h3 className="m-0 text-[16px]">{tr('Shared goals')}</h3>
-      {available && !form && !problem && <button type="button" className={ui.btn('solid', 'small')} onClick={() => setForm('new')}>{tr('New shared goal')}</button>}
+    <div className="mt-2 flex items-center justify-between gap-3">
+      <h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('Shared goals')}</h3>
+      {available && !form && !problem && <button type="button" className="min-h-11 border-0 bg-transparent p-0 text-brand text-[14px] font-[650] underline underline-offset-2 cursor-pointer [font-family:inherit]" onClick={() => setForm('new')}>{tr('New shared goal')}</button>}
     </div>
   );
-  if (!available) return <section aria-label={tr('Shared goals')}>{header}<p className="text-muted text-[13px]">{tr('Shared goals live in your cloud account: sign in to make one or to see invitations.')}</p></section>;
+  if (!available) return <section aria-label={tr('Shared goals')} className="flex flex-col gap-2">{header}<p className="m-0 text-muted text-[13px]">{tr('Shared goals live in your cloud account: sign in to make one or to see invitations.')}</p></section>;
 
   const mine = (goals ?? []).filter((g) => g.me === 'active');
   const invites = (goals ?? []).filter((g) => g.me === 'invited');
   const done = () => { setForm(null); void load(); };
   return (
-    <section aria-label={tr('Shared goals')} id="shared-goals">
+    <section aria-label={tr('Shared goals')} id="shared-goals" className="flex flex-col gap-2">
       {header}
       {problem && <p className={ui.msg('bad')} role="alert">{problem}</p>}
       {form && <SharedGoalForm key={form === 'new' ? 'new' : form.id} goal={form === 'new' ? undefined : form} circle={circle} onDone={done} />}
       <SharedInvitations invites={invites} onChanged={() => { void load(); }} />
-      {goals !== null && mine.length === 0 && invites.length === 0 && !form && <p className="text-muted">{tr('No shared goals yet. Make one with people from your Circle: one target, and everyone adds their own top-ups.')}</p>}
+      {goals !== null && mine.length === 0 && invites.length === 0 && !form && <p className="m-0 text-muted text-[15px] leading-[22px]">{tr('No shared goals yet. Make one with people from your Circle: one target, and everyone adds their own top-ups.')}</p>}
       {mine.length > 0 && (
-        <ul className={ui.list()}>
+        <ul className="list-none m-0 p-0 flex flex-col gap-2">
           {mine.map((g) => <SharedGoalCard key={g.id} goal={g} circle={circle} onEdit={() => setForm(g)} onChanged={() => { void load(); }} />)}
         </ul>
       )}

@@ -77,21 +77,27 @@ export function SharedGoalCard({ goal, circle, onEdit, onChanged }: Readonly<{ g
   const asked = goal.members.filter((m) => m.state === 'invited');
   const isCreator = goal.created_by === app.me;
   return (
-    <li className="px-3.5 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <span className={ui.rowMain()}><b>{goal.name}</b><small>{tr('by {0}', shortDate(goal.date))}</small></span>
-        <span className="font-bold tabular-nums">{fmtINR(p.saved)} <small className="text-muted">{tr('of {0}', fmtINR(goal.target))}</small></span>
+    <li className="flex flex-col gap-2.5 bg-card border border-line rounded-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[16px] font-[650]">{goal.name}</span>
+        <span className="flex" aria-hidden="true">
+          {p.people.slice(0, 4).map((x, i) => {
+            const nm = sharedName(x, circleNameOf);
+            return <span key={x.user_id} className={ui.cx('w-7 h-7 rounded-full border-2 border-card flex items-center justify-center text-[11px] font-bold', i > 0 && '-ml-2', x.user_id === app.me ? 'bg-brand text-brand-ink' : 'bg-good-bg text-good')}>{nm.slice(0, 2).toUpperCase()}</span>;
+          })}
+        </span>
       </div>
-      <div className={ui.meter(p.reached ? 'good' : 'accent', 'mt-2.5 mb-1.5')} role="img" aria-label={tr('{0} percent of the target', Math.round(p.fraction * 100))}><i style={{ width: `${Math.round(p.fraction * 100)}%` }} /></div>
-      <p className={`m-0 text-sm ${p.reached ? 'font-semibold text-good' : ''}`}>{p.reached ? tr('Reached') : tr('{0} to go', fmtINR(p.remaining))}</p>
-      <ul className="m-0 mt-2 list-none p-0 text-[13px]">
+      <span className="text-[21px] leading-[26px] font-bold tabular-nums">{fmtINR(p.saved)} <span className="text-[14px] font-medium text-muted">{tr('of {0}', fmtINR(goal.target))}</span></span>
+      <span className="flex h-2.5 rounded-full bg-track" role="img" aria-label={tr('{0} percent of the target', Math.round(p.fraction * 100))}><span className={ui.cx('rounded-full', p.reached ? 'bg-good' : 'bg-accent')} style={{ width: `${Math.round(p.fraction * 100)}%` }} /></span>
+      <ul className="m-0 list-none p-0 flex flex-col gap-1 text-[14px]">
         {p.people.map((x) => (
-          <li key={x.user_id} className="flex justify-between py-0.5">
-            <span>{sharedName(x, circleNameOf)}{x.user_id === app.me ? ` ${tr('(you)')}` : ''}{x.state === 'left' ? ` · ${tr('left')}` : ''}</span>
+          <li key={x.user_id} className="flex justify-between">
+            <span>{x.user_id === app.me ? tr('You') : sharedName(x, circleNameOf)}{x.state === 'left' ? ` · ${tr('left')}` : ''}</span>
             <span className="tabular-nums">{fmtINR(x.amount)}</span>
           </li>
         ))}
       </ul>
+      <p className="m-0 text-[13px] text-muted">{p.reached ? tr('Reached') : tr('{0} to go, by {1}.', fmtINR(p.remaining), shortDate(goal.date))}</p>
       {asked.length > 0 && (
         <p className="mt-1 mb-0 text-[13px] text-muted">
           {tr('Asked, not answered yet: {0}', asked.map((m) => sharedName(m, circleNameOf)).join(', '))}

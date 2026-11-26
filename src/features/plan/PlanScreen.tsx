@@ -23,20 +23,19 @@ function loadAlert(): AlertPrefs {
 
 const hourLabel = (h: number) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'am' : 'pm'}`;
 
-function DueRow({ v, onToggle, onEdit, onCalendar, onDelete }: Readonly<{ v: DueView; onToggle: () => void; onEdit: () => void; onCalendar: (() => void) | null; onDelete: () => void }>) {
-  const what = v.kind === 'oneoff' ? tr('One-off payment') : tr('To-do');
-  const when = v.due ? `${shortDate(v.due)} · ${dueRelative(v.days)}` : tr('No date');
+function DueRow({ v, first, onToggle, onEdit, onDelete }: Readonly<{ v: DueView; first: boolean; onToggle: () => void; onEdit: () => void; onDelete: () => void }>) {
+  const late = v.state === 'overdue';
+  const when = v.due ? (late ? tr('Overdue · was due {0}', shortDate(v.due)) : tr('Due {0}', shortDate(v.due))) : (v.kind === 'todo' ? tr('To-do · no date') : tr('No date'));
   return (
-    <SwipeRow className={ui.dueRow(v.isDone)} label={v.title} onDelete={onDelete}>
-      <button type="button" className="min-w-11 min-h-11 flex-none rounded-[50%] border-2 border-line bg-transparent text-good-ink text-[20px] font-bold cursor-pointer aria-pressed:bg-good aria-pressed:border-good" aria-pressed={v.isDone} aria-label={`${v.isDone ? tr('Mark not done') : tr('Mark done')}: ${v.title}`} onClick={onToggle}>
-        {v.isDone ? <Icon name="check" size={22} /> : null}
+    <SwipeRow className={ui.cx('grid grid-cols-[44px_minmax(0,1fr)_auto] gap-1.5 items-center min-h-[62px]', first ? '' : 'border-t border-line')} label={v.title} onDelete={onDelete}>
+      <button type="button" className="w-11 h-11 border-0 bg-transparent flex items-center justify-center cursor-pointer" aria-pressed={v.isDone} aria-label={`${v.isDone ? tr('Mark not done') : tr('Mark done')}: ${v.title}`} onClick={onToggle}>
+        <span className={ui.cx('w-[22px] h-[22px] rounded-full border-[1.5px] flex items-center justify-center', v.isDone ? 'bg-good border-good text-good-ink' : 'border-field-line')}>{v.isDone ? <Icon name="check" size={16} stroke={2.6} /> : null}</span>
       </button>
-      <button type="button" className={ui.rowMain(true) + ' cursor-pointer border-0 bg-transparent p-0 text-left text-inherit [font:inherit]'} onClick={onEdit} aria-label={tr('Change: {0}', v.title)}>
-        <b>{v.title}</b>
-        <small className={v.state === 'overdue' ? ui.late : undefined}>{when} · {what}</small>
+      <button type="button" className="flex flex-col min-w-0 cursor-pointer border-0 bg-transparent p-0 text-left text-ink [font:inherit]" onClick={onEdit} aria-label={tr('Change: {0}', v.title)}>
+        <span className={ui.cx('text-[15px] font-semibold truncate', v.isDone && 'line-through text-muted')}>{v.title}</span>
+        <span className={ui.cx('text-[13px]', late ? 'text-bad font-semibold' : 'text-muted')}>{when}</span>
       </button>
-      {v.amount ? <span className="font-bold tabular-nums">{fmtINR(v.amount)}</span> : null}
-      {onCalendar && <button type="button" className={ui.icoBtn} aria-label={tr('Add to calendar: {0}', v.title)} onClick={onCalendar}><Icon name="calendar" size={22} /></button>}
+      {v.amount ? <span className="text-[15px] font-bold tabular-nums">{fmtINR(v.amount)}</span> : <span />}
     </SwipeRow>
   );
 }
@@ -76,59 +75,48 @@ function DueSection() {
   const calendarable = views.filter((v) => v.due && !v.isDone && v.due >= today);
   const cancels = toCancel(sent, app.dueItems, {}, '');
 
-  const block = (title: string, list: DueView[], badge?: string) => list.length > 0 && (
-    <>
-      <h3 className="text-[16px] mt-5 mb-2">{title}{badge ? <span className={ui.tag}>{badge}</span> : null}</h3>
-      <ul className={ui.list()}>
-        {list.map((v) => (
-          <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onEdit={() => setForm(v)}
-            onCalendar={v.due && !v.isDone ? () => { void calendar([v], 'event'); } : null} onDelete={() => remove(v)} />
-        ))}
-      </ul>
-    </>
-  );
+  const open = [...overdue, ...upcoming, ...undated];
 
   return (
-    <section aria-label={tr('Due soon')} id="due">
-      <div className="mt-5 mb-2 flex items-center justify-between gap-3">
-        <h2 className="m-0">{tr('Due soon')}</h2>
-        {!form && <button type="button" className={ui.btn('solid', 'small')} onClick={() => setForm('new')}>{tr('Add an item')}</button>}
+    <section aria-label={tr('Due soon')} id="due" className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('Due soon')}</h3>
+        {!form && <button type="button" className="min-h-11 border-0 bg-transparent p-0 text-brand text-[14px] font-[650] underline underline-offset-2 cursor-pointer [font-family:inherit]" onClick={() => setForm('new')}>{tr('Add')}</button>}
       </div>
       {form && <DueForm key={form === 'new' ? 'new' : form.k} item={form === 'new' ? undefined : form} onDone={() => setForm(null)} />}
-      {views.length === 0 && !form && <p className="text-muted">{tr('Nothing is due. Add a payment or a to-do, with a date if it has one.')}</p>}
-      {block(tr('Overdue'), overdue, `${overdue.length}`)}
-      {block(tr('Coming up'), upcoming)}
-      {block(tr('No date'), undated)}
+      {views.length === 0 && !form && <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('Nothing is due. Add a payment or a to-do, with a date if it has one.')}</p>}
+      {open.length > 0 && (
+        <ul className="list-none m-0 pl-1.5 pr-3 bg-card border border-line rounded-card">
+          {open.map((v, i) => <DueRow key={v.k} v={v} first={i === 0} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onEdit={() => setForm(v)} onDelete={() => remove(v)} />)}
+        </ul>
+      )}
       {finished.length > 0 && (
-        <details className={ui.finished()}>
+        <details className={ui.finished('my-0')}>
           <summary>{tr('Done ({0})', finished.length)}</summary>
-          <ul className={ui.list()}>
-            {finished.map((v) => <DueRow key={v.k} v={v} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onEdit={() => setForm(v)} onCalendar={null} onDelete={() => remove(v)} />)}
+          <ul className="list-none m-0 pl-1.5 pr-3 bg-card border border-line rounded-card">
+            {finished.map((v, i) => <DueRow key={v.k} v={v} first={i === 0} onToggle={() => { void app.toggleDone(v.k, !v.isDone); }} onEdit={() => setForm(v)} onDelete={() => remove(v)} />)}
           </ul>
         </details>
       )}
-      <div className={ui.card()}>
-        <h3>{tr('Calendar')}</h3>
-        <p className="text-muted text-[13px]">
-          {tr('Makes a calendar file with every dated item that is not done yet ({0} now), each with an alert {1} at {2}. Open the file and your calendar app adds the events. Opening it again later updates them rather than adding copies.', calendarable.length, alert.daysBefore === 0 ? tr('on the day') : tr('{0} day{1} before', alert.daysBefore, alert.daysBefore === 1 ? '' : 's'), hourLabel(alert.hour))}
-        </p>
-        <p className="text-muted text-[13px]">{tr('Events for items you have since finished or removed are cancelled in the next file, so your calendar drops them ({0} now). This covers only events this phone put in a file.', cancels.length)}</p>
-        <div className={ui.btnRow}>
-          <label className={ui.fieldHalf}>
+      <div className="flex flex-col gap-2.5 bg-card border border-line rounded-card p-4">
+        <span className="text-[15px] font-[650]">{tr('Calendar')}</span>
+        <p className="m-0 text-[14px] leading-5 text-muted">{tr('Makes a calendar file for your phone\'s calendar, with an alert before each item. Nothing is sent anywhere.')}{cancels.length > 0 ? ' ' + tr('It also cancels {0} event{1} for items since finished or removed.', cancels.length, cancels.length === 1 ? '' : 's') : ''}</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <label className={ui.fieldBare}>
             <span>{tr('Alert')}</span>
             <select value={alert.daysBefore} onChange={(e) => pick({ ...alert, daysBefore: Number(e.target.value) })} aria-label={tr('Days before the due date')}>
               <option value={0}>{tr('On the day')}</option>
               {[1, 2, 3, 5, 7, 14].map((d) => <option key={d} value={d}>{tr('{0} day{1} before', d, d === 1 ? '' : 's')}</option>)}
             </select>
           </label>
-          <label className={ui.fieldHalf}>
+          <label className={ui.fieldBare}>
             <span>{tr('At')}</span>
             <select value={alert.hour} onChange={(e) => pick({ ...alert, hour: Number(e.target.value) })} aria-label={tr('Time of the alert')}>
               {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
             </select>
           </label>
         </div>
-        <button type="button" className={ui.btn('solid', 'md', ui.inCard)} disabled={calendarable.length === 0 && cancels.length === 0} onClick={() => { void calendar(calendarable, 'due', cancels); }}>
+        <button type="button" className={ui.btn('outline')} disabled={calendarable.length === 0 && cancels.length === 0} onClick={() => { void calendar(calendarable, 'due', cancels); }}>
           {tr('Add {0} to calendar', calendarable.length)}
         </button>
       </div>
@@ -138,13 +126,19 @@ function DueSection() {
 
 export function PlanScreen({ onUdhaar }: Readonly<{ onUdhaar: () => void }>) {
   return (
-    <div>
-      <section aria-label={tr('Net worth and goals')}>
-        <NetWorthCard />
-        <GoalsScreen />
-      </section>
-      <DueSection />
-      <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={onUdhaar}>{tr('Udhaar: money lent and borrowed')}</button>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col">
+        <h2 className="m-0 text-[24px] leading-[30px] font-bold">{tr('Plan')}</h2>
+        <p className="m-0 text-[14px] text-muted">{tr('What you own and owe, what you are saving for, and what is due.')}</p>
+      </div>
+      <div className="grid gap-x-7 gap-y-4 items-start lg:grid-cols-2">
+        <section aria-label={tr('Net worth')}><NetWorthCard /></section>
+        <div className="flex flex-col gap-4">
+          <GoalsScreen />
+          <DueSection />
+          <button type="button" className={ui.btn('outline')} onClick={onUdhaar}>{tr('Udhaar: money lent and borrowed')}</button>
+        </div>
+      </div>
     </div>
   );
 }

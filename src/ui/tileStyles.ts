@@ -30,7 +30,7 @@ export const heroSub = 'block text-[13px] leading-[18px] text-muted';
 export const heroPill = (tone: 'good' | 'bad') =>
   cx('px-2.5 py-[5px] rounded-full text-[13px] font-bold whitespace-nowrap', tone === 'good' ? 'bg-[rgba(201,233,106,0.16)] text-[#c9e96a]' : 'bg-[rgba(255,180,186,0.18)] text-[#ffc2c7]');
 export const heroStatus = (tone: '' | 'bad' | 'warn') =>
-  cx('m-0 text-[17px] leading-[23px] font-bold', tone === 'bad' ? 'text-[#ffc2c7]' : tone === 'warn' ? 'text-[#ffd27a]' : 'text-white');
+  cx('m-0 text-[17px] leading-[23px] font-bold', tone === 'bad' ? 'text-[#ffc2c7]' : tone === 'warn' ? 'text-[#ffd27a]' : 'text-[#fff]');
 export const heroSafe = 'm-0 text-[14px] leading-5 text-muted';
 export const paceAxis = 'flex justify-between text-[11px] text-muted';
 export const legend = 'list-none m-0 p-0 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px] leading-4 text-muted [&>li]:flex [&>li]:items-center [&>li]:gap-1.5';

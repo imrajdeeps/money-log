@@ -255,9 +255,17 @@ export const amountSm =
   '[&_span]:text-[26px] [&_span]:text-muted [&_input]:flex-1 [&_input]:min-w-0 [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[36px] [&_input]:font-extrabold [&_input]:min-h-[56px] [&_input]:p-0 ' +
   '[&_input:focus-visible]:outline-none [&_input:focus-visible]:[box-shadow:none]';
 /** a rupee amount field with ₹ inside, right-aligned (Categories and budgets) */
-export const money =
-  'flex items-center gap-1 min-h-12 px-3.5 border border-field-line rounded-field bg-card text-muted focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_var(--amount-ring)] ' +
+const MONEY =
+  'flex items-center gap-1 min-h-12 px-3.5 border rounded-field bg-card text-muted focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_var(--amount-ring)] ' +
   '[&>input]:flex-1 [&>input]:min-w-0 [&>input]:min-h-0 [&>input]:border-0 [&>input]:p-0 [&>input]:bg-transparent [&>input]:text-ink [&>input]:text-right [&>input]:tabular-nums [&>input:focus-visible]:outline-none [&>input:focus-visible]:[box-shadow:none]';
+/** a rupee amount field with ₹ inside, right-aligned (Categories and budgets, Check in) */
+export const money = `${MONEY} border-field-line`;
+/** the same, edged in the accent colour (a figure that changed) */
+export const moneyOn = `${MONEY} border-accent`;
+/** a switch (a checkbox drawn as the design's 52 by 32 track with a round knob) */
+export const switchBox =
+  "relative !w-[52px] !h-8 !rounded-full !border-0 !bg-field-line !bg-none cursor-pointer transition-colors duration-150 before:content-[''] before:absolute before:top-[3px] before:left-[3px] before:w-[26px] before:h-[26px] before:rounded-full before:bg-[#fff] before:transition-transform before:duration-150 " +
+  'checked:!bg-brand checked:before:translate-x-5';
 export const payFilters = 'mb-3 [&_p]:m-0';
 /** a search field with its magnifier inside (the design's All payments) */
 export const search =
