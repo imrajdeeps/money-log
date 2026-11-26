@@ -11,6 +11,7 @@ import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit 
 import type { GroupKind } from '../core/groupKinds.ts';
 import type { CircleMember } from '../core/circle.ts';
 import type { SharedGoal } from '../core/sharedGoals.ts';
+import type { SharedUdhaar } from '../core/sharedUdhaar.ts';
 import type { UdhaarItem } from '../core/goals.ts';
 import type { UdhaarInput } from '../core/udhaar.ts';
 import type { AutoLine, WorthInput } from '../core/worth.ts';
@@ -28,6 +29,16 @@ export interface SharedGoalsApi {
   addTopUp: (goal: string, amount: number, date: string) => Promise<void>;
   removeTopUp: (goal: string, id: string) => Promise<void>; // your own
 }
+// Shared udhaar (version 2.0) lives on the server too: each call asks it and throws when offline (or before the 2.0 SQL is run).
+export interface SharedUdhaarInput { other: string; way: 'gave' | 'took'; amount: number; date: string; note: string; myName: string; theirName: string }
+export interface SharedUdhaarApi {
+  load: () => Promise<SharedUdhaar[]>;
+  share: (p: SharedUdhaarInput) => Promise<void>; // with someone in your Circle; it waits for their answer
+  answer: (id: string, accept: boolean) => Promise<void>; // the other person
+  settle: (id: string, settled: boolean) => Promise<void>; // either of the two, once accepted
+  remove: (id: string) => Promise<void>; // the writer, unless accepted and still open
+}
+
 import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
 import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
@@ -133,6 +144,7 @@ export interface AppApi {
   joinCircle: (code: string) => Promise<string>; // returns the name of the person whose code it was
   removeFromCircle: (userId: string) => Promise<void>;
   sharedGoals: SharedGoalsApi;
+  sharedUdhaar: SharedUdhaarApi;
   circleCode: string | null; // a Circle link was opened: the code it carried
   clearCircleCode: () => void;
   setDisplayName: (groupId: string, name: string) => Promise<void>;

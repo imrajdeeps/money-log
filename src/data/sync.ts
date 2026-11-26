@@ -11,6 +11,7 @@ import type { Group, Invite, Member, Settlement, UsualSplit } from '../core/grou
 import type { GroupKind } from '../core/groupKinds.ts';
 import { cleanCircleMember } from '../core/circle.ts';
 import { parseSharedGoals } from '../core/sharedGoals.ts';
+import { parseSharedUdhaar } from '../core/sharedUdhaar.ts';
 import type { CircleMember } from '../core/circle.ts';
 import { cleanHistory } from '../core/history.ts';
 import type { HistoryRow } from '../core/history.ts';
@@ -716,6 +717,16 @@ export function createSync(opts: SyncOptions) {
     removeTopUp: (goal: string, id: string) => circleCall<null>('remove_shared_topup', { p_goal: goal, p_id: id }),
   };
 
+  // Shared udhaar (version 2.0): entries with someone in your Circle, kept by the server and read on demand like shared goals.
+  const sharedUdhaar = {
+    load: async () => parseSharedUdhaar(await circleCall<unknown>('my_shared_udhaar', {})),
+    share: (p: { other: string; way: string; amount: number; date: string; note: string; myName: string; theirName: string }) =>
+      circleCall<null>('share_udhaar', { p_id: newId(), p_other: p.other, p_way: p.way, p_amount: p.amount, p_date: p.date, p_note: p.note, p_my_name: p.myName, p_their_name: p.theirName }),
+    answer: (id: string, accept: boolean) => circleCall<null>('answer_shared_udhaar', { p_id: id, p_accept: accept }),
+    settle: (id: string, settled: boolean) => circleCall<null>('settle_shared_udhaar', { p_id: id, p_settled: settled }),
+    remove: (id: string) => circleCall<null>('delete_shared_udhaar', { p_id: id }),
+  };
+
   // The sign-in record: where the account is signed in now, and what happened to it (the two read-only functions of version 1.25).
   // They answer 404 until the database has them; the caller says "not available yet" then.
   async function fetchSessions() {
@@ -754,7 +765,7 @@ export function createSync(opts: SyncOptions) {
     sync,
     refreshPending,
     createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
-    fetchCircle, newCircleCode, joinCircle, removeFromCircle, sharedGoals,
+    fetchCircle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar,
     receiptBlob, fetchHistory, fetchSessions, fetchSignInLog,
   };
 }

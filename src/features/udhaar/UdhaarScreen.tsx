@@ -5,10 +5,13 @@ import { fmtINR } from '../../core/logic.ts';
 import type { UdhaarItem } from '../../core/goals.ts';
 import { udhaarRemindText } from '../../core/upi.ts';
 import { udhaarTotals } from '../../core/udhaar.ts';
+import { splitShared, withShared } from '../../core/sharedUdhaar.ts';
 import { useProfile } from '../../data/useProfile.ts';
 import { myUpi } from '../../data/phonePrefs.ts';
 import { WhatsAppButton } from '../../ui/WhatsAppButton.tsx';
 import { UdhaarForm } from './UdhaarForm.tsx';
+import { SharedAnswers, SharedDeclined, SharedRow } from './SharedEntries.tsx';
+import { useSharedUdhaar } from './useSharedUdhaar.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -26,6 +29,7 @@ function Row({ u, onEdit }: Readonly<{ u: UdhaarItem; onEdit: () => void }>) {
         </span>
         <span className={`font-bold tabular-nums ${u.s ? 'text-muted' : lent ? 'text-good' : 'text-bad'}`}>{fmtINR(u.a)}</span>
       </div>
+      <span className="inline-block mt-2 px-2 py-0.5 rounded-md text-[12px] font-semibold bg-press text-ink">{tr('Private')}</span>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" className={ui.btn('ghost', 'small')} onClick={() => { void app.setUdhaarSettled(u.id, !u.s).then(() => app.toast(u.s ? tr('Opened again') : tr('Marked as settled'))); }}>{u.s ? tr('Open again') : tr('Settled')}</button>
         {lent && !u.s && <WhatsAppButton size="small" label={tr('Remind')} text={udhaarRemindText({ name: u.n, amount: u.a, upi, payeeName: profile.name || (app.sync.email ?? '').split('@')[0] || 'Me' })} />}
@@ -60,26 +64,42 @@ function UdhaarTotals({ t }: Readonly<{ t: Totals }>) {
   );
 }
 
-// Udhaar: money lent to or borrowed from anyone (they need not use the app), who has paid back and who has not. Private: it stays in your
-// own data, synced and in your backup like your goals, and nobody else sees it.
+// Udhaar: money lent to or borrowed from anyone (they need not use the app), who has paid back and who has not. An entry with someone
+// outside your Circle is private: it stays in your own data, synced and in your backup like your goals. An entry shared with someone in
+// your Circle (version 2.0) is kept by the server and both of you see it.
 export function UdhaarScreen() {
   const app = useApp();
   const [form, setForm] = useState<'new' | UdhaarItem | null>(null);
-  const t = udhaarTotals(app.goals);
+  const { shared, circle, problem, reload } = useSharedUdhaar();
+  const parts = splitShared(shared);
+  const t = withShared(udhaarTotals(app.goals), shared);
   const open = app.udhaar.filter((u) => !u.s);
   const settled = app.udhaar.filter((u) => u.s);
+  const nothing = app.udhaar.length === 0 && shared.length === 0;
+  const changed = () => { void reload(); };
   return (
     <section aria-label={tr('Udhaar')} className="[&>*+*]:mt-4">
-      <p className="text-muted text-[13px]">{tr('Money you lent to someone, or borrowed from them: write it down once, tick it off when it comes back. Only you see this.')}</p>
+      <p className="text-muted text-[13px]">{tr('Money you lent to someone, or borrowed from them: write it down once, tick it off when it comes back. Private unless you share an entry with someone in your Circle.')}</p>
+      {problem && <p className={ui.msg('bad')} role="status">{problem}</p>}
       <UdhaarTotals t={t} />
+      <SharedAnswers list={parts.toAnswer} onChanged={changed} />
       {!form && <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => setForm('new')}>{tr('Add an entry')}</button>}
-      {form && <UdhaarForm key={form === 'new' ? 'new' : form.id} item={form === 'new' ? undefined : form} onDone={() => setForm(null)} />}
-      {app.udhaar.length === 0 && !form && <p className="text-muted">{tr('Nothing yet. Add the first one when you lend or borrow.')}</p>}
-      {open.length > 0 && <ul className={ui.list()}>{open.map((u) => <Row key={u.id} u={u} onEdit={() => setForm(u)} />)}</ul>}
-      {settled.length > 0 && (
+      {form && <UdhaarForm key={form === 'new' ? 'new' : form.id} item={form === 'new' ? undefined : form} circle={circle} onDone={() => setForm(null)} onShared={changed} />}
+      {nothing && !form && <p className="text-muted">{tr('Nothing yet. Add the first one when you lend or borrow.')}</p>}
+      <SharedDeclined list={parts.declined} onChanged={changed} />
+      {(open.length > 0 || parts.open.length > 0) && (
+        <ul className={ui.list()}>
+          {parts.open.map((e) => <SharedRow key={e.id} e={e} onChanged={changed} />)}
+          {open.map((u) => <Row key={u.id} u={u} onEdit={() => setForm(u)} />)}
+        </ul>
+      )}
+      {(settled.length > 0 || parts.settled.length > 0) && (
         <details>
-          <summary className="cursor-pointer text-[14px] font-semibold">{tr('Settled ({0})', settled.length)}</summary>
-          <ul className={ui.list(false, 'mt-2')}>{settled.map((u) => <Row key={u.id} u={u} onEdit={() => setForm(u)} />)}</ul>
+          <summary className="cursor-pointer text-[14px] font-semibold">{tr('Settled ({0})', settled.length + parts.settled.length)}</summary>
+          <ul className={ui.list(false, 'mt-2')}>
+            {parts.settled.map((e) => <SharedRow key={e.id} e={e} onChanged={changed} />)}
+            {settled.map((u) => <Row key={u.id} u={u} onEdit={() => setForm(u)} />)}
+          </ul>
         </details>
       )}
     </section>

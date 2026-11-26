@@ -200,7 +200,7 @@ function Shell() {
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen onUdhaar={() => goPage('udhaar')} /></PageBody>}
-        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} onAdd={goAddGroup} /></PageBody>}
+        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} openUdhaar={() => goPage('udhaar')} onAdd={goAddGroup} /></PageBody>}
         {page === 'udhaar' && <PageBody title={TITLES.udhaar} back onBack={goHome}><UdhaarScreen /></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}

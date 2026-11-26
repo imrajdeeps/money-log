@@ -9,13 +9,14 @@ import { GroupDetail } from './GroupDetail.tsx';
 import { GroupSettings } from './GroupSettings.tsx';
 import { CreateCard } from './CreateCard.tsx';
 import { JoinCard } from './JoinCard.tsx';
+import { PeopleLines } from './PeopleLines.tsx';
 import { JoinInvite } from './JoinInvite.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // groupId: the group named in the address (/groups/<id>), or none for the list. settings: that group's settings are open
 // (/groups/<id>/settings). onOpen(id) goes to a group, onOpen(id, true) to its settings, onOpen() to the list.
-export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle, onAdd }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void; onAdd: (id: string) => void }>) {
+export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, openCircle, openUdhaar, onAdd }: Readonly<{ groupId?: string; settings?: boolean; onOpen: (id?: string, settings?: boolean) => void; openSettings: () => void; openCircle: () => void; openUdhaar: () => void; onAdd: (id: string) => void }>) {
   const app = useApp();
   const open = groupId ? app.groups.find((g) => g.id === groupId.toLowerCase()) : undefined;
   const seen = groupSeen.use();
@@ -73,6 +74,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
           })}
         </ul>
       )}
+      <PeopleLines onOpen={openUdhaar} />
       <CreateCard />
     </section>
   );
