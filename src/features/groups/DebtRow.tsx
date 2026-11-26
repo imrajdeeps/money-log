@@ -46,16 +46,13 @@ export function DebtRow({ debt, group, me, myName, nameOf, onRecord }: Readonly<
   const who = iOwe ? tr('You pay {0}', nameOf(debt.to)) : debt.to === me ? tr('{0} pays you', nameOf(debt.from)) : tr('{0} pays {1}', nameOf(debt.from), nameOf(debt.to));
 
   return (
-    <li className="px-3 py-2">
-      <div className="flex items-center gap-2.5 [&_b]:[overflow-wrap:anywhere]">
-        <span className={ui.rowMain(true)}><b>{who}</b></span>
-        <span className="font-bold tabular-nums">{fmtINR(debt.amount)}</span>
-        {involved && <button type="button" className={ui.btn('ghost', 'small')} onClick={onRecord}>{tr('Record')}</button>}
-      </div>
+    <li className="flex flex-col gap-3 py-3.5">
+      <span className="text-[17px] font-bold [overflow-wrap:anywhere]">{who} <span className="tabular-nums">{fmtINR(debt.amount)}</span></span>
       {involved && (
-        <div className="mt-1.5 flex flex-wrap gap-2">
-          {debt.to === me && <WhatsAppButton size="small" label={tr('Remind')} text={remindText({ name: nameOf(debt.from), amount: debt.amount, group, upi: mine, payeeName: myName })} />}
-          {iOwe && <button type="button" className={ui.btn('ghost', 'small')} aria-expanded={paying} onClick={() => setPaying(!paying)}>{tr('Pay')}</button>}
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={ui.btn(iOwe ? 'solid' : 'outline', 'none', 'min-h-11 px-[18px] text-[15px]')} onClick={onRecord}>{tr('Record')}</button>
+          {iOwe && <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-4 text-[15px]')} aria-expanded={paying} onClick={() => setPaying(!paying)}>{tr('Pay by UPI')}</button>}
+          {debt.to === me && <WhatsAppButton size="row" label={tr('Remind on WhatsApp')} text={remindText({ name: nameOf(debt.from), amount: debt.amount, group, upi: mine, payeeName: myName })} />}
         </div>
       )}
       {iOwe && paying && <UpiPay debt={debt} group={group} nameOf={nameOf} />}

@@ -54,3 +54,13 @@ export function initials(name: string, email?: string | null): string {
   const e = (email ?? '').trim();
   return e ? [...e][0]!.toUpperCase() : '?';
 }
+
+// Two letters for a person's circle in a list (Balances, Circle, Udhaar): the first letters of the first and last word,
+// or for a single word its first letter and the next one that differs from it (Aakash → AK, Meera → ME).
+export function personLetters(name: string): string {
+  const words = cleanName(name).split(' ').filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length > 1) return ([...words[0]!][0]! + [...words[words.length - 1]!][0]!).toUpperCase();
+  const chars = [...words[0]!.toUpperCase()];
+  return chars[0]! + (chars.slice(1).find((c) => c !== chars[0]) ?? '');
+}

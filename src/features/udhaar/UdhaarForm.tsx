@@ -8,19 +8,21 @@ import type { UdhaarInput } from '../../core/udhaar.ts';
 import type { CircleMember } from '../../core/circle.ts';
 import type { UdhaarItem, UdhaarWay } from '../../core/goals.ts';
 import { WhoField } from './WhoField.tsx';
+import { Icon } from '../../ui/Icon.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The share tick under the name (version 2.0): shown only for someone picked from the Circle, ticked unless the person unticks it.
 function ShareTick({ name, on, onChange }: Readonly<{ name: string; on: boolean; onChange: (v: boolean) => void }>) {
   return (
-    <div className="mt-3 px-3.5 py-2.5 border border-line rounded-[14px]">
-      <label className={ui.check}>
-        <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
-        <span className="font-semibold">{tr('Share with {0}', name)}</span>
-      </label>
-      <p className="text-muted text-[13px] m-0">{on ? tr('{0} gets it in their Udhaar to accept. Once accepted, either of you can mark it settled, and both see it.', name) : tr('Off: this entry is private, only you see it.')}</p>
-    </div>
+    <button type="button" role="checkbox" aria-checked={on} onClick={() => onChange(!on)}
+      className={ui.cx('grid grid-cols-[26px_minmax(0,1fr)] gap-3 items-start px-3.5 py-3 rounded-[14px] text-left text-ink cursor-pointer [font-family:inherit]', on ? 'border border-brand bg-tab-pill' : 'border border-line bg-transparent')}>
+      <span className={ui.cx('w-6 h-6 rounded-[7px] flex items-center justify-center', on ? 'border-[1.5px] border-brand bg-brand text-brand-ink' : 'border-[1.5px] border-field-line bg-transparent')} aria-hidden="true">{on && <Icon name="check" size={16} stroke={2.6} />}</span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-[16px] font-[650]">{tr('Share with {0}', name)}</span>
+        <span className="text-[13px] leading-[18px] text-muted">{on ? tr('{0} gets it in their Udhaar to accept. Once accepted, either of you can mark it settled, and both see it.', name) : tr('Off: this entry is private, only you see it.')}</span>
+      </span>
+    </button>
   );
 }
 
@@ -68,25 +70,30 @@ export function UdhaarForm({ item, circle, onDone, onShared }: Readonly<{ item?:
     onDone();
   }
 
+  const outside = !item && !picked && name.trim() !== '' && circle.length > 0;
   return (
-    <form className={ui.card()} onSubmit={(ev) => { void submit(ev); }} noValidate>
-      <h2>{item ? tr('Change entry') : tr('New entry')}</h2>
-      <div className={ui.chips} role="group" aria-label={tr('Which way')}>
-        <button type="button" className={ui.chip} aria-pressed={way === 'gave'} onClick={() => setWay('gave')}>{tr('I lent')}</button>
-        <button type="button" className={ui.chip} aria-pressed={way === 'took'} onClick={() => setWay('took')}>{tr('I borrowed')}</button>
+    <form className="bg-card border border-line rounded-card p-4 flex flex-col gap-3" onSubmit={(ev) => { void submit(ev); }} noValidate>
+      <h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{item ? tr('Change entry') : tr('Add an entry')}</h3>
+      <div className={ui.segment(2)} role="radiogroup" aria-label={tr('Lent or borrowed')}>
+        <button type="button" role="radio" className={ui.segBtn} aria-checked={way === 'gave'} onClick={() => setWay('gave')}>{tr('I lent')}</button>
+        <button type="button" role="radio" className={ui.segBtn} aria-checked={way === 'took'} onClick={() => setWay('took')}>{tr('I borrowed')}</button>
       </div>
-      <WhoField label={way === 'gave' ? tr('Lent to') : tr('Borrowed from')} value={name} picked={picked} circle={item ? [] : circle} used={names}
+      <WhoField label={tr('Who')} value={name} picked={picked} circle={item ? [] : circle} used={names}
         onChange={(v) => { setName(v); setPicked(null); setError(''); }} onPick={(who, n) => { setName(n); setPicked(who); setShare(true); setError(''); }} />
       {!item && picked && <ShareTick name={name} on={share} onChange={setShare} />}
-      {!item && !picked && name.trim() !== '' && circle.length > 0 && <p className="text-muted text-[13px] mt-2 mb-0">{tr('Not in your Circle: this entry is private, only you see it.')}</p>}
-      <label className={ui.field}><span>{tr('Amount (₹)')}</span><input inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
-      <label className={ui.field}><span>{tr('Date')}</span><input type="date" value={date} max={isoDate()} onChange={(e) => { setDate(e.target.value); setError(''); }} /></label>
-      <label className={ui.field}><span>{tr('Note (optional)')}</span><input value={note} maxLength={100} onChange={(e) => setNote(e.target.value)} /></label>
-      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-      <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{sharing ? tr('Save and send to {0}', name.trim()) : tr('Save')}</button>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
+      {outside && <p className="m-0 text-[13px] leading-[18px] text-muted bg-press px-2.5 py-2 rounded-[10px]">{tr('{0} is not in your Circle, so this entry is private: only you see it. Add them to your Circle to share entries later.', name.trim())}</p>}
+      <div className="grid grid-cols-2 gap-2.5">
+        <label className={ui.fieldBare}><span>{tr('Amount')}</span><input inputMode="decimal" placeholder="₹0" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
+        <label className={ui.fieldBare}><span>{tr('Date')}</span><input type="date" value={date} max={isoDate()} onChange={(e) => { setDate(e.target.value); setError(''); }} /></label>
       </div>
+      <label className={ui.fieldBare}><span>{tr('Note')}</span><input value={note} maxLength={100} placeholder={tr('Optional')} onChange={(e) => setNote(e.target.value)} /></label>
+      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      {item ? (
+        <div className="flex gap-2.5 [&>*]:flex-1">
+          <button type="submit" className={ui.btn()} disabled={busy}>{tr('Save changes')}</button>
+          <button type="button" className={ui.btn('outline')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
+        </div>
+      ) : <button type="submit" className={ui.btn()} disabled={busy}>{sharing ? tr('Save and send to {0}', name.trim()) : tr('Save entry')}</button>}
     </form>
   );
 }

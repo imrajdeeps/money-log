@@ -123,8 +123,6 @@ export const owed = 'text-good font-semibold';
 export const late = 'text-bad font-semibold';
 /** a square icon button (44px target) */
 export const icoBtn = 'inline-flex items-center justify-center p-0 leading-none min-w-11 min-h-11 flex-none border border-line rounded-[10px] bg-transparent text-[18px] cursor-pointer';
-/** a small pill of text beside a heading */
-export const tag = 'ml-2 text-[12px] font-semibold px-2 py-0.5 rounded-md bg-bad-bg text-bad align-middle';
 /** a "Finished" fold: a details element with a muted summary */
 export function finished(margin = 'my-3.5') {
   return cx(margin, '[&>summary]:cursor-pointer [&>summary]:py-2 [&>summary]:text-muted [&>summary]:font-semibold');
@@ -208,9 +206,6 @@ export const groupTile = (picked?: boolean) =>
 
 // ---- groups -----------------------------------------------------------------------------------------------------------
 export const settleForm = 'mt-3 pt-1 border-t border-line';
-export const codeBox = 'text-[24px] font-bold tracking-[2px] text-center p-3 my-2 mx-0 border border-dashed border-line rounded-xl tabular-nums select-all';
-export const coupleLine = (tone: 'owed' | 'late' | 'muted') => cx('mt-0 mx-0 mb-1.5 text-[20px] font-bold tracking-[-0.01em]', tone === 'owed' ? 'text-good' : tone === 'late' ? 'text-bad' : 'text-muted');
-export const closedBanner = 'mt-0 mx-0 mb-3 px-3 py-2.5 rounded-xl bg-[var(--card-2,var(--bg))] border border-line text-[14px]';
 /** a fieldset of choice cards (the kinds of group); the legend is the label */
 export const kinds = 'border-0 p-0 mx-0 mt-3 mb-0 grid gap-2 [&>legend]:block [&>legend]:text-[13px] [&>legend]:text-muted [&>legend]:mb-1 [&>legend]:p-0';
 export const kindCard =
@@ -219,7 +214,6 @@ export const kindCard =
   'aria-pressed:border-brand aria-pressed:[box-shadow:inset_0_0_0_2px_var(--brand)]';
 /** the who-pays and who-owes split of an expense */
 export const split = 'mt-3';
-export const splitRow = 'flex items-center gap-2.5 px-3 py-2';
 
 // ---- payments ---------------------------------------------------------------------------------------------------------
 /** the receipt photos of an expense: a label, the thumbnails, the add button */

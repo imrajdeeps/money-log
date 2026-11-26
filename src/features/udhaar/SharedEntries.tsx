@@ -6,6 +6,8 @@ import { fmtINR } from '../../core/logic.ts';
 import { udhaarRemindText } from '../../core/upi.ts';
 import type { SharedUdhaar } from '../../core/sharedUdhaar.ts';
 import { WhatsAppButton } from '../../ui/WhatsAppButton.tsx';
+import { EntryCard, SettledLine } from './EntryCard.tsx';
+import * as us from './udhaarStyles.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -21,38 +23,34 @@ function useAct(onChanged: () => void): Act {
 
 const wayWords = (e: SharedUdhaar): string => (e.way === 'gave' ? tr('You lent') : tr('You borrowed'));
 
-// The tag under a shared entry: whether the other person accepted, is still to answer, or it is settled.
-function tag(e: SharedUdhaar): { text: string; tone: string } {
-  if (e.settled) return { text: tr('Shared · settled'), tone: 'bg-press text-ink' };
-  if (e.state === 'invited') return { text: tr('Shared · waiting for {0} to accept', e.who), tone: 'bg-warn-bg text-warn' };
-  return { text: e.mine ? tr('Shared with {0} · accepted', e.who) : tr('Shared by {0}', e.who), tone: 'bg-good-bg text-good' };
+// The tag under a shared entry: whether the other person accepted, or is still to answer.
+function tag(e: SharedUdhaar): { text: string; tone: 'good' | 'wait' | 'plain' } {
+  if (e.state === 'invited') return { text: tr('Shared · waiting for {0} to accept', e.who), tone: 'wait' };
+  return { text: e.mine ? tr('Shared with {0} · accepted', e.who) : tr('Shared by {0}', e.who), tone: 'good' };
 }
 
-// One shared entry in the list: Settled or Open again once accepted, Remind when they owe you, Delete for the writer when allowed.
+// One open shared entry: Settled once accepted, Remind when they owe you, Delete for the writer while it is not yet accepted.
 export function SharedRow({ e, onChanged }: Readonly<{ e: SharedUdhaar; onChanged: () => void }>) {
   const app = useApp();
   const profile = useProfile();
   const upi = myUpi.use();
   const act = useAct(onChanged);
-  const t = tag(e);
-  const canDelete = e.mine && (e.state !== 'active' || e.settled);
+  const canDelete = e.mine && e.state !== 'active';
   return (
-    <li className="px-3.5 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <span className={ui.rowMain()}>
-          <b className={e.settled ? 'line-through text-muted' : undefined}>{e.who}</b>
-          <small>{[wayWords(e), shortDate(e.date), e.note].filter(Boolean).join(' · ')}</small>
-        </span>
-        <span className={`font-bold tabular-nums ${e.settled ? 'text-muted' : e.way === 'gave' ? 'text-good' : 'text-bad'}`}>{fmtINR(e.amount)}</span>
-      </div>
-      <span className={`inline-block mt-2 px-2 py-0.5 rounded-md text-[12px] font-semibold ${t.tone}`}>{t.text}</span>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {e.state === 'active' && <button type="button" className={ui.btn('ghost', 'small')} onClick={() => act(() => app.sharedUdhaar.settle(e.id, !e.settled), e.settled ? tr('Opened again') : tr('Marked as settled'))}>{e.settled ? tr('Open again') : tr('Settled')}</button>}
-        {e.way === 'gave' && !e.settled && <WhatsAppButton size="small" label={tr('Remind')} text={udhaarRemindText({ name: e.who, amount: e.amount, upi, payeeName: profile.name || 'Me' })} />}
-        {canDelete && <button type="button" className={ui.btn('danger', 'small')} onClick={() => { if (window.confirm(tr('Delete this entry with {0}? It goes for both of you. This cannot be undone.', e.who))) act(() => app.sharedUdhaar.remove(e.id), tr('Removed: {0}', e.who)); }}>{tr('Delete')}</button>}
-      </div>
-    </li>
+    <EntryCard who={e.who} sub={[wayWords(e), shortDate(e.date), e.note].filter(Boolean).join(' · ')} amount={e.amount} lent={e.way === 'gave'} tag={tag(e)}>
+      {e.state === 'active' && <button type="button" className={us.action('primary')} onClick={() => act(() => app.sharedUdhaar.settle(e.id, true), tr('Marked as settled'))}>{tr('Settled')}</button>}
+      {e.way === 'gave' && <WhatsAppButton size="entry" label={tr('Remind on WhatsApp')} text={udhaarRemindText({ name: e.who, amount: e.amount, upi, payeeName: profile.name || 'Me' })} />}
+      {canDelete && <button type="button" className={us.action('bad')} onClick={() => { if (window.confirm(tr('Delete this entry with {0}? It goes for both of you. This cannot be undone.', e.who))) act(() => app.sharedUdhaar.remove(e.id), tr('Removed: {0}', e.who)); }}>{tr('Delete')}</button>}
+    </EntryCard>
   );
+}
+
+// A settled shared entry in a line, with Open again.
+export function SharedSettled({ e, onChanged }: Readonly<{ e: SharedUdhaar; onChanged: () => void }>) {
+  const app = useApp();
+  const act = useAct(onChanged);
+  const words = e.way === 'gave' ? tr('{0} · you lent {1} · shared', e.who, fmtINR(e.amount)) : tr('{0} · you borrowed {1} · shared', e.who, fmtINR(e.amount));
+  return <SettledLine text={words} onOpen={() => act(() => app.sharedUdhaar.settle(e.id, false), tr('Opened again'))} />;
 }
 
 // Entries someone in your Circle shared with you: they count only once you accept.
@@ -61,19 +59,19 @@ export function SharedAnswers({ list, onChanged }: Readonly<{ list: readonly Sha
   const act = useAct(onChanged);
   if (list.length === 0) return null;
   return (
-    <div className="flex flex-col gap-2.5">
+    <>
       {list.map((e) => (
-        <div key={e.id} className="bg-press rounded-card px-4 py-3.5 [&>p]:m-0 [&>p+p]:mt-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{tr('Shared with you')}</p>
-          <p className="text-[15px]">{e.way === 'took' ? tr('{0} wrote that they lent you {1} on {2}.', e.who, fmtINR(e.amount), shortDate(e.date)) : tr('{0} wrote that they borrowed {1} from you on {2}.', e.who, fmtINR(e.amount), shortDate(e.date))}{e.note ? ` ${e.note}` : ''}</p>
-          <p className="text-muted text-[13px]">{tr('It counts only once you accept, and {0} sees your answer.', e.who)}</p>
-          <div className={ui.btnRowOf('mt-2.5 mb-0')}>
-            <button type="button" className={ui.btn('solid', 'small')} onClick={() => act(() => app.sharedUdhaar.answer(e.id, true), tr('Accepted'))}>{tr('Accept')}</button>
-            <button type="button" className={ui.btn('ghost', 'small')} onClick={() => act(() => app.sharedUdhaar.answer(e.id, false), tr('Told {0} it is not right', e.who))}>{tr('That is not right')}</button>
+        <section key={e.id} className="bg-press rounded-card px-4 py-3.5 flex flex-col gap-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{tr('Shared with you')}</span>
+          <span className="text-[15px] leading-[22px]"><strong>{e.who}</strong> {e.way === 'took' ? tr('added an entry: they lent you {0} on {1}', fmtINR(e.amount), shortDate(e.date)) : tr('added an entry: you lent them {0} on {1}', fmtINR(e.amount), shortDate(e.date))}{e.note ? `, ${tr('for {0}', e.note)}.` : '.'}</span>
+          <span className="text-[13px] text-muted">{tr('Not counted until you accept. {0} sees your answer.', e.who)}</span>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={ui.btn('solid', 'none', 'min-h-11 px-4 text-[15px]')} onClick={() => act(() => app.sharedUdhaar.answer(e.id, true), tr('Accepted'))}>{tr('Accept')}</button>
+            <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-3.5 text-[15px]')} onClick={() => act(() => app.sharedUdhaar.answer(e.id, false), tr('Told {0} it is not right', e.who))}>{tr('That is not right')}</button>
           </div>
-        </div>
+        </section>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -83,11 +81,11 @@ export function SharedDeclined({ list, onChanged }: Readonly<{ list: readonly Sh
   const act = useAct(onChanged);
   if (list.length === 0) return null;
   return (
-    <ul className={ui.list()}>
+    <ul className="list-none m-0 px-4 bg-card border border-line rounded-card [&>li+li]:border-t [&>li+li]:border-line">
       {list.map((e) => (
-        <li key={e.id} className="flex items-center justify-between gap-3 px-3.5 py-3">
+        <li key={e.id} className="flex items-center justify-between gap-3 py-3">
           <span className="text-[14px]">{tr('{0} said your entry of {1} ({2}) is not right.', e.who, fmtINR(e.amount), shortDate(e.date))}</span>
-          <button type="button" className={ui.btn('ghost', 'small')} onClick={() => act(() => app.sharedUdhaar.remove(e.id), tr('Removed: {0}', e.who))}>{tr('Delete')}</button>
+          <button type="button" className={us.action('bad')} onClick={() => act(() => app.sharedUdhaar.remove(e.id), tr('Removed: {0}', e.who))}>{tr('Delete')}</button>
         </li>
       ))}
     </ul>

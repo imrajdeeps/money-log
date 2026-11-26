@@ -1,24 +1,21 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import type { Group } from '../../core/groups.ts';
 import { shortDate } from '../../core/format.ts';
 import { useAction } from './useAction.ts';
 import * as ui from '../../ui/styles.ts';
+import * as st from './settingsStyles.ts';
 import { tr } from '../../core/i18n.ts';
 
 type Action = ReturnType<typeof useAction>;
 
-// The trip's first and last day, and the button that saves them (admins only).
-function TripDates({ starts, ends, act, onStarts, onEnds, onSave }: Readonly<{ starts: string; ends: string; act: Action; onStarts: (v: string) => void; onEnds: (v: string) => void; onSave: (ev: FormEvent) => void }>) {
+// The trip's first and last day. Each is saved as soon as it is changed (admins only).
+function TripDates({ starts, ends, act, onStarts, onEnds }: Readonly<{ starts: string; ends: string; act: Action; onStarts: (v: string) => void; onEnds: (v: string) => void }>) {
   return (
-    <form onSubmit={onSave} noValidate>
-      <div className={ui.btnRow}>
-        <label className={ui.fieldHalf}><span>{tr('First day')}</span><input type="date" value={starts} onChange={(e) => { onStarts(e.target.value); act.setError(''); }} /></label>
-        <label className={ui.fieldHalf}><span>{tr('Last day')}</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { onEnds(e.target.value); act.setError(''); }} /></label>
-      </div>
-      <button type="submit" className={ui.btn('ghost')} disabled={act.busy}>{tr('Save dates')}</button>
-    </form>
+    <div className="grid grid-cols-2 gap-2.5">
+      <label className={ui.fieldBare}><span>{tr('First day')}</span><input type="date" value={starts} disabled={act.busy} onChange={(e) => onStarts(e.target.value)} /></label>
+      <label className={ui.fieldBare}><span>{tr('Last day')}</span><input type="date" value={ends} min={starts || undefined} disabled={act.busy} onChange={(e) => onEnds(e.target.value)} /></label>
+    </div>
   );
 }
 
@@ -30,8 +27,8 @@ function CloseTrip({ group, closed, act }: Readonly<{ group: Group; closed: bool
     if (window.confirm(question)) void act.run(() => app.setGroupClosed(group.id, !closed), closed ? 'Trip reopened' : 'Trip closed');
   }
   return (
-    <button type="button" className={ui.btn(closed ? 'ghost' : 'solid', 'md', ui.inCard)} disabled={act.busy} onClick={toggle}>
-      {closed ? tr('Reopen trip') : tr('Close trip')}
+    <button type="button" className={ui.btn('outline')} disabled={act.busy} onClick={toggle}>
+      {closed ? tr('Reopen the trip') : tr('Close the trip')}
     </button>
   );
 }
@@ -44,20 +41,22 @@ export function TripSettings({ group, isAdmin }: Readonly<{ group: Group; isAdmi
   const [ends, setEnds] = useState(group.ends_on ?? '');
   const closed = group.closed_at !== null;
 
-  async function saveDates(ev: FormEvent) {
-    ev.preventDefault();
-    if (starts && ends && ends < starts) { act.setError(tr('The trip cannot end before it starts.')); return; }
-    await act.run(() => app.setTripDates(group.id, starts || null, ends || null), tr('Dates saved'));
+  function saveDates(s: string, e: string) {
+    setStarts(s); setEnds(e); act.setError('');
+    if (s && e && e < s) { act.setError(tr('The trip cannot end before it starts.')); return; }
+    void act.run(() => app.setTripDates(group.id, s || null, e || null), tr('Dates saved'));
   }
 
   if (!isAdmin && !closed) return null;
   return (
-    <div className={ui.card()}>
-      <h3>{tr('Trip')}</h3>
-      {closed && <p className={ui.closedBanner}>{tr('Closed on {0}. No new expenses or people; settling up still works.', shortDate(group.closed_at!.slice(0, 10)))}</p>}
-      {isAdmin && <TripDates starts={starts} ends={ends} act={act} onStarts={setStarts} onEnds={setEnds} onSave={saveDates} />}
+    <section className={st.section}>
+      <h3 className={st.title}>{tr('Trip')}</h3>
+      {isAdmin && <TripDates starts={starts} ends={ends} act={act} onStarts={(v) => saveDates(v, ends)} onEnds={(v) => saveDates(starts, v)} />}
+      <p className={st.note}>{closed
+        ? tr('Closed on {0}. No new expenses or people; settling up still works.', shortDate(group.closed_at!.slice(0, 10)))
+        : tr('Close the trip when everyone is back and settled. No new expenses can be added after that; you can reopen it.')}</p>
       {isAdmin && <CloseTrip group={group} closed={closed} act={act} />}
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
-    </div>
+    </section>
   );
 }

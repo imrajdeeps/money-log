@@ -39,7 +39,7 @@ type Page = 'home' | 'settings' | 'add' | Section;
 
 const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', udhaar: '/udhaar', notifications: '/notifications' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Circle', udhaar: 'Udhaar', notifications: 'Notifications' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Your Circle', udhaar: 'Udhaar', notifications: 'Notifications' };
 
 const SPLASH_MS = 500; // how long the start screen stays, at least
 
@@ -49,7 +49,7 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'groups', label: 'Groups', icon: 'groups' },
 ];
 
-function PageBody({ title, back, backLabel = tr('Overview'), onBack, wide = false, width, children }: Readonly<{ title: string; back?: boolean; backLabel?: string; onBack?: () => void; wide?: boolean; width?: 'payments' | 'notes'; children: ReactNode }>) {
+function PageBody({ title, intro, lead = false, back, backLabel = tr('Overview'), onBack, wide = false, width, children }: Readonly<{ title: string; intro?: string; lead?: boolean; back?: boolean; backLabel?: string; onBack?: () => void; wide?: boolean; width?: 'payments' | 'notes'; children: ReactNode }>) {
   // the page's width on a wide screen, as on the design: All payments 880, Notifications 760 (with the 32px sides), the rest 720 or the whole frame
   const box = wide ? '' : width === 'payments' ? 'max-w-[816px] mx-auto' : width === 'notes' ? 'max-w-[696px] mx-auto' : sh.page;
   return (
@@ -57,6 +57,7 @@ function PageBody({ title, back, backLabel = tr('Overview'), onBack, wide = fals
       <div className="flex flex-col gap-0.5 mb-[18px]">
         {back && <button type="button" className={ui.backLink} onClick={onBack}><Icon name="back" size={20} stroke={2} />{backLabel}</button>}
         <h2 id="page-title" className="m-0 text-[24px] leading-[30px] font-bold">{tr(title)}</h2>
+        {intro && <p className={lead ? 'mt-1 mb-0 text-[15px] leading-[22px] text-muted lg:max-w-[640px]' : 'm-0 text-[14px] leading-5 text-muted'}>{intro}</p>}
       </div>
       {children}
     </section>
@@ -163,7 +164,11 @@ function Shell() {
       {app.toastAction && <button type="button" className={sh.toastButton} onClick={() => { const a = app.toastAction!; app.toast(''); void a.run(); }}>{app.toastAction.label}</button>}
     </div>
   ); // a new message is a new element, so it slides in again
-  const current = (id: Page) => (page === id || (id === 'plan' && page === 'goals') ? 'page' : undefined); // the Goals page belongs to Plan
+  // a page shows under its tab, as on the design: Goals under Plan, the Circle under Groups; Insights and Cash flow keep the Month tab lit on a phone only
+  const PARENT: Partial<Record<Page, Page>> = { goals: 'plan', circle: 'groups' };
+  const TAB_PARENT: Partial<Record<Page, Page>> = { ...PARENT, analytics: 'month', cashflow: 'month' };
+  const current = (id: Page) => (page === id || PARENT[page] === id ? 'page' : undefined);
+  const currentTab = (id: Page) => (page === id || TAB_PARENT[page] === id ? 'page' : undefined);
 
   return (
     <>
@@ -205,9 +210,9 @@ function Shell() {
         </div>
         {page === 'month' && <div className="animate-page-in"><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></div>}
         {(page === 'plan' || page === 'goals') && <div className="animate-page-in"><PlanScreen onUdhaar={() => goPage('udhaar')} /></div>}
-        {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} openUdhaar={() => goPage('udhaar')} onAdd={goAddGroup} /></PageBody>}
-        {page === 'udhaar' && <PageBody title={TITLES.udhaar} back onBack={goHome}><UdhaarScreen /></PageBody>}
-        {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}
+        {page === 'groups' && <div className="animate-page-in"><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} openUdhaar={() => goPage('udhaar')} onAdd={goAddGroup} /></div>}
+        {page === 'udhaar' && <PageBody title={TITLES.udhaar} intro={tr('Money lent or borrowed with friends. Private unless you share an entry with someone in your Circle.')} back onBack={goHome} wide><UdhaarScreen /></PageBody>}
+        {page === 'circle' && <PageBody title={TITLES.circle} lead intro={tr('People you can add to a group or a shared goal without a code. They see only what you share with them.')} back backLabel={tr('Groups')} onBack={() => goPage('groups')} wide><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><AnalyticsScreen /></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}
@@ -216,13 +221,13 @@ function Shell() {
 
 
       <nav className={page === 'add' ? `${sh.tabs} max-lg:hidden` : sh.tabs} aria-label={tr('Sections')}>
-        <button type="button" data-tour="home" className={sh.tabBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>
-          <span className={sh.tabIcon(!!current('home'))}><Icon name="home" size={23} stroke={current('home') ? 2 : 1.75} /></span>{tr('Home')}
+        <button type="button" data-tour="home" className={sh.tabBtn(!!currentTab('home'))} aria-current={currentTab('home')} onClick={goHome}>
+          <span className={sh.tabIcon(!!currentTab('home'))}><Icon name="home" size={23} stroke={currentTab('home') ? 2 : 1.75} /></span>{tr('Home')}
         </button>
-        <button type="button" data-tour="month" className={sh.tabBtn(!!current('month'))} aria-current={current('month')} onClick={() => goPage('month')}><span className={sh.tabIcon(!!current('month'))}><Icon name="month" size={23} stroke={current('month') ? 2 : 1.75} /></span>{tr('Month')}</button>
-        <button type="button" data-tour="add" className={sh.fab} aria-label={tr('Add expense')} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={28} stroke={2.2} /></button>
-        <button type="button" data-tour="plan" className={sh.tabBtn(!!current('plan'))} aria-current={current('plan')} onClick={() => goPage('plan')}><span className={sh.tabIcon(!!current('plan'))}><Icon name="plan" size={23} stroke={current('plan') ? 2 : 1.75} /></span>{tr('Plan')}</button>
-        <button type="button" data-tour="groups" className={sh.tabBtn(!!current('groups'))} aria-current={current('groups')} onClick={() => goPage('groups')}><span className={sh.tabIcon(!!current('groups'))}><Icon name="groups" size={23} stroke={current('groups') ? 2 : 1.75} /></span>{tr('Groups')}</button>
+        <button type="button" data-tour="month" className={sh.tabBtn(!!currentTab('month'))} aria-current={currentTab('month')} onClick={() => goPage('month')}><span className={sh.tabIcon(!!currentTab('month'))}><Icon name="month" size={23} stroke={currentTab('month') ? 2 : 1.75} /></span>{tr('Month')}</button>
+        <button type="button" data-tour="add" className={sh.fab} aria-label={tr('Add expense')} aria-current={currentTab('add')} onClick={goAdd}><Icon name="plus" size={28} stroke={2.2} /></button>
+        <button type="button" data-tour="plan" className={sh.tabBtn(!!currentTab('plan'))} aria-current={currentTab('plan')} onClick={() => goPage('plan')}><span className={sh.tabIcon(!!currentTab('plan'))}><Icon name="plan" size={23} stroke={currentTab('plan') ? 2 : 1.75} /></span>{tr('Plan')}</button>
+        <button type="button" data-tour="groups" className={sh.tabBtn(!!currentTab('groups'))} aria-current={currentTab('groups')} onClick={() => goPage('groups')}><span className={sh.tabIcon(!!currentTab('groups'))}><Icon name="groups" size={23} stroke={currentTab('groups') ? 2 : 1.75} /></span>{tr('Groups')}</button>
       </nav>
       {toast}
       </div>

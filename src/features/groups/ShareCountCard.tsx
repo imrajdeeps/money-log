@@ -1,4 +1,4 @@
-import { countsByDefault, shareFrom } from '../../core/groupShares.ts';
+import { shareFrom } from '../../core/groupShares.ts';
 import { shortDate } from '../../core/format.ts';
 import { isoDate } from '../../core/logic.ts';
 import type { Group } from '../../core/groups.ts';
@@ -7,23 +7,23 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // Does your share of what others add in this group count in your own Month? On for flatmates and couples (the running costs of one home),
-// off for families and trips, and yours to change. Kept on this phone only.
+// off for families and trips, and yours to change. Kept on this phone only. Earlier months never change by themselves: it counts from the day it was switched on.
 export function ShareCountCard({ group }: Readonly<{ group: Group }>) {
   const sw = shareSwitches.use();
   const from = shareFrom(group, sw, sharesFrom.use() || isoDate());
   const on = from !== null;
   return (
-    <div className={ui.card()}>
-      <h3>{tr('In my Month')}</h3>
-      <label className={ui.check}>
-        <input type="checkbox" checked={on} onChange={(e) => shareSwitches.save({ ...sw, [group.id]: { on: e.target.checked, from: isoDate() } })} />
-        <span>{tr('Count my share of what others add here in my own Month, budgets and Insights')}</span>
+    <section className="bg-card border border-line rounded-card px-4 py-1">
+      <label className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center min-h-[72px] cursor-pointer">
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[16px] font-[650]">{tr('In my month')}</span>
+          <span className="text-[13px] leading-[18px] text-muted">
+            {tr("Count my share of this group's expenses in my budgets.")}
+            {on && from !== null ? ` ${tr('Counted from {0}.', shortDate(from))}` : ''}
+          </span>
+        </span>
+        <input type="checkbox" role="switch" className={ui.switchBox} aria-label={tr('In my month')} checked={on} onChange={(e) => shareSwitches.save({ ...sw, [group.id]: { on: e.target.checked, from: isoDate() } })} />
       </label>
-      <p className="text-muted text-[13px]">
-        {countsByDefault(group.kind) ? tr('Switched on for this kind of group unless you turn it off.') : tr('Off for this kind of group unless you turn it on.')}
-        {' '}{on && from !== null ? tr('Counted from {0}: earlier months never change by themselves.', shortDate(from)) : ''}
-        {' '}{tr('What you add yourself always counts at your share. An expense you already added by hand ("Add my share to my budget") is never counted twice.')}
-      </p>
-    </div>
+    </section>
   );
 }
