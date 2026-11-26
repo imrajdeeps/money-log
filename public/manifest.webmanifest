@@ -1,6 +1,6 @@
 {
-  "name": "Money Log",
-  "short_name": "Money Log",
+  "name": "Hisaab",
+  "short_name": "Hisaab",
   "description": "Log payments in seconds and see the month against your plan.",
   "start_url": "./",
   "scope": "./",

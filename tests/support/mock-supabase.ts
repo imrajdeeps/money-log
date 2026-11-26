@@ -1,4 +1,4 @@
-// A small stand-in for the parts of Supabase that Money Log uses (sign-in by emailed code or by password, the PostgREST tables
+// A small stand-in for the parts of Supabase that Hisaab uses (sign-in by emailed code or by password, the PostgREST tables
 // and the group functions). The group rules mirror supabase/schema.sql in outline; the real rules are tested in supabase/rls_tests.sql.
 // It encodes how I understand those APIs behave. It is NOT the real service: passing these tests shows the app's own
 // logic is sound, not that real Supabase accepts every request. Use it for tests and for browser checks only.

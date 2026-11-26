@@ -44,7 +44,7 @@
   --inner: 0 0 0 0 transparent;
   --radius: 16px;
   --radius-lg: 20px;
-  /* Added with the design system (Money Log canvas, Nov 2026). The hairline (1.2:1) is too faint to show where to type, so
+  /* Added with the design system (Hisaab canvas, Nov 2026). The hairline (1.2:1) is too faint to show where to type, so
      fields get their own border at 3:1; buttons and chips get a middle step. Pressed and disabled are colours, not opacity. */
   --control-line: #c4cac1;   /* ghost buttons, unselected chips */
   --field-line: #8c948d;     /* text, amount, select and date fields: 3:1 on card */

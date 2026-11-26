@@ -4,4 +4,4 @@ import { startMock } from './mock-supabase.ts';
 
 const dir = fileURLToPath(new URL('../../dist-e2e/', import.meta.url));
 const mock = await startMock({ staticDir: dir, port: 54380 });
-console.log(`Money Log e2e server on ${mock.url}  (sign-in code: ${mock.state.otp})`);
+console.log(`Hisaab e2e server on ${mock.url}  (sign-in code: ${mock.state.otp})`);

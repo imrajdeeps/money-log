@@ -18,7 +18,7 @@ function files(dir: string, out: string[] = []): string[] {
 const unescape = (s: string) => s.replace(/\\(['"\\n])/g, (_, c: string) => (c === 'n' ? '\n' : c));
 
 // texts that are meant to stay as they are in every language
-const SAME = new Set(['Money Log']);
+const SAME = new Set(['Hisaab']);
 
 test('every tr() text has a Hindi and a Hinglish translation', () => {
   const missingHi: string[] = [];

@@ -18,7 +18,7 @@ export interface TourStep {
 
 // The walk through the whole app, in order.
 export const FIRST_STEPS: readonly TourStep[] = [
-  { id: 'welcome', go: 'home', title: 'Welcome to Money Log', text: 'A quick look round, nine short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.' },
+  { id: 'welcome', go: 'home', title: 'Welcome to Hisaab', text: 'A quick look round, nine short steps. Your payments stay on this phone, and signing in only adds a cloud copy. You can skip now and take the tour again from Settings, About.' },
   { id: 'home', go: 'home', target: 'home', title: 'Overview', text: 'The first page: this month at a glance. What you spent against your budgets, your goals, what is due, and who owes whom. Tap a tile to open it.' },
   { id: 'add', go: 'home', target: 'add', title: 'Log a payment', text: 'Tap Add to log a payment in a few seconds: the amount, a category, done. You can also paste a bank message and let the form fill itself, and attach a receipt photo.' },
   { id: 'month', go: 'month', target: 'month', title: 'Month', text: 'Every category against its budget. Tap the three dots on a category to set its budget, or to add an expense that already has the category.' },

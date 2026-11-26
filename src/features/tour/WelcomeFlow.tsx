@@ -30,7 +30,7 @@ export function WelcomeFlow({ onStart, onSkip }: Readonly<{ onStart: (choice: St
         <p className="m-0 mb-1 text-[13px] text-muted" aria-live="polite">{tr('Step {0} of {1}', step, 2)}</p>
         {step === 1 ? (
           <>
-            <h2 id="welcome-title" className="m-0 mb-1.5">{tr('Welcome to Money Log')}</h2>
+            <h2 id="welcome-title" className="m-0 mb-1.5">{tr('Welcome to Hisaab')}</h2>
             <p className="m-0 mb-3 text-[15px]">{tr('Choose your language. You can change it later in Settings.')}</p>
             <div className={ui.chips} role="group" aria-label={tr('Language')}>
               {LANGS.map((l) => (

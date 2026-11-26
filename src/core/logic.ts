@@ -1,4 +1,4 @@
-// Pure helpers for Money Log: no DOM, no storage, no network.
+// Pure helpers for Hisaab: no DOM, no storage, no network.
 // Kept separate so the same file runs in the browser and in the Node test runner.
 
 export const GROUPS = ['Spending', 'EMI', 'Family', 'Saving'] as const;

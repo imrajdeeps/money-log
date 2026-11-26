@@ -144,7 +144,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
       setMessage(text);
       readMessage(text);
     } catch {
-      setReadNote({ text: tr('The browser did not let Money Log read the clipboard. Paste the message into the box instead.'), bad: true });
+      setReadNote({ text: tr('The browser did not let Hisaab read the clipboard. Paste the message into the box instead.'), bad: true });
     }
   }
 

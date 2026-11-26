@@ -11,7 +11,7 @@ export function CrashScreen() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-[528px] flex-col justify-center gap-3 px-4 py-8 text-ink">
       <h1 className="m-0 text-[24px]">{tr('Something went wrong')}</h1>
-      <p className="m-0">{tr('Money Log hit a problem it could not recover from. Your payments are kept on this phone and are not lost. Reloading usually fixes it.')}</p>
+      <p className="m-0">{tr('Hisaab hit a problem it could not recover from. Your payments are kept on this phone and are not lost. Reloading usually fixes it.')}</p>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className={ui.btn('solid', 'small')} onClick={() => { window.location.reload(); }}>{tr('Reload')}</button>
         <CopyReport />

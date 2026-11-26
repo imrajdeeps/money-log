@@ -37,7 +37,7 @@ export function InviteCard({ group, people }: Readonly<{ group: Group; people: M
             <button type="button" className={ui.btn('ghost')} onClick={() => { void copy(formatCode(live.code), 'Code'); }}>{tr('Copy code')}</button>
           </div>
           <div className="mt-2.5 [&>a]:block">
-            <WhatsAppButton text={tr('Join "{0}" on Money Log: {1} (code {2})', group.name, inviteLink(appRootUrl(window.location.href, BASEPATH), live.code), formatCode(live.code))} />
+            <WhatsAppButton text={tr('Join "{0}" on Hisaab: {1} (code {2})', group.name, inviteLink(appRootUrl(window.location.href, BASEPATH), live.code), formatCode(live.code))} />
           </div>
         </>
       )}

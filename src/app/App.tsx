@@ -5,6 +5,7 @@ import { AppProvider, useApp } from '../data/context.tsx';
 import { LockScreen, SettingsScreen, ThemeToggle, cleanSection } from '../features/settings/index.ts';
 import type { SettingsSection } from '../features/settings/index.ts';
 import { Splash } from '../ui/Splash.tsx';
+import { Logo } from '../ui/Logo.tsx';
 import { Icon } from '../ui/Icon.tsx';
 import type { IconName } from '../ui/Icon.tsx';
 import { AllPayments, QuickLog, smsFromHash } from '../features/payments/index.ts';
@@ -165,7 +166,7 @@ function Shell() {
       <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0} go={tourGo} onStart={(c) => { if (c === 'split') goPage('groups'); else goAdd(); }} />
       <div className={sh.app} inert={app.locked}>
       <header className={sh.top}>
-        <div className={sh.brand}><h1>{tr('Money Log')}</h1></div>
+        <div className={sh.brand}><Logo size={30} /><h1>{tr('Hisaab')}</h1></div>
         <nav className={sh.topNav} aria-label={tr('Sections')}>
           <button type="button" data-tour="home" className={sh.topNavBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>{tr('Overview')}</button>
           {NAV.map((n) => <button key={n.id} type="button" data-tour={n.id} className={sh.topNavBtn(!!current(n.id))} aria-current={current(n.id)} onClick={() => goPage(n.id)}>{tr(n.label)}</button>)}
@@ -183,7 +184,7 @@ function Shell() {
       </header>
       {app.storageKind === 'memory' && (
         <p className={ui.banner} role="alert">
-          {tr('This browser would not let Money Log keep data, so payments will be lost when you close it. Open it in a normal (not private) window.')}
+          {tr('This browser would not let Hisaab keep data, so payments will be lost when you close it. Open it in a normal (not private) window.')}
         </p>
       )}
       <main className={sh.main}>

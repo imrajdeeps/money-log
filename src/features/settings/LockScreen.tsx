@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Logo } from '../../ui/Logo.tsx';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import * as ui from '../../ui/styles.ts';
@@ -69,7 +70,8 @@ export function LockScreen() {
   return (
     <div className="fixed inset-0 z-50 bg-bg flex items-center justify-center p-6 overflow-auto" role="dialog" aria-modal="true" aria-label={tr('Enter your PIN')}>
       <form onSubmit={submit} className="w-full max-w-[340px] text-center [&_h1]:mb-1" noValidate>
-        <h1>{tr('Money Log')}</h1>
+        <Logo size={56} className="mx-auto mb-3" />
+        <h1>{tr('Hisaab')}</h1>
         <p className="text-muted">{tr('Enter your PIN')}</p>
         <input
           ref={input}

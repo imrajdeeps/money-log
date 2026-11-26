@@ -37,13 +37,13 @@ test('a bad time still makes a valid file at the default time', () => {
 
 test('the apostrophe and the link in the text are escaped for a calendar', () => {
   const ics = buildReminderIcs('08:00', '2026-11-24', '2026-11-24T10:00:00.000Z', 'https://x/a;b,c');
-  assert.ok(ics.includes("DESCRIPTION:Open Money Log and add today's payments: https://x/a\\;b\\,c"), 'a semicolon and a comma are escaped in text');
+  assert.ok(ics.includes("DESCRIPTION:Open Hisaab and add today's payments: https://x/a\\;b\\,c"), 'a semicolon and a comma are escaped in text');
 });
 
 test('a WhatsApp link carries the text and no phone number', () => {
-  const url = whatsappLink('Join "Goa" on Money Log: https://x/#join=abc (code ABCD-EF01-2345)');
+  const url = whatsappLink('Join "Goa" on Hisaab: https://x/#join=abc (code ABCD-EF01-2345)');
   assert.ok(url.startsWith('https://wa.me/?text='));
   assert.ok(!/wa\.me\/\d/.test(url), 'no number in the address');
-  assert.equal(decodeURIComponent(url.slice('https://wa.me/?text='.length)), 'Join "Goa" on Money Log: https://x/#join=abc (code ABCD-EF01-2345)');
+  assert.equal(decodeURIComponent(url.slice('https://wa.me/?text='.length)), 'Join "Goa" on Hisaab: https://x/#join=abc (code ABCD-EF01-2345)');
   assert.ok(!url.includes('#'), 'the # of the link inside the text is encoded, so WhatsApp gets it whole');
 });

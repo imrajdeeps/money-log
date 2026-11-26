@@ -53,7 +53,7 @@ export function CircleScreen() {
               <button type="button" className={ui.btn('ghost')} onClick={() => { void copy(formatCode(code), 'Code'); }}>{tr('Copy code')}</button>
             </div>
             <div className="mt-2.5 [&>a]:block">
-              <WhatsAppButton text={tr('Add me to your Circle on Money Log: {0} (code {1})', circleLink(appRootUrl(window.location.href, BASEPATH), code), formatCode(code))} />
+              <WhatsAppButton text={tr('Add me to your Circle on Hisaab: {0} (code {1})', circleLink(appRootUrl(window.location.href, BASEPATH), code), formatCode(code))} />
             </div>
           </>
         ) : null}

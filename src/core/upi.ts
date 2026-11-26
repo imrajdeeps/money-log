@@ -33,7 +33,7 @@ export function upiLink(p: { upi: string; name: string; amount: number; note: st
 /** The WhatsApp text a person sends someone who owes them in a group; their UPI id (when they have set one) and a pay link ride in it. */
 export function remindText(p: { name: string; amount: number; group: string; upi: string; payeeName: string }): string {
   const id = cleanUpi(p.upi);
-  const base = tr('Hi {0}, a reminder from Money Log: you owe me {1} in "{2}".', p.name, fmtINR(p.amount), p.group);
+  const base = tr('Hi {0}, a reminder from Hisaab: you owe me {1} in "{2}".', p.name, fmtINR(p.amount), p.group);
   if (!id) return base;
   return `${base} ${tr('You can pay me on UPI: {0}', id)} ${upiLink({ upi: id, name: p.payeeName, amount: p.amount, note: p.group })}`;
 }
@@ -43,5 +43,5 @@ export function udhaarRemindText(p: { name: string; amount: number; upi: string;
   const id = cleanUpi(p.upi);
   const base = tr('Hi {0}, a gentle reminder about the {1} I lent you.', p.name, fmtINR(p.amount));
   if (!id) return base;
-  return `${base} ${tr('You can pay me on UPI: {0}', id)} ${upiLink({ upi: id, name: p.payeeName, amount: p.amount, note: tr('Money Log') })}`;
+  return `${base} ${tr('You can pay me on UPI: {0}', id)} ${upiLink({ upi: id, name: p.payeeName, amount: p.amount, note: tr('Hisaab') })}`;
 }

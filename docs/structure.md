@@ -36,7 +36,7 @@ tests/        mirrors src/: core/, data/, app/, features/<name>/. support/ holds
 Everything is styled with Tailwind utility classes in the components. The colours live in `src/styles/tokens.css` as CSS variables,
 one set for light and one for dark (`<html data-theme>`); `src/styles/index.css` gives them Tailwind names (`bg-card`, `text-muted`,
 `border-line`, `text-good`, `bg-primary` ...) with `@theme inline`, so the two themes work with no `dark:` classes. Use those
-names, not Tailwind's default palette (it is switched off). Controls have their own steps: `border-control-line` (ghost buttons, chips), `border-field-line` (fields, 3:1), `bg-press` and `bg-primary-press` (pressed), `bg-disabled-bg` / `text-disabled-ink`, `bg-danger-bg` / `text-danger-ink`, `bg-tab-pill` (the open tab) and `text-toast-action`; they come from the design system on the Money Log design canvas. Sizes are written in pixels (`text-[13px]`): the named sizes
+names, not Tailwind's default palette (it is switched off). Controls have their own steps: `border-control-line` (ghost buttons, chips), `border-field-line` (fields, 3:1), `bg-press` and `bg-primary-press` (pressed), `bg-disabled-bg` / `text-disabled-ink`, `bg-danger-bg` / `text-danger-ink`, `bg-tab-pill` (the open tab) and `text-toast-action`; they come from the design system on the Hisaab design canvas. Sizes are written in pixels (`text-[13px]`): the named sizes
 (`text-sm`) also set a line height.
 
 What every screen shares (buttons, cards, lists, rows, fields, messages, meters, the photo and split pieces) is in

@@ -9,7 +9,7 @@ export function AboutCard() {
   return (
     <div className={ui.card()}>
       <h2>{tr('About')}</h2>
-      <p className="text-muted text-[13px]">{tr('Money Log {0}. Amounts are in rupees.', VERSION)}</p>
+      <p className="text-muted text-[13px]">{tr('Hisaab {0}. Amounts are in rupees.', VERSION)}</p>
       {app.storageKind === 'memory' && (
         <p className={ui.msg('bad')} role="alert">{tr('This browser would not let the app store data, so payments will be lost when you close it. Open it in a normal (not private) window.')}</p>
       )}

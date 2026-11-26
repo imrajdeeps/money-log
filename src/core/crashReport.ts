@@ -58,7 +58,7 @@ export function addCrash(list: readonly Crash[], c: Crash): Crash[] {
 
 export function buildReport(list: readonly Crash[], ctx: ReportContext): string {
   const head = [
-    `Money Log ${ctx.version}`,
+    `Hisaab ${ctx.version}`,
     `Time: ${ctx.now}`,
     `Page: ${cleanPath(ctx.href)}`,
     `Browser: ${clip(ctx.userAgent, 200)}`,

@@ -8,7 +8,7 @@ export function UpdateBar() {
   if (!ready) return null;
   return (
     <div role="status" className="fixed inset-x-3 bottom-[calc(96px+env(safe-area-inset-bottom))] z-[70] mx-auto flex max-w-[528px] flex-col gap-2 rounded-xl border border-line bg-card px-3 py-2.5 text-[14px] text-ink shadow-lg lg:bottom-6">
-      <span className="font-semibold">{tr('A new version of Money Log is ready.')}</span>
+      <span className="font-semibold">{tr('A new version of Hisaab is ready.')}</span>
       <span className={ui.mutedSmall}>{tr('Reload to use it. A payment you are half-way through typing is lost on reload, so finish that first.')}</span>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className={ui.btn('solid', 'small')} onClick={() => { window.location.reload(); }}>{tr('Reload')}</button>
