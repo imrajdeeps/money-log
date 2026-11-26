@@ -202,8 +202,8 @@ function Shell() {
       )}
       <main className={page === 'add' ? sh.mainAdd : sh.main}>
         <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} openAddIncome={goAddIncome} goSettings={() => goSettings()} openAccount={() => goSettings('account')} /></div>
-        <div hidden={page !== 'settings'} className={`${sh.narrow} animate-page-in`}>
-          <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
+        <div hidden={page !== 'settings'} className="animate-page-in">
+          <SettingsScreen section={section} onSection={(s) => (s === 'notifications' ? goPage('notifications') : goSettings(s))} />
         </div>
         <div hidden={page !== 'add'} className="animate-page-in">
           <PageBody title={tr('Add expense')} back onBack={goHome} wide><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} onSeeAll={() => goPage('payments')} /></PageBody>
@@ -215,7 +215,7 @@ function Shell() {
         {page === 'circle' && <PageBody title={TITLES.circle} lead intro={tr('People you can add to a group or a shared goal without a code. They see only what you share with them.')} back backLabel={tr('Groups')} onBack={() => goPage('groups')} wide><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><AnalyticsScreen /></PageBody>}
-        {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}
+        {page === 'notifications' && <PageBody title={TITLES.notifications} intro={tr('Gentle notes. They stay here until you act on them or dismiss them.')} width="notes"><NotificationsScreen onOpen={openNotice} /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome} width="payments"><AllPayments /></PageBody>}
       </main>
 

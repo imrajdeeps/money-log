@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../../ui/Icon.tsx';
-import { NotificationsCard } from '../notifications/index.ts';
 import { RecurringCard } from '../recurring/index.ts';
 import { useApp } from '../../data/context.tsx';
-import { SETTINGS_GROUPS, SETTINGS_SECTIONS } from './settingsSections.ts';
+import { SETTINGS_SECTIONS, sectionTitle } from './settingsSections.ts';
+import { useSettingsBlurbs } from './useSettingsBlurbs.ts';
+import { VERSION } from './parts/shared.ts';
 import type { SettingsSection } from './settingsSections.ts';
 import { BackupCard } from './parts/BackupCard.tsx';
 import { DangerCard } from './parts/DangerCard.tsx';
@@ -16,33 +17,41 @@ import { AboutCard } from './parts/AboutCard.tsx';
 import { AppLockCard } from './parts/AppLockCard.tsx';
 import { ProfileCard } from './parts/ProfileCard.tsx';
 import { LanguageCard } from './parts/LanguageCard.tsx';
-import { SessionCard } from './parts/SessionCard.tsx';
-import { useProfile } from '../../data/useProfile.ts';
-import { formatWhatsapp } from '../../core/profile.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
-// A list of headings; tapping one opens just that part. Every part stays mounted (only hidden), so a half-typed
+// One part in the list: its name, the line under it, and an arrow. On a wide screen the open part is marked.
+function PartLink({ id, title, blurb, current, onOpen }: Readonly<{ id: SettingsSection; title: string; blurb: string; current: boolean; onOpen: () => void }>) {
+  const tour = id === 'profile' ? 'settings-profile' : id === 'appearance' ? 'settings-language' : undefined;
+  const ink = id === 'erase' ? 'text-bad' : current ? 'lg:text-brand text-ink' : 'text-ink';
+  return (
+    <li>
+      <button type="button" data-tour={tour} aria-current={current ? 'page' : undefined} onClick={onOpen}
+        className={`w-full grid grid-cols-[minmax(0,1fr)_20px] gap-2.5 items-center min-h-[78px] py-2 px-0 border-0 bg-transparent text-left cursor-pointer [font-family:inherit] ${ink}`}>
+        <span className="flex flex-col gap-px min-w-0"><span className="text-[15px] font-[650]">{title}</span><span className="text-[13px] leading-[18px] text-muted">{blurb}</span></span>
+        <span className="text-muted flex"><Icon name="chevron" size={18} /></span>
+      </button>
+    </li>
+  );
+}
+
+// Settings, as on the design: one list of parts; on a phone a part opens on a page of its own (with Settings to go back), on a
+// wide screen it opens beside the list (Profile when none is chosen). Every part stays mounted (only hidden), so a half-typed
 // password or a half-pasted plan is still there after a look at another part.
 export function SettingsScreen({ section, onSection }: Readonly<{ section?: SettingsSection; onSection: (s?: SettingsSection) => void }>) {
   const app = useApp();
-  const profile = useProfile();
+  const blurbs = useSettingsBlurbs();
   const signedIn = app.syncEnabled && app.sync.mode !== 'signedout' && app.sync.mode !== 'local';
   const sections = SETTINGS_SECTIONS.filter((s) => s.id !== 'password' || signedIn);
   const open = sections.find((s) => s.id === section)?.id;
-  const blurb = (id: SettingsSection, fallback: string) => {
-    if (id === 'profile') return profile.name ? `${profile.name}${profile.whatsapp ? ` · ${formatWhatsapp(profile.whatsapp)}` : ''}` : tr(fallback);
-    if (id !== 'account') return tr(fallback);
-    return signedIn ? tr('Signed in as {0}', app.sync.email ?? '') : app.syncEnabled ? tr('Not signed in') : tr('This phone only');
-  };
+  const shown = open ?? 'profile'; // what a wide screen shows beside the list
   const parts: Record<SettingsSection, ReactNode> = {
     profile: <ProfileCard />,
     account: <AccountCard />,
     password: <><PasswordCard /><LoginHistoryCard /></>,
     recurring: <RecurringCard />,
-    appearance: <AppearanceCard />,
-    notifications: <NotificationsCard />,
-    language: <LanguageCard />,
+    appearance: <><AppearanceCard /><LanguageCard /></>,
+    notifications: null, // opens the Notifications page, where the choices sit under the notes
     receipts: <ReceiptsCard />,
     lock: <AppLockCard />,
     backup: <BackupCard />,
@@ -50,35 +59,23 @@ export function SettingsScreen({ section, onSection }: Readonly<{ section?: Sett
     about: <AboutCard />,
   };
   return (
-    <section aria-label={tr('Settings')}>
-      {open ? (
-        <button type="button" className={ui.backLink} onClick={() => onSection(undefined)}><Icon name="chevron" size={20} />{tr('Settings')}</button>
-      ) : (
-        <div className={ui.pageHead}><h2>{tr('Settings')}</h2></div>
-      )}
-      <div hidden={open !== undefined}>
-        {signedIn && <SessionCard />}
-        {SETTINGS_GROUPS.map((g, gi) => {
-          const items = sections.filter((s) => s.group === g);
-          if (!items.length) return null;
-          return (
-            <div key={g}>
-              <h3 className={`text-[13px] font-semibold text-muted mx-0 mb-1.5 ${gi === 0 && !signedIn ? 'mt-0' : 'mt-5'}`}>{tr(g)}</h3>
-              <ul className={ui.list()}>
-                {items.map((s) => (
-                  <li key={s.id}>
-                    <button type="button" data-tour={s.id === 'profile' ? 'settings-profile' : s.id === 'language' ? 'settings-language' : undefined} className={ui.row} onClick={() => onSection(s.id)}>
-                      <span className={ui.rowMain()}><b>{tr(s.title)}</b><small>{blurb(s.id, s.blurb)}</small></span>
-                      <Icon name="chevron" size={20} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
+    <section aria-label={tr('Settings')} className="grid grid-cols-1 gap-x-7 gap-y-4 items-start lg:grid-cols-[400px_minmax(0,1fr)]">
+      <div className={`flex flex-col gap-3.5 ${open ? 'max-lg:hidden' : ''}`}>
+        <h2 className="m-0 text-[24px] leading-[30px] font-bold">{tr('Settings')}</h2>
+        <nav aria-label={tr('Settings')} className="bg-card border border-line rounded-card pl-4 pr-3">
+          <ul className="list-none m-0 p-0 [&>li+li]:border-t [&>li+li]:border-line">
+            {sections.map((s) => <PartLink key={s.id} id={s.id} title={tr(s.title)} blurb={blurbs[s.id]} current={s.id === shown} onOpen={() => onSection(s.id)} />)}
+          </ul>
+        </nav>
+        <p className="m-0 text-[13px] text-muted text-center">{tr('Hisaab {0} · this phone holds {1} payments', VERSION, app.entries.length)}</p>
       </div>
-      {sections.map((s) => <div key={s.id} hidden={open !== s.id}>{parts[s.id]}</div>)}
+      <div className={`flex flex-col gap-3.5 min-w-0 ${open ? '' : 'max-lg:hidden'}`}>
+        <div className="flex flex-col gap-0.5">
+          <button type="button" className={`${ui.backLink} lg:hidden`} onClick={() => onSection(undefined)}><Icon name="back" size={20} stroke={2} />{tr('Settings')}</button>
+          <h2 className="m-0 text-[24px] leading-[30px] font-bold">{tr(sectionTitle(shown))}</h2>
+        </div>
+        {sections.map((s) => <div key={s.id} className={shown === s.id ? 'flex flex-col gap-3.5 [&>*]:m-0' : 'hidden'}>{parts[s.id]}</div>)}
+      </div>
     </section>
   );
 }

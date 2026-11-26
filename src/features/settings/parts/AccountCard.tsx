@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { clockLabel } from '../../../core/format.ts';
 import { MIN_PASSWORD } from '../../../data/password.ts';
 import { errText } from './shared.ts';
 import { SignOutPanel } from './SignOutPanel.tsx';
 import * as ui from '../../../ui/styles.ts';
+import * as ps from './partStyles.ts';
 import { tr } from '../../../core/i18n.ts';
 
 type Note = { text: string; bad: boolean };
@@ -79,107 +80,105 @@ function ForgotPanel({ f }: Readonly<{ f: SignInForm }>) {
   );
 }
 
-// The email and password boxes of both forms.
+// The email box of both forms.
 function EmailField({ f }: Readonly<{ f: SignInForm }>) {
   return (
-    <label className={ui.field}>
+    <label className={ui.fieldBare}>
       <span>{tr('Email')}</span>
       <input type="email" inputMode="email" autoComplete="email" value={f.email} onChange={(e) => f.setEmail(e.target.value)} disabled={f.busy} />
     </label>
   );
 }
 
-// Not signed in: sign in, or make an account (the choice is the two chips), and what the service said if it refused.
+// A password box; when the service refused, its words sit right under it and the box is edged in red.
+function PasswordField({ label, value, onChange, auto, f, error }: Readonly<{ label: string; value: string; onChange: (v: string) => void; auto: string; f: SignInForm; error?: ReactNode }>) {
+  return (
+    <label className={ui.fieldBare}>
+      <span>{label}</span>
+      <input type="password" className={error ? '!border-[1.5px] !border-bad' : undefined} autoComplete={auto} value={value} onChange={(e) => onChange(e.target.value)} disabled={f.busy} />
+      {error}
+    </label>
+  );
+}
+
+// Not signed in: sign in, or make an account (the choice is the segmented control), and what the service said if it refused.
 function SignedOutCard({ f }: Readonly<{ f: SignInForm }>) {
   const app = useApp();
   const { how } = f;
-  const error = app.sync.error;
-  const note = (f.msg || error) && <p className={ui.msg(f.msg?.bad || !f.msg ? 'bad' : undefined)} role="alert">{f.msg?.text ?? error}</p>;
+  const errText = f.msg?.text ?? app.sync.error;
+  const bad = f.msg ? f.msg.bad : !!app.sync.error;
+  const error = errText && bad ? <span className="block mt-1.5 text-[14px] font-semibold text-bad" role="alert">{errText}</span> : undefined;
   return (
-    <div className={ui.card()}>
-      <h2>{how === 'signup' ? tr('Create an account') : tr('Sign in to sync')}</h2>
+    <div className={ps.card}>
       {app.authNotice && (
         <p className={ui.msg(app.authNotice.bad ? 'bad' : 'good')} role="alert">
           {app.authNotice.text} <button type="button" className={ui.linkBtn} onClick={app.dismissAuthNotice}>{tr('Dismiss')}</button>
         </p>
       )}
-      <p className="text-muted text-[13px]">{tr('Your payments are saved on this phone either way. Signing in only adds the cloud copy and your other devices.')}</p>
-      <div className={ui.chips} role="group" aria-label={tr('How to sign in')}>
-        <button type="button" className={ui.chip} aria-pressed={how === 'signin'} onClick={() => f.choose('signin')}>{tr('Sign in')}</button>
-        <button type="button" className={ui.chip} aria-pressed={how === 'signup'} onClick={() => f.choose('signup')}>{tr('Create account')}</button>
+      <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('Sync keeps a copy of your payments in your own account, so a new phone can have them too. Without it everything stays on this phone.')}</p>
+      <div className={ui.segment(2)} role="radiogroup" aria-label={tr('Sign in or create')}>
+        <button type="button" role="radio" className={ui.segBtn} aria-checked={how === 'signin'} onClick={() => f.choose('signin')}>{tr('Sign in')}</button>
+        <button type="button" role="radio" className={ui.segBtn} aria-checked={how === 'signup'} onClick={() => f.choose('signup')}>{tr('Create account')}</button>
       </div>
       {how === 'signin' && (
-        <form onSubmit={f.signIn} noValidate>
+        <form onSubmit={f.signIn} noValidate className="flex flex-col gap-3">
           <EmailField f={f} />
-          <label className={ui.field}>
-            <span>{tr('Password')}</span>
-            <input type="password" autoComplete="current-password" value={f.password} onChange={(e) => f.setPassword(e.target.value)} disabled={f.busy} />
-          </label>
-          {note}
-          <div className={ui.btnRow}>
-            <button type="submit" className={ui.btn()} disabled={f.busy || !f.email.trim() || !f.password}>{tr('Sign in')}</button>
-          </div>
-          <p className="text-muted text-[13px]"><button type="button" className={ui.linkBtn} aria-expanded={f.forgot} onClick={() => { f.setForgot(!f.forgot); f.setResetNote(null); }}>{tr('Forgot your password?')}</button></p>
+          <PasswordField label={tr('Password')} value={f.password} onChange={f.setPassword} auto="current-password" f={f} error={error} />
+          <button type="submit" className={ui.btn('solid', 'none', ps.save)} disabled={f.busy || !f.email.trim() || !f.password}>{tr('Sign in')}</button>
+          <button type="button" className="self-center min-h-11 px-2 border-0 bg-transparent text-brand text-[14px] font-semibold underline cursor-pointer [font-family:inherit]" aria-expanded={f.forgot} onClick={() => { f.setForgot(!f.forgot); f.setResetNote(null); }}>{tr('Forgot your password?')}</button>
           {f.forgot && <ForgotPanel f={f} />}
         </form>
       )}
       {how === 'signup' && (
-        <form onSubmit={f.signUp} noValidate>
+        <form onSubmit={f.signUp} noValidate className="flex flex-col gap-3">
           <EmailField f={f} />
-          <label className={ui.field}>
-            <span>{tr('Password (at least {0} characters)', MIN_PASSWORD)}</span>
-            <input type="password" autoComplete="new-password" value={f.password} onChange={(e) => f.setPassword(e.target.value)} disabled={f.busy} />
-          </label>
-          <label className={ui.field}>
-            <span>{tr('Repeat the password')}</span>
-            <input type="password" autoComplete="new-password" value={f.password2} onChange={(e) => f.setPassword2(e.target.value)} disabled={f.busy} />
-          </label>
-          {note}
-          <div className={ui.btnRow}>
-            <button type="submit" className={ui.btn()} disabled={f.busy || !f.email.trim() || !f.password || !f.password2}>{tr('Create account')}</button>
-          </div>
-          <p className="text-muted text-[13px]">{tr('A few words in a row make a strong password. If you forget it, use "Forgot your password?" on the Sign in form (see the README for who it can reach).')}</p>
+          <PasswordField label={tr('Password (at least {0} characters)', MIN_PASSWORD)} value={f.password} onChange={f.setPassword} auto="new-password" f={f} />
+          <PasswordField label={tr('Repeat the password')} value={f.password2} onChange={f.setPassword2} auto="new-password" f={f} error={error} />
+          {f.msg && !f.msg.bad && <p className={ui.msg('good')} role="status">{f.msg.text}</p>}
+          <button type="submit" className={ui.btn('solid', 'none', ps.save)} disabled={f.busy || !f.email.trim() || !f.password || !f.password2}>{tr('Create account')}</button>
+          <p className={ps.small}>{tr('A few words in a row make a strong password. If you forget it, use "Forgot your password?" on the Sign in form (see the README for who it can reach).')}</p>
         </form>
       )}
     </div>
   );
 }
 
-// Signed in: who, how much is waiting to upload, when it last synced, Sync now, and the way to sign out.
-function SignedInCard({ leaving, setLeaving }: Readonly<{ leaving: boolean; setLeaving: (v: boolean) => void }>) {
+// Signed in: when it last synced, who, Sync now; and below, the two ways to sign out.
+function SignedInCard() {
   const app = useApp();
   const s = app.sync;
+  const waiting = s.pending > 0;
   return (
-    <div className={ui.card()}>
-      <h2>{tr('Cloud sync')}</h2>
-      <p>{tr('Signed in as')}{' '}<b>{s.email}</b></p>
-      <p className="text-muted text-[13px]">
-        {s.pending ? tr('{0} change{1} waiting to upload. ', s.pending, s.pending === 1 ? '' : 's') : tr('Everything is uploaded. ')}
-        {s.lastSync ? tr('Last sync {0}.', clockLabel(s.lastSync)) : ''}
-        {s.mode === 'offline' ? ' You are offline; it will catch up when the connection returns.' : ''}
-      </p>
-      {s.error && <p className={ui.msg('bad')} role="alert">{s.error}</p>}
-      <div className={ui.btnRow}>
-        <button type="button" className={ui.btn()} onClick={app.syncNow} disabled={s.mode === 'syncing'}>{tr('Sync now')}</button>
-        <button type="button" className={ui.btn('ghost')} aria-expanded={leaving} onClick={() => setLeaving(!leaving)}>{tr('Sign out')}</button>
+    <>
+      <div className={ps.card}>
+        <span className={ui.cx('self-start flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-semibold', waiting || s.error ? 'bg-warn-bg text-warn' : 'bg-good-bg text-good')}>
+          <span className={ui.cx('w-[7px] h-[7px] rounded-full', waiting || s.error ? 'bg-warn' : 'bg-good')} aria-hidden="true" />
+          {waiting ? tr('{0} waiting', s.pending) : s.lastSync ? tr('Synced {0}', clockLabel(s.lastSync)) : tr('Synced')}
+        </span>
+        <p className="m-0 text-[15px]">{tr('Signed in as')}{' '}<strong>{s.email}</strong></p>
+        <p className={ps.note}>
+          {waiting ? tr('{0} change{1} waiting to upload. ', s.pending, s.pending === 1 ? '' : 's') : tr('Everything is uploaded. ')}
+          {s.lastSync ? tr('Last sync {0}.', clockLabel(s.lastSync)) : ''}{' '}
+          {s.mode === 'offline' ? tr('You are offline; it will catch up when the connection returns.') : tr('Your data goes only to your own account.')}
+        </p>
+        {s.error && <p className={ui.msg('bad')} role="alert">{s.error}</p>}
+        <button type="button" className={ui.btn('solid', 'none', ps.main)} onClick={app.syncNow} disabled={s.mode === 'syncing'}>{tr('Sync now')}</button>
       </div>
-      {leaving && <SignOutPanel onCancel={() => setLeaving(false)} />}
-    </div>
+      <SignOutPanel />
+    </>
   );
 }
 
 export function AccountCard() {
   const app = useApp();
   const form = useSignInForm();
-  const [leaving, setLeaving] = useState(false); // the sign-out choice is showing
   if (!app.syncEnabled) {
     return (
-      <div className={ui.card()}>
-        <h2>{tr('Cloud sync')}</h2>
-        <p className="text-muted">{tr('Cloud sync is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.')}</p>
+      <div className={ps.card}>
+        <p className={ps.note}>{tr('Cloud sync is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.')}</p>
       </div>
     );
   }
   if (app.sync.mode === 'signedout') return <SignedOutCard f={form} />;
-  return <SignedInCard leaving={leaving} setLeaving={setLeaving} />;
+  return <SignedInCard />;
 }

@@ -4,6 +4,7 @@ import { cleanSection } from '../features/settings/index.ts';
 // One part of Settings on a page of its own (/settings/password). A part that does not exist goes back to the list.
 export const Route = createFileRoute('/settings/$part')({
   beforeLoad: ({ params }) => {
+    if (params.part === 'notifications') throw redirect({ to: '/notifications', replace: true }); // the choices sit on the Notifications page now
     if (!cleanSection(params.part)) throw redirect({ to: '/settings', replace: true });
   },
 });

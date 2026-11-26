@@ -1,52 +1,58 @@
-import { Icon } from '../../ui/Icon.tsx';
 import { useApp } from '../../data/context.tsx';
-import { NOTICE_KINDS } from '../../core/noticeKinds.ts';
 import type { Notice, OpenTarget, Tone } from '../../core/notifications.ts';
-import * as ui from '../../ui/styles.ts';
+import type { NoticeKind } from '../../core/noticeKinds.ts';
 import { tr } from '../../core/i18n.ts';
 import { useNotices } from './useNotices.ts';
+import { NotificationsCard } from './NotificationsCard.tsx';
 
 const MARK: Record<Tone, string> = { attention: 'bg-bad', soon: 'bg-warn', reminder: 'bg-muted' };
+const ORDER: Record<Tone, number> = { attention: 0, soon: 1, reminder: 2 };
 
-function Row({ notice, onOpen, onDismiss }: Readonly<{ notice: Notice; onOpen: () => void; onDismiss: () => void }>) {
+// The words on a note's main button: where it takes you, said as what you will do there.
+function actionLabel(kind: NoticeKind): string {
+  switch (kind) {
+    case 'due': return tr('Open Due soon');
+    case 'recurring': return tr('Log it');
+    case 'budget': return tr('See Month');
+    case 'goal': return tr('See goal');
+    case 'group': return tr('See group');
+    case 'networth': return tr('Check in');
+    case 'backup': return tr('Download backup');
+    case 'sync': return tr('Open Cloud sync');
+    default: return tr('See sign-ins');
+  }
+}
+
+// One note, as on the design: a coloured dot (red needs you, amber soon, grey a reminder), what it is, and its buttons.
+function NoteCard({ notice, onOpen, onDismiss }: Readonly<{ notice: Notice; onOpen: () => void; onDismiss: () => void }>) {
   return (
-    <li className="flex items-center gap-3 px-3.5 py-3">
-      <i className={`h-2.5 w-2.5 flex-none rounded-full ${MARK[notice.tone]}`} aria-hidden="true" />
-      <button type="button" className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left text-inherit [font:inherit]" onClick={onOpen} aria-label={tr('Open: {0}', notice.title)}>
-        <b className="block [overflow-wrap:anywhere]">{notice.title}</b>
-        <small className="text-muted">{notice.detail}</small>
-      </button>
-      <button type="button" className={ui.icoBtn} aria-label={tr('Dismiss: {0}', notice.title)} onClick={onDismiss}><Icon name="close" size={18} /></button>
+    <li className="bg-card border border-line rounded-card px-4 py-3.5 grid grid-cols-[10px_minmax(0,1fr)] gap-3">
+      <span className={`w-2.5 h-2.5 mt-1.5 rounded-full ${MARK[notice.tone]}`} aria-hidden="true" />
+      <div className="flex flex-col gap-1.5 min-w-0">
+        <span className="text-[15px] font-[650] [overflow-wrap:anywhere]">{notice.title}</span>
+        <span className="text-[14px] leading-5 text-muted">{notice.detail}</span>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button type="button" className="min-h-10 px-3.5 rounded-[10px] border-0 bg-primary text-primary-ink text-[14px] font-[650] cursor-pointer [font-family:inherit] active:bg-primary-press" onClick={onOpen}>{actionLabel(notice.kind)}</button>
+          <button type="button" className="min-h-10 px-3 rounded-[10px] border-0 bg-transparent text-muted text-[14px] font-semibold cursor-pointer [font-family:inherit] active:bg-press" aria-label={tr('Dismiss: {0}', notice.title)} onClick={onDismiss}>{tr('Dismiss')}</button>
+        </div>
+      </div>
     </li>
   );
 }
 
-// Everything that needs attention now: needs attention first, then what is coming up, then reminders. Tap one to open the right screen;
-// the cross hides it for good (on every phone), until the situation changes.
-export function NotificationsScreen({ onOpen, onSettings }: Readonly<{ onOpen: (t: OpenTarget) => void; onSettings: () => void }>) {
+// Notifications, as on the design: the notes that need you (red first, then amber, then grey), each with a button that takes you
+// there and Dismiss (hidden for good, on every phone, until the situation changes); then which kinds of notes appear.
+export function NotificationsScreen({ onOpen }: Readonly<{ onOpen: (t: OpenTarget) => void }>) {
   const app = useApp();
-  const notices = useNotices();
-  const off = NOTICE_KINDS.length - app.noticeKinds.size;
-  const group = (tone: Tone, title: string) => {
-    const list = notices.filter((n) => n.tone === tone);
-    if (list.length === 0) return null;
-    return (
-      <>
-        <h3 className="mb-2 mt-5 text-[16px]">{title}</h3>
-        <ul className={ui.list()}>
-          {list.map((n) => <Row key={n.key} notice={n} onOpen={() => onOpen(n.open)} onDismiss={() => { void app.dismissNotice(n.key); }} />)}
-        </ul>
-      </>
-    );
-  };
+  const notices = [...useNotices()].sort((a, b) => ORDER[a.tone] - ORDER[b.tone]);
   return (
-    <section aria-label={tr('Notifications')}>
-      {notices.length === 0 && <p className="text-muted">{tr('Nothing needs you right now.')}</p>}
-      {group('attention', tr('Needs attention'))}
-      {group('soon', tr('Coming up'))}
-      {group('reminder', tr('Reminders'))}
-      <p className="mt-5 text-[13px] text-muted">{off > 0 ? tr('{0} kind{1} of notification {2} switched off.', off, off === 1 ? '' : 's', off === 1 ? 'is' : 'are') : tr('Every kind of notification is on.')}</p>
-      <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={onSettings}>{tr('Choose what to be told about')}</button>
+    <section aria-label={tr('Notifications')} className="flex flex-col gap-4">
+      {notices.length === 0 ? <p className="m-0 text-[15px] text-muted">{tr('Nothing needs you right now.')}</p> : (
+        <ul className="list-none m-0 p-0 flex flex-col gap-2.5">
+          {notices.map((n) => <NoteCard key={n.key} notice={n} onOpen={() => onOpen(n.open)} onDismiss={() => { void app.dismissNotice(n.key); }} />)}
+        </ul>
+      )}
+      <NotificationsCard />
     </section>
   );
 }

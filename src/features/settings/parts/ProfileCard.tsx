@@ -6,7 +6,9 @@ import { myUpi } from '../../../data/phonePrefs.ts';
 import { cleanUpi, upiFromQr } from '../../../core/upi.ts';
 import { readQrImage } from '../../../ui/qr.ts';
 import { useProfile } from '../../../data/useProfile.ts';
-import { COUNTRY_PREFIX, MAX_PROFILE_NAME, cleanName, initials, isIndianNumber, localDigits, normalizeWhatsapp } from '../../../core/profile.ts';
+import { COUNTRY_PREFIX, MAX_PROFILE_NAME, cleanName, initials, isIndianNumber, localDigits, normalizeWhatsapp, personLetters } from '../../../core/profile.ts';
+import { Icon } from '../../../ui/Icon.tsx';
+import * as ps from './partStyles.ts';
 import * as ui from '../../../ui/styles.ts';
 import { tr } from '../../../core/i18n.ts';
 
@@ -20,27 +22,16 @@ function checkProfileForm(number: string, upi: string): ProfileCheck {
   return { ok: true, whatsapp: n.value, upi: cleanUpi(upi) };
 }
 
-// One figure under "This phone holds".
-function Stat({ value, label }: Readonly<{ value: number; label: string }>) {
+// The round picture with initials, the name, and what this phone holds.
+function ProfileHeader({ name, email, holds }: Readonly<{ name: string; email: string | null; holds: string }>) {
   return (
-    <div className="flex-1 text-center">
-      <p className="text-[22px] font-bold m-0 tabular-nums">{value}</p>
-      <p className="text-muted text-[13px] m-0">{label}</p>
-    </div>
-  );
-}
-
-// The round picture with initials, the name and the account's email (or that it is not signed in).
-function ProfileHeader({ name, email }: Readonly<{ name: string; email: string | null }>) {
-  return (
-    <div className="flex items-center gap-3.5 mb-1">
-      <div className="w-16 h-16 flex-none rounded-[50%] bg-primary text-primary-ink text-[24px] font-bold flex items-center justify-center [box-shadow:inset_0_0_0_1px_var(--primary-ring)]" aria-hidden="true">
-        {initials(name, email)}
-      </div>
-      <div className="min-w-0">
-        <h2 className="m-0 [overflow-wrap:anywhere]">{name || tr('Your profile')}</h2>
-        <p className="text-muted text-[13px] m-0 [overflow-wrap:anywhere]">{email ?? tr('Not signed in: this phone only')}</p>
-      </div>
+    <div className="flex items-center gap-3.5">
+      <span className="w-16 h-16 flex-none rounded-full bg-[#104A30] text-[#C9E96A] text-[22px] font-[750] flex items-center justify-center" aria-hidden="true">{name ? personLetters(name) : initials(name, email)}</span>
+      <span className="flex flex-col min-w-0">
+        <span className="text-[18px] font-bold [overflow-wrap:anywhere]">{name || tr('Your profile')}</span>
+        <span className="text-[13px] text-muted [overflow-wrap:anywhere]">{holds}</span>
+        {email && <span className="text-[13px] text-muted [overflow-wrap:anywhere]">{email}</span>}
+      </span>
     </div>
   );
 }
@@ -57,6 +48,7 @@ export function ProfileCard() {
   const [number, setNumber] = useState(localDigits(profile.whatsapp));
   const [upi, setUpi] = useState(myUpi.load());
   const [note, setNote] = useState<{ text: string; bad: boolean } | null>(null);
+  const [upiRead, setUpiRead] = useState(false); // the id was just read from a QR: edged in the accent colour
   const oldNumber = profile.whatsapp !== '' && !isIndianNumber(profile.whatsapp); // saved before only Indian numbers were allowed
 
   // Scan QR (the camera) or Upload QR image: the browser reads the code, and a UPI payment code fills the id; nothing is kept.
@@ -69,6 +61,7 @@ export function ProfileCard() {
     const found = read.ok ? upiFromQr(read.text) : null;
     if (!found) return setNote({ text: tr('That image has no UPI QR code in it. Try another, or type the id.'), bad: true });
     setUpi(found.upi);
+    setUpiRead(true);
     setNote({ text: found.name ? tr('Read from your QR: {0} ({1}). Check it, then tap Save profile.', found.upi, found.name) : tr('Read from your QR: {0}. Check it, then tap Save profile.', found.upi), bad: false });
   }
 
@@ -83,50 +76,38 @@ export function ProfileCard() {
     setNote({ text: email ? tr('Saved. It follows you to your other phones.') : tr('Saved on this phone.'), bad: false });
   }
 
+  const goals = Object.values(app.goals).filter((g) => g.k === 'g' && !g.x).length;
+  const holds = tr('This phone holds {0} payments · {1} groups · {2} goals', app.entries.length, app.groups.length, goals);
+  const qrBtn = ui.btn('outline', 'none', ps.outline44);
   return (
-    <div className={ui.card()}>
-      <ProfileHeader name={profile.name} email={email} />
-
-      <form onSubmit={save} noValidate>
-        <label className={ui.field}>
-          <span>{tr('Your name')}</span>
-          <input value={name} maxLength={MAX_PROFILE_NAME} autoComplete="name" onChange={(e) => { setName(e.target.value); setNote(null); }} placeholder={tr('What others see you as in groups')} />
-        </label>
-        <div className={ui.field}>
-          <span>{tr('WhatsApp number (optional)')}</span>
-          <div className="flex gap-2">
-            <span className="inline-flex min-h-12 flex-none items-center rounded-xl border border-line bg-card px-3.5 font-semibold" aria-hidden="true">{COUNTRY_PREFIX}</span>
-            <input value={number} inputMode="tel" autoComplete="tel-national" maxLength={20} aria-label={tr('10-digit mobile number after +91')} onChange={(e) => { setNumber(e.target.value); setNote(null); }} placeholder="98765 43210" />
-          </div>
-        </div>
-        <label className={ui.field}>
-          <span>{tr('Your UPI id (optional)')}</span>
-          <input value={upi} autoCapitalize="none" autoComplete="off" spellCheck={false} placeholder="name@bank" onChange={(e) => { setUpi(e.target.value); setNote(null); }} />
-        </label>
-        <p className="text-muted text-[13px] mt-2 mb-1.5">{tr('Or read it from your UPI QR code. The photo is read on this phone and not kept.')}</p>
-        <div className="flex gap-2">
-          <label className={ui.btn('ghost', 'none', 'flex-1 min-h-11 px-3 text-[14px]')}>
-            <input type="file" accept="image/*" capture="environment" onChange={(e) => void readQr(e)} />
-            {tr('Scan QR')}
-          </label>
-          <label className={ui.btn('ghost', 'none', 'flex-1 min-h-11 px-3 text-[14px]')}>
-            <input type="file" accept="image/*" onChange={(e) => void readQr(e)} />
-            {tr('Upload QR image')}
-          </label>
-        </div>
-        <p className="text-muted text-[13px]">{tr('Kept on this phone only. It goes out only inside a reminder you send from a group or from Udhaar, so people can pay you.')}</p>
-        {oldNumber && <p className={ui.msg('bad')} role="status">{tr('The number saved here, {0}, is not an Indian number. Only Indian numbers are accepted now: type a 10-digit number, or leave the field empty and save to remove it.', profile.whatsapp)}</p>}
-        <p className="text-muted text-[13px]">{email ? tr('Kept on this phone and in your account, where only you can see it. It is not verified, and nothing is sent to it.') : tr('Kept on this phone. Sign in and it also follows you to your other phones. It is not verified, and nothing is sent to it.')}</p>
-        {note && <p className={ui.msg(note.bad ? 'bad' : 'good')} role={note.bad ? 'alert' : 'status'}>{note.text}</p>}
-        <button type="submit" className={ui.btn('solid', 'md', 'w-full mt-1.5')}>{tr('Save profile')}</button>
-      </form>
-
-      <h3 className="text-[16px] mt-5 mb-2">{tr('This phone holds')}</h3>
-      <div className="flex gap-2 border border-line rounded-xl py-3">
-        <Stat value={app.entries.length} label="payments" />
-        <Stat value={app.groups.length} label="groups" />
-        <Stat value={Object.values(app.goals).filter((g) => g.k === 'g' && !g.x).length} label="goals" />
+    <form className={ps.card + ' gap-3.5'} onSubmit={save} noValidate>
+      <ProfileHeader name={profile.name} email={email} holds={holds} />
+      <label className={ui.fieldBare}>
+        <span>{tr('Name')}</span>
+        <input value={name} maxLength={MAX_PROFILE_NAME} autoComplete="name" onChange={(e) => { setName(e.target.value); setNote(null); }} placeholder={tr('What others see you as in groups')} />
+      </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="profile-wa" className="text-[13px] font-semibold">{tr('WhatsApp number (optional)')}</label>
+        <span className="flex items-stretch min-h-12 rounded-field border border-field-line overflow-hidden bg-card focus-within:border-accent">
+          <span className="px-3 flex items-center bg-press text-[16px] font-semibold" aria-hidden="true">{COUNTRY_PREFIX}</span>
+          <input id="profile-wa" className="flex-1 min-w-0 !border-0 !rounded-none px-3 bg-transparent text-[16px] focus-visible:!outline-none focus-visible:![box-shadow:none]" value={number} inputMode="tel" autoComplete="tel-national" maxLength={20} aria-label={tr('10-digit mobile number after +91')} onChange={(e) => { setNumber(e.target.value); setNote(null); }} placeholder="98765 43210" />
+        </span>
+        <span className={ps.small}>{tr('Used when others in a group tap Remind.')}</span>
       </div>
-    </div>
+      {oldNumber && <p className={ui.msg('bad')} role="status">{tr('The number saved here, {0}, is not an Indian number. Only Indian numbers are accepted now: type a 10-digit number, or leave the field empty and save to remove it.', profile.whatsapp)}</p>}
+      <div className="flex flex-col gap-2">
+        <label htmlFor="profile-upi" className="text-[13px] font-semibold">{tr('UPI id (optional)')}</label>
+        <input id="profile-upi" className={upiRead ? 'border-[1.5px] !border-accent' : undefined} value={upi} autoCapitalize="none" autoComplete="off" spellCheck={false} placeholder="name@bank" onChange={(e) => { setUpi(e.target.value); setNote(null); }} />
+        <span className={ps.small}>{tr('Or read it from your UPI QR code:')}</span>
+        <div className="grid grid-cols-2 gap-2">
+          <label className={qrBtn}><input type="file" accept="image/*" capture="environment" onChange={(e) => void readQr(e)} /><Icon name="camera" size={18} />{tr('Scan QR')}</label>
+          <label className={qrBtn}><input type="file" accept="image/*" onChange={(e) => void readQr(e)} />{tr('Upload QR image')}</label>
+        </div>
+        {note && <p className={note.bad ? ui.msg('bad') : 'm-0 text-[14px] leading-5 font-semibold text-good bg-good-bg px-2.5 py-2 rounded-[10px]'} role={note.bad ? 'alert' : 'status'}>{note.text}</p>}
+        <span className={ps.small}>{tr('The QR image is read on this phone and not kept. Group members see your UPI id when they pay you.')}</span>
+      </div>
+      <button type="submit" className={ui.btn('solid', 'none', ps.save)}>{tr('Save profile')}</button>
+      <p className={ps.small}>{email ? tr('Your name and number are kept on this phone and in your account, where only you can see them. The number is not verified, and nothing is sent to it.') : tr('Kept on this phone. Sign in and your name and number also follow you to your other phones.')}</p>
+    </form>
   );
 }
