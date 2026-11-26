@@ -11,6 +11,7 @@ import { PhotoStrip } from './PhotoStrip.tsx';
 import { MethodChips } from './MethodChips.tsx';
 import { SplitEditor, splitFromEntry } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
+import { Icon } from '../../ui/Icon.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -94,48 +95,50 @@ export function EditDialog({ entry, onClose }: Readonly<{ entry: Entry; onClose:
   return (
     <dialog
       ref={ref}
+      className="sheet"
       // a photo viewer inside this dialog also closes: React passes that close event up, so only our own counts
       onClose={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onClick={(e) => { if (e.target === ref.current) close(); }}
       aria-labelledby="edit-title"
     >
-      <form onSubmit={save} noValidate>
-        <h2 id="edit-title">{editTitle(shared, kind)}</h2>
+      <form onSubmit={save} noValidate className="flex flex-col gap-3.5">
+        <div className={ui.sheetHead}>
+          <h2 id="edit-title">{editTitle(shared, kind)}</h2>
+          <button type="button" className={ui.iconBtn} aria-label={tr('Close')} onClick={close}><Icon name="close" size={22} /></button>
+        </div>
         {readOnly && <p className={ui.msg('bad')} role="status">{tr('You are no longer in this group, so this expense can no longer be changed.')}</p>}
         {frozen && inGroup && <p className={ui.msg()} role="status">{tr('Someone this expense names has left the group, so its amount, split and deletion are locked. You can still change the category, method, note and date.')}</p>}
         {!shared && <KindSwitch value={kind} onChange={pickKind} />}
-        <label className={ui.field}>
-          <span>{tr('Amount (₹)')}</span>
-          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={readOnly || frozen} />
+        <label className={ui.amountSm}>
+          <span aria-hidden="true">₹</span>
+          <input inputMode="decimal" aria-label={tr('Amount in rupees')} value={amount} onChange={(e) => setAmount(e.target.value)} disabled={readOnly || frozen} />
         </label>
         {shared && inGroup && !frozen && app.me && (
           <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
         )}
-        <label className={ui.field} htmlFor="edit-cat"><span>{tr('Category')}</span></label>
-        <KindCategory kind={kind} id="edit-cat" value={category} onChange={setCategory} />
-        <MethodChips value={method} onChange={setMethod} options={METHODS} />
-        <label className={ui.field}>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div><label className={ui.label} htmlFor="edit-cat">{tr('Category')}</label><KindCategory kind={kind} id="edit-cat" value={category} onChange={setCategory} /></div>
+          <label className={ui.fieldBare}>
+            <span>{tr('Date')}</span>
+            <input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} />
+          </label>
+        </div>
+        <label className={ui.fieldBare}>
           <span>{tr('Note')}</span>
           <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
         </label>
-        <label className={ui.field}>
-          <span>{tr('Date')}</span>
-          <input type="date" value={date} max={isoDate()} onChange={(e) => setDate(e.target.value)} />
-        </label>
+        <MethodChips value={method} onChange={setMethod} options={METHODS} bare />
         {kind === 'out' && <PhotoStrip entryId={entry.id} canEdit={!readOnly} />}
         {shared && inGroup && entry.group_id && (
-          <div className={ui.photoStrip}>
-            <p className={ui.fieldLabel}>{tr('History')}</p>
+          <div className="flex flex-col gap-2">
+            <p className={ui.label}>{tr('History')}</p>
             <HistoryList entryId={entry.id} groupId={entry.group_id} />
           </div>
         )}
         {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-        <div className={ui.btnRow}>
-          <button type="submit" className={ui.btn()} disabled={readOnly}>{tr('Save')}</button>
-          <button type="button" className={ui.btn('ghost')} onClick={close}>{readOnly ? tr('Close') : tr('Cancel')}</button>
-        </div>
+        <button type="submit" className={ui.btn('solid', 'none', 'min-h-[52px] text-[16px] font-bold')} disabled={readOnly}>{tr('Save changes')}</button>
         {!readOnly && !frozen && (
-          <button type="button" className={ui.btn('danger', 'md', 'w-full')} onClick={remove}>
+          <button type="button" className={ui.btn('dangerOutline', 'md')} onClick={remove}>
             {confirmDelete ? tr('Tap again to delete') : shared ? tr('Delete shared expense') : tr('Delete payment')}
           </button>
         )}

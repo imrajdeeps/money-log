@@ -1940,3 +1940,149 @@ grant execute on function public.add_shared_topup(uuid, uuid, numeric, date)    
 grant execute on function public.remove_shared_topup(uuid, uuid)                        to authenticated;
 grant execute on function public.my_shared_goals()                                      to authenticated;
 -- circle_has, shared_goal_count, shared_goal_people, lock_shared_goal and ask_to_join_shared_goal are internal: the app cannot call them.
+
+-- ---------------------------------------------------------------------------------
+-- shared udhaar (version 2.0)
+-- ---------------------------------------------------------------------------------
+-- An udhaar entry written with someone in your Circle can be shared with them. It shows in their Udhaar as an invitation and counts
+-- for them only once they accept ("That is not right" declines it, and the writer sees that). After that either of the two can mark it
+-- settled or open it again, and both see it. The writer can delete it unless it is accepted and still open. Entries with anyone else
+-- stay private (in the goals block, which only your own account syncs) and never reach this table. Nothing here is readable by the app directly: the table
+-- has no policies and no grants, and the functions below return one document (my_shared_udhaar).
+create table if not exists public.shared_udhaar (
+  id           uuid primary key,
+  created_by   uuid not null references auth.users (id) on delete cascade,
+  other_user   uuid not null references auth.users (id) on delete cascade,
+  way          text not null check (way in ('gave', 'took')),               -- as the writer sees it
+  amount       numeric(12,2) not null check (amount > 0 and amount <= 10000000),
+  entry_date   date not null,
+  note         text not null default '' check (char_length(note) <= 100),
+  creator_name text not null default '' check (char_length(creator_name) <= 40),  -- what the other person sees the writer as
+  other_name   text not null default '' check (char_length(other_name) <= 40),    -- what the writer calls the other person
+  state        text not null default 'invited' check (state in ('invited', 'active', 'declined')),
+  settled      boolean not null default false,
+  settled_by   uuid,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  check (created_by <> other_user)
+);
+create index if not exists shared_udhaar_creator_idx on public.shared_udhaar (created_by);
+create index if not exists shared_udhaar_other_idx on public.shared_udhaar (other_user);
+alter table public.shared_udhaar enable row level security;
+alter table public.shared_udhaar force row level security;
+revoke all on public.shared_udhaar from anon, authenticated;
+
+-- Write an entry with someone in your Circle. The id comes from the phone, so sending it twice makes one entry.
+create or replace function public.share_udhaar(p_id uuid, p_other uuid, p_way text, p_amount numeric, p_date date, p_note text, p_my_name text, p_their_name text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  if uid is null then raise exception 'Sign in to share an entry' using errcode = '42501'; end if;
+  if p_id is null then raise exception 'The entry has no id' using errcode = '22023'; end if;
+  if p_other is null or not public.circle_has(uid, p_other) then raise exception 'You can share an entry only with someone in your Circle' using errcode = '42501'; end if;
+  if p_way is null or p_way not in ('gave', 'took') then raise exception 'Pick lent or borrowed' using errcode = '22023'; end if;
+  if p_amount is null or p_amount <= 0 or p_amount > 10000000 or round(p_amount, 2) <> p_amount then raise exception 'Enter an amount above zero, with at most two decimals' using errcode = '22023'; end if;
+  if p_date is null or p_date > current_date + 1 then raise exception 'Pick a day that is today or earlier' using errcode = '22023'; end if;
+  if (select count(*) from public.shared_udhaar s where s.created_by = uid and not s.settled and s.state <> 'declined') >= 200 then
+    raise exception 'That is the most open shared entries one account can keep' using errcode = '53400';
+  end if;
+  if (select count(*) from public.shared_udhaar s where s.other_user = p_other and s.state = 'invited') >= 50 then
+    raise exception 'That person has too many entries waiting for an answer' using errcode = '53400';
+  end if;
+  insert into public.shared_udhaar (id, created_by, other_user, way, amount, entry_date, note, creator_name, other_name)
+  values (p_id, uid, p_other, p_way, p_amount, p_date, left(btrim(coalesce(p_note, '')), 100), left(btrim(coalesce(p_my_name, '')), 40), left(btrim(coalesce(p_their_name, '')), 40))
+  on conflict (id) do nothing;
+end;
+$$;
+
+-- The other person accepts (it now counts for them too) or says it is not right (declined; the writer sees that).
+create or replace function public.answer_shared_udhaar(p_id uuid, p_accept boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  update public.shared_udhaar s set state = case when coalesce(p_accept, false) then 'active' else 'declined' end, updated_at = now()
+    where s.id = p_id and s.other_user = uid and s.state = 'invited';
+  if not found then raise exception 'There is no entry to answer' using errcode = '22023'; end if;
+end;
+$$;
+
+-- Either of the two marks an accepted entry settled, or open again.
+create or replace function public.settle_shared_udhaar(p_id uuid, p_settled boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  update public.shared_udhaar s set settled = coalesce(p_settled, false), settled_by = case when coalesce(p_settled, false) then uid end, updated_at = now()
+    where s.id = p_id and uid in (s.created_by, s.other_user) and s.state = 'active';
+  if not found then raise exception 'Only an accepted entry between you can be settled' using errcode = '22023'; end if;
+end;
+$$;
+
+-- The writer deletes an entry, unless it is accepted and still open (then both agreed on it: settle it first).
+create or replace function public.delete_shared_udhaar(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  delete from public.shared_udhaar s where s.id = p_id and s.created_by = uid and (s.state <> 'active' or s.settled);
+  if not found then raise exception 'Only the person who wrote it can delete it, and an accepted entry must be settled first' using errcode = '22023'; end if;
+end;
+$$;
+
+-- Everything the caller may see, as one document: {"entries": [...]}, each told from the caller's side (way flips for the other
+-- person; who is the other person's name). The writer sees declined entries; the other person does not.
+create or replace function public.my_shared_udhaar()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+set row_security = off
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  if uid is null then return jsonb_build_object('entries', '[]'::jsonb); end if;
+  return jsonb_build_object('entries', coalesce((
+    select jsonb_agg(jsonb_build_object(
+        'id', s.id,
+        'mine', s.created_by = uid,
+        'way', case when s.created_by = uid then s.way when s.way = 'gave' then 'took' else 'gave' end,
+        'amount', s.amount, 'date', s.entry_date, 'note', s.note,
+        'who', case when s.created_by = uid then s.other_name else s.creator_name end,
+        'who_id', case when s.created_by = uid then s.other_user else s.created_by end,
+        'state', s.state, 'settled', s.settled, 'settled_by_me', s.settled_by = uid
+      ) order by s.entry_date desc, s.created_at desc, s.id)
+    from public.shared_udhaar s
+    where s.created_by = uid or (s.other_user = uid and s.state <> 'declined')
+  ), '[]'::jsonb));
+end;
+$$;
+
+revoke all on function public.share_udhaar(uuid, uuid, text, numeric, date, text, text, text) from public, anon, authenticated;
+revoke all on function public.answer_shared_udhaar(uuid, boolean)                             from public, anon, authenticated;
+revoke all on function public.settle_shared_udhaar(uuid, boolean)                             from public, anon, authenticated;
+revoke all on function public.delete_shared_udhaar(uuid)                                      from public, anon, authenticated;
+revoke all on function public.my_shared_udhaar()                                              from public, anon, authenticated;
+grant execute on function public.share_udhaar(uuid, uuid, text, numeric, date, text, text, text) to authenticated;
+grant execute on function public.answer_shared_udhaar(uuid, boolean)                             to authenticated;
+grant execute on function public.settle_shared_udhaar(uuid, boolean)                             to authenticated;
+grant execute on function public.delete_shared_udhaar(uuid)                                      to authenticated;
+grant execute on function public.my_shared_udhaar()                                              to authenticated;

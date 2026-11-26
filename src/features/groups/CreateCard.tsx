@@ -15,20 +15,12 @@ function newGroupProblem(f: { title: string; name: string; kind: GroupKind; star
   return null;
 }
 
-// A trip's first and last day, both optional.
-function TripDays({ starts, ends, onStarts, onEnds }: Readonly<{ starts: string; ends: string; onStarts: (v: string) => void; onEnds: (v: string) => void }>) {
-  return (
-    <div className={ui.btnRow}>
-      <label className={ui.fieldHalf}><span>{tr('First day (optional)')}</span><input type="date" value={starts} onChange={(e) => onStarts(e.target.value)} /></label>
-      <label className={ui.fieldHalf}><span>{tr('Last day (optional)')}</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => onEnds(e.target.value)} /></label>
-    </div>
-  );
-}
 
-export function CreateCard() {
+// Creating a group, as the design's page: a name, the kind as cards with their line, the trip's days, your name, a word on what is
+// shared, and Create group.
+export function CreateCard({ onDone }: Readonly<{ onDone: () => void }>) {
   const app = useApp();
   const { busy, error, run, setError } = useAction();
-  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<GroupKind>('family');
   const [name, setName] = useState(rememberedName());
@@ -44,30 +36,37 @@ export function CreateCard() {
       const id = await app.createGroup(title.trim(), kind, name.trim());
       if (kind === 'trip' && (starts || ends)) await app.setTripDates(id, starts || null, ends || null); // optional
     }, tr('Group created'));
-    if (made) { setTitle(''); setStarts(''); setEnds(''); setOpen(false); }
+    if (made) onDone();
   }
 
-  if (!open) return <button type="button" className={ui.btn()} onClick={() => setOpen(true)}>{tr('Create a group')}</button>;
   return (
-    <form className={ui.card()} onSubmit={create} noValidate>
-      <h2>{tr('New group')}</h2>
-      <label className={ui.field}><span>{tr('Group name')}</span><input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder={tr('Home, or Goa trip')} /></label>
-      <fieldset className={ui.kinds}>
-        <legend>{tr('Kind')}</legend>
-        {GROUP_KINDS.map((k) => (
-          <button key={k.id} type="button" className={ui.kindCard} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
-            <b>{tr(k.label)}</b>
-            <span>{tr(k.blurb)}</span>
-          </button>
-        ))}
+    <form className="flex flex-col gap-4 max-w-[600px]" onSubmit={create} noValidate>
+      <label className={ui.fieldBare}><span>{tr('Name')}</span><input value={title} maxLength={60} autoFocus onChange={(e) => setTitle(e.target.value)} placeholder={tr('Home, or Goa trip')} /></label>
+      <fieldset className="border-0 p-0 m-0">
+        <legend className="p-0 mb-2 text-[13px] font-semibold text-ink">{tr('Kind')}</legend>
+        <div className="grid gap-2 lg:grid-cols-2">
+          {GROUP_KINDS.map((k) => (
+            <button key={k.id} type="button" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}
+              className="text-left flex flex-col gap-0.5 min-h-16 px-3.5 py-3 rounded-[14px] border border-control-line bg-card text-ink cursor-pointer [font-family:inherit] aria-pressed:border-2 aria-pressed:border-brand aria-pressed:px-[13px] aria-pressed:py-[11px]">
+              <span className="text-[16px] font-[650]">{tr(k.label)}</span>
+              <span className="text-[13px] leading-[18px] text-muted">{tr(k.blurb)}</span>
+            </button>
+          ))}
+        </div>
       </fieldset>
-      {kind === 'trip' && <TripDays starts={starts} ends={ends} onStarts={(v) => { setStarts(v); setError(''); }} onEnds={(v) => { setEnds(v); setError(''); }} />}
-      <label className={ui.field}><span>{tr('Your name in this group')}</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
-      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-      <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{tr('Create')}</button>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => { setOpen(false); setError(''); }}>{tr('Cancel')}</button>
+      {kind === 'trip' && (
+        <div className="grid grid-cols-2 gap-2.5">
+          <label className={ui.fieldBare}><span>{tr('First day')}</span><input type="date" value={starts} onChange={(e) => { setStarts(e.target.value); setError(''); }} /></label>
+          <label className={ui.fieldBare}><span>{tr('Last day')}</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { setEnds(e.target.value); setError(''); }} /></label>
+        </div>
+      )}
+      <div>
+        <label className={ui.fieldBare}><span>{tr('Your name in this group')}</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
+        <p className={ui.hint}>{tr('What the others see next to your expenses.')}</p>
       </div>
+      <p className="m-0 text-[14px] leading-5 text-muted">{tr('Everyone you invite sees the expenses and payments in this group. Nothing else from your Hisaab is shared.')}</p>
+      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')} disabled={busy}>{tr('Create group')}</button>
     </form>
   );
 }

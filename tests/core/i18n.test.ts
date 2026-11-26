@@ -68,7 +68,7 @@ test('a translation never uses a {n} the English text lacks, and is never empty'
 
 test('Hindi is in Devanagari and Hinglish is in Roman letters', () => {
   const deva = /[ऀ-ॿ]/;
-  const KEEP = new Set(['Money Log', 'English', 'EMI', 'Log', 'App export']); // names and codes that stay as they are
+  const KEEP = new Set(['Hisaab', 'English', 'EMI', 'Log', 'App export']); // names and codes that stay as they are
   for (const [en, hi] of Object.entries(HI)) if (!KEEP.has(en) && /[A-Za-z]{4}/.test(en) && !/^[A-Z0-9 ,/.:+\-_(){}→·%₹]+$/.test(en) && !/^[a-z]+$/.test(en)) assert.ok(deva.test(hi) || /^[\w ,./:+\-(){}·→₹%]+$/.test(hi), `Hindi text without Devanagari: ${en}`);
   for (const [en, hl] of Object.entries(HINGLISH)) assert.ok(!deva.test(hl), `Hinglish text with Devanagari: ${en}`);
 });

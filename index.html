@@ -23,33 +23,29 @@
     <script src="./theme-init.js"></script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Money Log" />
+    <meta name="apple-mobile-web-app-title" content="Hisaab" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="referrer" content="no-referrer" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <title>Money Log</title>
+    <title>Hisaab</title>
   </head>
   <body>
     <div id="root">
       <!-- The start screen, here as plain markup so there is no blank moment before the first script has run. React replaces it
            with the same thing (src/ui/Splash.tsx) and then fades it out. Keep the two in step. -->
-      <div class="splash fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-[linear-gradient(160deg,#1b6b47_0%,#124d33_55%,#0a3322_100%)] text-[#ffffff] transition-opacity duration-300" role="status" aria-label="Opening Money Log">
-        <svg width="112" height="112" viewBox="64 64 384 384" aria-hidden="true" focusable="false" class="animate-splash-in">
-        <defs><linearGradient id="logo-ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3f6a0"/><stop offset="1" stop-color="#b9de55"/></linearGradient></defs>
-        <circle cx="256" cy="256" r="196" fill="#ffffff" fill-opacity="0.06"/>
-        <circle class="animate-ring" cx="256" cy="256" r="196" fill="none" stroke="#c9e96a" stroke-opacity="0.55" stroke-width="6"/>
-        <circle cx="256" cy="256" r="172" fill="none" stroke="#c9e96a" stroke-opacity="0.16" stroke-width="2"/>
-        <path d="M120 372 L196 318 L246 346 L318 268 L392 214" fill="none" stroke="#c9e96a" stroke-opacity="0.22" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-        <g fill="none" stroke="url(#logo-ink)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"><path d="M164 150 H352 M164 208 H352"/><path d="M164 150 H232 C292 150 312 184 312 208 C312 258 270 280 232 280 L336 392"/></g>
-      </svg>
-        <p class="m-0 text-[26px] font-bold tracking-[-0.01em]">Money Log</p>
-        <p class="m-0 text-sm text-[#ffffffb3]">Opening your payments…</p>
+      <div class="splash fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-bg text-ink transition-opacity duration-300" role="status" aria-label="Opening Hisaab">
+        <div class="relative w-[136px] h-[136px] flex items-center justify-center animate-splash-in">
+          <svg class="absolute inset-0" width="136" height="136" viewBox="0 0 136 136" aria-hidden="true" focusable="false"><circle cx="68" cy="68" r="64" fill="none" stroke="#c9e96a" stroke-opacity="0.25" stroke-width="3"/><circle class="animate-ring origin-center [transform-box:fill-box]" cx="68" cy="68" r="64" fill="none" stroke="#c9e96a" stroke-width="3" stroke-dasharray="100 302" stroke-linecap="round"/></svg>
+          <svg width="96" height="96" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><rect width="512" height="512" rx="112" fill="#104a30"/><path transform="translate(143.74 347.90) scale(0.37927 -0.37927)" fill="#c9e96a" d="M350 47Q368 61 378.0 76.0Q388 91 388 107Q388 128 369.0 141.0Q350 154 309 154Q260 154 233.5 136.0Q207 118 207 86Q207 60 229.0 38.5Q251 17 298.5 -3.5Q346 -24 422 -49L359 -169Q250 -140 182.0 -102.5Q114 -65 82.5 -18.0Q51 29 51 84Q51 151 87 193Q95 202 105 211Q83 230 71 250Q50 283 50 319Q50 382 97.0 415.0Q144 448 230 448H348V498H0V622H592V498H503V330H254Q227 330 215.5 321.0Q204 312 204 295Q204 281 216 268Q218 266 220 263Q265 273 317 273Q397 273 447.0 251.0Q497 229 520.0 193.0Q543 157 543 113Q543 75 528.0 42.5Q513 10 481 -21Z"/></svg>
+        </div>
+        <p class="m-0 text-[26px] font-bold tracking-[-0.01em]">Hisaab</p>
+        <p class="m-0 text-sm text-muted">Opening your payments…</p>
       </div>
     </div>
-    <noscript>Money Log needs JavaScript to run.</noscript>
+    <noscript>Hisaab needs JavaScript to run.</noscript>
     <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>

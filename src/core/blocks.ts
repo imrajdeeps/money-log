@@ -214,7 +214,7 @@ const nextDay = (iso: string): string => {
 // so the calendar app takes them out when the file is opened.
 export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string, cancels: readonly SentEvent[] = []): string {
   const stampUtc = nowIso.replace(/[-:]/g, '').replace(/\.\d+/, '').slice(0, 15) + 'Z';
-  const lines: string[] = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Money Log//Due list//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  const lines: string[] = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Hisaab//Due list//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
   for (const i of items) {
     if (!i.due || i.isDone) continue;
     const nextIso = nextDay(i.due);
@@ -227,7 +227,7 @@ export function buildIcs(items: DueView[], prefs: AlertPrefs, nowIso: string, ca
       `DTSTART;VALUE=DATE:${icsDate(i.due)}`,
       `DTEND;VALUE=DATE:${nextIso}`,
       `SUMMARY:${icsText(summary)}`,
-      `DESCRIPTION:${icsText(tr('{0} from your Money Log plan.', what))}`,
+      `DESCRIPTION:${icsText(tr('{0} from your Hisaab plan.', what))}`,
       'TRANSP:TRANSPARENT',
       'BEGIN:VALARM',
       'ACTION:DISPLAY',

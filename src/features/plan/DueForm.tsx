@@ -4,6 +4,7 @@ import { useApp } from '../../data/context.tsx';
 import type { DueItem } from '../../core/blocks.ts';
 import type { DueEntryKind } from '../../core/goals.ts';
 import { parseAmount } from '../../core/logic.ts';
+import { PageDialog } from '../../ui/PageDialog.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -28,7 +29,7 @@ export function DueForm({ item, onDone }: Readonly<{ item?: DueItem; onDone: () 
   const [busy, setBusy] = useState(false);
 
   // the words that differ between making a due item and changing one
-  const words = item ? { head: tr('Change due item'), done: tr('Saved'), go: tr('Save') } : { head: tr('New due item'), done: tr('Added to the due list'), go: tr('Add') };
+  const words = item ? { head: tr('Change due item'), done: tr('Saved'), go: tr('Save') } : { head: tr('Add to Due soon'), done: tr('Added to the due list'), go: tr('Save') };
 
   async function submit(ev: FormEvent) {
     ev.preventDefault();
@@ -45,25 +46,23 @@ export function DueForm({ item, onDone }: Readonly<{ item?: DueItem; onDone: () 
   }
 
   return (
-    <form className={ui.card()} onSubmit={submit} noValidate>
-      <h3 className="m-0">{words.head}</h3>
-      <label className={ui.field}>
-        <span>{tr('What is it')}</span>
-        <select value={kind} onChange={(e) => { setKind(e.target.value as DueEntryKind); setError(''); }}>
-          <option value="oneoff">{tr('One-off payment')}</option>
-          <option value="todo">{tr('To-do')}</option>
-        </select>
-      </label>
-      <label className={ui.field}><span>{tr('Title')}</span><input value={title} maxLength={120} placeholder={tr('Renew passport, annual fee')} onChange={(e) => { setTitle(e.target.value); setError(''); }} /></label>
-      <label className={ui.field}><span>{tr('Due date (optional)')}</span><input type="date" value={date} onChange={(e) => { setDate(e.target.value); setError(''); }} /></label>
-      {kind === 'oneoff' && (
-        <label className={ui.field}><span>{tr('Amount (₹, optional)')}</span><input inputMode="decimal" value={amount} placeholder="12000" onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
-      )}
-      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-      <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{words.go}</button>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
-      </div>
-    </form>
+    <PageDialog title={words.head} back={tr('Plan')} onClose={onDone}>
+      <form className="flex flex-col gap-[18px]" onSubmit={submit} noValidate>
+        <div className={ui.segment(2)} role="radiogroup" aria-label={tr('What is it')}>
+          <button type="button" role="radio" className={ui.segBtn} aria-checked={kind === 'oneoff'} onClick={() => { setKind('oneoff'); setError(''); }}>{tr('A payment')}</button>
+          <button type="button" role="radio" className={ui.segBtn} aria-checked={kind === 'todo'} onClick={() => { setKind('todo'); setError(''); }}>{tr('A to-do')}</button>
+        </div>
+        <label className={ui.fieldBare}><span>{tr('What')}</span><input value={title} maxLength={120} placeholder={tr('Renew passport, annual fee')} onChange={(e) => { setTitle(e.target.value); setError(''); }} /></label>
+        {kind === 'oneoff' && (
+          <label className={ui.fieldBare}><span>{tr('Amount (optional)')}</span><input inputMode="decimal" value={amount} placeholder="₹" onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
+        )}
+        <div>
+          <label className={ui.fieldBare}><span>{tr('Due on')}</span><input type="date" value={date} onChange={(e) => { setDate(e.target.value); setError(''); }} /></label>
+          {kind === 'oneoff' && <p className={ui.hint}>{tr('A one-off payment, like an insurance renewal. For something every month, tick Repeat every month when you add the expense.')}</p>}
+        </div>
+        {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+        <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')} disabled={busy}>{words.go}</button>
+      </form>
+    </PageDialog>
   );
 }

@@ -47,7 +47,7 @@ export function TopUps({ goal, topUps }: Readonly<{ goal: Goal; topUps: TopUp[] 
           </div>
         </form>
       ) : (
-        <button type="button" className={ui.btn('ghost', 'none', 'min-h-10 px-3.5 py-2.5')} onClick={() => setOpen(true)}>{tr('Add to this goal')}</button>
+        <button type="button" className="min-h-11 border-0 bg-transparent p-0 text-brand text-[14px] font-[650] cursor-pointer [font-family:inherit]" onClick={() => setOpen(true)}>{tr('+ Add to this goal')}</button>
       )}
       {topUps.length > 0 && (
         <details className={ui.finished('mt-2 mb-0')}>

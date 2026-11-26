@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanName, cleanStoredWhatsapp, formatWhatsapp, initials, isIndianNumber, localDigits, normalizeWhatsapp } from '../../src/core/profile.ts';
+import { cleanName, cleanStoredWhatsapp, formatWhatsapp, initials, isIndianNumber, localDigits, normalizeWhatsapp, personLetters } from '../../src/core/profile.ts';
 
 test('a name is trimmed, single-spaced and cut to 40 characters', () => {
   assert.equal(cleanName('  Raj   deep  '), 'Raj deep');
@@ -50,4 +50,14 @@ test('the round picture shows one or two letters', () => {
   assert.equal(initials('one two three'), 'OT');
   assert.equal(initials('', 'asha@example.com'), 'A');
   assert.equal(initials('', null), '?');
+});
+
+test('personLetters gives two letters for a list circle', () => {
+  assert.equal(personLetters('Aakash'), 'AK');
+  assert.equal(personLetters('Meera'), 'ME');
+  assert.equal(personLetters('Rajdeep Singh'), 'RS');
+  assert.equal(personLetters('Ravi Kumar Sharma'), 'RS');
+  assert.equal(personLetters('Al'), 'AL');
+  assert.equal(personLetters('Aa'), 'A');
+  assert.equal(personLetters('  '), '?');
 });

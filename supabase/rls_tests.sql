@@ -1642,6 +1642,59 @@ begin
   if (select count(*) from public.shared_goal_topups where goal_id = sg) <> 0 or (select count(*) from public.shared_goal_members where goal_id = sg) <> 0 then raise exception 'FAIL deleting a goal left its people or top-ups'; end if;
   raise notice 'PASS shared goals: only members and invitees see them, only the creator changes them, top-ups are own, strangers cannot invite or read, limits hold';
 
+  -- =========================================================================
+  -- 14. SHARED UDHAAR (version 2.0)
+  -- =========================================================================
+  declare
+    e constant text := 'ffff0005-ffff-4fff-8fff-ffffffff0005';
+    w constant text := 'ffff0006-ffff-4fff-8fff-ffffffff0006'; -- the writer (A and B of the blocks above have full Circles)
+    o constant text := 'ffff0007-ffff-4fff-8fff-ffffffff0007'; -- the other person
+    su1 uuid := gen_random_uuid(); su2 uuid := gen_random_uuid(); cc text; sdoc jsonb;
+  begin
+    reset role;
+    insert into auth.users (id) values (e::uuid), (w::uuid), (o::uuid) on conflict do nothing;
+    if exists (select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'shared_udhaar' and grantee in ('anon', 'authenticated')) then raise exception 'FAIL the app has a grant on shared_udhaar'; end if;
+    if not (select relforcerowsecurity from pg_class where oid = 'public.shared_udhaar'::regclass) then raise exception 'FAIL shared_udhaar does not force row security'; end if;
+    perform pg_temp.act_as(w); cc := public.circle_new_invite();
+    perform pg_temp.act_as(o); perform public.circle_join(cc); -- W and O are linked
+    perform pg_temp.act_as(w);
+    perform public.share_udhaar(su1, o::uuid, 'gave', 500, current_date, 'bike repair', 'Asha', 'Ravi');
+    perform public.share_udhaar(su1, o::uuid, 'gave', 999, current_date, 'sent twice', 'Asha', 'Ravi'); -- the same id makes one entry
+    if not pg_temp.fails(format($q$select public.share_udhaar(gen_random_uuid(), %L, 'gave', 10, current_date, '', 'Asha', 'Eve')$q$, e)) then raise exception 'FAIL an entry was shared with someone outside the Circle'; end if;
+    if not pg_temp.fails(format($q$select public.share_udhaar(gen_random_uuid(), %L, 'gave', 10, current_date, '', 'Asha', 'Me')$q$, w)) then raise exception 'FAIL an entry was shared with oneself'; end if;
+    if not pg_temp.fails(format($q$select public.share_udhaar(gen_random_uuid(), %L, 'gave', 0, current_date, '', 'Asha', 'Ravi')$q$, o)) then raise exception 'FAIL a zero amount was shared'; end if;
+    if not pg_temp.fails(format($q$select public.answer_shared_udhaar(%L, true)$q$, su1)) then raise exception 'FAIL the writer answered their own entry'; end if;
+    sdoc := public.my_shared_udhaar();
+    if jsonb_array_length(sdoc -> 'entries') <> 1 or (sdoc -> 'entries' -> 0 ->> 'amount')::numeric <> 500 or sdoc -> 'entries' -> 0 ->> 'state' <> 'invited' then raise exception 'FAIL the writer does not see one waiting entry of 500'; end if;
+    perform pg_temp.act_as(e);
+    if jsonb_array_length(public.my_shared_udhaar() -> 'entries') <> 0 then raise exception 'FAIL a stranger sees a shared entry'; end if;
+    if not pg_temp.fails(format($q$select public.settle_shared_udhaar(%L, true)$q$, su1)) then raise exception 'FAIL a stranger settled an entry'; end if;
+    if not pg_temp.fails('select count(*) from public.shared_udhaar') then raise exception 'FAIL the app read shared_udhaar directly'; end if;
+    perform pg_temp.act_as(o);
+    sdoc := public.my_shared_udhaar();
+    if sdoc -> 'entries' -> 0 ->> 'way' <> 'took' or sdoc -> 'entries' -> 0 ->> 'who' <> 'Asha' or (sdoc -> 'entries' -> 0 ->> 'mine')::boolean then raise exception 'FAIL the other person does not see it from their side'; end if;
+    if not pg_temp.fails(format($q$select public.settle_shared_udhaar(%L, true)$q$, su1)) then raise exception 'FAIL an entry was settled before it was accepted'; end if;
+    perform public.answer_shared_udhaar(su1, true);
+    perform pg_temp.act_as(w);
+    if not pg_temp.fails(format($q$select public.delete_shared_udhaar(%L)$q$, su1)) then raise exception 'FAIL an accepted open entry was deleted'; end if;
+    perform pg_temp.act_as(o);
+    if not pg_temp.fails(format($q$select public.delete_shared_udhaar(%L)$q$, su1)) then raise exception 'FAIL the other person deleted the entry'; end if;
+    perform public.settle_shared_udhaar(su1, true);
+    perform pg_temp.act_as(w);
+    if not (public.my_shared_udhaar() -> 'entries' -> 0 ->> 'settled')::boolean then raise exception 'FAIL the writer does not see it settled'; end if;
+    perform public.delete_shared_udhaar(su1);
+    -- a declined entry: gone for the other person, shown as declined to the writer
+    perform public.share_udhaar(su2, o::uuid, 'took', 300, current_date, 'chai', 'Asha', 'Ravi');
+    perform pg_temp.act_as(o); perform public.answer_shared_udhaar(su2, false);
+    if jsonb_array_length(public.my_shared_udhaar() -> 'entries') <> 0 then raise exception 'FAIL a declined entry still shows for the other person'; end if;
+    perform pg_temp.act_as(w);
+    if public.my_shared_udhaar() -> 'entries' -> 0 ->> 'state' <> 'declined' then raise exception 'FAIL the writer does not see the entry as declined'; end if;
+    perform pg_temp.act_as(null);
+    if not pg_temp.fails('select public.my_shared_udhaar()') then raise exception 'FAIL an anonymous visitor called my_shared_udhaar'; end if;
+    reset role;
+  end;
+  raise notice 'PASS shared udhaar: only the two people see an entry, only Circle people can be asked, it counts after accepting, either settles, open accepted entries cannot be deleted';
+
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;
 

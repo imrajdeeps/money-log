@@ -10,7 +10,7 @@ import { tr } from '../../core/i18n.ts';
 
 // Where the person manages categories and monthly budgets without any spreadsheet: add or remove categories, and give
 // each a monthly amount that applies to every month. Categories from an imported plan show the plan's own figures.
-export function BudgetsDialog({ onClose, focus }: Readonly<{ onClose: () => void; focus?: string }>) {
+export function BudgetsDialog({ onClose, focus, lastMonth, lastBy }: Readonly<{ onClose: () => void; focus?: string; lastMonth?: string; lastBy?: Record<string, number> }>) {
   const app = useApp();
   const ref = useRef<HTMLDialogElement>(null);
   const [text, setText] = useState<Record<string, string>>({});
@@ -18,6 +18,7 @@ export function BudgetsDialog({ onClose, focus }: Readonly<{ onClose: () => void
   const [group, setGroup] = useState<Group>('Spending');
   const [error, setError] = useState('');
   const [addError, setAddError] = useState('');
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     const d = ref.current;
@@ -31,7 +32,7 @@ export function BudgetsDialog({ onClose, focus }: Readonly<{ onClose: () => void
   }, [focus]);
   const close = () => ref.current?.close();
 
-  const shown = (n: string, budget: number) => text[n] ?? (budget > 0 ? String(budget) : '');
+  const shown = (n: string, budget: number) => text[n] ?? (budget > 0 ? budget.toLocaleString('en-IN') : '');
 
   async function save(ev: FormEvent) {
     ev.preventDefault();
@@ -53,81 +54,86 @@ export function BudgetsDialog({ onClose, focus }: Readonly<{ onClose: () => void
     if (!r.ok) { setAddError(r.error); return; }
     setName('');
     setAddError('');
+    setAdding(false);
     app.toast(tr('Added {0}', r.name));
   }
+
+  const fmtField = (t: string) => { const n = parseAmount(t.replace(/[₹,\s]/g, '')); return n === null ? t : n.toLocaleString('en-IN'); };
+  const planned = (items: typeof app.categories) => items.reduce((a, c) => a + (parseAmount(shown(c.name, c.budget).replace(/[₹,\s]/g, '')) ?? 0), 0);
 
   return (
     <dialog
       ref={ref}
+      className="page"
       onClose={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onClick={(e) => { if (e.target === ref.current) close(); }}
       aria-labelledby="budgets-title"
     >
-      <form onSubmit={save} noValidate>
-        <h2 id="budgets-title">{tr('Categories and budgets')}</h2>
-        <p className="text-muted text-[13px]">
-          {tr('A budget is the amount you plan to spend in a month; it applies to every month. Leave it empty for none.')}
-        </p>
+      <form onSubmit={save} noValidate className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-0.5">
+          <button type="button" className={ui.backLink} onClick={close}><Icon name="back" size={20} stroke={2} />{tr('Month')}</button>
+          <h2 id="budgets-title" className="m-0 text-[24px] leading-[30px] font-bold">{tr('Categories and budgets')}</h2>
+          <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('A monthly amount for each category. Leave one empty for no budget.')}</p>
+        </div>
         {GROUPS.map((g) => {
           const items = app.categories.filter((c) => c.group === g);
           if (!items.length) return null;
           return (
-            <div key={g}>
-              <h3 className="text-[16px] mt-5 mb-2">{tr(g)}</h3>
-              <ul className={ui.list()}>
-                {items.map((c) => (
-                  <li key={c.name} className="flex items-center gap-2.5 px-3 py-2">
-                    <span className={ui.rowMain(true)}>
-                      <b>{c.name}</b>
-                      {c.source === 'mine' && <small>{tr('yours')}</small>}
-                    </span>
-                    <label className="flex items-center gap-1 flex-none [&_input]:w-[104px] [&_input]:text-right">
+            <section key={g} className="flex flex-col gap-2">
+              <div className="flex justify-between items-baseline"><h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr(g)}</h3><span className="text-[13px] text-muted tabular-nums">{fmtINR(planned(items))}</span></div>
+              <ul className="list-none m-0 p-0 px-4 bg-card border border-line rounded-card">
+                {items.map((c, i) => (
+                  <li key={c.name} className={ui.cx('grid grid-cols-[minmax(0,1fr)_128px] gap-3 items-center min-h-[65px] py-2', i > 0 && 'border-t border-line')}>
+                    <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold">{c.name}</span>{lastMonth && <span className="text-[12px] text-muted">{tr('{0}: {1}', lastMonth, fmtINR(lastBy?.[c.name.toLowerCase()] ?? 0))}</span>}</span>
+                    <label className={ui.money}>
                       <span className="sr-only">{tr('Monthly budget for {0}, in rupees', c.name)}</span>
                       <span aria-hidden="true">₹</span>
                       <input
                         data-cat={c.name}
                         inputMode="decimal"
-                        placeholder="none"
+                        placeholder={tr('No budget')}
                         value={shown(c.name, c.budget)}
                         onChange={(e) => { setText({ ...text, [c.name]: e.target.value }); setError(''); }}
+                        onBlur={(e) => setText({ ...text, [c.name]: fmtField(e.target.value) })}
                       />
                     </label>
-                    <button type="button" className={ui.icoBtn} aria-label={tr('Remove {0}', c.name)} onClick={() => { void app.removeCategory(c.name); }}><Icon name="close" size={18} /></button>
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           );
         })}
-        <p className="text-muted text-[13px]">{tr('Removing a category only takes it off the pick list; payments already logged keep it. To bring a removed one back, add it again by name.')}</p>
 
-        <h3 className="text-[16px] mt-5 mb-2">{tr('Add a category')}</h3>
-        <label className={ui.field}>
-          <span>{tr('Name')}</span>
-          <input
-            value={name}
-            maxLength={MAX_NAME}
-            onChange={(e) => { setName(e.target.value); setAddError(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void add(); } }}
-          />
-        </label>
-        <label className={ui.field}>
-          <span>{tr('Group')}</span>
-          <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
-            {GROUPS.map((x) => <option key={x} value={x}>{tr(x)}</option>)}
-          </select>
-        </label>
-        <p className={ui.msg('bad')} role="alert" hidden={!addError}>{addError}</p>
-        <div className={ui.btnRow}>
-          <button type="button" className={ui.btn('ghost')} onClick={() => void add()}>{tr('Add category')}</button>
-        </div>
+        {adding ? (
+          <div className="flex flex-col gap-3 bg-card border border-line rounded-card p-3.5">
+            <label className={ui.fieldBare}>
+              <span>{tr('Name of the new category')}</span>
+              <input value={name} maxLength={MAX_NAME} autoFocus onChange={(e) => { setName(e.target.value); setAddError(''); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void add(); } }} />
+            </label>
+            <label className={ui.fieldBare}>
+              <span>{tr('Group')}</span>
+              <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>{GROUPS.map((x) => <option key={x} value={x}>{tr(x)}</option>)}</select>
+            </label>
+            <p className={ui.msg('bad')} role="alert" hidden={!addError}>{addError}</p>
+            <div className="flex gap-2.5 [&>*]:flex-1">
+              <button type="button" className={ui.btn()} onClick={() => void add()}>{tr('Add category')}</button>
+              <button type="button" className={ui.btn('outline')} onClick={() => setAdding(false)}>{tr('Cancel')}</button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="min-h-12 rounded-card border border-dashed border-control-line bg-transparent text-brand text-[15px] font-[650] cursor-pointer [font-family:inherit]" onClick={() => setAdding(true)}>{tr('+ New category')}</button>
+        )}
+
+        <details className="text-[14px]">
+          <summary className="cursor-pointer text-muted min-h-11 flex items-center">{tr('Remove a category')}</summary>
+          <p className="m-0 mb-2 text-[13px] text-muted">{tr('Removing a category only takes it off the pick list; payments already logged keep it. To bring a removed one back, add it again by name.')}</p>
+          <ul className="list-none m-0 p-0 flex flex-wrap gap-2">
+            {app.categories.map((c) => <li key={c.name}><button type="button" className={ui.chip} aria-label={tr('Remove {0}', c.name)} onClick={() => { void app.removeCategory(c.name); }}>{c.name} ✕</button></li>)}
+          </ul>
+        </details>
 
         {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-        <p className="text-muted text-[13px]">{tr('Total planned each month from the budgets above: {0} (savings not counted).', fmtINR(app.categories.filter((c) => c.group !== 'Saving').reduce((a, c) => a + (parseAmount(shown(c.name, c.budget).replace(/[₹,\s]/g, '')) ?? 0), 0)))}</p>
-        <div className={ui.btnRow}>
-          <button type="submit" className={ui.btn()}>{tr('Save budgets')}</button>
-          <button type="button" className={ui.btn('ghost')} onClick={close}>{tr('Close')}</button>
-        </div>
+        <p className="m-0 text-[14px] text-muted">{tr('Total each month, savings apart:')} <strong className="text-ink tabular-nums">{fmtINR(planned(app.categories.filter((c) => c.group !== 'Saving')))}</strong></p>
+        <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')}>{tr('Save budgets')}</button>
       </form>
     </dialog>
   );

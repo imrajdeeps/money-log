@@ -4,6 +4,7 @@ import { useApp } from '../../data/context.tsx';
 import { netNow, netUpdates, parseNetAmount } from '../../core/goals.ts';
 import { worthItems, worthSummary } from '../../core/worth.ts';
 import { WorthPanel } from './WorthPanel.tsx';
+import type { WorthMode } from './WorthPanel.tsx';
 import { useAutoLines } from './useAutoLines.ts';
 import type { NetUpdate } from '../../core/goals.ts';
 import { shortDate } from '../../core/format.ts';
@@ -14,30 +15,31 @@ import { tr } from '../../core/i18n.ts';
 
 const SPARK_POINTS = 12; // the last updates the little line shows
 const W = 300;
-const H = 56;
+const H = 50;
 const PAD = 6;
 
-// A small line through the last updates, oldest on the left. One shared scale, so a fall looks like a fall.
+// A small line through the last updates, oldest on the left (lime in the green tile, with a dot at today's end). One shared scale.
 function Spark({ values, label }: Readonly<{ values: number[]; label: string }>) {
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const span = hi - lo || 1;
-  const pts = values.map((v, i) => [PAD + (i * (W - PAD * 2)) / Math.max(1, values.length - 1), H - PAD - ((v - lo) / span) * (H - PAD * 2)] as const);
+  const pts = values.map((v, i) => [(i * W) / Math.max(1, values.length - 1), H - PAD - ((v - lo) / span) * (H - PAD * 2)] as const);
   const last = pts.at(-1)!;
   return (
-    <svg className="mt-3 block h-14 w-full text-accent" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
-      <polyline points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-      <line x1={last[0]} y1={last[1]} x2={last[0] + 0.01} y2={last[1]} stroke="currentColor" strokeWidth="9" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    <svg className="block h-[50px] w-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
+      <polyline points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke="#c9e96a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <line x1={last[0]} y1={last[1]} x2={last[0] - 0.01} y2={last[1]} stroke="#c9e96a" strokeWidth="8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
 
+// "▲ Up ₹1,40,000 since 24 Sept" as the hero's pill: lime when it went up, pink when down.
 function Change({ by, since }: Readonly<{ by: number; since: string }>) {
-  if (by === 0) return <p className="m-0 text-[14px] text-muted">{tr('No change since {0}', since)}</p>;
+  if (by === 0) return <span className="self-start px-2.5 py-1 rounded-full bg-[rgba(255,255,255,0.12)] text-[13px] font-bold">{tr('No change since {0}', since)}</span>;
   return (
-    <p className={`m-0 text-[14px] font-semibold ${by > 0 ? 'text-good' : 'text-bad'}`}>
+    <span className={ui.cx('self-start px-2.5 py-1 rounded-full text-[13px] font-bold', by > 0 ? 'bg-[rgba(201,233,106,0.16)] text-[#c9e96a]' : 'bg-[rgba(255,180,186,0.18)] text-[#ffc2c7]')}>
       {by > 0 ? '▲ ' + tr('Up {0} since {1}', fmtINR(by), since) : '▼ ' + tr('Down {0} since {1}', fmtINR(Math.abs(by)), since)}
-    </p>
+    </span>
   );
 }
 
@@ -64,7 +66,7 @@ function UpdateForm({ onDone }: Readonly<{ onDone: () => void }>) {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="mt-3.5 border-t border-line pt-1">
+    <form onSubmit={submit} noValidate className="bg-card border border-line rounded-card p-4">
       <label className={ui.field}>
         <span>{tr('Net worth now (₹)')}</span>
         <input inputMode="decimal" autoFocus value={amount} placeholder="6,21,302" onChange={(e) => { setAmount(e.target.value); setError(''); }} />
@@ -86,32 +88,28 @@ function UpdateForm({ onDone }: Readonly<{ onDone: () => void }>) {
 function History({ updates }: Readonly<{ updates: NetUpdate[] }>) {
   const app = useApp();
   return (
-    <details className="mt-3.5 border-t border-line pt-3">
-      <summary className="cursor-pointer text-[14px] font-semibold">{tr('Earlier updates ({0})', updates.length)}</summary>
-      <ul className={ui.list(true, 'mt-2.5 mb-0')}>
-        {updates.map((u, i) => {
-          const before = updates[i + 1];
-          const by = before ? Math.round((u.a - before.a) * 100) / 100 : null;
-          return (
-            <SwipeRow key={u.id} label={shortDate(u.d)} className="px-3.5 py-2.5" onDelete={() => { void app.removeNetWorth(u.id).then(() => app.toast(tr('Removed: {0}', shortDate(u.d)))); }}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className={ui.rowMain()}><b>{shortDate(u.d)}</b>{by !== null && by !== 0 && <small className={by > 0 ? 'text-good' : 'text-bad'}>{by > 0 ? '▲' : '▼'} {fmtINR(Math.abs(by))}</small>}</span>
-                <b className="tabular-nums">{fmtINR(u.a)}</b>
-              </div>
-            </SwipeRow>
-          );
-        })}
+    <details className="text-[14px] text-[#dce9df]">
+      <summary className="min-h-9 flex items-center cursor-pointer font-semibold">{tr('Earlier updates ({0})', updates.length)}</summary>
+      <ul className="list-none m-0 p-0 pb-1.5 flex flex-col gap-1">
+        {updates.map((u) => (
+          <SwipeRow key={u.id} label={shortDate(u.d)} onDelete={() => { void app.removeNetWorth(u.id).then(() => app.toast(tr('Removed: {0}', shortDate(u.d)))); }}>
+            <span className="tabular-nums">{shortDate(u.d)} · {fmtINR(u.a)}</span>
+          </SwipeRow>
+        ))}
       </ul>
-      <p className="mt-2 mb-0 text-[13px] text-muted">{tr('Slide an update to the left to remove it.')}</p>
     </details>
   );
 }
 
-// The net worth card on the Plan page: the latest figure large, how it moved, a little line of the last updates, and a button
-// to enter a new figure. Nothing entered yet: an invitation.
+const HERO_LIME = 'relative z-[2] flex-1 inline-flex items-center justify-center min-h-12 rounded-xl border-0 bg-primary text-primary-ink text-[16px] font-bold cursor-pointer [font-family:inherit]';
+const HERO_OUTLINE = 'relative z-[2] flex-1 inline-flex items-center justify-center min-h-12 rounded-xl border border-[rgba(255,255,255,0.35)] bg-transparent text-[#fff] text-[16px] font-[650] cursor-pointer [font-family:inherit]';
+
+// The net worth part of the Plan page, as on the design: the green tile (the figure, how it moved, a little line of the updates, the
+// earlier ones, Check in and Add an item), then what is owned and owed, what moved, where it sits and the automatic lines.
 export function NetWorthCard() {
   const app = useApp();
   const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState<WorthMode>(null);
   const updates = useMemo(() => netUpdates(app.goals), [app.goals]);
   const now = useMemo(() => netNow(app.goals), [app.goals]);
   // with items, the figure is worked out from them (and the automatic lines) now; without, it is the last number typed
@@ -124,27 +122,31 @@ export function NetWorthCard() {
   const spark = useMemo(() => updates.slice(0, SPARK_POINTS).map((u) => u.a).reverse(), [updates]);
 
   return (
-    <>
-      <section className={ui.card()} aria-label={tr('Net worth')} id="networth">
-        <h3 className="m-0 text-[13px] font-semibold uppercase tracking-wide text-muted">{tr('Net worth')}</h3>
+    <div className="flex flex-col gap-4">
+      <section className="hero flex flex-col gap-2 rounded-card-lg border p-[18px]" aria-label={tr('Net worth')} id="networth">
+        <h3 className="m-0 text-[15px] font-[650] text-[#fff]">{tr('Net worth')}</h3>
         {value !== null ? (
           <>
-            <p className="mt-1 mb-1 text-[34px] font-bold leading-tight tabular-nums">{fmtINR(value)}</p>
-            <p className="m-0 text-[13px] text-muted">{hasItems ? tr('From what you own and owe, as of today') : tr('As of {0}', shortDate(now!.date))}</p>
-            {now && now.change !== null && now.previous && <div className="mt-1.5"><Change by={now.change} since={shortDate(now.previous.date)} /></div>}
+            <span className="text-[40px] leading-[1.05] font-extrabold tabular-nums">{fmtINR(value)}</span>
+            {now && now.change !== null && now.previous && <Change by={now.change} since={shortDate(now.previous.date)} />}
+            <span className="text-[13px] text-muted">{hasItems ? tr('From what you own and owe, as of today') : tr('As of {0}', shortDate(now!.date))}</span>
             {spark.length >= 2 && <Spark values={spark} label={tr('Your last {0} net worth updates, oldest first', spark.length)} />}
           </>
         ) : (
-          <p className="mt-1.5 mb-0 text-muted">{tr('Add what you own minus what you owe, and update it now and then. The app keeps each update, so you can see it move.')}</p>
+          <p className="m-0 text-[15px] leading-[22px] text-[#dce9df]">{tr('List what you own and what you owe, and your net worth is worked out for you. A monthly check-in takes a minute.')}</p>
         )}
-        {!hasItems && (editing ? (
-          <UpdateForm onDone={() => setEditing(false)} />
-        ) : (
-          <button type="button" className={ui.btn('ghost', 'md', ui.inCard)} onClick={() => setEditing(true)}>{now ? tr('Type a new number') : tr('Or just type a number')}</button>
-        ))}
-        {updates.length > 1 && <History updates={updates} />}
+        {updates.length > 1 && <History updates={updates.slice(1)} />}
+        <div className="flex gap-2.5 pt-1">
+          {hasItems
+            ? <button type="button" className={HERO_LIME} onClick={() => setMode('checkin')}>{tr('Check in')}</button>
+            : <button type="button" className={HERO_LIME} onClick={() => setMode('add')}>{tr('Add an item')}</button>}
+          {hasItems
+            ? <button type="button" className={HERO_OUTLINE} onClick={() => setMode('add')}>{tr('Add an item')}</button>
+            : <button type="button" className={HERO_OUTLINE} onClick={() => setEditing(true)}>{now ? tr('Type a new number') : tr('Or just type a number')}</button>}
+        </div>
       </section>
-      <WorthPanel />
-    </>
+      {editing && !hasItems && <UpdateForm onDone={() => setEditing(false)} />}
+      <WorthPanel mode={mode} setMode={setMode} />
+    </div>
   );
 }

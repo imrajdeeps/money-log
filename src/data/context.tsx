@@ -39,7 +39,7 @@ import type { IncomeCatResult } from '../core/income.ts';
 import { createSync } from './sync.ts';
 import type { GoalsBlock, MineBlock, ProfileBlock, RecurBlock, SyncState } from './sync.ts';
 import { migrateLegacy } from './legacy.ts';
-import type { AppApi, Engine, SharedGoalsApi, ToastAction } from './appApi.ts';
+import type { AppApi, Engine, SharedGoalsApi, SharedUdhaarApi, ToastAction } from './appApi.ts';
 import { clearProfile, loadProfile, setLocalProfile, setProfileSaveListener } from './profile.ts';
 import { clearSent } from './calendar.ts';
 import { tr } from '../core/i18n.ts';
@@ -365,6 +365,13 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     remove: async (goal) => { await engine().sharedGoals.remove(goal); },
     addTopUp: async (goal, amount, date) => { await engine().sharedGoals.addTopUp(goal, amount, date); },
     removeTopUp: async (goal, id) => { await engine().sharedGoals.removeTopUp(goal, id); },
+  }), []);
+  const sharedUdhaar = useMemo<SharedUdhaarApi>(() => ({
+    load: () => engine().sharedUdhaar.load(),
+    share: async (p) => { await engine().sharedUdhaar.share(p); },
+    answer: async (id, accept) => { await engine().sharedUdhaar.answer(id, accept); },
+    settle: async (id, settled) => { await engine().sharedUdhaar.settle(id, settled); },
+    remove: async (id) => { await engine().sharedUdhaar.remove(id); },
   }), []);
   const removeFromCircle = useCallback(async (userId: string) => { await engine().removeFromCircle(userId); }, []);
   const setDisplayName = useCallback(async (groupId: string, name: string) => { await engine().setDisplayName(groupId, name); }, []);
@@ -726,9 +733,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     toastAction,
     toast,
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
-    addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
+    addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

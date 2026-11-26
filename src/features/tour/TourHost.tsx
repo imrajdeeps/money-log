@@ -93,12 +93,12 @@ export function TourHost({ version, ready, hasData, go, onStart }: Readonly<{ ve
     const left = Math.max(12, Math.min(rect.left + rect.width / 2 - w / 2, vw - w - 12));
     place = below >= 230 || below >= rect.top ? { top: rect.top + rect.height + 12, left, width: w } : { bottom: vh - rect.top + 12, left, width: w };
   } else {
-    place = { top: '50%', left: '50%', width: w, transform: 'translate(-50%, -50%)' };
+    place = { bottom: vw < 900 ? 112 : '50%', left: '50%', width: Math.min(420, vw - 32), transform: vw < 900 ? 'translateX(-50%)' : 'translate(-50%, 50%)' }; // as on the design: above the tab bar on a phone
   }
 
   return (
     <div
-      className={`fixed inset-0 z-[80] ${rect ? '' : 'bg-[rgba(0,0,0,0.62)]'}`}
+      className={`fixed inset-0 z-[80] ${rect ? '' : 'bg-[rgba(12,17,14,0.45)]'}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-title"
@@ -114,16 +114,14 @@ export function TourHost({ version, ready, hasData, go, onStart }: Readonly<{ ve
           style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
         />
       )}
-      <div className="fixed z-[81] bg-card text-ink border border-line rounded-2xl p-4 [box-shadow:0_12px_32px_-8px_rgba(0,0,0,0.5)]" style={place}>
-        <p className="text-muted text-[13px] m-0 mb-1" aria-live="polite">{tr('Step {0} of {1}{2}', i + 1, tour.steps.length, tour.kind === 'news' ? tr(' · what is new') : '')}</p>
-        <h2 id="tour-title" className="m-0 mb-1.5">{tr(step.title)}</h2>
-        <p className="text-[15px] m-0 mb-3">{tr(step.text)}</p>
-        <div className="flex items-center justify-between gap-2.5">
-          <button type="button" className={ui.linkBtn + ' text-muted'} onClick={close}>{last ? tr('Close') : tr('Skip tour')}</button>
-          <div className="flex gap-2">
-            {i > 0 && <button type="button" className={ui.btn('ghost', 'small')} onClick={back}>{tr('Back')}</button>}
-            <button ref={next} type="button" className={ui.btn('solid', 'small')} onClick={forward}>{last ? tr('Done') : tr('Next')}</button>
-          </div>
+      <div className="fixed z-[81] bg-card text-ink rounded-[20px] p-5 flex flex-col gap-2.5 [box-shadow:0_12px_40px_rgba(0,0,0,0.25)]" style={place}>
+        <p className="m-0 text-[12px] font-bold tracking-[0.06em] uppercase text-brand" aria-live="polite">{tour.kind === 'news' && step.since ? tr('New in {0}', step.since.replace(/\.0$/, '')) : tr('Step {0} of {1}', i + 1, tour.steps.length)}</p>
+        <h2 id="tour-title" className="m-0 text-[20px] leading-[26px] font-bold">{tr(step.title)}</h2>
+        <p className="m-0 text-[15px] leading-[22px] text-muted">{tr(step.text)}</p>
+        <div className="flex items-center justify-end gap-2.5 pt-1.5">
+          {i > 0 && <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-4 text-[15px]')} onClick={back}>{tr('Back')}</button>}
+          <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-4 text-[15px]')} onClick={close}>{last ? tr('Close') : tr('Skip tour')}</button>
+          <button ref={next} type="button" className={ui.btn('solid', 'none', 'min-h-11 px-[18px] text-[15px]')} onClick={forward}>{last ? tr('Done') : tr('Next')}</button>
         </div>
       </div>
     </div>

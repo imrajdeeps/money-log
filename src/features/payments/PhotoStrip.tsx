@@ -5,6 +5,7 @@ import { shrinkImage } from './photo.ts';
 import { TakePhoto } from './TakePhoto.tsx';
 import { MAX_PHOTOS, liveFor, sizeText } from '../../core/receipts.ts';
 import type { Receipt } from '../../core/receipts.ts';
+import { Icon } from '../../ui/Icon.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -74,9 +75,9 @@ function AddPhotoButtons({ busy, onPicked }: Readonly<{ busy: boolean; onPicked:
   }
   return (
     <>
-      <TakePhoto busy={busy} onPicked={onPicked} />
+      <TakePhoto busy={busy} onPicked={onPicked} tile />
       <label className={ui.addPhoto(busy)}>
-        {tr('Choose photo')}
+        <Icon name="plus" size={22} />{tr('Choose photo')}
         <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
       </label>
     </>
@@ -109,8 +110,8 @@ export function PhotoStrip({ entryId, canEdit }: Readonly<{ entryId: string; can
   if (!photos.length && !canEdit) return null;
   const shown = photos.find((p) => p.id === open);
   return (
-    <div className={ui.photoStrip}>
-      <p className={ui.fieldLabel}>{tr('Receipt photos{0}', photos.length ? tr(' ({0} of {1})', photos.length, MAX_PHOTOS) : '')}</p>
+    <div className="flex flex-col gap-2">
+      <p className={ui.label}>{tr('Receipt photos{0}', photos.length ? tr(' ({0} of {1})', photos.length, MAX_PHOTOS) : '')}</p>
       <div className={ui.thumbs}>
         {photos.map((r) => <Thumb key={r.id} r={r} mine={r.owner_id === app.me} onOpen={() => setOpen(r.id)} />)}
         {canEdit && room > 0 && <AddPhotoButtons busy={busy} onPicked={(files) => void add(files)} />}

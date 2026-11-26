@@ -21,8 +21,8 @@ test('how someone is named and how they came to be in the Circle', () => {
   assert.equal(circleName(m({ name: 'Ravi' })), 'Ravi');
   assert.equal(circleName(m({ name: '' })), 'Someone');
   assert.equal(circleHow(m({ linked: true })), 'Added with a code');
-  assert.equal(circleHow(m({ shared_groups: ['Goa', 'Flat'] })), 'In Goa, Flat');
-  assert.equal(circleHow(m({ linked: true, shared_groups: ['Goa'] })), 'Added with a code · In Goa');
+  assert.equal(circleHow(m({ shared_groups: ['Goa', 'Flat'] })), 'Goa · Flat');
+  assert.equal(circleHow(m({ linked: true, shared_groups: ['Goa'] })), 'Goa');
 });
 
 test('the Circle is listed by name, and people with no name come last', () => {

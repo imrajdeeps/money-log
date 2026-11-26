@@ -1,4 +1,4 @@
-// Pure helpers for Money Log: no DOM, no storage, no network.
+// Pure helpers for Hisaab: no DOM, no storage, no network.
 // Kept separate so the same file runs in the browser and in the Node test runner.
 
 export const GROUPS = ['Spending', 'EMI', 'Family', 'Saving'] as const;
@@ -431,7 +431,7 @@ export function budgetState(group: Group, spent: number, planned: number, monthI
 }
 
 // From this share of a budget used, the meter and the words turn amber ("nearly used"); past 100% they turn red.
-export const NEAR_BUDGET = 0.8;
+export const NEAR_BUDGET = 0.85; // the design's line for a category or group: 82% is fine, 85% is nearly used
 export function nearBudget(spent: number, planned: number): boolean {
   return planned > 0 && spent <= planned && spent >= planned * NEAR_BUDGET;
 }

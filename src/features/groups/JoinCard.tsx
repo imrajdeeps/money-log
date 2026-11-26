@@ -12,7 +12,7 @@ export function JoinCard() {
   const invited = app.joinCode;
   const [code, setCode] = useState(invited ? formatCode(invited) : '');
   const [name, setName] = useState(rememberedName());
-  const [open, setOpen] = useState(Boolean(invited));
+  const [, setOpen] = useState(Boolean(invited));
   // A link opened while the app is already running: show the form with its code.
   useEffect(() => { if (invited) { setCode(formatCode(invited)); setOpen(true); } }, [invited]);
 
@@ -24,18 +24,19 @@ export function JoinCard() {
     if (await run(() => app.joinGroup(normalizeCode(code), name.trim()), tr('You have joined the group'))) { setCode(''); setOpen(false); }
   }
 
-  if (!open) return <button type="button" className={ui.btn('ghost')} onClick={() => setOpen(true)}>{tr('Join a group with a code')}</button>;
+  const needName = !rememberedName().trim() || Boolean(invited);
+  // The design's card: a line of help, the code and Join side by side (the name only when the app does not know it yet).
   return (
-    <form className={ui.card(invited ? 'notice' : undefined)} onSubmit={join} noValidate>
-      <h2>{invited ? tr('You were invited to a group') : tr('Join a group')}</h2>
-      <p className="text-muted text-[13px]">{tr('The code comes from the person who made the group. Joining means they, and everyone in it, can see the expenses you share there.')}</p>
-      <label className={ui.field}><span>{tr('Code')}</span><input value={code} onChange={(e) => { setCode(e.target.value); setError(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="ABCD-EF01-2345" /></label>
-      <label className={ui.field}><span>{tr('Your name in this group')}</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>
-      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-      <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{tr('Join')}</button>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => { setOpen(false); setError(''); app.clearJoinCode(); }}>{tr('Cancel')}</button>
+    <form className={ui.cx('flex flex-col gap-2.5 border rounded-card p-4', invited ? 'bg-warn-bg border-transparent' : 'bg-card border-line')} onSubmit={join} noValidate>
+      <h2 className="m-0 text-[16px] font-[650] text-ink">{invited ? tr('You were invited to a group') : tr('Join a group with a code')}</h2>
+      <p className="m-0 text-[14px] leading-5 text-muted">{tr('Someone in the group can find its code in the group\'s settings.')}</p>
+      {needName && <label className={ui.fieldBare}><span>{tr('Your name in this group')}</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+        <input value={code} aria-label={tr('Group code')} className="tracking-[0.04em]" onChange={(e) => { setCode(e.target.value); setError(''); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="2573-903B-371D" />
+        <button type="submit" className={ui.btn('outline', 'none', 'min-h-12 px-[18px] text-[15px]')} disabled={busy}>{tr('Join')}</button>
       </div>
+      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      {invited && <button type="button" className={ui.linkBtn + ' self-start text-[14px]'} disabled={busy} onClick={() => { setOpen(false); setError(''); app.clearJoinCode(); }}>{tr('Not now')}</button>}
     </form>
   );
 }

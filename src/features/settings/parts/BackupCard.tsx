@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { ask } from '../../../ui/confirm.tsx';
 import type { ChangeEvent } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { saveLastBackup } from '../../../data/backupSeen.ts';
 import { makeBackup, parseBackup } from '../../../data/backup.ts';
 import { readTextFile, saveFile } from '../../../ui/files.ts';
-import { stamp } from '../../../core/format.ts';
+import { shortDate, stamp } from '../../../core/format.ts';
+import { isoDate } from '../../../core/logic.ts';
+import { useLastBackup } from '../../../data/useLastBackup.ts';
+import * as ps from './partStyles.ts';
 import { errText } from './shared.ts';
 import * as ui from '../../../ui/styles.ts';
 import { tr } from '../../../core/i18n.ts';
@@ -16,6 +20,7 @@ const restoreQuestion = (r: { entries: readonly unknown[]; skipped: number }): s
 export function BackupCard() {
   const app = useApp();
   const [msg, setMsg] = useState('');
+  const last = useLastBackup();
 
   async function download() {
     const body = JSON.stringify(makeBackup(app.allEntries, new Date().toISOString(), { categories: app.mine, recurring: app.recurring, goals: app.goals }), null, 2);
@@ -32,24 +37,28 @@ export function BackupCard() {
     try {
       const r = parseBackup(await readTextFile(f, 20_000_000));
       if (!r.ok) { setMsg(r.error); return; }
-      if (!window.confirm(restoreQuestion(r))) return;
+      if (!(await ask(restoreQuestion(r), tr('Restore'), 'go'))) return;
       const res = await app.restoreBackup(r);
       setMsg(tr('Restored: {0} added, {1} updated.', res.added, res.updated));
     } catch (e) { setMsg(errText(e)); }
   }
 
   return (
-    <div className={ui.card()}>
-      <h2>{tr('Backup')}</h2>
-      <p className="text-muted text-[13px]">{tr('The one file that goes in and out of the app: your payments, categories and budgets, recurring payments, goals, net worth and due list. Keep one somewhere safe (iCloud Drive, for example) from time to time.')}</p>
-      <div className={ui.btnRow}>
-        <button type="button" className={ui.btn()} onClick={download}>{tr('Download backup')}</button>
-        <label className={ui.btn('ghost', 'md', 'mt-0')}>
-          {tr('Restore')}
+    <>
+      <div className={ps.card + ' gap-2.5'}>
+        <h3 className={ps.title}>{tr('Download a backup')}</h3>
+        <p className={ps.note}>{tr('One file with every payment, category and budget, recurring payment, goal, net worth and due item.')} {last ? tr('Last backup: {0}.', shortDate(isoDate(new Date(last)))) : tr('No backup from this phone yet.')} {tr('Photos are not included.')}</p>
+        <button type="button" className={ui.btn('solid', 'none', ps.main)} onClick={download}>{tr('Download backup')}</button>
+      </div>
+      <div className={ps.card + ' gap-2.5'}>
+        <h3 className={ps.title}>{tr('Restore from a backup')}</h3>
+        <p className={ps.note}>{tr('Adds what is in the file. Payments already on this phone are kept; nothing is saved twice.')}</p>
+        <label className={ui.btn('outline', 'none', ps.main)}>
+          {tr('Choose a backup file')}
           <input type="file" accept=".json,application/json" onChange={restore} />
         </label>
+        {msg && <p className={ui.msg()} role="status">{msg}</p>}
       </div>
-      {msg && <p className={ui.msg()} role="status">{msg}</p>}
-    </div>
+    </>
   );
 }

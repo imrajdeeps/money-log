@@ -28,13 +28,14 @@ export function ActivityBanner({ group }: Readonly<{ group: Group }>) {
     return mark;
   }, [group.id]);
   if (items.length === 0) return null;
+  const total = items.length + more;
   return (
-    <div className={ui.card('notice')} role="status">
-      <h3>{tr('Since you last opened')}</h3>
-      <ul className="m-0 list-none p-0 text-[14px]">
-        {items.map((a, i) => <li key={`${a.at}${i}`} className="py-0.5">{a.text}</li>)}
-      </ul>
-      {more > 0 && <p className="m-0 mt-1 text-[13px] text-muted">{tr('and {0} more', more)}</p>}
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center bg-press rounded-card px-4 py-3" role="status">
+      <span className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-[15px] font-bold">{tr('{0} new since you last opened', total)}</span>
+        <span className="text-[13px] text-muted">{items.map((a) => a.text).join('. ')}{more > 0 ? ` ${tr('and {0} more', more)}` : ''}</span>
+      </span>
+      <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-3.5 text-[14px]')} onClick={() => groupSeen.save({ ...groupSeen.load(), [group.id]: seenKeys(latest.current.entries, latest.current.settlements, group.id) })}>{tr('Seen')}</button>
     </div>
   );
 }

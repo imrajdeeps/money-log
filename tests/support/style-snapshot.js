@@ -1,4 +1,4 @@
-// Paste into the browser console (or run through a browser tool) on a running Money Log: it records the computed styles of
+// Paste into the browser console (or run through a browser tool) on a running Hisaab: it records the computed styles of
 // every visible element on every page, in light and dark, and either keeps them as the baseline or compares them with it.
 //   await window.__snap('save', 'name')      store this look as the baseline called `name`
 //   await window.__snap('compare', 'name')   report what differs from the baseline (an empty list means the same look)

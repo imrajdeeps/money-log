@@ -5,21 +5,30 @@ import type { MeterTone } from './styles.ts';
 import { tr } from '../core/i18n.ts';
 
 // The words under the meter: what is left, how much is over, or for savings how far they are from the plan.
-export function budgetText(saving: boolean, spent: number, planned: number): string {
+export function budgetText(saving: boolean, spent: number, planned: number, emi = false): string {
   const diff = planned - spent;
   if (saving) {
     if (!(planned > 0)) return '';
     return spent >= planned ? tr('on track') : tr('{0} to go', fmtINR(Math.max(0, diff)));
   }
+  if (diff === 0 && planned > 0) return emi ? tr('All paid · {0} left', fmtINR(0)) : tr('{0} left{1}', fmtINR(0), ''); // an EMI paid in full is as planned
   if (diff >= 0) return tr('{0} left{1}', fmtINR(diff), nearBudget(spent, planned) ? tr(', nearly used') : '');
   return tr('{0} over', fmtINR(-diff));
 }
 
+/** The colour of the words' tag under the meter: green while there is room or all is paid, amber nearly used, red over; savings grey. */
+export function wordsTone(tone: MeterTone, saving: boolean): 'good' | 'bad' | 'warn' | '' {
+  if (tone === 'bad' || tone === 'warn') return tone;
+  if (saving && tone !== 'good') return '';
+  return tone === 'idle' ? '' : 'good';
+}
+
 // The colour of the meter.
-export function meterTone(state: BudgetState, saving: boolean, spent: number, planned: number): MeterTone {
+export function meterTone(state: BudgetState, saving: boolean, spent: number, planned: number, emi = false): MeterTone {
   if (state === 'over' || state === 'short') return 'bad';
-  if (saving) return planned > 0 ? 'good' : 'idle';
+  if (saving) return planned > 0 ? (spent >= planned ? 'good' : 'accent') : 'idle'; // savings fill in the accent colour, green once reached
   if (state === 'idle') return 'idle';
+  if (planned > 0 && spent === planned) return emi ? 'accent' : 'warn'; // an EMI paid in full is as planned; any other budget is used up
   return nearBudget(spent, planned) ? 'warn' : 'accent';
 }
 

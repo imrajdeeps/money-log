@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { classLabel, classesOf, valueNow } from '../../core/worth.ts';
 import { isoDate } from '../../core/logic.ts';
 import type { AutoLine, WorthItem, WorthSide } from '../../core/worth.ts';
+import { PageDialog } from '../../ui/PageDialog.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -36,39 +38,43 @@ export function WorthForm({ item, auto, onDone }: Readonly<{ item?: WorthItem; a
   }
 
   async function remove() {
-    if (!item || !window.confirm(tr('Remove {0}? Your history stays.', item.n))) return;
+    if (!item || !(await ask(tr('Remove {0}? Your history stays.', item.n), tr('Remove')))) return;
     await app.removeWorthItem(item.id, auto);
     app.toast(tr('Removed: {0}', item.n));
     onDone();
   }
 
   return (
-    <form className={ui.card()} onSubmit={(ev) => { void submit(ev); }} noValidate>
-      <h2>{item ? tr('Change item') : tr('Add an item')}</h2>
-      {!item && (
-        <div className={ui.chips} role="group" aria-label={tr('Which side')}>
-          <button type="button" className={ui.chip} aria-pressed={side === 'a'} onClick={() => pickSide('a')}>{tr('I own')}</button>
-          <button type="button" className={ui.chip} aria-pressed={side === 'd'} onClick={() => pickSide('d')}>{tr('I owe')}</button>
+    <PageDialog title={item ? tr('Edit item') : tr('Add an item')} back={tr('Plan')} onClose={onDone}>
+      <form className="flex flex-col gap-[18px]" onSubmit={(ev) => { void submit(ev); }} noValidate>
+        {!item && (
+          <div className={ui.segment(2)} role="radiogroup" aria-label={tr('Which side')}>
+            <button type="button" role="radio" className={ui.segBtn} aria-checked={side === 'a'} onClick={() => pickSide('a')}>{tr('I own it')}</button>
+            <button type="button" role="radio" className={ui.segBtn} aria-checked={side === 'd'} onClick={() => pickSide('d')}>{tr('I owe it')}</button>
+          </div>
+        )}
+        <fieldset className={ui.chipsBare}>
+          <legend>{tr('Kind')}</legend>
+          {classesOf(side).map((c) => <button key={c} type="button" className={ui.chipTick} aria-pressed={cls === c} onClick={() => { setCls(c); setError(''); }}>{classLabel(side, c)}</button>)}
+        </fieldset>
+        <label className={ui.fieldBare}><span>{tr('Name')}</span><input value={name} maxLength={40} placeholder={side === 'a' ? tr('HDFC savings, Gold, Flat') : tr('Home loan, Card')} onChange={(e) => { setName(e.target.value); setError(''); }} /></label>
+        <label className={ui.fieldBare}><span>{loan ? tr('Balance still to pay') : tr('Value now')}</span><input inputMode="decimal" placeholder="₹" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
+        {loan && (
+          <>
+            <label className={ui.fieldBare}><span>{tr('EMI each month')}</span><input inputMode="decimal" placeholder="₹" value={emi} onChange={(e) => { setEmi(e.target.value); setError(''); }} /></label>
+            <div>
+              <label className={ui.fieldBare}><span>{tr('Yearly interest rate')}</span><input inputMode="decimal" placeholder="%" value={rate} onChange={(e) => { setRate(e.target.value); setError(''); }} /></label>
+              <p className={ui.hint}>{tr('From your loan papers. Used only to estimate what is left.')}</p>
+            </div>
+            <p className="m-0 px-3.5 py-3 rounded-xl bg-press text-[14px] leading-5">{tr('With an EMI, the balance is worked out month by month from the day you typed it (interest first, the rest of the EMI reduces it) and marked "estimated" until you check in with the real figure.')}</p>
+          </>
+        )}
+        {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+        <div className="flex flex-col gap-3">
+          <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')} disabled={busy}>{tr('Save item')}</button>
+          {item && <button type="button" className={ui.btn('dangerOutline', 'md')} disabled={busy} onClick={() => { void remove(); }}>{tr('Remove this item')}</button>}
         </div>
-      )}
-      <div className={ui.chips} role="group" aria-label={tr('Kind')}>
-        {classesOf(side).map((c) => <button key={c} type="button" className={ui.chip} aria-pressed={cls === c} onClick={() => { setCls(c); setError(''); }}>{classLabel(side, c)}</button>)}
-      </div>
-      <label className={ui.field}><span>{tr('Name')}</span><input value={name} maxLength={40} placeholder={side === 'a' ? tr('HDFC savings, Gold, Flat') : tr('Home loan, Card')} onChange={(e) => { setName(e.target.value); setError(''); }} /></label>
-      <label className={ui.field}><span>{loan ? tr('Balance still to pay (₹)') : tr('Value now (₹)')}</span><input inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
-      {loan && (
-        <>
-          <label className={ui.field}><span>{tr('EMI per month (₹, optional)')}</span><input inputMode="decimal" value={emi} onChange={(e) => { setEmi(e.target.value); setError(''); }} /></label>
-          <label className={ui.field}><span>{tr('Yearly interest rate (%, optional)')}</span><input inputMode="decimal" value={rate} onChange={(e) => { setRate(e.target.value); setError(''); }} /></label>
-          <p className="text-muted text-[13px]">{tr('With an EMI, the balance is worked out month by month from the day you typed it (interest first, the rest of the EMI reduces it) and shown as an estimate. Type a new balance any time to correct it.')}</p>
-        </>
-      )}
-      {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
-      <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{tr('Save')}</button>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
-      </div>
-      {item && <button type="button" className={ui.btn('danger', 'md', ui.inCard)} disabled={busy} onClick={() => { void remove(); }}>{tr('Remove this item')}</button>}
-    </form>
+      </form>
+    </PageDialog>
   );
 }

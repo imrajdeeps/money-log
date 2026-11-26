@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { circleName } from '../../core/circle.ts';
@@ -59,8 +60,8 @@ function Manage({ goal, circle, onEdit, onChanged }: Readonly<{ goal: SharedGoal
       )}
       <div className={ui.btnRow}>
         {mine && <button type="button" className={ui.btn('ghost', 'small')} onClick={onEdit}>{tr('Change goal')}</button>}
-        {mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { if (window.confirm(tr('Delete the shared goal "{0}" for everyone in it? Every top-up goes with it. This cannot be undone.', goal.name))) run(() => app.sharedGoals.remove(goal.id), tr('Removed: {0}', goal.name)); }}>{tr('Delete goal')}</button>}
-        {!mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { if (window.confirm(tr('Leave the shared goal "{0}"? You will stop seeing it. What you put in stays for the others.', goal.name))) run(() => app.sharedGoals.leave(goal.id), tr('You left {0}', goal.name)); }}>{tr('Leave goal')}</button>}
+        {mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { void ask(tr('Delete the shared goal "{0}" for everyone in it? Every top-up goes with it. This cannot be undone.', goal.name), tr('Delete goal')).then((yes) => { if (yes) run(() => app.sharedGoals.remove(goal.id), tr('Removed: {0}', goal.name)); }); }}>{tr('Delete goal')}</button>}
+        {!mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { void ask(tr('Leave the shared goal "{0}"? You will stop seeing it. What you put in stays for the others.', goal.name), tr('Leave')).then((yes) => { if (yes) run(() => app.sharedGoals.leave(goal.id), tr('You left {0}', goal.name)); }); }}>{tr('Leave goal')}</button>}
       </div>
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
     </div>
@@ -77,21 +78,27 @@ export function SharedGoalCard({ goal, circle, onEdit, onChanged }: Readonly<{ g
   const asked = goal.members.filter((m) => m.state === 'invited');
   const isCreator = goal.created_by === app.me;
   return (
-    <li className="px-3.5 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <span className={ui.rowMain()}><b>{goal.name}</b><small>{tr('by {0}', shortDate(goal.date))}</small></span>
-        <span className="font-bold tabular-nums">{fmtINR(p.saved)} <small className="text-muted">{tr('of {0}', fmtINR(goal.target))}</small></span>
+    <li className="flex flex-col gap-2.5 bg-card border border-line rounded-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[16px] font-[650]">{goal.name}</span>
+        <span className="flex" aria-hidden="true">
+          {p.people.slice(0, 4).map((x, i) => {
+            const nm = sharedName(x, circleNameOf);
+            return <span key={x.user_id} className={ui.cx('w-7 h-7 rounded-full border-2 border-card flex items-center justify-center text-[11px] font-bold', i > 0 && '-ml-2', x.user_id === app.me ? 'bg-brand text-brand-ink' : 'bg-good-bg text-good')}>{nm.slice(0, 2).toUpperCase()}</span>;
+          })}
+        </span>
       </div>
-      <div className={ui.meter(p.reached ? 'good' : 'accent', 'mt-2.5 mb-1.5')} role="img" aria-label={tr('{0} percent of the target', Math.round(p.fraction * 100))}><i style={{ width: `${Math.round(p.fraction * 100)}%` }} /></div>
-      <p className={`m-0 text-sm ${p.reached ? 'font-semibold text-good' : ''}`}>{p.reached ? tr('Reached') : tr('{0} to go', fmtINR(p.remaining))}</p>
-      <ul className="m-0 mt-2 list-none p-0 text-[13px]">
+      <span className="text-[21px] leading-[26px] font-bold tabular-nums">{fmtINR(p.saved)} <span className="text-[14px] font-medium text-muted">{tr('of {0}', fmtINR(goal.target))}</span></span>
+      <span className="flex h-2.5 rounded-full bg-track" role="img" aria-label={tr('{0} percent of the target', Math.round(p.fraction * 100))}><span className={ui.cx('rounded-full', p.reached ? 'bg-good' : 'bg-accent')} style={{ width: `${Math.round(p.fraction * 100)}%` }} /></span>
+      <ul className="m-0 list-none p-0 flex flex-col gap-1 text-[14px]">
         {p.people.map((x) => (
-          <li key={x.user_id} className="flex justify-between py-0.5">
-            <span>{sharedName(x, circleNameOf)}{x.user_id === app.me ? ` ${tr('(you)')}` : ''}{x.state === 'left' ? ` · ${tr('left')}` : ''}</span>
+          <li key={x.user_id} className="flex justify-between">
+            <span>{x.user_id === app.me ? tr('You') : sharedName(x, circleNameOf)}{x.state === 'left' ? ` · ${tr('left')}` : ''}</span>
             <span className="tabular-nums">{fmtINR(x.amount)}</span>
           </li>
         ))}
       </ul>
+      <p className="m-0 text-[13px] text-muted">{p.reached ? tr('Reached') : tr('{0} to go, by {1}.', fmtINR(p.remaining), shortDate(goal.date))}</p>
       {asked.length > 0 && (
         <p className="mt-1 mb-0 text-[13px] text-muted">
           {tr('Asked, not answered yet: {0}', asked.map((m) => sharedName(m, circleNameOf)).join(', '))}
@@ -108,14 +115,14 @@ export function SharedGoalCard({ goal, circle, onEdit, onChanged }: Readonly<{ g
             {mineList.map((t) => (
               <li key={t.id} className="flex items-center justify-between py-0.5">
                 <span>{shortDate(t.date)} · {fmtINR(t.amount)}</span>
-                <button type="button" className={ui.linkBtn} disabled={act.busy} onClick={() => { if (window.confirm(tr('Remove this top-up of {0}?', fmtINR(t.amount)))) void act.run(() => app.sharedGoals.removeTopUp(goal.id, t.id), tr('Top-up removed')).then((ok) => { if (ok) onChanged(); }); }}>{tr('Remove')}</button>
+                <button type="button" className={ui.linkBtn} disabled={act.busy} onClick={() => { void ask(tr('Remove this top-up of {0}?', fmtINR(t.amount)), tr('Remove')).then((yes) => { if (yes) void act.run(() => app.sharedGoals.removeTopUp(goal.id, t.id), tr('Top-up removed')).then((ok) => { if (ok) onChanged(); }); }); }}>{tr('Remove')}</button>
               </li>
             ))}
           </ul>
         </details>
       )}
       {isCreator && goal.members.filter((m) => m.state === 'active' && m.user_id !== app.me).map((m) => (
-        <button key={m.user_id} type="button" className={`${ui.linkBtn} mr-3 mt-1 text-[13px]`} disabled={act.busy} onClick={() => { if (window.confirm(tr('Take {0} out of "{1}"? What they put in stays in the total.', sharedName(m, circleNameOf), goal.name))) void act.run(() => app.sharedGoals.removePerson(goal.id, m.user_id), tr('Removed')).then((ok) => { if (ok) onChanged(); }); }}>{tr('Take {0} out', sharedName(m, circleNameOf))}</button>
+        <button key={m.user_id} type="button" className={`${ui.linkBtn} mr-3 mt-1 text-[13px]`} disabled={act.busy} onClick={() => { void ask(tr('Take {0} out of "{1}"? What they put in stays in the total.', sharedName(m, circleNameOf), goal.name), tr('Take out')).then((yes) => { if (yes) void act.run(() => app.sharedGoals.removePerson(goal.id, m.user_id), tr('Removed')).then((ok) => { if (ok) onChanged(); }); }); }}>{tr('Take {0} out', sharedName(m, circleNameOf))}</button>
       ))}
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
       <Manage goal={goal} circle={circle} onEdit={onEdit} onChanged={onChanged} />

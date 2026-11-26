@@ -57,12 +57,12 @@ test('a recurring payment shows once its day has come and not before', () => {
   assert.deepEqual(r[0]!.open, { to: 'settings', part: 'recurring' });
 });
 
-test('a budget shows at 80 percent used and when over; Saving, unbudgeted and untouched ones do not', () => {
+test('a budget shows at 85 percent used and when over; Saving, unbudgeted and untouched ones do not', () => {
   const row = (category: string, spent: number, planned: number, group: 'Spending' | 'Saving' = 'Spending', budgeted = true) => ({ category, group, spent, planned, left: planned - spent, budgeted });
-  const r = run({ budgetRows: [row('Edge', 800, 1000), row('Below', 799, 1000), row('Over', 1200, 1000), row('Full', 1000, 1000), row('Savings', 5000, 1000, 'Saving'), row('NoBudget', 900, 0, 'Spending', false), row('Untouched', 0, 1000)] });
+  const r = run({ budgetRows: [row('Edge', 850, 1000), row('Below', 849, 1000), row('Over', 1200, 1000), row('Full', 1000, 1000), row('Savings', 5000, 1000, 'Saving'), row('NoBudget', 900, 0, 'Spending', false), row('Untouched', 0, 1000)] });
   assert.deepEqual(r.map((n) => n.key).sort(), ['bud:edge:2026-11:near', 'bud:full:2026-11:near', 'bud:over:2026-11:over']);
   assert.equal(r.find((n) => n.key.endsWith(':over'))!.tone, 'attention');
-  assert.match(r.find((n) => n.key.includes('edge'))!.title, /used 80% of its budget/);
+  assert.match(r.find((n) => n.key.includes('edge'))!.title, /used 85% of its budget/);
 });
 
 test('a goal shows when its date has passed, 30 days before it, or when it is behind; not when reached or on track', () => {

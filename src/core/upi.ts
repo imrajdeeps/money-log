@@ -21,6 +21,16 @@ export function extractUpi(text: unknown): string {
   return m ? cleanUpi(m[0].replace(/[.]+$/, '')) : '';
 }
 
+/** What a UPI QR code says (upi://pay?pa=asha@ybl&pn=Asha%20Rao&...): the payee's id and name; null when it is not a UPI payment
+ *  code or its id does not look like one (version 2.0, Profile: Scan QR / Upload QR image). */
+export function upiFromQr(text: unknown): { upi: string; name: string } | null {
+  const t = typeof text === 'string' ? text.trim() : '';
+  if (!/^upi:\/\/pay\?/i.test(t)) return null;
+  const q = new URLSearchParams(t.slice(t.indexOf('?') + 1));
+  const upi = cleanUpi(q.get('pa') ?? '');
+  return upi ? { upi, name: (q.get('pn') ?? '').trim().slice(0, 60) } : null;
+}
+
 const enc = (s: string): string => encodeURIComponent(s);
 
 /** The upi://pay link: payee, name, amount (two decimals) and a note, in rupees. */
@@ -33,7 +43,7 @@ export function upiLink(p: { upi: string; name: string; amount: number; note: st
 /** The WhatsApp text a person sends someone who owes them in a group; their UPI id (when they have set one) and a pay link ride in it. */
 export function remindText(p: { name: string; amount: number; group: string; upi: string; payeeName: string }): string {
   const id = cleanUpi(p.upi);
-  const base = tr('Hi {0}, a reminder from Money Log: you owe me {1} in "{2}".', p.name, fmtINR(p.amount), p.group);
+  const base = tr('Hi {0}, a reminder from Hisaab: you owe me {1} in "{2}".', p.name, fmtINR(p.amount), p.group);
   if (!id) return base;
   return `${base} ${tr('You can pay me on UPI: {0}', id)} ${upiLink({ upi: id, name: p.payeeName, amount: p.amount, note: p.group })}`;
 }
@@ -43,5 +53,5 @@ export function udhaarRemindText(p: { name: string; amount: number; upi: string;
   const id = cleanUpi(p.upi);
   const base = tr('Hi {0}, a gentle reminder about the {1} I lent you.', p.name, fmtINR(p.amount));
   if (!id) return base;
-  return `${base} ${tr('You can pay me on UPI: {0}', id)} ${upiLink({ upi: id, name: p.payeeName, amount: p.amount, note: tr('Money Log') })}`;
+  return `${base} ${tr('You can pay me on UPI: {0}', id)} ${upiLink({ upi: id, name: p.payeeName, amount: p.amount, note: tr('Hisaab') })}`;
 }

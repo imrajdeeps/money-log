@@ -27,6 +27,13 @@ export function shortDate(iso: string): string {
   return (y === new Date().getFullYear() ? dayMonth() : dayMonthYear()).format(date);
 }
 
+/** "Tuesday, 24 Nov": a day heading in a list of payments, in the chosen language. */
+export function dayHeading(iso: string): string {
+  const [y, m, d] = parts(iso);
+  const date = new Date(y, m - 1, d);
+  return `${fmt('wl', { weekday: 'long' }).format(date)}, ${shortDate(iso)}`;
+}
+
 export function monthLabel(key: string): string {
   const [y, m] = parts(`${key}-01`);
   return monthYear().format(new Date(y, m - 1, 1));

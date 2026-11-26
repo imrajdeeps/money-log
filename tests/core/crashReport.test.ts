@@ -61,7 +61,7 @@ test('the same error twice in a row is kept once, and only the latest few are ke
 
 test('the report names the version, page and browser, lists the errors, and holds nothing of the address after the page name', () => {
   const r = buildReport([crash('first'), { ...crash('second', 'screen'), stack: 'at x (file.js:1:2)' }], ctx);
-  assert.ok(r.startsWith('Money Log 1.34.0\nTime: 2026-11-25T10:00:00.000Z\nPage: /money-log/groups/:id/settings\n'), r);
+  assert.ok(r.startsWith('Hisaab 1.34.0\nTime: 2026-11-25T10:00:00.000Z\nPage: /money-log/groups/:id/settings\n'), r);
   assert.ok(r.includes('Browser: TestBrowser/1.0'));
   assert.ok(r.includes('Language: en; online; in the browser'));
   assert.ok(r.includes('#1 (error, ') && r.includes('#2 (screen, ') && r.includes('Error: second\nat x (file.js:1:2)'));

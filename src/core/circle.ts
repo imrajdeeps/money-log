@@ -27,12 +27,10 @@ export function cleanCircleMember(r: any): CircleMember | null {
 /** What to call someone: their name, or a plain word when they have none. */
 export const circleName = (m: CircleMember): string => m.name || tr('Someone');
 
-/** How someone came to be in the Circle, in a line. */
+/** How someone is in your Circle, in a line: the groups you share, else that they were added with a code. */
 export function circleHow(m: CircleMember): string {
-  const parts: string[] = [];
-  if (m.linked) parts.push(tr('Added with a code'));
-  if (m.shared_groups.length > 0) parts.push(tr('In {0}', m.shared_groups.join(', ')));
-  return parts.join(' · ');
+  if (m.shared_groups.length > 0) return m.shared_groups.join(' · '); // the groups you share, as on the design
+  return m.linked ? tr('Added with a code') : '';
 }
 
 /** Names first, A to Z; a person with no name last. */

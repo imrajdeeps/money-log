@@ -4,48 +4,17 @@ import { useApp } from '../../../data/context.tsx';
 import { MIN_PASSWORD } from '../../../data/password.ts';
 import { errText } from './shared.ts';
 import * as ui from '../../../ui/styles.ts';
+import * as ps from './partStyles.ts';
 import { tr } from '../../../core/i18n.ts';
-
-type SignOut = 'others' | 'everywhere';
 
 type Note = { text: string; bad: boolean };
 
-// Signs out the other devices (and says so), or everywhere, this phone too (which shows the signed-out screen, so there is nothing to say).
-async function signOutBy(app: ReturnType<typeof useApp>, which: SignOut): Promise<Note | null> {
-  if (which === 'everywhere') {
-    await app.signOutEverywhere();
-    app.toast(tr('Signed out everywhere'));
-    return null;
-  }
-  await app.signOutOthers();
-  return { text: tr('Your other devices are signed out. A device that is open right now is signed out the next time it renews its sign-in, within about an hour.'), bad: false };
-}
-
-// The two ways to sign out other devices. Each waits for a second tap (ask says which one is waiting), and Cancel takes it back.
-function SignOutButtons({ ask, busy, onTap, onCancel }: Readonly<{ ask: SignOut | null; busy: boolean; onTap: (which: SignOut) => void; onCancel: () => void }>) {
-  return (
-    <>
-      <div className={ui.btnRow}>
-        <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={() => onTap('others')}>
-          {ask === 'others' ? tr('Tap again: sign out other devices') : tr('Sign out my other devices')}
-        </button>
-      </div>
-      <div className={ui.btnRow}>
-        <button type="button" className={ui.btn('danger')} disabled={busy} onClick={() => onTap('everywhere')}>
-          {ask === 'everywhere' ? tr('Tap again: sign out everywhere') : tr('Sign out everywhere, this phone too')}
-        </button>
-      </div>
-      {ask && <button type="button" className={ui.btn('ghost', 'small', 'mt-1.5')} onClick={onCancel}>{tr('Cancel')}</button>}
-    </>
-  );
-}
-
+// Change password, as on the design. Signed in, no old password is needed; the new one is not kept on this phone.
 export function PasswordCard() {
   const app = useApp();
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
-  const [ask, setAsk] = useState<SignOut | null>(null); // a sign-out waits for a second tap
   const [msg, setMsg] = useState<Note | null>(null);
   if (!app.syncEnabled || app.sync.mode === 'signedout' || app.sync.mode === 'local') return null;
 
@@ -60,37 +29,21 @@ export function PasswordCard() {
     } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
   }
 
-  async function signOutFrom(which: SignOut) {
-    if (ask !== which) { setAsk(which); return; }
-    setBusy(true); setMsg(null); setAsk(null);
-    try { setMsg(await signOutBy(app, which)); } catch (e) { setMsg({ text: errText(e), bad: true }); } finally { setBusy(false); }
-  }
-
   return (
-    <div className={ui.card()}>
-      <h2>{tr('Password and sessions')}</h2>
+    <form className={ps.card} onSubmit={save} noValidate>
+      <h3 className={ps.title}>{tr('Change password')}</h3>
       {app.recovering && <p className={ui.msg('good')} role="status">{tr('You opened a reset link, so you are signed in. Choose a new password now.')}</p>}
-      <form onSubmit={save} noValidate>
-        <h3 className="text-[16px] mt-5 mb-2">{tr('Change password')}</h3>
-        <p className="text-muted text-[13px]">{tr('You are signed in, so no old password is needed. Others cannot see the new one and it is not kept on this phone.')}</p>
-        <label className={ui.field}>
-          <span>{tr('New password (at least {0} characters)', MIN_PASSWORD)}</span>
-          <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} disabled={busy} />
-        </label>
-        <label className={ui.field}>
-          <span>{tr('Repeat the new password')}</span>
-          <input type="password" autoComplete="new-password" value={password2} onChange={(e) => { setPassword2(e.target.value); setMsg(null); }} disabled={busy} />
-        </label>
-        <div className={ui.btnRow}>
-          <button type="submit" className={ui.btn()} disabled={busy || !password || !password2}>{tr('Save password')}</button>
-        </div>
-      </form>
+      <label className={ui.fieldBare}>
+        <span>{tr('New password')}</span>
+        <input type="password" autoComplete="new-password" placeholder={tr('At least {0} characters', MIN_PASSWORD)} value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} disabled={busy} />
+      </label>
+      <label className={ui.fieldBare}>
+        <span>{tr('Repeat the new password')}</span>
+        <input type="password" autoComplete="new-password" value={password2} onChange={(e) => { setPassword2(e.target.value); setMsg(null); }} disabled={busy} />
+      </label>
       {msg && <p className={ui.msg(msg.bad ? 'bad' : 'good')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
-      <h3 className="text-[16px] mt-5 mb-2">{tr('Where you are signed in')}</h3>
-      <p className="text-muted text-[13px]">
-        {tr('This phone stays signed in and renews its sign-in by itself until you sign out. If you lose a phone, sign out your other devices here, or everywhere, then change the password.')}
-      </p>
-      <SignOutButtons ask={ask} busy={busy} onTap={(which) => { void signOutFrom(which); }} onCancel={() => setAsk(null)} />
-    </div>
+      <button type="submit" className={ui.btn('solid', 'none', ps.save)} disabled={busy || !password || !password2}>{tr('Change password')}</button>
+      <p className={ps.small}>{tr('You are signed in, so no old password is needed. Others cannot see the new one and it is not kept on this phone.')}</p>
+    </form>
   );
 }

@@ -7,9 +7,9 @@ import { tr } from '../../core/i18n.ts';
 export function KindSwitch({ value, onChange }: Readonly<{ value: EntryKind; onChange: (k: EntryKind) => void }>) {
   const pick = (k: EntryKind) => { if (k !== value) onChange(k); };
   return (
-    <div className={ui.chips} role="group" aria-label={tr('Money going out or coming in')}>
-      <button type="button" className={ui.chip} aria-pressed={value === 'out'} onClick={() => pick('out')}>{tr('Spent')}</button>
-      <button type="button" className={ui.chip} aria-pressed={value === 'in'} onClick={() => pick('in')}>{tr('Received')}</button>
+    <div className={ui.segment(2)} role="radiogroup" aria-label={tr('Money going out or coming in')}>
+      <button type="button" role="radio" className={ui.segBtn} aria-checked={value === 'out'} onClick={() => pick('out')}>{tr('Spent')}</button>
+      <button type="button" role="radio" className={ui.segBtn} aria-checked={value === 'in'} onClick={() => pick('in')}>{tr('Received')}</button>
     </div>
   );
 }
