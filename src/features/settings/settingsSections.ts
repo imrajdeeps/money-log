@@ -11,7 +11,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'backup', group: 'Money', title: 'Backup', blurb: 'Save or restore a copy of your data' },
   { id: 'lock', group: 'Privacy and security', title: 'App lock', blurb: 'A PIN for this phone' },
   { id: 'receipts', group: 'Privacy and security', title: 'Receipt photos', blurb: 'Storage used on this phone' },
-  { id: 'appearance', group: 'App', title: 'Appearance', blurb: 'Light, dark or match the phone' },
+  { id: 'appearance', group: 'App', title: 'Appearance', blurb: 'Light, dark or match the phone; sounds' },
   { id: 'notifications', group: 'App', title: 'Notifications', blurb: 'What the bell tells you about' },
   { id: 'language', group: 'App', title: 'Language', blurb: 'English, Hindi or Hinglish' },
   { id: 'about', group: 'App', title: 'About', blurb: 'Version and how to install' },

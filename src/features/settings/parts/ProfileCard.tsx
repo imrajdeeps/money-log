@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { saveProfile } from '../../../data/profile.ts';
 import { myUpi } from '../../../data/phonePrefs.ts';
-import { cleanUpi } from '../../../core/upi.ts';
+import { cleanUpi, upiFromQr } from '../../../core/upi.ts';
+import { readQrImage } from '../../../ui/qr.ts';
 import { useProfile } from '../../../data/useProfile.ts';
 import { COUNTRY_PREFIX, MAX_PROFILE_NAME, cleanName, initials, isIndianNumber, localDigits, normalizeWhatsapp } from '../../../core/profile.ts';
 import * as ui from '../../../ui/styles.ts';
@@ -58,6 +59,19 @@ export function ProfileCard() {
   const [note, setNote] = useState<{ text: string; bad: boolean } | null>(null);
   const oldNumber = profile.whatsapp !== '' && !isIndianNumber(profile.whatsapp); // saved before only Indian numbers were allowed
 
+  // Scan QR (the camera) or Upload QR image: the browser reads the code, and a UPI payment code fills the id; nothing is kept.
+  async function readQr(ev: ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    ev.target.value = '';
+    if (!file) return;
+    const read = await readQrImage(file);
+    if (!read.ok && read.reason === 'unsupported') return setNote({ text: tr('This browser cannot read QR codes. Type the UPI id instead.'), bad: true });
+    const found = read.ok ? upiFromQr(read.text) : null;
+    if (!found) return setNote({ text: tr('That image has no UPI QR code in it. Try another, or type the id.'), bad: true });
+    setUpi(found.upi);
+    setNote({ text: found.name ? tr('Read from your QR: {0} ({1}). Check it, then tap Save profile.', found.upi, found.name) : tr('Read from your QR: {0}. Check it, then tap Save profile.', found.upi), bad: false });
+  }
+
   function save(ev: FormEvent) {
     ev.preventDefault();
     const checked = checkProfileForm(number, upi);
@@ -89,6 +103,17 @@ export function ProfileCard() {
           <span>{tr('Your UPI id (optional)')}</span>
           <input value={upi} autoCapitalize="none" autoComplete="off" spellCheck={false} placeholder="name@bank" onChange={(e) => { setUpi(e.target.value); setNote(null); }} />
         </label>
+        <p className="text-muted text-[13px] mt-2 mb-1.5">{tr('Or read it from your UPI QR code. The photo is read on this phone and not kept.')}</p>
+        <div className="flex gap-2">
+          <label className={ui.btn('ghost', 'none', 'flex-1 min-h-11 px-3 text-[14px]')}>
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => void readQr(e)} />
+            {tr('Scan QR')}
+          </label>
+          <label className={ui.btn('ghost', 'none', 'flex-1 min-h-11 px-3 text-[14px]')}>
+            <input type="file" accept="image/*" onChange={(e) => void readQr(e)} />
+            {tr('Upload QR image')}
+          </label>
+        </div>
         <p className="text-muted text-[13px]">{tr('Kept on this phone only. It goes out only inside a reminder you send from a group or from Udhaar, so people can pay you.')}</p>
         {oldNumber && <p className={ui.msg('bad')} role="status">{tr('The number saved here, {0}, is not an Indian number. Only Indian numbers are accepted now: type a 10-digit number, or leave the field empty and save to remove it.', profile.whatsapp)}</p>}
         <p className="text-muted text-[13px]">{email ? tr('Kept on this phone and in your account, where only you can see it. It is not verified, and nothing is sent to it.') : tr('Kept on this phone. Sign in and it also follows you to your other phones. It is not verified, and nothing is sent to it.')}</p>

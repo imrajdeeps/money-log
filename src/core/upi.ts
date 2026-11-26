@@ -21,6 +21,16 @@ export function extractUpi(text: unknown): string {
   return m ? cleanUpi(m[0].replace(/[.]+$/, '')) : '';
 }
 
+/** What a UPI QR code says (upi://pay?pa=asha@ybl&pn=Asha%20Rao&...): the payee's id and name; null when it is not a UPI payment
+ *  code or its id does not look like one (version 2.0, Profile: Scan QR / Upload QR image). */
+export function upiFromQr(text: unknown): { upi: string; name: string } | null {
+  const t = typeof text === 'string' ? text.trim() : '';
+  if (!/^upi:\/\/pay\?/i.test(t)) return null;
+  const q = new URLSearchParams(t.slice(t.indexOf('?') + 1));
+  const upi = cleanUpi(q.get('pa') ?? '');
+  return upi ? { upi, name: (q.get('pn') ?? '').trim().slice(0, 60) } : null;
+}
+
 const enc = (s: string): string => encodeURIComponent(s);
 
 /** The upi://pay link: payee, name, amount (two decimals) and a note, in rupees. */

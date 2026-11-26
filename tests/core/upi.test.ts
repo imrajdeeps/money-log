@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanUpi, remindText, udhaarRemindText, upiLink } from '../../src/core/upi.ts';
+import { cleanUpi, remindText, udhaarRemindText, upiFromQr, upiLink } from '../../src/core/upi.ts';
 
 test('a UPI id is name@bank, in any case, or nothing', () => {
   assert.equal(cleanUpi('  Asha.K@OKAxis '), 'asha.k@okaxis');
@@ -31,4 +31,13 @@ test('a UPI id is found in a pasted reminder, and a typed bad value is not quiet
   assert.equal(extractUpi('You can pay me on UPI: Asha.K@OKAxis upi://pay?pa=asha.k@okaxis&pn=Asha'), 'asha.k@okaxis', 'the first id in the text');
   assert.equal(extractUpi('pay asha@ybl.'), 'asha@ybl', 'a full stop after it is not part of it');
   for (const bad of ['', 'no id here', 'asha@', 5, null]) assert.equal(extractUpi(bad), '', String(bad));
+});
+
+test('upiFromQr reads the payee from a UPI QR code (2.0, Profile)', () => {
+  assert.deepEqual(upiFromQr('upi://pay?pa=Asha@OKAxis&pn=Asha%20Rao&cu=INR'), { upi: 'asha@okaxis', name: 'Asha Rao' });
+  assert.deepEqual(upiFromQr(' UPI://pay?pn=Shop&pa=shop%40ybl '), { upi: 'shop@ybl', name: 'Shop' }, 'any case, an encoded @, spaces round it');
+  assert.deepEqual(upiFromQr('upi://pay?pa=asha@ybl'), { upi: 'asha@ybl', name: '' }, 'no name');
+  assert.equal(upiFromQr('https://example.com/?pa=asha@ybl'), null, 'not a UPI code');
+  assert.equal(upiFromQr('upi://pay?pa=not-an-id&pn=X'), null, 'an id that does not look like one');
+  assert.equal(upiFromQr(42), null);
 });

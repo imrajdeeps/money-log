@@ -37,3 +37,6 @@ export const groupSeen = localPref<Record<string, string[]>>('money-log.group-se
   }
   return out;
 }, {});
+
+// Version 2.0: "Play soft sounds" (Settings, Appearance). On unless the person turned it off; kept on this phone only.
+export const soundsOn = localPref<boolean>('money-log.sounds', (v) => v !== false, true);

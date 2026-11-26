@@ -6,6 +6,7 @@ import { LockScreen, SettingsScreen, ThemeToggle, cleanSection } from '../featur
 import type { SettingsSection } from '../features/settings/index.ts';
 import { Splash } from '../ui/Splash.tsx';
 import { Logo } from '../ui/Logo.tsx';
+import { playTick } from '../ui/sound.ts';
 import { Icon } from '../ui/Icon.tsx';
 import type { IconName } from '../ui/Icon.tsx';
 import { AllPayments, QuickLog, smsFromHash } from '../features/payments/index.ts';
@@ -148,6 +149,8 @@ function Shell() {
   useLayoutEffect(() => {
     if (app.locked) document.querySelectorAll<HTMLDialogElement>('.app dialog[open]').forEach((d) => d.close());
   }, [app.locked]);
+
+  useEffect(() => { if (app.toastMsg) playTick(); }, [app.toastMsg]); // a soft tick as a message appears (off in Settings)
 
   if (!showApp) return <Splash />;
 
