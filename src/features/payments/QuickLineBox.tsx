@@ -20,7 +20,7 @@ export function QuickLineBox({ onFill }: Readonly<{ onFill: (line: QuickLine) =>
     setNote({ text: r.line.category ? tr('Filled in. Check it, then save.') : tr('Filled in. Pick a category, then save.'), bad: false });
   }
   return (
-    <div className="mb-1">
+    <div>
       <label className={ui.field}>
         <span>{tr('In one line')}</span>
         <input
@@ -34,7 +34,7 @@ export function QuickLineBox({ onFill }: Readonly<{ onFill: (line: QuickLine) =>
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } }}
         />
       </label>
-      {note && <p className={ui.msg(note.bad ? 'bad' : undefined)} role="status">{note.text}</p>}
+      <p className={note?.bad ? ui.cx(ui.hint, 'text-bad font-semibold') : ui.hint} role="status">{note ? note.text : tr('Press Enter to fill the form. Nothing is saved until you tap Save.')}</p>
     </div>
   );
 }

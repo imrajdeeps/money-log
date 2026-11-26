@@ -4,11 +4,11 @@ import type { Entry } from '../../core/logic.ts';
 import { DEFAULT_SORT, comparePayments } from '../../core/paymentSort.ts';
 import type { SortKey } from '../../core/paymentSort.ts';
 
-// '' means "any" for month, category and method.
-export interface PaymentFilter { q: string; month: string; category: string; method: string }
-export const NO_FILTER: PaymentFilter = { q: '', month: '', category: '', method: '' };
+// '' means "any" for month, category and method; group is '' (any), 'private' (your own payments) or a group's id.
+export interface PaymentFilter { q: string; month: string; category: string; method: string; group?: string }
+export const NO_FILTER: PaymentFilter = { q: '', month: '', category: '', method: '', group: '' };
 
-export const isFiltered = (f: PaymentFilter): boolean => f.q.trim() !== '' || f.month !== '' || f.category !== '' || f.method !== '';
+export const isFiltered = (f: PaymentFilter): boolean => f.q.trim() !== '' || f.month !== '' || f.category !== '' || f.method !== '' || Boolean(f.group);
 
 // What a search word is looked for in: the category, note, method, and the amount (your share and, for a shared expense, the
 // total) written without commas or the rupee sign, so "4500" finds ₹4,500.
@@ -25,8 +25,24 @@ export function filterPayments(entries: Entry[], f: PaymentFilter, me: string | 
     .filter((e) => (!f.month || e.entry_date.slice(0, 7) === f.month)
       && (!cat || e.category.toLowerCase() === cat)
       && (!f.method || e.method === f.method)
+      && inGroup(e, f.group ?? '')
       && (words.length === 0 || words.every((w) => haystack(e, me).includes(w))))
     .sort(comparePayments(order, me));
+}
+
+const inGroup = (e: Entry, g: string): boolean => (g === '' ? true : g === 'private' ? !e.group_id : e.group_id === g);
+
+/** The list cut into days for the design's day headings: each day with its rows and what went out that day. Only for an order by date. */
+export interface PaymentDay { date: string; rows: Entry[]; out: number }
+export function paymentDays(rows: readonly Entry[], me: string | null): PaymentDay[] {
+  const days: PaymentDay[] = [];
+  for (const e of rows) {
+    const last = days.at(-1);
+    if (last && last.date === e.entry_date) last.rows.push(e);
+    else days.push({ date: e.entry_date, rows: [e], out: 0 });
+  }
+  for (const d of days) d.out = totalShare(d.rows, me);
+  return days;
 }
 
 export const paymentMonths = (entries: Entry[]): string[] =>

@@ -17,7 +17,8 @@ import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse
 import { METHODS, catKey, fmtINR, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
 import { readBasics, repeatPart, sharedPart } from './formChecks.ts';
 import type { RecurInput } from './formChecks.ts';
-import { ordinal } from '../../core/format.ts';
+import { ordinal, shortDate } from '../../core/format.ts';
+import { Icon } from '../../ui/Icon.tsx';
 import type { EntryKind, Method, NewEntryInput } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
@@ -40,7 +41,7 @@ const saveLabel = (isIn: boolean, shared: boolean): string => {
 
 // The payment form behind the "+ Add expense" button. It lives in a sheet that stays mounted, so a half-typed payment
 // survives closing it; the sheet focuses the amount (amountRef) the moment it opens.
-export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind, group: presetGroup, sms, onSms }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string; kind?: EntryKind; group?: string; sms?: string | null; onSms?: () => void }>) {
+export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind, group: presetGroup, sms, onSms, onSeeAll }: Readonly<{ amountRef: RefObject<HTMLInputElement | null>; onSaved: () => void; category?: string; kind?: EntryKind; group?: string; sms?: string | null; onSms?: () => void; onSeeAll?: () => void }>) {
   const app = useApp();
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -218,106 +219,155 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     clearForm(stay);
   }
 
-  return (
-    <form onSubmit={(ev) => { void save(ev); }} noValidate autoComplete="off" className="quicklog" aria-label={tr('Log a payment')}>
-      <details className={ui.pasteBox} open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
-        <summary>{tr('Paste a payment message')}</summary>
-        <p className="text-muted text-[13px]">{tr('Copy the bank or UPI message, then read it here. It stays on this phone and only fills the form below.')}</p>
-        <textarea
-          rows={3}
-          value={message}
-          onChange={(e) => { setMessage(e.target.value); setReadNote(null); }}
-          placeholder="e.g. Rs 450.00 debited from A/c XX1234 to VPA swiggy@icici. UPI Ref 412345678901"
-          aria-label={tr('Payment message')}
-          spellCheck={false}
-        />
-        <div className={ui.btnRowOf('mt-2.5 mb-1')}>
-          <button type="button" className={ui.btn('ghost')} onClick={() => { void pasteAndRead(); }}>{tr('Paste and read')}</button>
-          <button type="button" className={ui.btn()} disabled={message.trim() === ''} onClick={() => readMessage(message)}>{tr('Read message')}</button>
+  const openGroups = app.groups.filter((g) => !g.closed_at);
+  const groupPick = (
+    <label className={ui.fieldBare}>
+      <span>{tr('Group')}</span>
+      <select
+        value={groupId}
+        onChange={(e) => {
+          const id = e.target.value;
+          setGroupId(id);
+          setSplit(id && app.me ? freshSplit(app.me, activeMembers(app.members, id), app.groups.find((g) => g.id === id)?.usual_split ?? null) : null);
+          setError('');
+        }}
+      >
+        <option value="">{tr('Choose a group')}</option>
+        {openGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+      </select>
+    </label>
+  );
+  const pasteBox = (
+    <div className="flex flex-col bg-card border border-line rounded-card">
+      <button type="button" className={PASTE_HEAD} aria-expanded={pasteOpen} onClick={() => setPasteOpen((o) => !o)}>
+        <span className="flex flex-col gap-px"><span className="text-[15px] font-[650] text-brand">{tr('Paste a payment message')}</span><span className="text-[13px] text-muted">{tr('A bank or UPI SMS. It is read here, on this phone.')}</span></span>
+        <span className={ui.cx('text-muted transition-transform duration-150', pasteOpen ? 'rotate-180' : 'rotate-0')} aria-hidden="true"><Icon name="down" size={20} /></span>
+      </button>
+      {pasteOpen && (
+        <div className="px-3.5 pb-3.5 flex flex-col gap-2.5">
+          <textarea
+            rows={4}
+            value={message}
+            onChange={(e) => { setMessage(e.target.value); setReadNote(null); }}
+            placeholder="Rs.450.00 debited from A/c XX4321 on 24-11-26 to VPA swiggy@icici (UPI Ref 6331)."
+            aria-label={tr('Payment message')}
+            spellCheck={false}
+          />
+          <div className="flex items-center justify-between gap-2.5">
+            <button type="button" className={ui.btn('solid', 'none', 'h-11 px-5 text-[15px]')} onClick={() => { if (message.trim()) readMessage(message); else void pasteAndRead(); }}>{message.trim() ? tr('Read') : tr('Paste and read')}</button>
+            <button type="button" className="min-h-11 bg-transparent border-0 p-0 text-right text-brand text-[14px] font-semibold cursor-pointer [font-family:inherit]" onClick={() => setBatch(true)}>{tr('Several messages? Review them together')}</button>
+          </div>
+          {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
         </div>
-        {readNote && <p className={ui.msg(readNote.bad ? 'bad' : undefined)} role="status">{readNote.text}</p>}
-        <p className="m-0 mt-2 text-[13px]"><button type="button" className={ui.linkBtn} onClick={() => setBatch(true)}>{tr('Several messages? Review them together')}</button></p>
-      </details>
+      )}
+    </div>
+  );
+
+  return (
+    <form onSubmit={(ev) => { void save(ev); }} noValidate autoComplete="off" className={QL_GRID} aria-label={tr('Log a payment')}>
+      <div className={QL_SIDE}>
+        {pasteBox}
+        {!isIn && <QuickLineBox onFill={fillFromLine} />}
+        <LastAdded onSeeAll={onSeeAll} />
+      </div>
       {batch && <BatchReview onClose={() => setBatch(false)} onSaved={() => { setBatch(false); onSaved(); }} />}
 
-      {!isIn && <QuickLineBox onFill={fillFromLine} />}
+      <div className={QL_FORM}>
+        <KindSwitch value={kind} onChange={pickKind} />
 
-      <KindSwitch value={kind} onChange={pickKind} />
-
-      <label className={ui.amount}>
-        <span aria-hidden="true">₹</span>
-        <input
-          ref={amountRef}
-          inputMode="decimal"
-          enterKeyHint="done"
-          placeholder="0"
-          aria-label={tr('Amount in rupees')}
-          value={amount}
-          onChange={(e) => { setAmount(e.target.value); setError(''); }}
-        />
-      </label>
-
-      <CategoryChips kind={kind} value={category} onChange={(v) => { setCategory(v); setError(''); }} />
-
-      <MethodChips value={method} onChange={pickMethod} options={METHODS} />
-
-      <DateChips date={date} today={today} onChange={setDate} />
-
-      <label className={ui.field}>
-        <span>{tr('Note (optional)')}</span>
-        <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. lunch with team" />
-      </label>
-
-      {!isIn && app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
-
-      {!isIn && (
-        <div className={ui.tickCard}>
-          {!groupId && (
-            <label className={ui.check}>
-              <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
-              <span>{tr('Repeat every month')}</span>
-            </label>
-          )}
-          {!groupId && repeat && <p className="text-muted text-[13px] mt-0">{tr('It is saved now, and comes up on the {0} of each month to log with one tap. Change or remove it under Settings, Recurring payments.', ordinal(Number((date ?? today).slice(8, 10))))}</p>}
-          {app.groups.some((g) => !g.closed_at) && (
-            <label className={ui.check}>
-              <input type="checkbox" checked={splitOn} onChange={(e) => { setSplitOn(e.target.checked); if (!e.target.checked) { setGroupId(''); setSplit(null); } }} />
-              <span>{tr('Split with others')}</span>
-            </label>
-          )}
+        <div>
+          <label className={ui.label} htmlFor="ql-amount">{tr('Amount')}</label>
+          <label className={ui.amount}>
+            <span aria-hidden="true">₹</span>
+            <input
+              id="ql-amount"
+              ref={amountRef}
+              inputMode="decimal"
+              enterKeyHint="done"
+              placeholder="0"
+              aria-label={tr('Amount in rupees')}
+              value={amount}
+              onChange={(e) => { setAmount(e.target.value); setError(''); }}
+            />
+          </label>
         </div>
-      )}
-      {!isIn && splitOn && app.groups.some((g) => !g.closed_at) && (
-        <label className={ui.field}>
-          <span>{tr('Share with')}</span>
-          <select
-            value={groupId}
-            onChange={(e) => {
-              const id = e.target.value;
-              setGroupId(id);
-              setSplit(id && app.me ? freshSplit(app.me, activeMembers(app.members, id), app.groups.find((g) => g.id === id)?.usual_split ?? null) : null);
-              setError('');
-            }}
-          >
-            <option value="">{tr('Nobody (private)')}</option>
-            {app.groups.filter((g) => !g.closed_at).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </label>
-      )}
-      {groupId && split && app.me && (
-        <>
-          {app.groups.find((g) => g.id === groupId)?.kind === 'couple' && people.length === 2
-            ? <CoupleSplit people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
-            : <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />}
-          <p className="text-muted text-[13px]">{tr('Everyone in {0} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.', groupName(groupId))}</p>
-        </>
-      )}
 
-      <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
-      <div className={ui.btnRowOf('mt-3.5 mb-1')}>
-        <button type="submit" className={ui.btn('solid', 'big')}>{saveLabel(isIn, groupId !== '')}</button>
-        <button type="button" className={ui.btn('ghost', 'big')} onClick={() => { void save(undefined, true); }}>{tr('Save and add another')}</button>
+        <CategoryChips kind={kind} value={category} onChange={(v) => { setCategory(v); setError(''); }} />
+
+        <MethodChips value={method} onChange={pickMethod} options={METHODS} bare />
+
+        <DateChips date={date} today={today} onChange={setDate} bare />
+
+        <label className={ui.fieldBare}>
+          <span>{tr('Note')}</span>
+          <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder={tr('What was it for?')} />
+        </label>
+
+        {!isIn && app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
+
+        {!isIn && (
+          <div className={ui.tickCard}>
+            {!groupId && (
+              <label className={ui.tickRow}>
+                <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+                <span><b>{tr('Repeat every month')}</b><small>{tr('It comes up on the {0} each month, to log with one tap.', ordinal(Number((date ?? today).slice(8, 10))))}</small></span>
+              </label>
+            )}
+            {openGroups.length > 0 && (
+              <label className={ui.tickRow}>
+                <input type="checkbox" checked={splitOn} onChange={(e) => { setSplitOn(e.target.checked); if (!e.target.checked) { setGroupId(''); setSplit(null); } }} />
+                <span><b>{tr('Split with others')}</b><small>{tr('Add it to a group and share it.')}</small></span>
+              </label>
+            )}
+            {splitOn && openGroups.length > 0 && (
+              <div className="pt-3.5 pb-4 flex flex-col gap-3.5">
+                {groupId && split && app.me ? (
+                  <>
+                    {app.groups.find((g) => g.id === groupId)?.kind === 'couple' && people.length === 2
+                      ? <>{groupPick}<CoupleSplit people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} /></>
+                      : <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} beside={groupPick} />}
+                    <p className={ui.hint.replace('mt-1.5', 'mt-0')}>{tr('Everyone in {0} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.', groupName(groupId))}</p>
+                  </>
+                ) : groupPick}
+              </div>
+            )}
+          </div>
+        )}
+
+        <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
+        <div className="flex flex-col gap-2.5">
+          <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')}>{saveLabel(isIn, groupId !== '')}</button>
+          <button type="button" className={ui.btn('outline', 'md')} onClick={() => { void save(undefined, true); }}>{tr('Save and add another')}</button>
+        </div>
       </div>
     </form>
+  );
+}
+
+// The design's Add expense: on a phone one column (the paste box and the one-line box first, then the form); from 1024px the form
+// sits in a card on the left (1.45 parts) and the paste box, the one-line box and the last payments on the right (1 part).
+const QL_GRID = 'grid gap-[18px] items-start lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:gap-x-7';
+const QL_SIDE = 'flex flex-col gap-[18px] lg:col-start-2 lg:row-start-1';
+const QL_FORM = 'flex flex-col gap-[18px] lg:col-start-1 lg:row-start-1 lg:bg-card lg:border lg:border-line lg:rounded-card-lg lg:p-7';
+const PASTE_HEAD = 'min-h-14 px-3.5 py-2.5 border-0 bg-transparent text-ink grid grid-cols-[minmax(0,1fr)_20px] gap-2.5 items-center text-left cursor-pointer [font-family:inherit]';
+
+// The last few payments, beside the form on a wide screen (the design's "Last added").
+function LastAdded({ onSeeAll }: Readonly<{ onSeeAll?: () => void }>) {
+  const app = useApp();
+  const last = useMemo(() => [...app.entries].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 4), [app.entries]);
+  if (last.length === 0) return null;
+  return (
+    <div className="max-lg:hidden bg-card border border-line rounded-card px-4 py-1.5">
+      <div className="flex justify-between items-center min-h-11"><span className="text-[15px] font-[650]">{tr('Last added')}</span>{onSeeAll && <button type="button" className="min-h-11 -mr-2 px-2 border-0 bg-transparent text-brand text-[14px] font-semibold underline underline-offset-2 cursor-pointer [font-family:inherit]" onClick={onSeeAll}>{tr('See all')}</button>}</div>
+      {last.map((e) => {
+        const [head] = e.note.split(' · ');
+        return (
+          <div key={e.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center min-h-14 border-t border-line">
+            <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold truncate">{head || e.category}</span><span className="text-[13px] text-muted truncate">{[head ? e.category : '', shortDate(e.entry_date), e.method ?? ''].filter(Boolean).join(' · ')}</span></span>
+            <span className="text-[15px] font-bold tabular-nums">{fmtINR(e.amount)}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }

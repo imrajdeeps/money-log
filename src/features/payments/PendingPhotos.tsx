@@ -36,27 +36,30 @@ export function PendingPhotos({ photos, onChange }: Readonly<{ photos: Blob[]; o
   }
 
   return (
-    <div className={ui.photoStrip}>
-      <p className={ui.fieldLabel}>{tr('Receipt photo (optional)')}</p>
-      <div className={ui.thumbs}>
-        {photos.map((p, i) => (
-          <span key={urls[i]} className={ui.thumb}>
-            <img src={urls[i]} alt={tr('Photo {0}, {1}', i + 1, sizeText(p.size))} />
-            <button type="button" className={ui.thumbX} aria-label={tr('Remove photo {0}', i + 1)} onClick={() => onChange(photos.filter((_, j) => j !== i))}>
-              <Icon name="close" size={14} />
-            </button>
-          </span>
-        ))}
-        {room > 0 && (
-          <>
-            <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
-            <label className={ui.addPhoto(busy)}>
-              {tr('Choose photo')}
-              <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
-            </label>
-          </>
-        )}
-      </div>
+    <div className="flex flex-col gap-2">
+      <p className={ui.label}>{tr('Receipt photos')}</p>
+      {photos.length > 0 && (
+        <div className={ui.thumbs}>
+          {photos.map((p, i) => (
+            <span key={urls[i]} className={ui.thumb}>
+              <img src={urls[i]} alt={tr('Photo {0}, {1}', i + 1, sizeText(p.size))} />
+              <button type="button" className={ui.thumbX} aria-label={tr('Remove photo {0}', i + 1)} onClick={() => onChange(photos.filter((_, j) => j !== i))}>
+                <Icon name="close" size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {room > 0 && (
+        <div className="grid grid-cols-2 gap-2.5">
+          <TakePhoto busy={busy} onPicked={(files) => void add(files)} />
+          <label className={ui.btn('outline', 'none', ui.cx('min-h-12 px-3 text-[15px]', busy && 'opacity-50 pointer-events-none'))}>
+            {tr('Choose photo')}
+            <input type="file" accept="image/*" multiple onChange={pickFiles} disabled={busy} />
+          </label>
+        </div>
+      )}
+      <p className={ui.hint.replace('mt-1.5', 'mt-0')}>{tr('Up to three. Photos stay on this phone until the payment is saved.')}</p>
       {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
     </div>
   );

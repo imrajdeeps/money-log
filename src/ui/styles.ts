@@ -21,6 +21,8 @@ const BTN =
 const BTN_COLOUR = {
   solid: 'bg-primary text-primary-ink border-primary enabled:active:bg-primary-press enabled:active:border-primary-press',
   ghost: 'bg-card text-brand border-control-line enabled:active:bg-press',
+  outline: 'bg-transparent text-brand border-control-line enabled:active:bg-press', // on a card's own colour (photo buttons, Create a group)
+  dangerOutline: 'bg-transparent text-bad border-bad enabled:active:bg-bad-bg', // Delete payment: red words and edge
   danger: 'bg-danger-bg text-danger-ink border-danger-line enabled:active:bg-danger-press enabled:active:border-danger-press', // solid red in light, a red tint in dark
 } as const;
 const BTN_SIZE = {
@@ -39,18 +41,39 @@ export const btnRowOf = (margin: string) => `flex gap-2.5 ${margin} [&>*]:flex-1
 export const btnRow = btnRowOf('mt-3.5 mb-2.5');
 
 // ---- chips and fields -------------------------------------------------------------------------------------------------
-export const chip =
-  'border border-control-line bg-card text-ink rounded-full min-h-11 px-3.5 py-1.5 text-[15px] font-semibold cursor-pointer [font-family:inherit] [line-height:inherit] ' +
+const CHIP =
+  'inline-flex items-center border border-control-line bg-card text-ink rounded-full min-h-10 px-3.5 py-0 text-[15px] font-semibold cursor-pointer [font-family:inherit] [line-height:inherit] ' +
   'aria-[pressed=false]:active:bg-press aria-pressed:bg-brand aria-pressed:text-brand-ink aria-pressed:border-brand ' +
-  "aria-pressed:before:content-['✓'] aria-pressed:before:mr-1.5 aria-pressed:before:font-bold " + // the chosen chip has a tick, not only a colour
-  'transition-[background-color,border-color] duration-[120ms]';
-/** a fieldset of chips; its legend is the label */
-export const chips =
-  'border-0 p-0 mx-0 mt-3 mb-0 flex flex-wrap gap-2 [&>legend]:w-full [&>legend]:block [&>legend]:text-[13px] [&>legend]:text-muted [&>legend]:mb-1 [&>legend]:p-0 [&+form]:mt-3 [&+p]:mt-3';
-const FIELD_LABEL = '[&>span]:block [&>span]:text-[13px] [&>span]:text-muted [&>span]:mb-1 [&>span]:p-0';
+  'disabled:bg-[#f2f3f0] disabled:text-[#8c948d] disabled:border-line disabled:cursor-not-allowed transition-[background-color,border-color] duration-[120ms]';
+/** a chip (method, day, filter): 40px, the chosen one filled with the brand colour */
+export const chip = CHIP;
+/** a category chip: the chosen one also has a tick */
+export const chipTick = CHIP + " aria-pressed:before:content-['✓'] aria-pressed:before:mr-1.5 aria-pressed:before:font-bold";
+/** the dashed "+ New category" chip */
+export const chipNew = 'inline-flex items-center min-h-10 px-3.5 py-0 rounded-full border border-dashed border-control-line bg-transparent text-brand text-[15px] font-semibold cursor-pointer [font-family:inherit] [line-height:inherit]';
+/** a row of chips (a fieldset with its legend: 13px, 600, 8px above the chips) */
+const CHIPS = 'border-0 p-0 flex flex-wrap gap-2 [&>legend]:w-full [&>legend]:block [&>legend]:text-[13px] [&>legend]:font-semibold [&>legend]:text-ink [&>legend]:mb-2 [&>legend]:p-0';
+export const chips = `${CHIPS} mx-0 mt-3 mb-0`;
+/** the same with no margin, for a form that spaces its parts with a gap */
+export const chipsBare = `${CHIPS} m-0`;
+const FIELD_LABEL = '[&>span]:block [&>span]:text-[13px] [&>span]:font-semibold [&>span]:text-ink [&>span]:mb-1.5 [&>span]:p-0';
+/** the label above a field when it is not inside the label (13px, 600) */
+export const label = 'block m-0 mb-1.5 text-[13px] font-semibold text-ink';
+/** the line of help under a field */
+export const hint = 'm-0 mt-1.5 text-[13px] leading-[18px] text-muted';
+/** a two-way (or three-way) switch: a grey track with the chosen one raised in white */
+export const segment = (n: 2 | 3 = 2) => cx('grid gap-1 p-1 rounded-[14px] bg-press', n === 3 ? 'grid-cols-3' : 'grid-cols-2');
+const SEG_BTN =
+  'h-11 rounded-[10px] border-0 bg-transparent text-muted font-[650] cursor-pointer [font-family:inherit] ' +
+  'aria-checked:bg-card aria-checked:text-ink aria-checked:[box-shadow:0_1px_3px_rgba(16,40,28,0.12)] aria-pressed:bg-card aria-pressed:text-ink aria-pressed:[box-shadow:0_1px_3px_rgba(16,40,28,0.12)]';
+export const segBtn = `${SEG_BTN} text-[16px]`;
+/** the same at 15px (three choices) */
+export const segBtnSm = `${SEG_BTN} text-[15px]`;
 /** a label with its input; `half` shares a row (inside a btnRow) */
 export const field = `block mt-3 ${FIELD_LABEL}`;
 export const fieldHalf = `block flex-1 m-0 ${FIELD_LABEL}`;
+/** a label with its input, no margin: for a form that spaces its parts with a gap */
+export const fieldBare = `block m-0 ${FIELD_LABEL}`;
 
 // ---- messages and cards -----------------------------------------------------------------------------------------------
 const MSG_TONE = {
@@ -166,7 +189,7 @@ export const dot = 'w-2.5 h-2.5 rounded-[50%] bg-warn flex-none';
 
 // ---- more shared pieces -----------------------------------------------------------------------------------------------
 export const backLink =
-  'inline-flex items-center gap-0.5 mt-0.5 mr-0 mb-3 -ml-1.5 py-2 pr-3 pl-1 border-0 bg-transparent text-accent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-semibold cursor-pointer [&>svg]:[transform:rotate(180deg)]';
+  'self-start inline-flex items-center gap-0.5 min-h-11 -ml-1.5 p-0 pr-2 border-0 bg-transparent text-brand [font-family:inherit] text-[15px] font-[650] cursor-pointer';
 /** a button that looks like a link, inside a line of text */
 export const linkBtn = 'bg-transparent border-0 p-0 [font-family:inherit] [font-size:inherit] [font-weight:inherit] [line-height:inherit] text-brand underline cursor-pointer';
 /** the big figure of a small card */
@@ -174,7 +197,9 @@ export const bigNum = 'text-[22px] font-bold m-0 tabular-nums';
 /** a dashed box that holds a small form (a new category, a password reset) */
 export const newCat = 'mt-2.5 px-3 pt-2.5 pb-0.5 border border-dashed border-line rounded-xl';
 /** the card that holds Add expense's ticks (Repeat every month, Split with others), one per line (version 2.0) */
-export const tickCard = 'mt-3.5 px-3.5 py-1 bg-card border border-line rounded-card [&>label]:min-h-14 [&>label+label]:border-t [&>label+label]:border-line [&>p]:mb-2';
+export const tickCard = 'flex flex-col px-3.5 bg-card border border-line rounded-card [&>*+*]:border-t [&>*+*]:border-line';
+/** one tick in a tick card: the box, a title and a line under it */
+export const tickRow = 'grid grid-cols-[26px_minmax(0,1fr)] gap-3 items-center min-h-16 py-2 cursor-pointer [&>span]:flex [&>span]:flex-col [&>span]:gap-0.5 [&_b]:text-[16px] [&_b]:font-semibold [&_small]:text-[13px] [&_small]:leading-[18px] [&_small]:text-muted';
 /** a checkbox with its label */
 export const check = 'flex items-center gap-2.5 min-h-11 [&>input]:w-[22px] [&>input]:h-[22px] [&>input]:flex-none';
 /** a small card in a grid of two (the Month page's group tiles); `picked` outlines the one the page is filtered to */
@@ -207,7 +232,11 @@ export const thumb =
 export const thumbTag = 'absolute inset-x-0 bottom-0 px-1 py-0.5 text-[10px] font-bold bg-warn-bg text-warn';
 export const thumbX =
   "absolute top-1 right-1 w-7 h-7 rounded-[50%] border-0 bg-[rgba(0,0,0,0.65)] text-[#fff] text-[14px] cursor-pointer after:content-[''] after:absolute after:-inset-2"; // the ::after makes a 44px target
-export const addPhoto = (busy: boolean) => btn('ghost', 'none', cx('relative min-h-[84px] w-auto px-3.5 py-0 m-0', busy ? 'opacity-50 disabled:opacity-50 pointer-events-none' : ''));
+export const addPhoto = (busy: boolean) =>
+  cx('w-[84px] h-[84px] rounded-xl border border-dashed border-control-line bg-transparent text-brand text-[13px] font-[650] flex flex-col items-center justify-center gap-1 p-1 text-center cursor-pointer [font-family:inherit] [line-height:1.2]',
+    busy ? 'opacity-50 pointer-events-none' : '');
+/** the head of a sheet: its title (18px) and the close cross */
+export const sheetHead = 'flex justify-between items-center [&>h2]:m-0 [&>h2]:text-[18px] [&>h2]:font-bold';
 /** the photo viewer and the camera dialog (the dialog's own box is the base dialog style) */
 export const viewer = 'max-w-[96vw] [&_img]:block [&_img]:w-full [&_img]:max-h-[70vh] [&_img]:object-contain [&_img]:rounded-[10px] [&_img]:bg-[#000] [&_img]:mb-2.5';
 export const camera = '[&_video]:block [&_video]:w-full [&_video]:max-h-[70vh] [&_video]:object-contain [&_video]:rounded-[10px] [&_video]:bg-[#000]';
@@ -217,8 +246,21 @@ export const pasteBox =
   '[&_textarea]:w-full [&_textarea]:box-border [&_textarea]:mt-1';
 /** the big amount field of Add expense */
 export const amount =
-  'flex items-center gap-1.5 min-h-[72px] border border-field-line rounded-card px-4 py-1 bg-card focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_color-mix(in_srgb,var(--accent)_18%,transparent)] ' +
-  '[&_span]:text-[30px] [&_span]:font-semibold [&_span]:text-muted [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[40px] [&_input]:font-extrabold [&_input]:min-h-[60px] [&_input]:p-0 ' +
+  'flex items-center gap-1.5 min-h-[72px] border-[1.5px] border-field-line rounded-card px-4 py-0 bg-card focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_var(--amount-ring)] ' +
+  '[&_span]:text-[30px] [&_span]:font-semibold [&_span]:text-muted [&_input]:flex-1 [&_input]:min-w-0 [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[40px] [&_input]:leading-[44px] [&_input]:font-extrabold [&_input]:min-h-[60px] [&_input]:p-0 ' +
+  '[&_input:focus-visible]:outline-none [&_input:focus-visible]:[box-shadow:none]';
+/** the amount field of an edit sheet: 64px, 36px figures */
+export const amountSm =
+  'flex items-center gap-1.5 min-h-16 border border-field-line rounded-card px-4 py-0 bg-card focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_var(--amount-ring)] ' +
+  '[&_span]:text-[26px] [&_span]:text-muted [&_input]:flex-1 [&_input]:min-w-0 [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[36px] [&_input]:font-extrabold [&_input]:min-h-[56px] [&_input]:p-0 ' +
   '[&_input:focus-visible]:outline-none [&_input:focus-visible]:[box-shadow:none]';
 export const payFilters = 'mb-3 [&_p]:m-0';
+/** a search field with its magnifier inside (the design's All payments) */
+export const search =
+  'flex items-center gap-2 min-h-12 px-3 border border-field-line rounded-field bg-card text-muted focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_var(--amount-ring)] ' +
+  '[&>input]:flex-1 [&>input]:min-w-0 [&>input]:min-h-0 [&>input]:border-0 [&>input]:p-0 [&>input]:bg-transparent [&>input]:text-ink [&>input:focus-visible]:outline-none [&>input:focus-visible]:[box-shadow:none]';
+/** a filter as a pill with a small arrow (a select); filled with the brand colour once something is chosen */
+export const pillSelect = (on: boolean) =>
+  cx('w-auto [field-sizing:content] min-h-10 h-10 rounded-full pl-3.5 pr-8 py-0 text-[14px] font-semibold bg-[length:16px_16px] bg-[position:right_10px_center]',
+    on ? 'bg-brand text-brand-ink border-brand [background-image:var(--chevron-on)]' : 'bg-card text-ink border-control-line');
 export const paySelects = 'grid grid-cols-2 gap-2 my-2 mx-0 sm:grid-cols-4 [&_select]:pl-2';

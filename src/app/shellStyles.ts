@@ -22,6 +22,8 @@ export const addBtn = 'max-lg:hidden gap-1.5 min-h-11 h-11 pl-3 pr-4 py-0 rounde
 export const gear = 'lg:hidden';
 /** the pages: 16px in on a phone; 1180px wide with 32px in from 1024px */
 export const main = 'px-4 pt-3.5 pb-2 lg:max-w-[1180px] lg:mx-auto lg:px-8 lg:pt-7 lg:pb-14';
+/** Add expense: a screen of its own on a phone (8px from the top, room at the foot); on a wide screen the pages' frame with 24px on top */
+export const mainAdd = 'px-4 pt-[calc(8px+env(safe-area-inset-top))] pb-7 lg:max-w-[1180px] lg:mx-auto lg:px-8 lg:pt-6 lg:pb-16';
 export const narrow = 'max-w-[600px] mx-auto';
 export const page = 'max-w-[720px] mx-auto';
   'inline-flex items-center gap-0.5 mt-0.5 mr-0 mb-3 -ml-1.5 py-2 pr-3 pl-1 border-0 bg-transparent text-accent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-semibold cursor-pointer [&>svg]:[transform:rotate(180deg)]';

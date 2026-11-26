@@ -88,7 +88,7 @@ export function BentoEmpty({ children, cta, onCta }: Readonly<{ children: ReactN
   return (
     <>
       <p className="m-0 text-[15px] leading-[22px] text-muted">{children}</p>
-      {cta && onCta && <button type="button" className={ui.btn('ghost', 'none', 'relative z-[2] self-start min-h-11 px-4 text-[15px]')} onClick={onCta}>{cta}</button>}
+      {cta && onCta && <button type="button" className={ui.btn('outline', 'none', 'z-[2] self-start min-h-11 px-4 text-[15px]')} onClick={onCta}>{cta}</button>}
     </>
   );
 }

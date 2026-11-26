@@ -49,11 +49,15 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'groups', label: 'Groups', icon: 'groups' },
 ];
 
-function PageBody({ title, back, backLabel = tr('Overview'), onBack, children }: Readonly<{ title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }>) {
+function PageBody({ title, back, backLabel = tr('Overview'), onBack, wide = false, width, children }: Readonly<{ title: string; back?: boolean; backLabel?: string; onBack?: () => void; wide?: boolean; width?: 'payments' | 'notes'; children: ReactNode }>) {
+  // the page's width on a wide screen, as on the design: All payments 880, Notifications 760 (with the 32px sides), the rest 720 or the whole frame
+  const box = wide ? '' : width === 'payments' ? 'max-w-[816px] mx-auto' : width === 'notes' ? 'max-w-[696px] mx-auto' : sh.page;
   return (
-    <section className={`${sh.page} animate-page-in`} aria-labelledby="page-title">
-      {back && <button type="button" className={ui.backLink} onClick={onBack}><Icon name="chevron" size={20} />{backLabel}</button>}
-      <div className={ui.pageHead}><h2 id="page-title">{tr(title)}</h2></div>
+    <section className={`${box} ${back ? '-mt-2' : ''} animate-page-in`} aria-labelledby="page-title">
+      <div className="flex flex-col gap-0.5 mb-[18px]">
+        {back && <button type="button" className={ui.backLink} onClick={onBack}><Icon name="back" size={20} stroke={2} />{backLabel}</button>}
+        <h2 id="page-title" className="m-0 text-[24px] leading-[30px] font-bold">{tr(title)}</h2>
+      </div>
       {children}
     </section>
   );
@@ -167,7 +171,7 @@ function Shell() {
       {app.locked && <LockScreen />}
       <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0} go={tourGo} onStart={(c) => { if (c === 'split') goPage('groups'); else goAdd(); }} />
       <div className={sh.app} inert={app.locked}>
-      <header className={sh.top}>
+      <header className={page === 'add' ? `${sh.top} max-lg:hidden` : sh.top}>
         <div className={sh.topRow}>
         <div className={sh.brand}><Logo size={30} /><h1>{tr('Hisaab')}</h1></div>
         <nav className={sh.topNav} aria-label={tr('Sections')}>
@@ -191,13 +195,13 @@ function Shell() {
           {tr('This browser would not let Hisaab keep data, so payments will be lost when you close it. Open it in a normal (not private) window.')}
         </p>
       )}
-      <main className={sh.main}>
+      <main className={page === 'add' ? sh.mainAdd : sh.main}>
         <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} openAddIncome={goAddIncome} goSettings={() => goSettings()} openAccount={() => goSettings('account')} /></div>
         <div hidden={page !== 'settings'} className={`${sh.narrow} animate-page-in`}>
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
-        <div hidden={page !== 'add'} className={`${sh.narrow} animate-page-in`}>
-          <PageBody title={tr('Add expense')} back onBack={goHome}><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} /></PageBody>
+        <div hidden={page !== 'add'} className="animate-page-in">
+          <PageBody title={tr('Add expense')} back onBack={goHome} wide><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} onSeeAll={() => goPage('payments')} /></PageBody>
         </div>
         {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></PageBody>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen onUdhaar={() => goPage('udhaar')} /></PageBody>}
@@ -207,11 +211,11 @@ function Shell() {
         {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}
-        {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome}><AllPayments /></PageBody>}
+        {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome} width="payments"><AllPayments /></PageBody>}
       </main>
 
 
-      <nav className={sh.tabs} aria-label={tr('Sections')}>
+      <nav className={page === 'add' ? `${sh.tabs} max-lg:hidden` : sh.tabs} aria-label={tr('Sections')}>
         <button type="button" data-tour="home" className={sh.tabBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>
           <span className={sh.tabIcon(!!current('home'))}><Icon name="home" size={23} stroke={current('home') ? 2 : 1.75} /></span>{tr('Home')}
         </button>

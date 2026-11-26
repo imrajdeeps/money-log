@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
+import { Icon } from '../../ui/Icon.tsx';
 import * as ui from '../../ui/styles.ts';
+
+// The design's photo buttons: 48px outline buttons, side by side.
+const TAKE = (busy: boolean) => ui.btn('outline', 'none', ui.cx('min-h-12 px-3 text-[15px]', busy && 'opacity-50 pointer-events-none'));
 import { tr } from '../../core/i18n.ts';
 
 // The "Take photo" button. A phone or tablet hands the job to its own camera app (the back camera, via capture="environment").
@@ -73,14 +77,15 @@ function Camera({ onShot, onClose }: Readonly<{ onShot: (photo: Blob) => void; o
   );
 }
 
-export function TakePhoto({ busy, onPicked }: Readonly<{ busy: boolean; onPicked: (files: Blob[]) => void }>) {
+export function TakePhoto({ busy, onPicked, tile = false }: Readonly<{ busy: boolean; onPicked: (files: Blob[]) => void; tile?: boolean }>) {
+  const cls = tile ? ui.addPhoto(busy) : TAKE(busy);
   const [live] = useState(hasLiveCamera);
   const [open, setOpen] = useState(false);
   const label = busy ? 'Working…' : tr('Take photo');
   if (live) {
     return (
       <>
-        <button type="button" className={ui.addPhoto(busy)} disabled={busy} onClick={() => setOpen(true)}>{label}</button>
+        <button type="button" className={cls} disabled={busy} onClick={() => setOpen(true)}><Icon name="camera" size={20} />{label}</button>
         {open && <Camera onShot={(b) => onPicked([b])} onClose={() => setOpen(false)} />}
       </>
     );
@@ -91,7 +96,8 @@ export function TakePhoto({ busy, onPicked }: Readonly<{ busy: boolean; onPicked
     if (files.length) onPicked(files);
   };
   return (
-    <label className={ui.addPhoto(busy)}>
+    <label className={cls}>
+      <Icon name="camera" size={20} />
       {label}
       <input type="file" accept="image/*" capture="environment" onChange={pick} disabled={busy} />
     </label>
