@@ -254,7 +254,7 @@ test('what is still to come this month leaves out savings and anything dated bef
 
 // ---- the words under the month's figure, and the safe-to-spend line (they used to be written inside HomeScreen)
 import { monthStatus, safeLine } from '../../../src/features/home/dashboard.ts';
-import { fmtINR as fmt, nearBudget as near } from '../../../src/core/logic.ts';
+import { fmtINR as fmt } from '../../../src/core/logic.ts';
 
 test('the line under the month: no budgets, room left, nearly used, over', () => {
   assert.deepEqual(monthStatus({ budgeted: false, budget: 0, spent: 500 }), { tone: '', text: 'No budgets yet: open to set them.' });
@@ -270,8 +270,9 @@ test('the line under the month follows the rule, for a grid of budgets and spend
     for (const spent of [0, 50, 79, 80, 100, 101, 5000, 20000, 25000, Number.NaN]) {
       for (const budgeted of [false, true]) {
         const left = budget - spent;
-        const tone = budgeted && left < 0 ? 'bad' : budgeted && near(spent, budget) ? 'warn' : '';
-        const text = !budgeted ? 'No budgets yet: open to set them.' : left >= 0 ? `${fmt(left)} left this month${near(spent, budget) ? ', nearly used' : ''}` : `${fmt(-left)} over budget`;
+        const monthNear = budget > 0 && spent <= budget && spent >= budget * 0.9;
+        const tone = budgeted && left < 0 ? 'bad' : budgeted && monthNear ? 'warn' : '';
+        const text = !budgeted ? 'No budgets yet: open to set them.' : left >= 0 ? `${fmt(left)} left this month${monthNear ? ', nearly used' : ''}` : `${fmt(-left)} over budget`;
         assert.deepEqual(monthStatus({ budgeted, budget, spent }), { tone, text }, `${budgeted} ${spent} of ${budget}`);
       }
     }

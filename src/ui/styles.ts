@@ -254,6 +254,10 @@ export const amountSm =
   'flex items-center gap-1.5 min-h-16 border border-field-line rounded-card px-4 py-0 bg-card focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_var(--amount-ring)] ' +
   '[&_span]:text-[26px] [&_span]:text-muted [&_input]:flex-1 [&_input]:min-w-0 [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[36px] [&_input]:font-extrabold [&_input]:min-h-[56px] [&_input]:p-0 ' +
   '[&_input:focus-visible]:outline-none [&_input:focus-visible]:[box-shadow:none]';
+/** a rupee amount field with ₹ inside, right-aligned (Categories and budgets) */
+export const money =
+  'flex items-center gap-1 min-h-12 px-3.5 border border-field-line rounded-field bg-card text-muted focus-within:border-accent focus-within:[box-shadow:0_0_0_3px_var(--amount-ring)] ' +
+  '[&>input]:flex-1 [&>input]:min-w-0 [&>input]:min-h-0 [&>input]:border-0 [&>input]:p-0 [&>input]:bg-transparent [&>input]:text-ink [&>input]:text-right [&>input]:tabular-nums [&>input:focus-visible]:outline-none [&>input:focus-visible]:[box-shadow:none]';
 export const payFilters = 'mb-3 [&_p]:m-0';
 /** a search field with its magnifier inside (the design's All payments) */
 export const search =

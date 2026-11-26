@@ -120,11 +120,12 @@ export function CashFlowTile({ flow, open, openAddIncome }: Readonly<{ flow: Ret
       </BentoCard>
     );
   }
+  const left = flow.left - flow.saved; // after spending and saving, as the design says
   return (
     <BentoCard title={tr('Cash flow')} span={3} half pad="tight" onOpen={() => open('cashflow')} openLabel={tr('Open the cash flow for this month')}>
-      <p className={`${hs.statNum} ${flow.left < 0 ? 'text-bad' : ''}`}>{fmtINR(flow.left)}</p>
-      <p className={hs.note}>{flow.left >= 0 ? tr('left this month') : tr('more out than in this month')}</p>
-      <p className={hs.toneLine(flow.left >= 0 ? 'good' : 'bad')}>{tr('{0} in · {1} out', fmtINR(flow.income), fmtINR(flow.out))}</p>
+      <p className={`${hs.statNum} ${left < 0 ? 'text-bad' : ''}`}>{fmtINR(left)}</p>
+      <p className={hs.note}>{left >= 0 ? tr('left this month') : tr('more out than in this month')}</p>
+      <p className={hs.toneLine(left >= 0 ? 'good' : 'bad')}>{tr('{0} in · {1} out', fmtINR(flow.income), fmtINR(flow.out))}</p>
     </BentoCard>
   );
 }

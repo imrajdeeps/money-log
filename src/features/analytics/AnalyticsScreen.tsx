@@ -7,7 +7,7 @@ import { monthLabel, monthShort, shortDate, weekdayShort } from '../../core/form
 import { budgetEntries, daysInMonth, fmtINR, isoDate, monthOf } from '../../core/logic.ts';
 import { tr } from '../../core/i18n.ts';
 import * as ui from '../../ui/styles.ts';
-import { BarChart, Sparkline } from './charts.tsx';
+import { Sparkline } from './charts.tsx';
 
 const RANGES = [3, 6, 12] as const;
 type Range = (typeof RANGES)[number];
@@ -50,126 +50,124 @@ export function AnalyticsScreen() {
   const maxTotal = Math.max(1, ...trends.map((t) => t.total));
   const vsUsual = pctChange(projected ?? spentNow, usual);
 
+  const top = Math.max(1, ...totals.map((t) => t.spent), projected ?? 0, usual) * 1.08;
+  const px = (v: number) => `${Math.round((v / top) * 170)}px`;
+  const cats = trends.filter((t) => t.group === 'Spending' && (t.thisMonth > 0 || t.lastMonth > 0)).sort((a, b) => b.thisMonth - a.thisMonth);
+  const lastName = monthLabel(lastMonth).split(' ')[0];
+  const dayTop = Math.max(1, ...weekdays.map((w) => w.average));
+
   if (!anything) {
-    return (
-      <div className={ui.card()}>
-        <p className="m-0 text-muted">{tr('Nothing to show yet. Once you log some payments, this page adds them up: month by month, by category, and by day of the week.')}</p>
-      </div>
-    );
+    return <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('Nothing to show yet. Once you log some payments, this page adds them up: month by month, by category, and by day of the week.')}</p>;
   }
 
   return (
-    <div>
-      <div className="border-0 p-0 mx-0 mt-0 mb-3.5 flex flex-wrap gap-2" role="group" aria-label={tr('How many months')}>
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-2" role="radiogroup" aria-label={tr('How many months')}>
         {RANGES.map((r) => (
-          <button key={r} type="button" className={ui.chip} aria-pressed={range === r} onClick={() => setRange(r)}>{tr('{0} months', r)}</button>
+          <button key={r} type="button" role="radio" className={ui.chip} aria-checked={range === r} aria-pressed={range === r} onClick={() => setRange(r)}>{tr('{0} months', r)}</button>
         ))}
       </div>
+      <div className="grid gap-x-6 gap-y-4 items-start lg:grid-cols-2">
+        <section className={CARD}>
+          <h3 className={H}>{tr('Spending by month')}</h3>
+          <div className="relative h-[170px] flex items-end gap-2.5 border-b border-line" role="img" aria-label={tr('Spending by month') + ': ' + totals.map((t) => `${monthShort(t.month)} ${rupees(t.spent)}`).join(', ')}>
+            {usual > 0 && <span className="absolute inset-x-0 border-t-2 border-dashed border-muted" style={{ bottom: px(usual) }} aria-hidden="true" />}
+            {usual > 0 && <span className="absolute right-0 px-1 bg-card text-[11px] text-muted" style={{ bottom: `calc(${px(usual)} + 4px)` }} aria-hidden="true">{tr('a usual month {0}', rupees(usual))}</span>}
+            {totals.map((t) => {
+              const now = t.month === thisMonth;
+              return (
+                <span key={t.month} className="relative flex-1 h-full flex flex-col justify-end" aria-hidden="true">
+                  {now && projected !== null && day < daysInMonth(thisMonth) && <span className="absolute inset-x-0 bottom-0 border-2 border-b-0 border-dashed border-accent rounded-t-md" style={{ height: px(projected) }} />}
+                  <span className={ui.cx('relative rounded-t-md', now ? 'bg-accent' : 'bg-bar-grey')} style={{ height: px(t.spent) }} />
+                </span>
+              );
+            })}
+          </div>
+          <div className="flex gap-2.5 text-[12px] text-muted" aria-hidden="true">{totals.map((t) => <span key={t.month} className="flex-1 text-center">{monthShort(t.month)}</span>)}</div>
+          <p className="m-0 text-[14px] leading-5 text-muted">
+            {tr('{0} so far', monthLabel(thisMonth).split(' ')[0])} <strong className="text-ink">{rupees(spentNow)}</strong>.
+            {projected !== null && day < daysInMonth(thisMonth) && <> {tr('The dashed outline is likely by the end of the month:')} <strong className="text-ink">{rupees(projected)}</strong>{vsUsual !== null && usual > 0 ? ` (${tr('{0} against a usual month', pct(vsUsual))})` : ''}.</>}
+            {saved > 0 && <> {tr('Put aside in these {0} months: {1}.', range, rupees(saved))}</>}
+          </p>
+        </section>
 
-      <div className={ui.card()}>
-        <h3 className="text-[16px] m-0 mb-2.5 text-ink">{tr('Spending by month')}</h3>
-        <BarChart
-          label={tr('Spending by month')}
-          values={range <= 6}
-          items={totals.map((t) => ({ key: t.month, label: monthShort(t.month), value: t.spent, partial: t.month === thisMonth }))}
-        />
-        <ul className="list-none mt-3 mx-0 mb-0 p-0 text-[14px] [&>li]:mb-1">
-          {usual > 0 && <li>{tr('A usual month so far: {0}.', rupees(usual))}</li>}
-          <li>{tr('{0} so far this month.', rupees(spentNow))}{usual > 0 && day < daysInMonth(thisMonth) && ` ${tr('The lighter bar is this month, not over yet.')}`}</li>
-          {projected !== null && day < daysInMonth(thisMonth) && (
-            <li>
-              {tr('Likely by the end of the month: about {0}', rupees(projected))}
-              {vsUsual !== null && usual > 0 && <> {tr('({0} against a usual month).', pct(vsUsual))}</>}
-            </li>
-          )}
-          {saved > 0 && <li>{tr('Put aside in these {0} months: {1}.', range, rupees(saved))}</li>}
-        </ul>
-      </div>
-
-      <div className={ui.card()}>
-        <h3 className="text-[16px] m-0 mb-1 text-ink">{tr('Categories')}</h3>
-        <p className="text-muted text-[13px] mt-0 mb-2.5">{tr('The categories that took the most in these {0} months, and how {1} compares with the same days of last month.', range, monthLabel(thisMonth))}</p>
-        {trends.length === 0 ? <p className="text-muted m-0">{tr('No spending in this time.')}</p> : (
-          <ul className={ui.list(true)}>
-            {trends.map((t) => (
-              <li key={t.category} className="py-2.5">
-                <div className="flex items-center justify-between gap-3">
-                  <b className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{t.category}</b>
-                  <span className="flex items-center gap-2.5 flex-none">
+        <section className="flex flex-col gap-2">
+          <h3 className={H}>{tr('Categories')}</h3>
+          <p className="m-0 text-[13px] text-muted">{tr('This month, against the same {0} days of {1}', day, lastName)}</p>
+          {cats.length === 0 ? <p className="m-0 text-muted">{tr('No spending in this time.')}</p> : (
+            <ul className="list-none m-0 px-4 bg-card border border-line rounded-card">
+              {cats.map((t, i) => {
+                const d = Math.round(t.thisMonth - t.lastMonth);
+                return (
+                  <li key={t.category} className={ui.cx('grid grid-cols-[minmax(0,1fr)_80px_96px] gap-2.5 items-center min-h-14', i > 0 && 'border-t border-line')}>
+                    <span className="text-[15px] font-semibold truncate">{t.category}</span>
                     <Sparkline values={t.values} label={tr('{0} by month', t.category)} />
-                    <span className="tabular-nums font-semibold min-w-[72px] text-right">{rupees(t.total)}</span>
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-line overflow-hidden mt-1.5 mb-1" aria-hidden="true"><i className={ui.barFill()} style={{ width: `${Math.max(2, (t.total / maxTotal) * 100)}%` }} /></div>
-                <p className="m-0 text-[13px] text-muted">
-                  {tr('{0} this month', rupees(t.thisMonth))}
-                  {t.change !== null ? <> · <span className={t.change > 0.1 ? 'text-bad' : t.change < -0.1 ? 'text-good' : ''}>{t.change > 0 ? '▲' : t.change < 0 ? '▼' : ''} {pct(t.change)} {tr('against the same days last month')}</span></> : t.thisMonth > 0 ? <> · {tr('new this month')}</> : null}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                    <span className="flex flex-col items-end">
+                      <span className="text-[15px] font-bold tabular-nums">{rupees(t.thisMonth)}</span>
+                      <span className={ui.cx('text-[12px] font-semibold', d > 0 ? 'text-bad' : d < 0 ? 'text-good' : 'text-muted')}>{d > 0 ? `▲ ${tr('{0} more', rupees(d))}` : d < 0 ? `▼ ${tr('{0} less', rupees(-d))}` : tr('same')}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
-      {shares.length > 1 && (
-        <div className={ui.card()}>
-          <h3 className="text-[16px] m-0 mb-2.5 text-ink">{tr('This month by group')}</h3>
-          <ul className="list-none m-0 p-0 flex flex-col gap-2">
+        {shares.length > 1 && (
+          <section className={CARD}>
+            <h3 className={H}>{tr('This month by group')}</h3>
             {shares.map((g) => (
-              <li key={g.group}>
-                <div className="flex justify-between text-[14px]"><span>{tr(g.group)}</span><span className="tabular-nums"><b>{rupees(g.total)}</b> <span className="text-muted">{Math.round(g.share * 100)}%</span></span></div>
-                <div className="h-1.5 rounded-full bg-line overflow-hidden mt-1 mb-0" aria-hidden="true"><i className={ui.barFill()} style={{ width: `${Math.max(2, g.share * 100)}%` }} /></div>
-              </li>
+              <div key={g.group} className="flex flex-col gap-1">
+                <div className="flex justify-between text-[14px]"><span className="font-semibold">{tr(g.group)}</span><span><span className="text-muted">{Math.round(g.share * 100)}%</span> · <strong className="tabular-nums">{rupees(g.total)}</strong></span></div>
+                <span className="flex h-2 rounded-full bg-track" aria-hidden="true"><span className="rounded-full bg-accent" style={{ width: `${Math.max(2, g.share * 100)}%` }} /></span>
+              </div>
             ))}
-          </ul>
-        </div>
-      )}
+            {totals.at(-1)?.saved ? <p className="m-0 text-[13px] text-muted">{tr('Saving is kept apart: {0} put by this month.', rupees(totals.at(-1)!.saved))}</p> : null}
+          </section>
+        )}
 
-      <div className={ui.card()}>
-        <h3 className="text-[16px] m-0 mb-1 text-ink">{tr('Which days')}</h3>
-        <p className="text-muted text-[13px] mt-0 mb-2.5">{tr('What a day of the week costs on average, over the last 90 days.')}</p>
-        <BarChart
-          label={tr('Average spending by day of the week')}
-          height={96}
-          values={false}
-          items={weekdays.map((w) => ({ key: String(w.weekday), label: weekdayShort(w.weekday), value: w.average, partial: w.average < maxAvg }))}
-        />
-        {bestDay.average > 0 && <p className="mt-2.5 mb-0 text-[14px]">{tr('Most on {0}: about {1} a day.', weekdayShort(bestDay.weekday), rupees(bestDay.average))}</p>}
-      </div>
+        <section className={CARD}>
+          <h3 className={H}>{tr('Which days')}</h3>
+          <div className="h-[110px] flex items-end gap-2" role="img" aria-label={tr('Average spending by day of the week') + ': ' + weekdays.map((w) => `${weekdayShort(w.weekday)} ${rupees(w.average)}`).join(', ')}>
+            {weekdays.map((w) => <span key={w.weekday} className={ui.cx('flex-1 rounded-t-md', w.weekday === bestDay.weekday && w.average > 0 ? 'bg-accent' : 'bg-bar-grey')} style={{ height: `${Math.round((w.average / dayTop) * 110)}px` }} aria-hidden="true" />)}
+          </div>
+          <div className="flex gap-2 text-[12px] text-muted" aria-hidden="true">{weekdays.map((w) => <span key={w.weekday} className="flex-1 text-center">{weekdayShort(w.weekday)}</span>)}</div>
+          {bestDay.average > 0 && <p className="m-0 text-[14px] leading-5">{tr('Most on {0}: about {1} a day, over the last 90 days.', weekdayShort(bestDay.weekday), rupees(bestDay.average))}</p>}
+        </section>
 
-      <div className={ui.card()}>
-        <h3 className="text-[16px] m-0 mb-2.5 text-ink">{tr('Biggest payments this month')}</h3>
-        {biggest.length === 0 ? <p className="text-muted m-0">{tr('Nothing spent yet this month.')}</p> : (
-          <ul className={ui.list(true)}>
-            {biggest.map((e) => (
-              <li key={e.id} className="flex items-baseline justify-between gap-3 py-2.5">
-                <span className="min-w-0"><b>{e.category}</b><br /><small className="text-muted">{shortDate(e.entry_date)}{e.note ? ` · ${e.note}` : ''}</small></span>
-                <span className="font-bold tabular-nums flex-none">{fmtINR(e.amount)}</span>
-              </li>
+        <section className="flex flex-col gap-2">
+          <h3 className={H}>{tr('Biggest payments this month')}</h3>
+          {biggest.length === 0 ? <p className="m-0 text-muted">{tr('Nothing spent yet this month.')}</p> : (
+            <ul className="list-none m-0 px-4 bg-card border border-line rounded-card">
+              {biggest.map((e, i) => {
+                const [head, ...rest] = e.note.split(' · ');
+                return (
+                  <li key={e.id} className={ui.cx('grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center min-h-[58px]', i > 0 && 'border-t border-line')}>
+                    <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold truncate">{head || e.category}</span><span className="text-[13px] text-muted truncate">{[head ? e.category : '', shortDate(e.entry_date), ...rest].filter(Boolean).join(' · ')}</span></span>
+                    <span className="text-[15px] font-bold tabular-nums">{fmtINR(e.amount)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {goals.length > 0 && (
+          <section className={CARD}>
+            <h3 className={H}>{tr('Goals')}</h3>
+            {goals.map(({ goal, progress, line }) => (
+              <div key={goal.id} className="flex flex-col gap-1">
+                <div className="flex justify-between gap-3 text-[14px]"><span className="font-semibold min-w-0 truncate">{goal.n}</span><span className="tabular-nums flex-none">{tr('{0} of {1}', fmtINR(progress.saved), fmtINR(goal.a))}</span></div>
+                <span className="flex h-2 rounded-full bg-track" aria-hidden="true"><span className={ui.cx('rounded-full', line.state === 'reached' ? 'bg-good' : line.state === 'passed' ? 'bg-bad' : 'bg-accent')} style={{ width: `${Math.round(progress.fraction * 100)}%` }} /></span>
+              </div>
             ))}
-          </ul>
+          </section>
         )}
       </div>
-
-      {goals.length > 0 && (
-        <div className={ui.card()}>
-          <h3 className="text-[16px] m-0 mb-2.5 text-ink">{tr('Goals')}</h3>
-          <ul className={ui.list(true)}>
-            {goals.map(({ goal, progress, line }) => (
-              <li key={goal.id} className="py-2.5">
-                <div className="flex justify-between gap-3"><b className="min-w-0">{goal.n}</b><span className="tabular-nums flex-none">{fmtINR(progress.saved)} <span className="text-muted text-[13px]">{tr('of {0}', fmtINR(goal.a))}</span></span></div>
-                <div className={ui.meter(line.state === 'reached' ? 'good' : line.state === 'passed' ? 'bad' : 'accent', 'mt-1.5 mb-1')} aria-hidden="true"><i style={{ width: `${Math.round(progress.fraction * 100)}%` }} /></div>
-                <p className="m-0 text-[13px] text-muted">
-                  {line.state === 'reached' ? tr('Reached') : line.state === 'passed' ? tr('The date has passed') : tr('Needs {0} a month', fmtINR(line.monthly))}
-                  {' · '}{tr('by {0}', shortDate(goal.d))}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <p className="text-muted text-[13px]">{tr('Shared expenses count at your own share, and what you put in a Saving category is not counted as spending. All of this is worked out on this phone, from your payments: nothing is sent anywhere.')}</p>
+      <p className="m-0 text-muted text-[13px]">{tr('Shared expenses count at your own share, and what you put in a Saving category is not counted as spending. All of this is worked out on this phone, from your payments: nothing is sent anywhere.')}</p>
     </div>
   );
 }
+
+const CARD = 'flex flex-col gap-3 bg-card border border-line rounded-card p-4';
+const H = 'm-0 text-[16px] leading-[22px] font-[650] text-ink';

@@ -198,8 +198,8 @@ test('the link from a private payment to the shared expense it records is kept a
 
 test('a budget is "nearly used" from 80% up to and including 100%, never with no budget or once over', async () => {
   const { nearBudget } = await import('../../src/core/logic.ts');
-  assert.equal(nearBudget(899, 1000), false);
-  assert.equal(nearBudget(900, 1000), true);
+  assert.equal(nearBudget(849, 1000), false);
+  assert.equal(nearBudget(850, 1000), true);
   assert.equal(nearBudget(1000, 1000), true);
   assert.equal(nearBudget(1001, 1000), false, 'over has its own state');
   assert.equal(nearBudget(500, 0), false);

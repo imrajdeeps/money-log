@@ -1,105 +1,82 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { useSpendEntries } from '../../data/useSpendEntries.ts';
-import { Icon } from '../../ui/Icon.tsx';
 import * as ui from '../../ui/styles.ts';
-import { biggestOutflows, cashFlow, cashFlowSeries } from '../../core/income.ts';
-import { groupLookup, monthsEnding } from '../../core/analytics.ts';
-import { monthLabel, monthShort, shortDate } from '../../core/format.ts';
-import { fmtINR, isoDate, monthOf, shiftMonth } from '../../core/logic.ts';
-import { FlowBars } from '../analytics/index.ts';
+import { cashFlow, cashFlowSeries } from '../../core/income.ts';
+import { groupLookup, monthlyTotals, monthsEnding } from '../../core/analytics.ts';
+import { monthShort } from '../../core/format.ts';
+import { budgetEntries, fmtINR, isoDate, monthOf } from '../../core/logic.ts';
 import { tr } from '../../core/i18n.ts';
 
 const MONTHS_SHOWN = 6;
-const whole = (f: number): string => `${Math.round(f * 100)}%`;
 
-function Figure({ label, value, tone }: Readonly<{ label: string; value: string; tone?: 'good' | 'bad' }>) {
-  return (
-    <div className={ui.groupTile(false)}>
-      <h3>{label}</h3>
-      <p className={`${ui.bigNum}${tone ? ` text-${tone}` : ''}`}>{value}</p>
-    </div>
-  );
-}
-
-// The month's money in and out: what came in, what went out (savings apart), what is left, where the income came from, the biggest
-// outflows and the last six months side by side. Worked out on this phone from the entries already here.
+// The month's money in and out, as on the design: In, Out, Saved and Left (after spending and saving), and the last six months as bars
+// and as a table. Worked out on this phone from the entries already here.
 export function CashFlowScreen({ onAdd }: Readonly<{ onAdd: () => void }>) {
   const app = useApp();
-  const current = monthOf(isoDate());
-  const [month, setMonth] = useState(current);
+  const month = monthOf(isoDate());
   const groupOf = useMemo(() => groupLookup(app.categories), [app.categories]);
   const spend = useSpendEntries(); // your own payments, plus your share of friends' group expenses where that counts
   const flow = useMemo(() => cashFlow(spend, app.me, groupOf, month), [spend, app.me, groupOf, month]);
-  const series = useMemo(() => cashFlowSeries(spend, app.me, groupOf, monthsEnding(month, MONTHS_SHOWN)), [spend, app.me, groupOf, month]);
-  const biggest = useMemo(() => biggestOutflows(spend, app.me, groupOf, month), [spend, app.me, groupOf, month]);
+  const months = useMemo(() => monthsEnding(month, MONTHS_SHOWN), [month]);
+  const series = useMemo(() => cashFlowSeries(spend, app.me, groupOf, months), [spend, app.me, groupOf, months]);
+  const saves = useMemo(() => monthlyTotals(budgetEntries(spend, app.me), groupOf, months).map((t) => t.saved), [spend, app.me, groupOf, months]);
+  const rows = series.map((p, i) => ({ ...p, outAll: p.out + (saves[i] ?? 0), left: p.income - p.out - (saves[i] ?? 0) }));
+  const left = flow.left - flow.saved;
   const empty = flow.income === 0 && flow.out === 0 && flow.saved === 0;
-  const leftTone = flow.left >= 0 ? 'good' : 'bad';
+  const top = Math.max(1, ...rows.flatMap((r) => [r.income, r.outAll]));
+  const h = (v: number) => `${Math.max(v > 0 ? 3 : 0, Math.round((v / top) * 100))}%`;
 
   return (
-    <section aria-label={tr('Monthly cash flow')}>
-      <div className="flex items-center justify-between mb-3 [&_h2]:m-0">
-        <button type="button" className={ui.btn('ghost', 'sq')} aria-label={tr('Previous month')} onClick={() => setMonth(shiftMonth(month, -1))}><span className="inline-flex rotate-180"><Icon name="chevron" size={22} /></span></button>
-        <h2 aria-live="polite">{monthLabel(month)}</h2>
-        <button type="button" className={ui.btn('ghost', 'sq')} aria-label={tr('Next month')} disabled={month >= current} onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={22} /></button>
+    <section aria-label={tr('Monthly cash flow')} className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[[tr('In'), flow.income, ''], [tr('Out'), flow.out, ''], [tr('Saved'), flow.saved, ''], [tr('Left'), left, left >= 0 ? 'text-good' : 'text-bad']].map(([l, v, c]) => (
+          <div key={String(l)} className="flex flex-col gap-1 bg-card border border-line rounded-card p-3.5">
+            <span className="text-[13px] text-muted">{l}</span>
+            <span className={ui.cx('text-[21px] leading-[26px] font-bold tabular-nums', String(c))}>{fmtINR(Number(v))}</span>
+          </div>
+        ))}
       </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-3.5">
-        <Figure label={tr('Money in')} value={fmtINR(flow.income)} tone={flow.income > 0 ? 'good' : undefined} />
-        <Figure label={tr('Money out')} value={fmtINR(flow.out)} />
-        <Figure label={tr('Left')} value={fmtINR(flow.left)} tone={empty ? undefined : leftTone} />
-        <Figure label={tr('Saved')} value={fmtINR(flow.saved)} />
-      </div>
-
-      <p className="text-muted text-[13px] mt-0">
-        {flow.kept !== null && flow.left > 0 ? tr('You kept {0} of what came in. ', whole(flow.kept)) : ''}
-        {tr('Money out is your spending, with savings counted apart. A friend paying back a shared expense is not income.')}
-      </p>
-
-      {empty && (
-        <div className={ui.card('notice')}>
-          <p>{tr('Nothing logged for this month yet. Add what you received (salary, refunds, cashback) and what you spent, and the month shows here.')}</p>
-          <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={onAdd}>{tr('Add income')}</button>
+      {empty ? (
+        <div className="flex flex-col gap-2.5 bg-card border border-line rounded-card p-[18px]">
+          <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('Nothing logged for this month yet. Add what you received (salary, refunds, cashback) and what you spent, and the month shows here.')}</p>
+          <button type="button" className={ui.btn('solid', 'none', 'self-start min-h-12 px-[18px]')} onClick={onAdd}>{tr('Add income')}</button>
         </div>
+      ) : (
+        <p className="m-0 text-[15px] leading-[22px]">
+          {left >= 0 ? <>{tr('You have')} <strong>{tr('{0} left', fmtINR(left))}</strong> {tr('this month after spending and saving.')}</> : <>{tr('This month')} <strong>{tr('{0} more went out', fmtINR(-left))}</strong> {tr('than came in, counting savings.')}</>}
+        </p>
       )}
-
-      <div className={ui.card()}>
-        <h3 className="text-[16px] m-0 mb-2.5 text-ink">{tr('Money in and out, month by month')}</h3>
-        <FlowBars
-          label={tr('Money in and out, month by month')}
-          inLabel={tr('In')}
-          outLabel={tr('Out')}
-          items={series.map((p) => ({ key: p.month, label: monthShort(p.month), income: p.income, out: p.out, partial: p.month === current }))}
-        />
-      </div>
-
-      {flow.incomeBy.length > 0 && (
-        <div className={ui.card()}>
-          <h3 className="text-[16px] m-0 mb-2.5 text-ink">{tr('Where the money came from')}</h3>
-          <ul className={ui.list(true, 'my-0')}>
-            {flow.incomeBy.map((c) => (
-              <li key={c.category} className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
-                <span>{c.category} <small className="text-muted">{whole(c.amount / flow.income)}</small></span>
-                <b className="tabular-nums text-good">{fmtINR(c.amount)}</b>
-              </li>
+      <div className="grid gap-x-6 gap-y-4 items-start lg:grid-cols-2">
+        <section className="flex flex-col gap-3 bg-card border border-line rounded-card p-4">
+          <h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('Six months')}</h3>
+          <div className="h-40 flex items-end gap-3.5 border-b border-line" role="img" aria-label={tr('Money in and out, month by month') + ': ' + rows.map((r) => `${monthShort(r.month)} ${tr('In')} ${fmtINR(r.income)}, ${tr('Out')} ${fmtINR(r.outAll)}`).join('; ')}>
+            {rows.map((r) => (
+              <span key={r.month} className="flex-1 h-full flex items-end gap-[3px]" aria-hidden="true">
+                <span className="flex-1 rounded-t bg-accent" style={{ height: h(r.income) }} />
+                <span className="flex-1 rounded-t bg-bar-out" style={{ height: h(r.outAll) }} />
+              </span>
             ))}
-          </ul>
-        </div>
-      )}
-
-      {biggest.length > 0 && (
-        <div className={ui.card()}>
-          <h3 className="text-[16px] m-0 mb-2.5 text-ink">{tr('Biggest payments this month')}</h3>
-          <ul className={ui.list(true, 'my-0')}>
-            {biggest.map((e) => (
-              <li key={e.id} className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
-                <span>{e.category} <small className="text-muted">{shortDate(e.entry_date)}</small></span>
-                <b className="tabular-nums">{fmtINR(e.amount)}</b>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+          </div>
+          <div className="flex gap-3.5 text-[12px] text-muted" aria-hidden="true">{rows.map((r) => <span key={r.month} className="flex-1 text-center">{monthShort(r.month)}</span>)}</div>
+          <div className="flex gap-4 text-[13px] text-muted" aria-hidden="true">
+            <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-[3px] bg-accent" />{tr('In')}</span>
+            <span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-[3px] bg-bar-out" />{tr('Out (spent and saved)')}</span>
+          </div>
+        </section>
+        <section className="bg-card border border-line rounded-card px-4">
+          <div className="grid grid-cols-4 gap-2 min-h-11 items-center text-[12px] font-semibold text-muted uppercase tracking-[0.04em]"><span>{tr('Month')}</span><span className="text-right">{tr('In')}</span><span className="text-right">{tr('Out')}</span><span className="text-right">{tr('Left')}</span></div>
+          {rows.map((r) => (
+            <div key={r.month} className="grid grid-cols-4 gap-2 min-h-12 items-center border-t border-line text-[14px] tabular-nums">
+              <span className="font-semibold">{monthShort(r.month)}</span>
+              <span className="text-right">{fmtINR(r.income)}</span>
+              <span className="text-right">{fmtINR(r.outAll)}</span>
+              <span className={ui.cx('text-right font-bold', r.left >= 0 ? 'text-good' : 'text-bad')}>{fmtINR(r.left)}</span>
+            </div>
+          ))}
+        </section>
+      </div>
+      {!empty && <button type="button" className={ui.btn('outline', 'none', 'self-start min-h-12 px-[18px]')} onClick={onAdd}>{tr('Add income')}</button>}
     </section>
   );
 }

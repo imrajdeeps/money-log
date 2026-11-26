@@ -10,6 +10,7 @@ const PATHS = {
   search: 'M11 17.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM16 16l4 4',
   camera: 'M4 8.5h3l1.6-2.5h6.8L17 8.5h3V19H4zM12 16.8a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6z',
   dots: 'M5 12h.01M12 12h.01M19 12h.01',
+  dotsFill: 'M5 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zM12 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zM19 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z',
   close: 'M6 6l12 12M18 6 6 18',
   chevron: 'M9 5l7 7-7 7',
   back: 'M15 5l-7 7 7 7',
@@ -39,7 +40,7 @@ export function Icon({ name, size = 22, duotone = false, stroke = 1.75 }: Readon
     <svg className="block flex-none" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false"
       fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
       {duotone && FILLS[name] && <path d={FILLS[name]} fill="currentColor" fillOpacity="0.18" stroke="none" />}
-      <path d={PATHS[name]} />
+      {name === 'dotsFill' ? <path d={PATHS[name]} fill="currentColor" stroke="none" /> : <path d={PATHS[name]} />}
     </svg>
   );
 }

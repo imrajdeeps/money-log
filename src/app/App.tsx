@@ -203,13 +203,13 @@ function Shell() {
         <div hidden={page !== 'add'} className="animate-page-in">
           <PageBody title={tr('Add expense')} back onBack={goHome} wide><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} onSeeAll={() => goPage('payments')} /></PageBody>
         </div>
-        {page === 'month' && <PageBody title={TITLES.month}><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></PageBody>}
+        {page === 'month' && <div className="animate-page-in"><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></div>}
         {(page === 'plan' || page === 'goals') && <PageBody title={TITLES.plan}><PlanScreen onUdhaar={() => goPage('udhaar')} /></PageBody>}
         {page === 'groups' && <PageBody title={TITLES.groups}><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} openUdhaar={() => goPage('udhaar')} onAdd={goAddGroup} /></PageBody>}
         {page === 'udhaar' && <PageBody title={TITLES.udhaar} back onBack={goHome}><UdhaarScreen /></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} back backLabel={tr('Groups')} onBack={() => goPage('groups')}><CircleScreen /></PageBody>}
-        {page === 'cashflow' && <PageBody title={TITLES.cashflow}><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
-        {page === 'analytics' && <PageBody title={TITLES.analytics}><AnalyticsScreen /></PageBody>}
+        {page === 'cashflow' && <PageBody title={TITLES.cashflow} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
+        {page === 'analytics' && <PageBody title={TITLES.analytics} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><AnalyticsScreen /></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications}><NotificationsScreen onOpen={openNotice} onSettings={() => goSettings('notifications')} /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome} width="payments"><AllPayments /></PageBody>}
       </main>

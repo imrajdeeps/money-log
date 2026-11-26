@@ -9,7 +9,7 @@ import { recurringThisMonth } from '../../core/recurring.ts';
 import type { Recurring } from '../../core/recurring.ts';
 import { activeGoals, goalLine, goalProgress, goalTerm } from '../../core/goals.ts';
 import type { Goal, GoalLine, GoalProgress, Goals } from '../../core/goals.ts';
-import { GROUPS, budgetEntries, catKey, daysInMonth, fmtINR, monthOf, nearBudget, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
+import { GROUPS, budgetEntries, catKey, daysInMonth, fmtINR, monthOf, normName, round2, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import type { Entry, Group, MonthSummary, PlanData } from '../../core/logic.ts';
 import type { SafeToSpend } from '../../core/safeToSpend.ts';
 import { tr } from '../../core/i18n.ts';
@@ -165,10 +165,12 @@ export function groupsOverview(groups: SharedGroup[], entries: Entry[], settleme
 }
 
 /** The line under the month's figure: how much is left, how much is over, or that there are no budgets yet; and how it should be coloured. */
+/** The month as a whole is nearly used from 90% of its budget (the design: 89% reads fine; a category is nearly used from 85%). */
+export const MONTH_NEAR = 0.9;
 export function monthStatus(ov: Pick<MonthOverview, 'budgeted' | 'budget' | 'spent'>): { tone: '' | 'bad' | 'warn'; text: string } {
   if (!ov.budgeted) return { tone: '', text: tr('No budgets yet: open to set them.') };
   const left = ov.budget - ov.spent;
-  const near = nearBudget(ov.spent, ov.budget);
+  const near = ov.budget > 0 && ov.spent <= ov.budget && ov.spent >= ov.budget * MONTH_NEAR;
   const text = left >= 0 ? tr('{0} left this month{1}', fmtINR(left), near ? tr(', nearly used') : '') : tr('{0} over budget', fmtINR(-left));
   return { tone: left < 0 ? 'bad' : near ? 'warn' : '', text };
 }

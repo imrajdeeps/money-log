@@ -30,16 +30,15 @@ export function BarChart({ items, label, values = true, height = 132 }: Readonly
 
 /** A tiny line of a few values, for a row of a table. */
 export function Sparkline({ values, label }: Readonly<{ values: number[]; label: string }>) {
-  const W = 60;
-  const H = 18;
+  const W = 80;
+  const H = 24;
   const max = Math.max(1, ...values);
   const x = (i: number) => (values.length > 1 ? (i / (values.length - 1)) * W : W / 2);
   const y = (v: number) => H - 2 - (v / max) * (H - 4);
   const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   return (
     <svg className="block flex-none text-accent" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      {values.length > 0 && <circle cx={x(values.length - 1)} cy={y(values.at(-1) ?? 0)} r="2" fill="currentColor" />}
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

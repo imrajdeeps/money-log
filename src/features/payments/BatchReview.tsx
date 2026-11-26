@@ -60,7 +60,7 @@ export function BatchReview({ onClose, onSaved }: Readonly<{ onClose: () => void
   if (!rows || found.length === 0) {
     return (
       <div className="flex flex-col gap-2.5 bg-card border border-line rounded-card p-3.5 lg:col-span-2">
-        <h3 className="m-0 text-[16px] font-[650]">{tr('Review several messages')}</h3>
+        <h3 className="m-0 text-[16px] font-[650] text-ink">{tr('Review several messages')}</h3>
         <p className={ui.hint.replace('mt-1.5', 'mt-0')}>{tr('Paste your bank or UPI messages, one after another with a blank line between them. Tick the ones to save. Nothing is saved until you tap Save.')}</p>
         <textarea rows={5} value={text} onChange={(e) => { setText(e.target.value); setRows(null); }} aria-label={tr('Payment messages')} spellCheck={false} />
         {rows && <p className={ui.msg('bad')}>{tr('No messages found. Paste them with a blank line between each.')}</p>}
@@ -77,7 +77,7 @@ export function BatchReview({ onClose, onSaved }: Readonly<{ onClose: () => void
   return (
     <div className="flex flex-col gap-3 lg:col-span-2">
       <div className="flex flex-col gap-1">
-        <h3 className="m-0 text-[24px] leading-[30px] font-bold">{tr('Review {0} payments', found.length)}</h3>
+        <h3 className="m-0 text-[24px] leading-[30px] font-bold text-ink">{tr('Review {0} payments', found.length)}</h3>
         <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('Read from the messages you pasted. Untick any you do not want, and check each category.')}</p>
       </div>
       {rows.map((r) => {
