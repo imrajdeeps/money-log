@@ -176,7 +176,7 @@ function Shell() {
           <button type="button" data-tour="settings" className={sh.topNavBtn(!!current('settings'))} aria-current={current('settings')} onClick={() => goSettings()}>{tr('Settings')}</button>
         </nav>
         <div className={sh.topActions}>
-          <SyncPill onOpenSettings={() => goSettings('account')} />
+          <span className="max-lg:hidden"><SyncPill onOpenSettings={() => goSettings('account')} /></span>
           <NotificationBell onOpen={() => goPage('notifications')} current={page === 'notifications'} />
           <ThemeToggle />
           <button type="button" data-tour="add" className={ui.btn('solid', 'none', sh.addBtn)} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={20} />{tr('Add expense')}</button>
@@ -191,7 +191,7 @@ function Shell() {
         </p>
       )}
       <main className={sh.main}>
-        <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} openAddIncome={goAddIncome} goSettings={() => goSettings()} manageRecurring={() => goSettings('recurring')} /></div>
+        <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} openAddIncome={goAddIncome} goSettings={() => goSettings()} openAccount={() => goSettings('account')} manageRecurring={() => goSettings('recurring')} /></div>
         <div hidden={page !== 'settings'} className={`${sh.narrow} animate-page-in`}>
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>

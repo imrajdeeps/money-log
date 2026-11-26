@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { SyncPill } from '../../ui/SyncPill.tsx';
 import { useApp } from '../../data/context.tsx';
 import { udhaarTotals } from '../../core/udhaar.ts';
 import { safeToSpend } from '../../core/safeToSpend.ts';
@@ -29,6 +30,7 @@ interface Props {
   openAdd: () => void;
   openAddIncome: () => void; // Add, opened on Received
   goSettings: () => void;
+  openAccount: () => void; // the sync pill on a phone sits here, beside the month (version 2.0): the top bar has no room for it
   manageRecurring: () => void;
 }
 
@@ -38,7 +40,7 @@ export const GETTING_STARTED = 5;
 
 // The surface layer: one figure or picture per tile, every tile a door to its details. Everything shown is worked out from
 // what the app already holds; there is no tile for figures the app does not record.
-export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome, goSettings, manageRecurring }: Props) {
+export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome, goSettings, openAccount, manageRecurring }: Props) {
   const app = useApp();
   const today = isoDate();
   const month = monthOf(today);
@@ -86,8 +88,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   return (
     <section aria-labelledby="home-title">
       <div className={ui.pageHead}>
-        <h2 id="home-title">{tr('Overview')}</h2>
-        <p className="text-muted">{monthLabel(month)}</p>
+        <div><h2 id="home-title">{tr('Overview')}</h2><p className="text-muted">{monthLabel(month)}</p></div>
+        <span className="lg:hidden"><SyncPill onOpenSettings={openAccount} /></span>
       </div>
       <BentoGrid>
         <MonthTile ov={ov} safe={safe} projected={projected} month={month} onOpen={() => open('month')} openAdd={openAdd} />

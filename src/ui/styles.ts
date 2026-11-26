@@ -160,7 +160,7 @@ export const meterWords = (tone?: 'good' | 'bad' | 'warn' | '') =>
 export const leftText = (tone?: 'good' | 'bad' | 'warn' | '') => cx('text-[13px] font-semibold', tone === 'good' ? 'text-good' : tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : 'text-muted');
 
 // ---- the page heading and the bits of a row ---------------------------------------------------------------------------
-export const pageHead = 'flex items-baseline justify-between gap-3 mt-0.5 mb-3.5 mx-0 [&_h2]:text-[24px] [&_h2]:m-0 [&_h2]:tracking-[-0.01em] [&_p]:m-0';
+export const pageHead = 'flex items-center justify-between gap-3 mt-0.5 mb-3.5 mx-0 [&_h2]:text-[24px] [&_h2]:m-0 [&_h2]:tracking-[-0.01em] [&_p]:m-0';
 export const dot = 'w-2.5 h-2.5 rounded-[50%] bg-warn flex-none';
 
 // ---- more shared pieces -----------------------------------------------------------------------------------------------
@@ -172,6 +172,8 @@ export const linkBtn = 'bg-transparent border-0 p-0 [font-family:inherit] [font-
 export const bigNum = 'text-[22px] font-bold m-0 tabular-nums';
 /** a dashed box that holds a small form (a new category, a password reset) */
 export const newCat = 'mt-2.5 px-3 pt-2.5 pb-0.5 border border-dashed border-line rounded-xl';
+/** the card that holds Add expense's ticks (Repeat every month, Split with others), one per line (version 2.0) */
+export const tickCard = 'mt-3.5 px-3.5 py-1 bg-card border border-line rounded-card [&>label]:min-h-14 [&>label+label]:border-t [&>label+label]:border-line [&>p]:mb-2';
 /** a checkbox with its label */
 export const check = 'flex items-center gap-2.5 min-h-11 [&>input]:w-[22px] [&>input]:h-[22px] [&>input]:flex-none';
 /** a small card in a grid of two (the Month page's group tiles); `picked` outlines the one the page is filtered to */

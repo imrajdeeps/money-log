@@ -50,6 +50,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
   const [error, setError] = useState('');
   const [photos, setPhotos] = useState<Blob[]>([]);
   const [groupId, setGroupId] = useState(''); // '' = private
+  const [splitOn, setSplitOn] = useState(groupId !== ''); // "Split with others" (2.0): the group and the split show once it is ticked
   const [split, setSplit] = useState<SplitState | null>(null);
   const [message, setMessage] = useState(''); // a bank message pasted to fill the form from
   const [readNote, setReadNote] = useState<{ text: string; bad: boolean } | null>(null);
@@ -75,6 +76,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     setKind('out');
     setGroupId(g.id);
     setSplit(freshSplit(app.me, activeMembers(app.members, g.id), g.usual_split ?? null));
+    setSplitOn(true);
   }, [presetGroup, app.groups, app.members, app.me]);
   const today = isoDate();
   const people = useMemo(() => (groupId ? activeMembers(app.members, groupId) : []), [app.members, groupId]);
@@ -85,6 +87,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     setKind(next);
     setCategory('');
     setGroupId('');
+    setSplitOn(false);
     setSplit(null);
     setPhotos([]);
     setRepeat(false);
@@ -173,6 +176,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
       return;
     }
     setGroupId(''); // the next payment is private unless chosen otherwise
+    setSplitOn(false);
     setSplit(null);
     setKind('out'); // the next one is spending unless chosen otherwise
     onSaved();
@@ -253,22 +257,37 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
         />
       </label>
 
-      <p className="m-0 mt-1.5 text-[13px] text-muted">{tr('Or')} <button type="button" className={ui.linkBtn} onClick={() => { void pasteAndRead(); }}>{tr('paste a bank message')}</button> {tr('to fill this in.')}</p>
-
       <CategoryChips kind={kind} value={category} onChange={(v) => { setCategory(v); setError(''); }} />
 
       <MethodChips value={method} onChange={pickMethod} options={METHODS} />
+
+      <DateChips date={date} today={today} onChange={setDate} />
 
       <label className={ui.field}>
         <span>{tr('Note (optional)')}</span>
         <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="e.g. lunch with team" />
       </label>
 
-      <DateChips date={date} today={today} onChange={setDate} />
-
       {!isIn && app.syncEnabled && app.me && <PendingPhotos photos={photos} onChange={setPhotos} />}
 
-      {!isIn && app.groups.some((g) => !g.closed_at) && (
+      {!isIn && (
+        <div className={ui.tickCard}>
+          {!groupId && (
+            <label className={ui.check}>
+              <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+              <span>{tr('Repeat every month')}</span>
+            </label>
+          )}
+          {!groupId && repeat && <p className="text-muted text-[13px] mt-0">{tr('It is saved now, and comes up on the {0} of each month to log with one tap. Change or remove it under Settings, Recurring payments.', ordinal(Number((date ?? today).slice(8, 10))))}</p>}
+          {app.groups.some((g) => !g.closed_at) && (
+            <label className={ui.check}>
+              <input type="checkbox" checked={splitOn} onChange={(e) => { setSplitOn(e.target.checked); if (!e.target.checked) { setGroupId(''); setSplit(null); } }} />
+              <span>{tr('Split with others')}</span>
+            </label>
+          )}
+        </div>
+      )}
+      {!isIn && splitOn && app.groups.some((g) => !g.closed_at) && (
         <label className={ui.field}>
           <span>{tr('Share with')}</span>
           <select
@@ -291,16 +310,6 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
             ? <CoupleSplit people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />
             : <SplitEditor people={people} me={app.me} total={parseAmount(amount) ?? 0} value={split} onChange={(next) => { setSplit(next); setError(''); }} />}
           <p className="text-muted text-[13px]">{tr('Everyone in {0} will see the amount, category, note and date, and who paid. Only your share counts toward your own budget.', groupName(groupId))}</p>
-        </>
-      )}
-
-      {!groupId && !isIn && (
-        <>
-          <label className={ui.check + ' mt-3'}>
-            <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
-            <span>{tr('Repeat every month')}</span>
-          </label>
-          {repeat && <p className="text-muted text-[13px] mt-0">{tr('It is saved now, and comes up on the {0} of each month to log with one tap. Change or remove it under Settings, Recurring payments.', ordinal(Number((date ?? today).slice(8, 10))))}</p>}
         </>
       )}
 
