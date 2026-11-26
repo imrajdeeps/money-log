@@ -15,18 +15,18 @@ export const blockTitle = 'text-[16px] mt-5 mb-2';
 
 // ---- buttons ----------------------------------------------------------------------------------------------------------
 const BTN =
-  'inline-flex items-center justify-center rounded-xl border cursor-pointer text-center font-semibold [font-family:inherit] [line-height:inherit] ' +
+  'relative inline-flex items-center justify-center gap-2 rounded-xl border cursor-pointer text-center font-[650] [font-family:inherit] [line-height:inherit] whitespace-nowrap ' +
   'disabled:bg-disabled-bg disabled:text-disabled-ink disabled:border-transparent disabled:[box-shadow:none] disabled:cursor-not-allowed ' +
   'transition-[translate,background-color,border-color] duration-[120ms] enabled:active:translate-y-px'; // pressed: one step darker and 1px down
 const BTN_COLOUR = {
-  solid: 'bg-primary text-primary-ink border-transparent [box-shadow:inset_0_0_0_1px_var(--primary-ring)] enabled:active:bg-primary-press', // a pale lime fill gets a soft ring for an edge
-  ghost: 'bg-transparent text-brand border-control-line enabled:active:bg-press',
-  danger: 'bg-danger-bg text-danger-ink border-danger-line enabled:active:bg-danger-press', // solid red in light, a red tint in dark
+  solid: 'bg-primary text-primary-ink border-primary enabled:active:bg-primary-press enabled:active:border-primary-press',
+  ghost: 'bg-card text-brand border-control-line enabled:active:bg-press',
+  danger: 'bg-danger-bg text-danger-ink border-danger-line enabled:active:bg-danger-press enabled:active:border-danger-press', // solid red in light, a red tint in dark
 } as const;
 const BTN_SIZE = {
-  md: 'min-h-12 px-[18px] py-2.5 [font-size:inherit]',
-  big: 'min-h-14 px-[18px] py-2.5 w-full mt-3.5 text-[17px]',
-  small: 'min-h-11 px-3 py-0 flex-none w-auto text-[14px]',
+  md: 'min-h-12 px-5 py-2 text-[16px]',
+  big: 'min-h-14 px-7 py-2 w-full mt-3.5 text-[17px]',
+  small: "min-h-9 h-9 px-3.5 py-0 flex-none w-auto text-[14px] after:content-[''] after:absolute after:inset-x-0 after:-inset-y-1", // 36 tall, a 44px target
   sq: 'min-w-12 min-h-12 p-0 text-[22px]',
   none: '[font-size:inherit]', // the caller sets the height and padding
 } as const;
@@ -120,7 +120,7 @@ export function dueRow(done?: boolean) {
 export const iconBtn =
   'inline-flex w-11 h-11 items-center justify-center border-0 rounded-xl bg-transparent text-ink cursor-pointer hover:bg-press active:bg-press aria-[current=page]:text-brand aria-[current=page]:bg-tab-pill';
 const PILL =
-  'relative rounded-full px-3 py-1.5 min-h-[34px] text-[13px] font-semibold cursor-pointer border max-lg:max-w-[7.5rem] max-lg:truncate ' +
+  'relative inline-flex items-center rounded-full px-3 py-0 h-[34px] text-[13px] font-semibold whitespace-nowrap cursor-pointer border max-lg:h-[30px] max-lg:px-2.5 max-lg:text-[12px] ' +
   "after:content-[''] after:absolute after:-inset-x-0.5 after:-inset-y-[5px] " + // a 44px target without a taller pill
   'transition-[transform,background-color,border-color] duration-[120ms] active:scale-[0.97]';
 const DOT = "before:content-[''] before:inline-block before:w-[7px] before:h-[7px] before:rounded-full before:mr-1.5 before:align-[1px]";
@@ -131,6 +131,7 @@ const PILL_TONE = {
   bad: 'border-transparent bg-bad-bg text-bad',
   busy: 'border-transparent bg-press text-ink',
   muted: 'border-control-line bg-transparent text-muted',
+  signin: 'border-control-line bg-transparent text-brand',
 } as const;
 /** the sync pill in the header */
 export const pill = (tone: keyof typeof PILL_TONE) => cx(PILL, PILL_TONE[tone]);
@@ -143,7 +144,7 @@ export const bar = 'h-2 rounded-full bg-line overflow-hidden mt-2 mb-1';
 export const barFill = (tone?: 'good' | 'bad') => cx('block h-full rounded-full', tone === 'good' ? 'bg-good' : tone === 'bad' ? 'bg-bad' : 'bg-muted', GROW);
 const METER_TONE = {
   accent: '[--meter:var(--accent)]',
-  warn: '[--meter:var(--warn)]',
+  warn: '[--meter:var(--meter-warn)]',
   bad: '[--meter:var(--bad)]',
   good: '[--meter:var(--good)]',
   idle: '[--meter:var(--muted)]',
@@ -151,12 +152,12 @@ const METER_TONE = {
 export type MeterTone = keyof typeof METER_TONE;
 /** a budget meter: the track is a light step of the fill's own colour; put an <i style={{ width }}> inside */
 export const meter = (tone: MeterTone, margin = 'mt-2 mb-1.5') =>
-  cx('h-1.5 rounded-full overflow-hidden bg-line', margin, METER_TONE[tone],
-    '[&>i]:block [&>i]:h-full [&>i]:rounded-[0_4px_4px_0] [&>i]:bg-[var(--meter)]', `[&>i]:${GROW.split(' ').join(' [&>i]:')}`);
+  cx('h-1.5 rounded-full overflow-hidden bg-track', margin, METER_TONE[tone],
+    '[&>i]:block [&>i]:h-full [&>i]:rounded-full [&>i]:bg-[var(--meter)]', `[&>i]:${GROW.split(' ').join(' [&>i]:')}`);
 /** the words beside a meter ("2,000 left") */
 /** the words beside a budget meter, as a small tinted tag, so "nearly used" and "over" read even without the bar's colour */
 export const meterWords = (tone?: 'good' | 'bad' | 'warn' | '') =>
-  cx('inline-block self-start px-2 py-0.5 rounded-md text-[13px] font-semibold', tone === 'good' ? 'text-good bg-good-bg' : tone === 'bad' ? 'text-bad bg-bad-bg' : tone === 'warn' ? 'text-warn bg-warn-bg' : 'text-muted bg-press');
+  cx('inline-block self-start px-2 py-0.5 rounded-md text-[13px] leading-[17px] font-[650]', tone === 'good' ? 'text-good bg-good-bg' : tone === 'bad' ? 'text-bad bg-bad-bg' : tone === 'warn' ? 'text-warn bg-warn-bg' : 'text-muted bg-press');
 export const leftText = (tone?: 'good' | 'bad' | 'warn' | '') => cx('text-[13px] font-semibold', tone === 'good' ? 'text-good' : tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : 'text-muted');
 
 // ---- the page heading and the bits of a row ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import { MonthTile } from './MonthTile.tsx';
 import { CashFlowTile, CategoryGroupTile, CoupleTile, DueTile, GoalsTile, GroupsTile, InsightsTile, NetWorthTile, RecentTile, UdhaarTile, WhereItWentTile } from './Tiles.tsx';
 import { RecurringTile } from '../recurring/index.ts';
 import { netNow } from '../../core/goals.ts';
+import type { NetUpdate } from '../../core/goals.ts';
 import { planForMonth } from '../../core/categories.ts';
 import { cashFlow } from '../../core/income.ts';
 import { coupleTiles, dueOverview, nearestGoal, groupsOverview, monthOverview, overviewGroups, topCategories, upcomingThisMonth } from './dashboard.ts';
@@ -31,7 +32,6 @@ interface Props {
   openAddIncome: () => void; // Add, opened on Received
   goSettings: () => void;
   openAccount: () => void; // the sync pill on a phone sits here, beside the month (version 2.0): the top bar has no room for it
-  manageRecurring: () => void;
 }
 
 /** Fewer payments than this and the Overview shows only what is useful on day one. */
@@ -40,7 +40,7 @@ export const GETTING_STARTED = 5;
 
 // The surface layer: one figure or picture per tile, every tile a door to its details. Everything shown is worked out from
 // what the app already holds; there is no tile for figures the app does not record.
-export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome, goSettings, openAccount, manageRecurring }: Props) {
+export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome, goSettings, openAccount }: Props) {
   const app = useApp();
   const today = isoDate();
   const month = monthOf(today);
@@ -68,58 +68,39 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
     [ov.budgeted, ov.budget, ov.spent, app.dueItems, app.recurring, app.categories, today],
   );
   const tiles = overviewGroups(ov.summary.groups, starting);
-  const tileSpan = (12 / Math.max(1, tiles.length)) as 3 | 4 | 6 | 12;
-
   const projected = projectedMonthEnd(ov.daily, month, ov.lastDaily); // where the month ends at this pace, once there are days enough to say
   // a usual month: the average of the three months before this one that had any spending
   const usual = useMemo(() => {
     const prev = monthlyTotals(budgetEntries(spend, app.me), groupLookup(app.categories), monthsEnding(shiftMonth(month, -1), 3));
     return averageOf(prev.filter((t) => t.spent > 0).map((t) => t.spent));
   }, [spend, app.me, app.categories, month]);
-  // which tiles are drawn: one with nothing to say yet stays out of the way while the person is getting started
-  const showNet = Boolean(net) || !starting;
-  const showDue = Boolean(due) || !starting;
-  const showGoals = Boolean(goalTile) || !starting;
-  const showUdhaar = app.udhaar.length > 0 || !starting;
-  const showFlow = !starting || flow.income > 0;
-  const showInsights = !starting || usual > 0;
-  const showWhere = !starting || cats.total > 0;
+  // The net worth's updates, oldest first, for the tile's little line (the last six).
+  const netHistory = useMemo(() => Object.values(app.goals).filter((g): g is NetUpdate => g.k === 'n' && !g.x).sort((a, b) => a.d.localeCompare(b.d)).slice(-6).map((g) => g.a), [app.goals]);
+  // The design's three states: no payments at all, getting started (a few), and the whole Overview.
+  const state = app.entries.length === 0 ? 'empty' : starting ? 'getting' : 'full';
+  const full = state === 'full';
 
   return (
     <section aria-labelledby="home-title">
       <div className={ui.pageHead}>
-        <div><h2 id="home-title">{tr('Overview')}</h2><p className="text-muted">{monthLabel(month)}</p></div>
+        <div><h2 id="home-title">{tr('Overview')}</h2><p className="text-muted text-[14px]">{monthLabel(month)}</p></div>
         <span className="lg:hidden"><SyncPill onOpenSettings={openAccount} /></span>
       </div>
       <BentoGrid>
-        <MonthTile ov={ov} safe={safe} projected={projected} month={month} onOpen={() => open('month')} openAdd={openAdd} />
-
-        <WeekRecapCard />
-
-        {showNet && <NetWorthTile net={net} open={open} />}
-
-        {tiles.map((g, i) => <CategoryGroupTile key={g} g={g} ov={ov} span={tileSpan} fill={tiles.length % 2 === 1 && i === tiles.length - 1} openMonth={openMonth} />)}
-
-        <RecurringTile onManage={manageRecurring} />
-
-        <RecentTile open={open} openAdd={openAdd} />
-
-        {showDue && <DueTile due={due} open={open} />}
-
-        {showFlow && <CashFlowTile flow={flow} open={open} openAddIncome={openAddIncome} />}
-
-        {showInsights && <InsightsTile usual={usual} projected={projected} ov={ov} open={open} />}
-
-        {showWhere && <WhereItWentTile cats={cats} open={open} openAdd={openAdd} />}
-
-        {couples.map((c) => <CoupleTile key={c.id} c={c} openGroup={openGroup} />)}
-
-        <GroupsTile shared={shared} open={open} goSettings={goSettings} />
-
-        {showGoals && <GoalsTile goal={goalTile} open={open} />}
-
-        {showUdhaar && <UdhaarTile totals={udhaar} hasEntries={app.udhaar.length > 0} open={open} />}
-
+        <MonthTile state={state} ov={ov} safe={safe} projected={projected} month={month} count={app.entries.length} onOpen={() => open('month')} openAdd={openAdd} openBudgets={() => openMonth()} />
+        {full && <WeekRecapCard />}
+        {full && <NetWorthTile net={net} history={netHistory} open={open} />}
+        {full && tiles.map((g) => <CategoryGroupTile key={g} g={g} ov={ov} openMonth={openMonth} />)}
+        {full && <RecurringTile />}
+        <RecentTile open={open} tall={full} />
+        {full && <DueTile due={due} open={open} />}
+        {full && <CashFlowTile flow={flow} open={open} openAddIncome={openAddIncome} />}
+        {full && <InsightsTile usual={usual} projected={projected} ov={ov} open={open} />}
+        {full && <WhereItWentTile cats={cats} open={open} openAdd={openAdd} />}
+        {full && couples.map((c) => <CoupleTile key={c.id} c={c} openGroup={openGroup} />)}
+        <GroupsTile shared={shared} open={open} goSettings={goSettings} half={full} />
+        {full && <GoalsTile goal={goalTile} open={open} />}
+        {full && <UdhaarTile totals={udhaar} hasEntries={app.udhaar.length > 0} open={open} />}
       </BentoGrid>
     </section>
   );

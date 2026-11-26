@@ -47,7 +47,6 @@ const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: 'month', label: 'Month', icon: 'month' },
   { id: 'plan', label: 'Plan', icon: 'plan' },
   { id: 'groups', label: 'Groups', icon: 'groups' },
-  { id: 'analytics', label: 'Insights', icon: 'month' },
 ];
 
 function PageBody({ title, back, backLabel = tr('Overview'), onBack, children }: Readonly<{ title: string; back?: boolean; backLabel?: string; onBack?: () => void; children: ReactNode }>) {
@@ -169,6 +168,7 @@ function Shell() {
       <TourHost version={VERSION} ready={showApp && splashGone && !app.locked && !app.joinCode && !app.recovering} hasData={app.entries.length > 0} go={tourGo} onStart={(c) => { if (c === 'split') goPage('groups'); else goAdd(); }} />
       <div className={sh.app} inert={app.locked}>
       <header className={sh.top}>
+        <div className={sh.topRow}>
         <div className={sh.brand}><Logo size={30} /><h1>{tr('Hisaab')}</h1></div>
         <nav className={sh.topNav} aria-label={tr('Sections')}>
           <button type="button" data-tour="home" className={sh.topNavBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>{tr('Overview')}</button>
@@ -184,6 +184,7 @@ function Shell() {
             <Icon name="settings" />
           </button>
         </div>
+        </div>
       </header>
       {app.storageKind === 'memory' && (
         <p className={ui.banner} role="alert">
@@ -191,7 +192,7 @@ function Shell() {
         </p>
       )}
       <main className={sh.main}>
-        <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} openAddIncome={goAddIncome} goSettings={() => goSettings()} openAccount={() => goSettings('account')} manageRecurring={() => goSettings('recurring')} /></div>
+        <div hidden={page !== 'home'} className="animate-page-in"><HomeScreen open={goPage} openMonth={goMonth} openGroup={goGroup} openAdd={goAdd} openAddIncome={goAddIncome} goSettings={() => goSettings()} openAccount={() => goSettings('account')} /></div>
         <div hidden={page !== 'settings'} className={`${sh.narrow} animate-page-in`}>
           <SettingsScreen section={section} onSection={(s) => goSettings(s)} />
         </div>
@@ -212,15 +213,12 @@ function Shell() {
 
       <nav className={sh.tabs} aria-label={tr('Sections')}>
         <button type="button" data-tour="home" className={sh.tabBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>
-          <Icon name="home" size={24} duotone={page === 'home'} />{tr('Home')}
+          <span className={sh.tabIcon(!!current('home'))}><Icon name="home" size={23} stroke={current('home') ? 2 : 1.75} /></span>{tr('Home')}
         </button>
-        <button type="button" data-tour="month" className={sh.tabBtn(!!current('month'))} aria-current={current('month')} onClick={() => goPage('month')}><Icon name="month" size={24} duotone={page === 'month'} />{tr('Month')}</button>
-        <button type="button" data-tour="add" className={sh.tabBtn(!!current('add'), true)} aria-label={tr('Add expense')} aria-current={current('add')} onClick={goAdd}>
-          <span className={sh.fabCircle}><Icon name="plus" size={26} /></span>
-          <span aria-hidden="true">{tr('Add')}</span>
-        </button>
-        <button type="button" data-tour="plan" className={sh.tabBtn(!!current('plan'))} aria-current={current('plan')} onClick={() => goPage('plan')}><Icon name="plan" size={24} />{tr('Plan')}</button>
-        <button type="button" data-tour="groups" className={sh.tabBtn(!!current('groups'))} aria-current={current('groups')} onClick={() => goPage('groups')}><Icon name="groups" size={24} duotone={page === 'groups'} />{tr('Groups')}</button>
+        <button type="button" data-tour="month" className={sh.tabBtn(!!current('month'))} aria-current={current('month')} onClick={() => goPage('month')}><span className={sh.tabIcon(!!current('month'))}><Icon name="month" size={23} stroke={current('month') ? 2 : 1.75} /></span>{tr('Month')}</button>
+        <button type="button" data-tour="add" className={sh.fab} aria-label={tr('Add expense')} aria-current={current('add')} onClick={goAdd}><Icon name="plus" size={28} stroke={2.2} /></button>
+        <button type="button" data-tour="plan" className={sh.tabBtn(!!current('plan'))} aria-current={current('plan')} onClick={() => goPage('plan')}><span className={sh.tabIcon(!!current('plan'))}><Icon name="plan" size={23} stroke={current('plan') ? 2 : 1.75} /></span>{tr('Plan')}</button>
+        <button type="button" data-tour="groups" className={sh.tabBtn(!!current('groups'))} aria-current={current('groups')} onClick={() => goPage('groups')}><span className={sh.tabIcon(!!current('groups'))}><Icon name="groups" size={23} stroke={current('groups') ? 2 : 1.75} /></span>{tr('Groups')}</button>
       </nav>
       {toast}
       </div>
