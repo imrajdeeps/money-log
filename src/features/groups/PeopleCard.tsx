@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import { useApp } from '../../data/context.tsx';
 import { fromPaise } from '../../core/groups.ts';
 import type { Group, Member } from '../../core/groups.ts';
@@ -48,7 +49,7 @@ export function PeopleCard({ group, people, former, bal, isAdmin, onLeft }: Read
             </form>
           )}
           {former.length > 0 && <p className={st.small + ' border-t border-line py-3'}>{tr('Left the group: {0}. Their earlier expenses stay in the list.', former.map((m) => m.display_name).join(', '))}</p>}
-          {canClaim && <button type="button" className={ui.btn('outline', 'none', st.outline44 + ' mb-3.5')} disabled={act.busy} onClick={() => { if (window.confirm('This group has no primary admin. Take over as primary admin?')) void act.run(() => app.claimPrimaryAdmin(group.id), 'Done'); }}>{tr('Take over as primary admin')}</button>}
+          {canClaim && <button type="button" className={ui.btn('outline', 'none', st.outline44 + ' mb-3.5')} disabled={act.busy} onClick={() => { void ask('This group has no primary admin. Take over as primary admin?', tr('Take over')).then((yes) => { if (yes) void act.run(() => app.claimPrimaryAdmin(group.id), 'Done'); }); }}>{tr('Take over as primary admin')}</button>}
         </div>
         {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
       </section>
@@ -56,7 +57,7 @@ export function PeopleCard({ group, people, former, bal, isAdmin, onLeft }: Read
         <h3 className={st.title}>{tr('Leave this group')}</h3>
         <p className={st.note}>{leaveWhy}</p>
         <button type="button" className={ui.btn('danger')} disabled={act.busy || myBalance !== 0 || mustHandOver}
-          onClick={() => { if (window.confirm(tr('Leave {0}? You will stop seeing it. Expenses you added stay in the group for the others.', group.name))) void act.run(() => app.leaveGroup(group.id), 'You left the group').then((ok) => { if (ok) onLeft(); }); }}>
+          onClick={() => { void ask(tr('Leave {0}? You will stop seeing it. Expenses you added stay in the group for the others.', group.name), tr('Leave {0}', group.name)).then((yes) => { if (yes) void act.run(() => app.leaveGroup(group.id), 'You left the group').then((ok) => { if (ok) onLeft(); }); }); }}>
           {tr('Leave {0}', group.name)}
         </button>
       </section>

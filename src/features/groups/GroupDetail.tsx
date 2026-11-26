@@ -1,4 +1,5 @@
 import { Icon } from '../../ui/Icon.tsx';
+import { ask } from '../../ui/confirm.tsx';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
@@ -69,7 +70,7 @@ function LedgerRow({ it, first, me, people, nameOf, onOpen }: Readonly<{ it: Led
         <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold truncate">{tr('{0} paid {1}', nameOf(s.from_user), nameOf(s.to_user))}</span><span className="text-[13px] text-muted">{tr('payment recorded')}</span></span>
         <span className="flex items-center gap-1">
           <span className="text-[15px] font-bold tabular-nums">{fmtINR(s.amount)}</span>
-          {canRemove && <button type="button" className="w-9 h-9 border-0 bg-transparent text-muted flex items-center justify-center cursor-pointer" aria-label={tr('Remove this payment')} onClick={() => { if (window.confirm('Remove this recorded payment? The balances change back.')) void app.removeSettlement(s.id); }}><Icon name="close" size={16} /></button>}
+          {canRemove && <button type="button" className="w-9 h-9 border-0 bg-transparent text-muted flex items-center justify-center cursor-pointer" aria-label={tr('Remove this payment')} onClick={() => { void ask('Remove this recorded payment? The balances change back.', tr('Remove')).then((yes) => { if (yes) void app.removeSettlement(s.id); }); }}><Icon name="close" size={16} /></button>}
         </span>
       </li>
     );

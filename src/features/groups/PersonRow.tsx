@@ -1,4 +1,5 @@
 import { useApp } from '../../data/context.tsx';
+import { ask } from '../../ui/confirm.tsx';
 import { fromPaise } from '../../core/groups.ts';
 import type { Group, Member } from '../../core/groups.ts';
 import { allowedFor } from './personPowers.ts';
@@ -21,21 +22,21 @@ const roleLabel = (isPrimary: boolean, role: Member['role']): string => {
 function PersonButtons({ group, m, balance, allowed, act, onRename }: Readonly<{ group: Group; m: Member; balance: number; allowed: Allowed; act: ReturnType<typeof useAction>; onRename: () => void }>) {
   const app = useApp();
   const run = (fn: () => Promise<unknown>, done: string) => { void act.run(fn, done); };
-  const ask = (q: string) => window.confirm(q);
+  const confirmThen = (q: string, ok: string, tone: 'bad' | 'go', fn: () => Promise<unknown>, done: string) => { void ask(q, ok, tone).then((yes) => { if (yes) run(fn, done); }); };
   return (
     <div className="flex flex-wrap gap-2 empty:hidden">
       {allowed.rename && <button type="button" className={st.personBtn()} onClick={onRename}>{tr('Rename')}</button>}
       {allowed.makeAdmin && (
-        <button type="button" className={st.personBtn()} disabled={act.busy} onClick={() => { if (ask(`Make ${m.display_name} an admin? Admins can invite and remove people.`)) run(() => app.makeAdmin(group.id, m.user_id), 'Done'); }}>{tr('Make admin')}</button>
+        <button type="button" className={st.personBtn()} disabled={act.busy} onClick={() => confirmThen(tr('Make {0} an admin? Admins can invite and remove people.', m.display_name), tr('Make admin'), 'go', () => app.makeAdmin(group.id, m.user_id), 'Done')}>{tr('Make admin')}</button>
       )}
       {allowed.revokeAdmin && (
-        <button type="button" className={st.personBtn()} disabled={act.busy} onClick={() => { if (ask(`Take admin rights away from ${m.display_name}?`)) run(() => app.revokeAdmin(group.id, m.user_id), 'Done'); }}>{tr('Remove admin')}</button>
+        <button type="button" className={st.personBtn()} disabled={act.busy} onClick={() => confirmThen(tr('Take admin rights away from {0}?', m.display_name), tr('Remove admin'), 'bad', () => app.revokeAdmin(group.id, m.user_id), 'Done')}>{tr('Remove admin')}</button>
       )}
       {allowed.makePrimary && (
-        <button type="button" className={st.personBtn()} disabled={act.busy} onClick={() => { if (ask(`Make ${m.display_name} the primary admin? You stay an admin, but only they can then make or remove admins.`)) run(() => app.makePrimaryAdmin(group.id, m.user_id), 'Done'); }}>{tr('Make primary admin')}</button>
+        <button type="button" className={st.personBtn()} disabled={act.busy} onClick={() => confirmThen(tr('Make {0} the primary admin? You stay an admin, but only they can then make or remove admins.', m.display_name), tr('Make primary admin'), 'go', () => app.makePrimaryAdmin(group.id, m.user_id), 'Done')}>{tr('Make primary admin')}</button>
       )}
       {allowed.remove && (
-        <button type="button" className={st.personBtn('bad')} disabled={act.busy || balance !== 0} onClick={() => { if (ask(tr('Remove {0} from {1}? The invite code changes too.', m.display_name, group.name))) run(() => app.removeMember(group.id, m.user_id), 'Removed'); }}>{tr('Remove')}</button>
+        <button type="button" className={st.personBtn('bad')} disabled={act.busy || balance !== 0} onClick={() => confirmThen(tr('Remove {0} from {1}? The invite code changes too.', m.display_name, group.name), tr('Remove {0}', m.display_name), 'bad', () => app.removeMember(group.id, m.user_id), 'Removed')}>{tr('Remove')}</button>
       )}
     </div>
   );

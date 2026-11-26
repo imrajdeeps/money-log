@@ -1,4 +1,5 @@
 import { useApp } from '../../data/context.tsx';
+import { ask } from '../../ui/confirm.tsx';
 import { useProfile } from '../../data/useProfile.ts';
 import { myUpi } from '../../data/phonePrefs.ts';
 import { shortDate } from '../../core/format.ts';
@@ -40,7 +41,7 @@ export function SharedRow({ e, onChanged }: Readonly<{ e: SharedUdhaar; onChange
     <EntryCard who={e.who} sub={[wayWords(e), shortDate(e.date), e.note].filter(Boolean).join(' · ')} amount={e.amount} lent={e.way === 'gave'} tag={tag(e)}>
       {e.state === 'active' && <button type="button" className={us.action('primary')} onClick={() => act(() => app.sharedUdhaar.settle(e.id, true), tr('Marked as settled'))}>{tr('Settled')}</button>}
       {e.way === 'gave' && <WhatsAppButton size="entry" label={tr('Remind on WhatsApp')} text={udhaarRemindText({ name: e.who, amount: e.amount, upi, payeeName: profile.name || 'Me' })} />}
-      {canDelete && <button type="button" className={us.action('bad')} onClick={() => { if (window.confirm(tr('Delete this entry with {0}? It goes for both of you. This cannot be undone.', e.who))) act(() => app.sharedUdhaar.remove(e.id), tr('Removed: {0}', e.who)); }}>{tr('Delete')}</button>}
+      {canDelete && <button type="button" className={us.action('bad')} onClick={() => { void ask(tr('Delete this entry with {0}? It goes for both of you. This cannot be undone.', e.who), tr('Delete')).then((yes) => { if (yes) act(() => app.sharedUdhaar.remove(e.id), tr('Removed: {0}', e.who)); }); }}>{tr('Delete')}</button>}
     </EntryCard>
   );
 }

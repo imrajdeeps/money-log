@@ -1,4 +1,5 @@
 import { useApp } from '../../../data/context.tsx';
+import { ask } from '../../../ui/confirm.tsx';
 import * as ui from '../../../ui/styles.ts';
 import * as ps from './partStyles.ts';
 import { tr } from '../../../core/i18n.ts';
@@ -19,7 +20,7 @@ export function SignOutPanel() {
       )}
       <button type="button" className={ui.btn('outline', 'none', ps.second)} onClick={() => { void app.signOut(); }}>{tr('Sign out and keep them here')}</button>
       <button type="button" className={ui.btn('dangerOutline', 'none', ps.second)} onClick={async () => {
-        if (!window.confirm(tr('Sign out and erase this phone\'s copy? Everything already in the cloud stays there and comes back when you sign in again.'))) return;
+        if (!(await ask(tr('Sign out and erase this phone\'s copy? Everything already in the cloud stays there and comes back when you sign in again.'), tr('Sign out and erase')))) return;
         await app.eraseAll(); app.toast(tr('Signed out and erased this phone.'));
       }}>{tr('Sign out and erase them from this phone')}</button>
     </div>

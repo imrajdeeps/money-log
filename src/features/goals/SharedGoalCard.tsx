@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { circleName } from '../../core/circle.ts';
@@ -59,8 +60,8 @@ function Manage({ goal, circle, onEdit, onChanged }: Readonly<{ goal: SharedGoal
       )}
       <div className={ui.btnRow}>
         {mine && <button type="button" className={ui.btn('ghost', 'small')} onClick={onEdit}>{tr('Change goal')}</button>}
-        {mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { if (window.confirm(tr('Delete the shared goal "{0}" for everyone in it? Every top-up goes with it. This cannot be undone.', goal.name))) run(() => app.sharedGoals.remove(goal.id), tr('Removed: {0}', goal.name)); }}>{tr('Delete goal')}</button>}
-        {!mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { if (window.confirm(tr('Leave the shared goal "{0}"? You will stop seeing it. What you put in stays for the others.', goal.name))) run(() => app.sharedGoals.leave(goal.id), tr('You left {0}', goal.name)); }}>{tr('Leave goal')}</button>}
+        {mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { void ask(tr('Delete the shared goal "{0}" for everyone in it? Every top-up goes with it. This cannot be undone.', goal.name), tr('Delete goal')).then((yes) => { if (yes) run(() => app.sharedGoals.remove(goal.id), tr('Removed: {0}', goal.name)); }); }}>{tr('Delete goal')}</button>}
+        {!mine && <button type="button" className={ui.btn('danger', 'small')} disabled={act.busy} onClick={() => { void ask(tr('Leave the shared goal "{0}"? You will stop seeing it. What you put in stays for the others.', goal.name), tr('Leave')).then((yes) => { if (yes) run(() => app.sharedGoals.leave(goal.id), tr('You left {0}', goal.name)); }); }}>{tr('Leave goal')}</button>}
       </div>
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
     </div>
@@ -114,14 +115,14 @@ export function SharedGoalCard({ goal, circle, onEdit, onChanged }: Readonly<{ g
             {mineList.map((t) => (
               <li key={t.id} className="flex items-center justify-between py-0.5">
                 <span>{shortDate(t.date)} · {fmtINR(t.amount)}</span>
-                <button type="button" className={ui.linkBtn} disabled={act.busy} onClick={() => { if (window.confirm(tr('Remove this top-up of {0}?', fmtINR(t.amount)))) void act.run(() => app.sharedGoals.removeTopUp(goal.id, t.id), tr('Top-up removed')).then((ok) => { if (ok) onChanged(); }); }}>{tr('Remove')}</button>
+                <button type="button" className={ui.linkBtn} disabled={act.busy} onClick={() => { void ask(tr('Remove this top-up of {0}?', fmtINR(t.amount)), tr('Remove')).then((yes) => { if (yes) void act.run(() => app.sharedGoals.removeTopUp(goal.id, t.id), tr('Top-up removed')).then((ok) => { if (ok) onChanged(); }); }); }}>{tr('Remove')}</button>
               </li>
             ))}
           </ul>
         </details>
       )}
       {isCreator && goal.members.filter((m) => m.state === 'active' && m.user_id !== app.me).map((m) => (
-        <button key={m.user_id} type="button" className={`${ui.linkBtn} mr-3 mt-1 text-[13px]`} disabled={act.busy} onClick={() => { if (window.confirm(tr('Take {0} out of "{1}"? What they put in stays in the total.', sharedName(m, circleNameOf), goal.name))) void act.run(() => app.sharedGoals.removePerson(goal.id, m.user_id), tr('Removed')).then((ok) => { if (ok) onChanged(); }); }}>{tr('Take {0} out', sharedName(m, circleNameOf))}</button>
+        <button key={m.user_id} type="button" className={`${ui.linkBtn} mr-3 mt-1 text-[13px]`} disabled={act.busy} onClick={() => { void ask(tr('Take {0} out of "{1}"? What they put in stays in the total.', sharedName(m, circleNameOf), goal.name), tr('Take out')).then((yes) => { if (yes) void act.run(() => app.sharedGoals.removePerson(goal.id, m.user_id), tr('Removed')).then((ok) => { if (ok) onChanged(); }); }); }}>{tr('Take {0} out', sharedName(m, circleNameOf))}</button>
       ))}
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
       <Manage goal={goal} circle={circle} onEdit={onEdit} onChanged={onChanged} />

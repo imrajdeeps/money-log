@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import { useApp } from '../../data/context.tsx';
 import { copyText } from '../../ui/files.ts';
 import { circleCodeLooksValid, circleHow, circleLink, circleName, sortCircle } from '../../core/circle.ts';
@@ -53,7 +54,7 @@ export function CircleScreen() {
               <span className="flex flex-col min-w-0"><span className="text-[16px] font-semibold truncate">{circleName(m)}</span><span className="text-[13px] text-muted truncate">{circleHow(m)}</span></span>
               {m.linked ? (
                 <button type="button" className="min-h-11 px-3 border-0 rounded-[10px] bg-transparent text-bad text-[14px] font-[650] cursor-pointer [font-family:inherit] enabled:active:bg-bad-bg disabled:opacity-50" disabled={act.busy} onClick={() => {
-                  if (window.confirm(tr('Take {0} out of your Circle? They lose you too. People you share a group with stay listed through that group.', circleName(m)))) void act.run(() => app.removeFromCircle(m.user_id), 'Removed').then(load);
+                  void ask(tr('Take {0} out of your Circle? They lose you too. People you share a group with stay listed through that group.', circleName(m)), tr('Take out')).then((yes) => { if (yes) void act.run(() => app.removeFromCircle(m.user_id), 'Removed').then(load); });
                 }}>{tr('Remove')}</button>
               ) : <span />}
             </li>

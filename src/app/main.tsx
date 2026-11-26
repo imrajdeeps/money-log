@@ -9,6 +9,7 @@ import { installCrashHandlers } from '../data/crashes.ts';
 import { startWorker } from '../data/updates.ts';
 import { CrashBar } from '../ui/CrashBar.tsx';
 import { RootErrorBoundary } from '../ui/RootErrorBoundary.tsx';
+import { ConfirmHost } from '../ui/confirm.tsx';
 import { UpdateBar } from '../ui/UpdateBar.tsx';
 
 installCrashHandlers(); // first of all: an error from here on is recorded, not lost
@@ -24,6 +25,7 @@ if (root) {
           <RouterProvider router={router} />
           <CrashBar />
           <UpdateBar />
+          <ConfirmHost />
         </RootErrorBoundary>
       </StrictMode>,
     );

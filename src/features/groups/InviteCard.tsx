@@ -1,4 +1,5 @@
 import { useApp } from '../../data/context.tsx';
+import { ask } from '../../ui/confirm.tsx';
 import { copyText } from '../../ui/files.ts';
 import { shortDate } from '../../core/format.ts';
 import { formatCode, inviteLink } from '../../core/groups.ts';
@@ -42,7 +43,7 @@ export function InviteCard({ group, people }: Readonly<{ group: Group; people: M
         </>
       )}
       {!closed && room && !live && <p className={st.note}>{tr('The code has expired. Make a new one to invite someone.')}</p>}
-      {!closed && room && <button type="button" className="self-start min-h-11 p-0 border-0 bg-transparent text-brand text-[14px] font-semibold underline cursor-pointer [font-family:inherit] disabled:opacity-50" disabled={act.busy} onClick={() => { if (window.confirm('Make a new code? The old one stops working.')) void act.run(() => app.resetInvite(group.id), 'New code made'); }}>{live ? tr('Make a new code (the old one stops working)') : tr('Make a new code')}</button>}
+      {!closed && room && <button type="button" className="self-start min-h-11 p-0 border-0 bg-transparent text-brand text-[14px] font-semibold underline cursor-pointer [font-family:inherit] disabled:opacity-50" disabled={act.busy} onClick={() => { void ask('Make a new code? The old one stops working.', tr('Make a new code')).then((yes) => { if (yes) void act.run(() => app.resetInvite(group.id), 'New code made'); }); }}>{live ? tr('Make a new code (the old one stops working)') : tr('Make a new code')}</button>}
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
     </section>
   );

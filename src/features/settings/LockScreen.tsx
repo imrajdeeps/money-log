@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import { Logo } from '../../ui/Logo.tsx';
 import { Icon } from '../../ui/Icon.tsx';
 import { useApp } from '../../data/context.tsx';
@@ -21,7 +22,7 @@ const waitText = (wait: number): string => (wait > 0 ? ' ' + tr('Try again in {0
 function ForgotPin() {
   const app = useApp();
   async function forgot() {
-    if (!window.confirm(tr('Erase everything on this phone and sign out? Data already in the cloud is not touched, and you can sign in again afterwards. Payments that have not been uploaded yet will be lost.'))) return;
+    if (!(await ask(tr('Erase everything on this phone and sign out? Data already in the cloud is not touched, and you can sign in again afterwards. Payments that have not been uploaded yet will be lost.'), tr('Erase everything')))) return;
     await app.eraseAll();
   }
   return (

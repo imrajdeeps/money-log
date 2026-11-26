@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { classLabel, classesOf, valueNow } from '../../core/worth.ts';
@@ -37,7 +38,7 @@ export function WorthForm({ item, auto, onDone }: Readonly<{ item?: WorthItem; a
   }
 
   async function remove() {
-    if (!item || !window.confirm(tr('Remove {0}? Your history stays.', item.n))) return;
+    if (!item || !(await ask(tr('Remove {0}? Your history stays.', item.n), tr('Remove')))) return;
     await app.removeWorthItem(item.id, auto);
     app.toast(tr('Removed: {0}', item.n));
     onDone();

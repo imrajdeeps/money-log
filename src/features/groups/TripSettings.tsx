@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import { useApp } from '../../data/context.tsx';
 import type { Group } from '../../core/groups.ts';
 import { shortDate } from '../../core/format.ts';
@@ -24,7 +25,7 @@ function CloseTrip({ group, closed, act }: Readonly<{ group: Group; closed: bool
   const app = useApp();
   function toggle() {
     const question = closed ? 'Reopen this trip? People can add expenses and join with the code again.' : 'Close this trip? Nobody can add expenses or join. Settling up still works, and you can reopen it.';
-    if (window.confirm(question)) void act.run(() => app.setGroupClosed(group.id, !closed), closed ? 'Trip reopened' : 'Trip closed');
+    void ask(question, closed ? tr('Reopen the trip') : tr('Close the trip'), 'go').then((yes) => { if (yes) void act.run(() => app.setGroupClosed(group.id, !closed), closed ? 'Trip reopened' : 'Trip closed'); });
   }
   return (
     <button type="button" className={ui.btn('outline')} disabled={act.busy} onClick={toggle}>

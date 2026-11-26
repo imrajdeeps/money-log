@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ask } from '../../../ui/confirm.tsx';
 import type { ChangeEvent } from 'react';
 import { useApp } from '../../../data/context.tsx';
 import { saveLastBackup } from '../../../data/backupSeen.ts';
@@ -36,7 +37,7 @@ export function BackupCard() {
     try {
       const r = parseBackup(await readTextFile(f, 20_000_000));
       if (!r.ok) { setMsg(r.error); return; }
-      if (!window.confirm(restoreQuestion(r))) return;
+      if (!(await ask(restoreQuestion(r), tr('Restore'), 'go'))) return;
       const res = await app.restoreBackup(r);
       setMsg(tr('Restored: {0} added, {1} updated.', res.added, res.updated));
     } catch (e) { setMsg(errText(e)); }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ask } from '../../ui/confirm.tsx';
 import { useApp } from '../../data/context.tsx';
 import { shortDate } from '../../core/format.ts';
 import { fmtINR } from '../../core/logic.ts';
@@ -31,7 +32,7 @@ function Row({ u, onEdit }: Readonly<{ u: UdhaarItem; onEdit: () => void }>) {
       <button type="button" className={us.action('primary')} onClick={() => { void app.setUdhaarSettled(u.id, true).then(() => app.toast(tr('Marked as settled'))); }}>{tr('Settled')}</button>
       {lent && <WhatsAppButton size="entry" label={tr('Remind on WhatsApp')} text={udhaarRemindText({ name: u.n, amount: u.a, upi, payeeName: profile.name || (app.sync.email ?? '').split('@')[0] || 'Me' })} />}
       <button type="button" className={us.action()} onClick={onEdit}>{tr('Change')}</button>
-      <button type="button" className={us.action('bad')} onClick={() => { if (window.confirm(tr('Delete this entry with {0}? This cannot be undone.', u.n))) void app.removeUdhaar(u.id).then(() => app.toast(tr('Removed: {0}', u.n))); }}>{tr('Delete')}</button>
+      <button type="button" className={us.action('bad')} onClick={() => { void ask(tr('Delete this entry with {0}? This cannot be undone.', u.n), tr('Delete')).then((yes) => { if (yes) void app.removeUdhaar(u.id).then(() => app.toast(tr('Removed: {0}', u.n))); }); }}>{tr('Delete')}</button>
     </EntryCard>
   );
 }
