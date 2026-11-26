@@ -12,6 +12,7 @@ const PATHS = {
   dots: 'M5 12h.01M12 12h.01M19 12h.01',
   dotsFill: 'M5 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zM12 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zM19 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z',
   close: 'M6 6l12 12M18 6 6 18',
+  backspace: 'M9 5h11v14H9l-6-7zM12.5 9.5l5 5M17.5 9.5l-5 5', // delete one digit (the lock screen's keypad)
   chevron: 'M9 5l7 7-7 7',
   back: 'M15 5l-7 7 7 7',
   down: 'M6 9.5l6 6 6-6',
