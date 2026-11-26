@@ -1947,7 +1947,7 @@ grant execute on function public.my_shared_goals()                              
 -- An udhaar entry written with someone in your Circle can be shared with them. It shows in their Udhaar as an invitation and counts
 -- for them only once they accept ("That is not right" declines it, and the writer sees that). After that either of the two can mark it
 -- settled or open it again, and both see it. The writer can delete it unless it is accepted and still open. Entries with anyone else
--- stay private on the phone (in the goals block) and never reach this table. Nothing here is readable by the app directly: the table
+-- stay private (in the goals block, which only your own account syncs) and never reach this table. Nothing here is readable by the app directly: the table
 -- has no policies and no grants, and the functions below return one document (my_shared_udhaar).
 create table if not exists public.shared_udhaar (
   id           uuid primary key,

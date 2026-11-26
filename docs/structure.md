@@ -6,11 +6,11 @@ ones after. `tests/app/structure.test.ts` checks these rules on every test run.
 ```
 src/
   core/       shared plain TypeScript: the data models and rules (entries, groups, categories and budgets,
-              recurring, goals with net worth updates and the due list (`goals.ts`, `dueItems.ts`), net worth items, check-ins, loan estimates, runway (`worth.ts`), crash reports (`crashReport.ts`), what a shared expense means for one person (`groupHistory.ts`), receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
+              recurring, goals with net worth updates and the due list (`goals.ts`, `dueItems.ts`), net worth items, check-ins, loan estimates, runway (`worth.ts`), crash reports (`crashReport.ts`), what a shared expense means for one person (`groupHistory.ts`), shared udhaar entries from the server (`sharedUdhaar.ts`), when the chime may ring (`sound.ts`), reading a UPI QR code's text (`upi.ts`), receipts, history, kinds, couple), money and date helpers, paths. No React, no storage.
   data/       keeping and syncing: the on-phone store, cloud sync, backup, sign-in helpers, PIN lock, the app state
               (context.tsx) that every screen reads; `crashes.ts` keeps what went wrong this session (and installs the global error handlers) and `updates.ts` registers the service worker and notices a newer version. `legacy.ts` brings what older versions imported from the spreadsheet into the app's own data, once.
   ui/         small pieces several features share: icons, tiles (Bento), the budget line, the category picker,
-              the sync pill, file helpers, and the safety nets: `RootErrorBoundary.tsx`, `CrashScreen.tsx` (what replaces a blank page), `CrashBar.tsx` (the banner and *Copy report*) and `UpdateBar.tsx` (a new version is ready).
+              the sync pill, the ह mark and start screen (`Logo.tsx`, `Splash.tsx`), the soft tick and chime (`sound.ts`, silent when Sound is off), reading a QR code from a photo (`qr.ts`), file helpers, and the safety nets: `RootErrorBoundary.tsx`, `CrashScreen.tsx` (what replaces a blank page), `CrashBar.tsx` (the banner and *Copy report*) and `UpdateBar.tsx` (a new version is ready).
   features/   one folder per thing the app does. Screens, their components and logic only that feature uses.
     home/  payments/  recurring/  month/  plan/  goals/  groups/  circle/  notifications/  settings/  tour/  analytics/  cashflow/
       index.ts    the only file other code may import from this folder
@@ -113,7 +113,7 @@ point at, and bump `core/version.ts` and `package.json` together.
 - `features/settings/SettingsScreen.tsx` is only the list; each part is a file in `features/settings/parts/` (one per
   `/settings/<part>` page, plus `shared.ts` for the version number and two small helpers).
 - `features/groups/GroupsScreen.tsx` is the list; `GroupDetail.tsx` is one group's page and `GroupSettings.tsx` its settings page
-  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx` with `PersonRow.tsx`; `JoinInvite.tsx` is the signed-out invitation start; `DebtRow.tsx` and `ActivityBanner.tsx` are on the group page); `features/udhaar/` is the Udhaar page; `features/plan/` holds the net worth card (`NetWorthCard.tsx`) and its items, check-in and automatic lines (`WorthPanel.tsx`, `WorthForm.tsx`, `WorthCheckIn.tsx`, `useAutoLines.ts`); `JoinCard.tsx`,
+  (`/groups/<id>/settings`, made of `InviteCard.tsx`, `UsualSplitCard.tsx`, `TripSettings.tsx` and `PeopleCard.tsx` with `PersonRow.tsx`; `JoinInvite.tsx` is the signed-out invitation start; `DebtRow.tsx` and `ActivityBanner.tsx` are on the group page); `features/udhaar/` is the Udhaar page (`UdhaarForm.tsx` with `WhoField.tsx`, the name box that suggests Circle people; `SharedEntries.tsx` and `useSharedUdhaar.ts` for entries shared through the server; `features/groups/PeopleLines.tsx`, on the Groups page, opens a person's Udhaar); `features/plan/` holds the net worth card (`NetWorthCard.tsx`) and its items, check-in and automatic lines (`WorthPanel.tsx`, `WorthForm.tsx`, `WorthCheckIn.tsx`, `useAutoLines.ts`); `JoinCard.tsx`,
   `CreateCard.tsx` and `useAction.ts` hold the rest.
 - `data/sync.ts` is the sync engine: one closure over the store, the session and the state, so it stays in one file. What
   does not touch that state is beside it: `syncTypes.ts` (state, error, options), `syncBlocks.ts` (the table of blocks) and

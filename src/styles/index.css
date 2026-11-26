@@ -146,7 +146,7 @@
   .hero {
     --card: var(--hero); --ink: #ffffff; --muted: #c6d9c9; --line: rgba(255, 255, 255, 0.2);
     --accent: #c9e96a; --good: #c9e96a; --bad: #ffb4b4; --warn: #ffd27a;
-    --bg: rgba(255, 255, 255, 0.12); --good-bg: rgba(201, 233, 106, 0.16); --bad-bg: rgba(255, 180, 180, 0.16); --warn-bg: rgba(255, 210, 122, 0.16);
+    --bg: rgba(255, 255, 255, 0.12); --good-bg: rgba(201, 233, 106, 0.16); --bad-bg: rgba(255, 180, 180, 0.16); --warn-bg: rgba(255, 210, 122, 0.16); --brand: #c9e96a; --brand-ink: #0b3d28; --control-line: rgba(255, 255, 255, 0.35); --press: rgba(255, 255, 255, 0.12);
     --chart-ref: rgba(255, 255, 255, 0.5); --shadow: 0 12px 28px -16px rgba(16, 74, 48, 0.7); --inner: 0 0 0 0 transparent;
     background: var(--hero); color: var(--ink); border-color: transparent;
   }
