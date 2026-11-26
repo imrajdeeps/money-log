@@ -11,18 +11,26 @@ interface Props {
 const W = 300;
 const H = 100;
 
-// This month's spending as it builds up day by day (the brand colour, with a light wash under it), last month's at the
-// same days in grey for comparison, and the budget as a dashed threshold. Hand-written SVG: the page loads no chart library.
-// It stretches to the tile's width; styles.css keeps the lines 2px and the end dot round whatever the stretch.
-export function PaceChart({ daily, lastDaily, days, budget, projected = null, label }: Props) {
+// Where everything is drawn: the scale, the lines' paths, and the dot for today. Pure numbers and strings, no drawing.
+function paceShape({ daily, lastDaily, days, budget, projected = null }: Props) {
   const last = lastDaily.slice(0, days);
   const top = Math.max(budget, daily.at(-1) ?? 0, last.at(-1) ?? 0, projected ?? 0) || 1;
   const x = (i: number) => (days > 1 ? (i / (days - 1)) * W : 0);
   const y = (v: number) => H - (v / top) * (H - 8);
   const path = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('');
   const now = daily.length - 1;
-  const dot = now >= 0 ? `M${x(now).toFixed(1)} ${y(daily[now] ?? 0).toFixed(1)}h0` : '';
-  const proj = projected !== null && now >= 0 ? `M${x(now).toFixed(1)} ${y(daily[now] ?? 0).toFixed(1)}L${x(days - 1).toFixed(1)} ${y(projected).toFixed(1)}` : '';
+  const here = now >= 0 ? `${x(now).toFixed(1)} ${y(daily[now] ?? 0).toFixed(1)}` : '';
+  const dot = here ? `M${here}h0` : '';
+  const proj = projected !== null && here ? `M${here}L${x(days - 1).toFixed(1)} ${y(projected).toFixed(1)}` : '';
+  return { last, top, y, path, x, now, dot, proj };
+}
+
+// This month's spending as it builds up day by day (the brand colour, with a light wash under it), last month's at the
+// same days in grey for comparison, and the budget as a dashed threshold. Hand-written SVG: the page loads no chart library.
+// It stretches to the tile's width; styles.css keeps the lines 2px and the end dot round whatever the stretch.
+export function PaceChart(props: Props) {
+  const { daily, budget, label } = props;
+  const { last, top, y, path, x, now, dot, proj } = paceShape(props);
   return (
     <div className="relative">
     <span className="absolute left-0 top-0 text-[11px] text-muted" aria-hidden="true">{compactINR(top)}</span>

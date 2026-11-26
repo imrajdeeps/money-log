@@ -162,31 +162,48 @@ export type SplitResult = { shares: Shares; problem: null } | { shares: null; pr
 
 const numberText = (s: string): number | null => (/^\d*\.?\d{0,2}$/.test(s.trim().replace(/[₹,\s]/g, '')) ? Number(s.trim().replace(/[₹,\s]/g, '') || '0') : null);
 
-// What the split editor shows: shares from the chosen mode, or the one thing that is wrong with the input.
-export function computeShares(mode: SplitMode, total: number, ids: string[], included: Set<string>, values: Record<string, string>): SplitResult {
-  const bad = (problem: string): SplitResult => ({ shares: null, problem });
-  if (!(total > 0)) return bad(tr('Enter the amount first.'));
-  if (mode === 'equal') {
-    const who = ids.filter((id) => included.has(id));
-    return who.length ? { shares: equalShares(total, who), problem: null } : bad(tr('Pick at least one person to split between.'));
-  }
-  const nums: { id: string; n: number }[] = [];
+const done = (shares: Shares): SplitResult => ({ shares, problem: null });
+const wrong = (problem: string): SplitResult => ({ shares: null, problem });
+type Typed = { id: string; n: number }[];
+
+function splitEqually(total: number, ids: string[], included: Set<string>): SplitResult {
+  const who = ids.filter((id) => included.has(id));
+  return who.length ? done(equalShares(total, who)) : wrong(tr('Pick at least one person to split between.'));
+}
+
+// The number typed for each person, or null when any of them is not a number with at most two decimals.
+function typedNumbers(ids: string[], values: Record<string, string>): Typed | null {
+  const nums: Typed = [];
   for (const id of ids) {
     const n = numberText(values[id] ?? '');
-    if (n === null) return bad(tr('Use numbers with at most 2 decimals.'));
+    if (n === null) return null;
     nums.push({ id, n });
   }
-  if (mode === 'percent') {
-    const sum = round2(nums.reduce((a, x) => a + x.n, 0));
-    if (Math.abs(sum - 100) > 0.001) return bad(tr('The percentages add up to {0}, not 100.', sum));
-    const s = percentShares(total, nums.map((x) => ({ id: x.id, pct: x.n })));
-    return s ? { shares: s, problem: null } : bad(tr('Check the percentages.'));
-  }
+  return nums;
+}
+
+function splitByPercent(total: number, nums: Typed): SplitResult {
+  const sum = round2(nums.reduce((a, x) => a + x.n, 0));
+  if (Math.abs(sum - 100) > 0.001) return wrong(tr('The percentages add up to {0}, not 100.', sum));
+  const s = percentShares(total, nums.map((x) => ({ id: x.id, pct: x.n })));
+  return s ? done(s) : wrong(tr('Check the percentages.'));
+}
+
+function splitByAmount(total: number, nums: Typed): SplitResult {
   const sum = toPaise(nums.reduce((a, x) => a + x.n, 0));
-  if (sum !== toPaise(total)) return bad(tr('The amounts add up to {0}; the expense is {1}.', fmtINR(fromPaise(sum)), fmtINR(total)));
+  if (sum !== toPaise(total)) return wrong(tr('The amounts add up to {0}; the expense is {1}.', fmtINR(fromPaise(sum)), fmtINR(total)));
   const s: Shares = {};
   for (const x of nums) if (x.n > 0) s[x.id] = round2(x.n);
-  return Object.keys(s).length ? { shares: s, problem: null } : bad(tr('Someone has to owe something.'));
+  return Object.keys(s).length ? done(s) : wrong(tr('Someone has to owe something.'));
+}
+
+// What the split editor shows: shares from the chosen mode, or the one thing that is wrong with the input.
+export function computeShares(mode: SplitMode, total: number, ids: string[], included: Set<string>, values: Record<string, string>): SplitResult {
+  if (!(total > 0)) return wrong(tr('Enter the amount first.'));
+  if (mode === 'equal') return splitEqually(total, ids, included);
+  const nums = typedNumbers(ids, values);
+  if (!nums) return wrong(tr('Use numbers with at most 2 decimals.'));
+  return mode === 'percent' ? splitByPercent(total, nums) : splitByAmount(total, nums);
 }
 
 // ---------------------------------------------------------------- who owes whom

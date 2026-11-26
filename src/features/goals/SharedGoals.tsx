@@ -8,15 +8,18 @@ import { SharedInvitations } from './SharedInvitations.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
-// Shared goals: one pot with people from your Circle. Kept by the server (needs a connection), so it sits apart from your own goals.
-export function SharedGoals() {
+// Why the shared goals could not be loaded, in words.
+function loadProblem(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  return m === 'No connection' ? tr('You are offline. Shared goals need a connection.') : tr('Shared goals are not available yet: {0}', m);
+}
+
+// What the server holds: the shared goals, your Circle (to pick people from), what went wrong if it could not be read, and a way to read it again.
+function useSharedGoals(available: boolean): { goals: SharedGoal[] | null; circle: CircleMember[]; problem: string; load: () => Promise<void> } {
   const app = useApp();
   const [goals, setGoals] = useState<SharedGoal[] | null>(null);
   const [circle, setCircle] = useState<CircleMember[]>([]);
   const [problem, setProblem] = useState('');
-  const [form, setForm] = useState<'new' | SharedGoal | null>(null);
-  const available = app.syncEnabled && app.sync.mode !== 'signedout' && !!app.me;
-
   const load = useCallback(async () => {
     try {
       const [g, c] = await Promise.all([app.sharedGoals.load(), app.circle().catch(() => [] as CircleMember[])]);
@@ -24,11 +27,19 @@ export function SharedGoals() {
       setCircle(c);
       setProblem('');
     } catch (e) {
-      const m = e instanceof Error ? e.message : String(e);
-      setProblem(m === 'No connection' ? tr('You are offline. Shared goals need a connection.') : tr('Shared goals are not available yet: {0}', m));
+      setProblem(loadProblem(e));
     }
   }, [app]);
   useEffect(() => { if (available) void load(); }, [available, load]);
+  return { goals, circle, problem, load };
+}
+
+// Shared goals: one pot with people from your Circle. Kept by the server (needs a connection), so it sits apart from your own goals.
+export function SharedGoals() {
+  const app = useApp();
+  const [form, setForm] = useState<'new' | SharedGoal | null>(null);
+  const available = app.syncEnabled && app.sync.mode !== 'signedout' && !!app.me;
+  const { goals, circle, problem, load } = useSharedGoals(available);
 
   const header = (
     <div className="mt-6 mb-2 flex items-center justify-between gap-3">

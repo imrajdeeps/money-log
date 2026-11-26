@@ -17,6 +17,22 @@ function reason(e: unknown): string {
   return tr('The camera could not be opened. Use Choose photo instead.');
 }
 
+const stopStream = (s: MediaStream | null): void => { s?.getTracks().forEach((t) => t.stop()); };
+
+// Asks for the back camera. If the dialog has gone by the time the answer comes (isAlive says no), the stream is stopped at once.
+function openCamera(isAlive: () => boolean, onStream: (s: MediaStream) => void, onError: (e: unknown) => void): void {
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false })
+    .then((s) => { if (isAlive()) onStream(s); else stopStream(s); })
+    .catch((e: unknown) => { if (isAlive()) onError(e); });
+}
+
+// Shows the stream in the video; the shutter button waits until it plays (or fails to, which is not a reason to keep it off).
+function showStream(v: HTMLVideoElement | null, s: MediaStream, onReady: () => void): void {
+  if (!v) return;
+  v.srcObject = s;
+  void v.play().then(onReady).catch(onReady);
+}
+
 function Camera({ onShot, onClose }: Readonly<{ onShot: (photo: Blob) => void; onClose: () => void }>) {
   const dlg = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
@@ -28,15 +44,8 @@ function Camera({ onShot, onClose }: Readonly<{ onShot: (photo: Blob) => void; o
     if (d && !d.open) d.showModal();
     let stream: MediaStream | null = null;
     let alive = true;
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false })
-      .then((s) => {
-        if (!alive) { s.getTracks().forEach((t) => t.stop()); return; }
-        stream = s;
-        const v = video.current;
-        if (v) { v.srcObject = s; void v.play().then(() => setReady(true)).catch(() => setReady(true)); }
-      })
-      .catch((e: unknown) => { if (alive) setError(reason(e)); });
-    return () => { alive = false; stream?.getTracks().forEach((t) => t.stop()); };
+    openCamera(() => alive, (s) => { stream = s; showStream(video.current, s, () => setReady(true)); }, (e) => setError(reason(e)));
+    return () => { alive = false; stopStream(stream); };
   }, []);
 
   function snap() {

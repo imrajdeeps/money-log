@@ -122,3 +122,10 @@ point at, and bump `core/version.ts` and `package.json` together.
   `data/appApi.ts`.
 
 A file that is one closure should be split only when a seam appears that does not need that closure's variables.
+
+## Keeping functions readable
+A function is kept at SonarLint's cognitive-complexity limit of 15 or less (counted as SonarJS counts it, each function on its own). `tests/support/complexity.ts` does the counting and `tests/app/complexity.test.ts` fails in `npm test` (so in CI) for a new function over the limit; `tests/app/complexity-baseline.json` lists the known offenders and is empty. `npm run complexity` shows the numbers. The usual ways to get under the limit, which the code already follows:
+- a screen is a layout of small components, one per tile or card (`features/home/HomeScreen.tsx` with `MonthTile.tsx` and `Tiles.tsx`);
+- what a screen decides is a plain function in a `.ts` file beside it, so a test can reach it (`features/payments/formChecks.ts`, `features/groups/personPowers.ts`, `ui/budgetMeter.ts`, `features/home/dashboard.ts`);
+- a function that checks data from outside has one small function for one item, and a loop that calls it (`cleanDue` and `cleanDueRow`);
+- a list of phrases and answers is a table, not a run of `if`s (`authMessage`).

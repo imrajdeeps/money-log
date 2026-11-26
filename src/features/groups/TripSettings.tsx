@@ -7,6 +7,35 @@ import { useAction } from './useAction.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
+type Action = ReturnType<typeof useAction>;
+
+// The trip's first and last day, and the button that saves them (admins only).
+function TripDates({ starts, ends, act, onStarts, onEnds, onSave }: Readonly<{ starts: string; ends: string; act: Action; onStarts: (v: string) => void; onEnds: (v: string) => void; onSave: (ev: FormEvent) => void }>) {
+  return (
+    <form onSubmit={onSave} noValidate>
+      <div className={ui.btnRow}>
+        <label className={ui.fieldHalf}><span>{tr('First day')}</span><input type="date" value={starts} onChange={(e) => { onStarts(e.target.value); act.setError(''); }} /></label>
+        <label className={ui.fieldHalf}><span>{tr('Last day')}</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { onEnds(e.target.value); act.setError(''); }} /></label>
+      </div>
+      <button type="submit" className={ui.btn('ghost')} disabled={act.busy}>{tr('Save dates')}</button>
+    </form>
+  );
+}
+
+// Closes the trip (nobody can add expenses or join; settling up still works) or opens it again; asks first.
+function CloseTrip({ group, closed, act }: Readonly<{ group: Group; closed: boolean; act: Action }>) {
+  const app = useApp();
+  function toggle() {
+    const question = closed ? 'Reopen this trip? People can add expenses and join with the code again.' : 'Close this trip? Nobody can add expenses or join. Settling up still works, and you can reopen it.';
+    if (window.confirm(question)) void act.run(() => app.setGroupClosed(group.id, !closed), closed ? 'Trip reopened' : 'Trip closed');
+  }
+  return (
+    <button type="button" className={ui.btn(closed ? 'ghost' : 'solid', 'md', ui.inCard)} disabled={act.busy} onClick={toggle}>
+      {closed ? tr('Reopen trip') : tr('Close trip')}
+    </button>
+  );
+}
+
 // The trip's own settings: its dates, and closing it once everything is settled. Admins change them; everyone sees them.
 export function TripSettings({ group, isAdmin }: Readonly<{ group: Group; isAdmin: boolean }>) {
   const app = useApp();
@@ -26,28 +55,8 @@ export function TripSettings({ group, isAdmin }: Readonly<{ group: Group; isAdmi
     <div className={ui.card()}>
       <h3>{tr('Trip')}</h3>
       {closed && <p className={ui.closedBanner}>{tr('Closed on {0}. No new expenses or people; settling up still works.', shortDate(group.closed_at!.slice(0, 10)))}</p>}
-      {isAdmin && (
-        <form onSubmit={saveDates} noValidate>
-          <div className={ui.btnRow}>
-            <label className={ui.fieldHalf}><span>{tr('First day')}</span><input type="date" value={starts} onChange={(e) => { setStarts(e.target.value); act.setError(''); }} /></label>
-            <label className={ui.fieldHalf}><span>{tr('Last day')}</span><input type="date" value={ends} min={starts || undefined} onChange={(e) => { setEnds(e.target.value); act.setError(''); }} /></label>
-          </div>
-          <button type="submit" className={ui.btn('ghost')} disabled={act.busy}>{tr('Save dates')}</button>
-        </form>
-      )}
-      {isAdmin && (
-        <button
-          type="button"
-          className={ui.btn(closed ? 'ghost' : 'solid', 'md', ui.inCard)}
-          disabled={act.busy}
-          onClick={() => {
-            const question = closed ? 'Reopen this trip? People can add expenses and join with the code again.' : 'Close this trip? Nobody can add expenses or join. Settling up still works, and you can reopen it.';
-            if (window.confirm(question)) void act.run(() => app.setGroupClosed(group.id, !closed), closed ? 'Trip reopened' : 'Trip closed');
-          }}
-        >
-          {closed ? tr('Reopen trip') : tr('Close trip')}
-        </button>
-      )}
+      {isAdmin && <TripDates starts={starts} ends={ends} act={act} onStarts={setStarts} onEnds={setEnds} onSave={saveDates} />}
+      {isAdmin && <CloseTrip group={group} closed={closed} act={act} />}
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
     </div>
   );

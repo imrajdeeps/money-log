@@ -36,6 +36,30 @@ function Row({ u, onEdit }: Readonly<{ u: UdhaarItem; onEdit: () => void }>) {
   );
 }
 
+type Totals = ReturnType<typeof udhaarTotals>;
+
+// What is open: how much you are owed and how much you owe, and the net with each person. Nothing when nothing is open.
+function UdhaarTotals({ t }: Readonly<{ t: Totals }>) {
+  if (t.owedToMe <= 0 && t.iOwe <= 0) return null;
+  return (
+    <div className={ui.card()}>
+      <p className="m-0 text-[22px] font-bold tabular-nums">
+        {t.owedToMe > 0 && <span className="text-good">{tr('You are owed {0}', fmtINR(t.owedToMe))}</span>}
+        {t.owedToMe > 0 && t.iOwe > 0 && ' · '}
+        {t.iOwe > 0 && <span className="text-bad">{tr('You owe {0}', fmtINR(t.iOwe))}</span>}
+      </p>
+      <ul className={ui.list(true, 'mt-2')}>
+        {t.people.map((p) => (
+          <li key={p.key} className="flex items-center justify-between px-3 py-2">
+            <span><b>{p.name}</b> <small className="text-muted">{p.open === 1 ? tr('1 open entry') : tr('{0} open entries', p.open)}</small></span>
+            <b className={p.net > 0 ? 'text-good' : 'text-bad'}>{p.net > 0 ? tr('owes you {0}', fmtINR(p.net)) : tr('you owe {0}', fmtINR(-p.net))}</b>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // Udhaar: money lent to or borrowed from anyone (they need not use the app), who has paid back and who has not. Private: it stays in your
 // own data, synced and in your backup like your goals, and nobody else sees it.
 export function UdhaarScreen() {
@@ -47,23 +71,7 @@ export function UdhaarScreen() {
   return (
     <section aria-label={tr('Udhaar')} className="[&>*+*]:mt-4">
       <p className="text-muted text-[13px]">{tr('Money you lent to someone, or borrowed from them: write it down once, tick it off when it comes back. Only you see this.')}</p>
-      {(t.owedToMe > 0 || t.iOwe > 0) && (
-        <div className={ui.card()}>
-          <p className="m-0 text-[22px] font-bold tabular-nums">
-            {t.owedToMe > 0 && <span className="text-good">{tr('You are owed {0}', fmtINR(t.owedToMe))}</span>}
-            {t.owedToMe > 0 && t.iOwe > 0 && ' · '}
-            {t.iOwe > 0 && <span className="text-bad">{tr('You owe {0}', fmtINR(t.iOwe))}</span>}
-          </p>
-          <ul className={ui.list(true, 'mt-2')}>
-            {t.people.map((p) => (
-              <li key={p.key} className="flex items-center justify-between px-3 py-2">
-                <span><b>{p.name}</b> <small className="text-muted">{p.open === 1 ? tr('1 open entry') : tr('{0} open entries', p.open)}</small></span>
-                <b className={p.net > 0 ? 'text-good' : 'text-bad'}>{p.net > 0 ? tr('owes you {0}', fmtINR(p.net)) : tr('you owe {0}', fmtINR(-p.net))}</b>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <UdhaarTotals t={t} />
       {!form && <button type="button" className={ui.btn('solid', 'md', ui.inCard)} onClick={() => setForm('new')}>{tr('Add an entry')}</button>}
       {form && <UdhaarForm key={form === 'new' ? 'new' : form.id} item={form === 'new' ? undefined : form} onDone={() => setForm(null)} />}
       {app.udhaar.length === 0 && !form && <p className="text-muted">{tr('Nothing yet. Add the first one when you lend or borrow.')}</p>}

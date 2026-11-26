@@ -35,6 +35,37 @@ interface Props {
   onChange: (next: SplitState) => void;
 }
 
+// One person in the split: a tick (equal split) or a box for their percent or amount, and what their share comes to.
+function SplitRow({ m, label, value, share, set }: Readonly<{ m: Member; label: string; value: SplitState; share: number | undefined; set: (patch: Partial<SplitState>) => void }>) {
+  return (
+    <li className={ui.splitRow}>
+      {value.mode === 'equal' ? (
+        <label className={ui.check + ' flex-1'}>
+          <input
+            type="checkbox"
+            checked={value.included.includes(m.user_id)}
+            onChange={(e) => set({ included: e.target.checked ? [...value.included, m.user_id] : value.included.filter((x) => x !== m.user_id) })}
+          />
+          <span>{label}</span>
+        </label>
+      ) : (
+        <>
+          <span className="flex-1">{label}</span>
+          <input
+            className="w-24 text-right"
+            inputMode="decimal"
+            aria-label={tr('{0} for {1}', value.mode === 'percent' ? tr('Percent') : tr('Amount'), m.display_name)}
+            placeholder={value.mode === 'percent' ? '%' : '₹'}
+            value={value.values[m.user_id] ?? ''}
+            onChange={(e) => set({ values: { ...value.values, [m.user_id]: e.target.value } })}
+          />
+        </>
+      )}
+      <span className="font-bold tabular-nums min-w-[72px] text-right">{share !== undefined ? fmtINR(share) : '–'}</span>
+    </li>
+  );
+}
+
 export function SplitEditor({ people, me, total, value, onChange }: Props) {
   const ids = people.map((m) => m.user_id);
   const result = computeShares(value.mode, total, ids, new Set(value.included), value.values);
@@ -58,36 +89,7 @@ export function SplitEditor({ people, me, total, value, onChange }: Props) {
       </fieldset>
 
       <ul className={ui.list(false, 'mt-2 mx-0 mb-0')}>
-        {people.map((m) => {
-          const share = result.shares?.[m.user_id];
-          return (
-            <li key={m.user_id} className={ui.splitRow}>
-              {value.mode === 'equal' ? (
-                <label className={ui.check + ' flex-1'}>
-                  <input
-                    type="checkbox"
-                    checked={value.included.includes(m.user_id)}
-                    onChange={(e) => set({ included: e.target.checked ? [...value.included, m.user_id] : value.included.filter((x) => x !== m.user_id) })}
-                  />
-                  <span>{name(m)}</span>
-                </label>
-              ) : (
-                <>
-                  <span className="flex-1">{name(m)}</span>
-                  <input
-                    className="w-24 text-right"
-                    inputMode="decimal"
-                    aria-label={tr('{0} for {1}', value.mode === 'percent' ? tr('Percent') : tr('Amount'), m.display_name)}
-                    placeholder={value.mode === 'percent' ? '%' : '₹'}
-                    value={value.values[m.user_id] ?? ''}
-                    onChange={(e) => set({ values: { ...value.values, [m.user_id]: e.target.value } })}
-                  />
-                </>
-              )}
-              <span className="font-bold tabular-nums min-w-[72px] text-right">{share !== undefined ? fmtINR(share) : '–'}</span>
-            </li>
-          );
-        })}
+        {people.map((m) => <SplitRow key={m.user_id} m={m} label={name(m)} value={value} share={result.shares?.[m.user_id]} set={set} />)}
       </ul>
       {total > 0 && result.problem && <p className={ui.msg('bad')} role="status">{result.problem}</p>}
       {total > 0 && result.shares && <p className="text-muted text-[13px]">{tr('Adds up to {0}.', fmtINR(fromPaise(sharesPaise(result.shares))))}</p>}

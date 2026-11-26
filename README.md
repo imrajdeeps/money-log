@@ -155,6 +155,15 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Code health (version 1.35)
+No SQL, no new package, nothing the app does is different. From `docs/prd-code-health.md`.
+
+- **SonarLint's cognitive-complexity rule (limit 15) is now checked by `npm test`.** `tests/support/complexity.ts` counts it the way SonarJS does today (each function on its own; `||`, `??` and a plain `&&` inside JSX are free) using the parser that ships with Vite, so nothing is added. A new function over 15 fails the test; a function on the list of known offenders (`tests/app/complexity-baseline.json`) that gets worse, or that is already better than its line, fails too, so the list only shrinks. It is empty now. `npm run complexity` prints the numbers; `npm run complexity -- --write` updates the list. The scorer is tested against SonarSource's worked examples and the current rules.
+- **The six functions SonarLint flags are split:** the Overview (`HomeScreen`, now one component per tile), the budget meter, Add expense's save, the account card, and the sync engine's `pushDirty` and `pullKeyset`. The same names were on the owner's earlier SonarLint list, which is the best evidence the scorer agrees with the panel.
+- **Also split:** 17 plain functions in `core` and `data` and 19 smaller screens, which a stricter first version of the scorer flagged (it had added inner functions into the outer one and counted `||` and `??`; a reviewer found that against SonarJS's rule source). Not needed for SonarLint, but smaller and tested.
+- **How it was checked:** the rules in `core` and `data` by the unchanged tests (462 before, 477 now, none edited); the screens by comparing the rendered HTML of 19 pages between the build before and the build after (identical apart from clock-dependent text) and by driving the interactions in the browser; two independent reviews of the diff, whose findings (a timing detail, three comparisons that differ only for a figure that is not a number, three untested branches of the sync engine's `pushDirty`) were put right and tested.
+- **Not checked:** the live camera (the browser pane has none), restoring a backup file, a real phone. SonarLint's own panel stays the last word: refresh it in VS Code and compare.
+
 ## Keeping it running, and fixes from the phone (version 1.34)
 No SQL. From `docs/prd-networth-reliability.md` and the owner's screenshots.
 
@@ -543,6 +552,7 @@ npm ci           # install exactly the versions in package-lock.json
 npm run dev      # local dev server (local-only mode unless you create .env.local, see .env.example)
 npm test         # tests: logic, blocks, groups and splits, dashboard figures, and sync against a stand-in for Supabase
 npm run check    # type check, the app and the tests
+npm run complexity   # which functions are too hard to read (SonarLint's limit of 15); -- --write updates the list after a cleanup
 npm run build    # production build into dist/
 ```
 

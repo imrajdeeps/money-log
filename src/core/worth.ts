@@ -39,6 +39,20 @@ export type WorthResult = { ok: true; items: Goals } | { ok: false; error: strin
 
 const RATE = /^\d{1,2}(\.\d{1,2})?$/;
 
+type LoanTerms = { ok: true; emi: number; rate: number } | { ok: false; error: string };
+
+/** The EMI and the yearly rate, which only a loan has: for any other kind what was typed is ignored. Empty means none (zero). */
+function checkLoanTerms(i: WorthInput): LoanTerms {
+  if (!(i.side === 'd' && i.cls === 'loan')) return { ok: true, emi: 0, rate: 0 };
+  const emiText = i.emi.trim();
+  const rateText = i.rate.trim();
+  const emi = emiText === '' ? 0 : parseNetAmount(emiText);
+  if (emi === null || emi < 0) return { ok: false, error: tr('The EMI must be an amount of zero or more, with at most two decimals.') };
+  const rate = rateText === '' ? 0 : (RATE.test(rateText) ? Number(rateText) : NaN);
+  if (!Number.isFinite(rate) || rate > 60) return { ok: false, error: tr('The yearly interest rate must be between 0 and 60, with at most two decimals.') };
+  return { ok: true, emi, rate };
+}
+
 /** What was typed for an item, checked. An amount is never below zero (a debt goes under "You owe"); an EMI and a rate are for loans. */
 export function checkWorth(i: WorthInput): WorthChecked {
   const name = normName(i.name);
@@ -47,14 +61,9 @@ export function checkWorth(i: WorthInput): WorthChecked {
   const amount = parseNetAmount(i.amount);
   if (amount === null) return { ok: false, error: tr('Enter an amount, with at most two decimals.') };
   if (amount < 0) return { ok: false, error: tr('An amount cannot be below zero. A debt goes under "You owe".') };
-  const loan = i.side === 'd' && i.cls === 'loan';
-  const emiText = loan ? i.emi.trim() : '';
-  const rateText = loan ? i.rate.trim() : '';
-  const emi = emiText === '' ? 0 : parseNetAmount(emiText);
-  if (emi === null || emi < 0) return { ok: false, error: tr('The EMI must be an amount of zero or more, with at most two decimals.') };
-  const rate = rateText === '' ? 0 : (RATE.test(rateText) ? Number(rateText) : NaN);
-  if (!Number.isFinite(rate) || rate > 60) return { ok: false, error: tr('The yearly interest rate must be between 0 and 60, with at most two decimals.') };
-  return { ok: true, name, side: i.side, cls: i.cls, amount, emi, rate };
+  const terms = checkLoanTerms(i);
+  if (!terms.ok) return terms;
+  return { ok: true, name, side: i.side, cls: i.cls, amount, emi: terms.emi, rate: terms.rate };
 }
 
 const all = (items: Goals): WorthItem[] => Object.values(items).filter((v): v is WorthItem => v.k === 'w');

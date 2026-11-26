@@ -266,14 +266,18 @@ function cleanUdhaarItem(k: string, v: Raw): UdhaarItem | null {
 
 const worthAmountOk = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < NET_LIMIT && round2(n) === n;
 
+const worthRateOk = (r: unknown): r is number => typeof r === 'number' && Number.isFinite(r) && r >= 0 && r <= 60 && round2(r) === r;
+
+// The EMI and the yearly rate: valid on their own, and both zero unless the item is a loan (they belong to a loan only).
+const worthTermsOk = (v: Raw): boolean => worthAmountOk(v.e) && worthRateOk(v.r) && (!(v.e > 0 || v.r > 0) || (v.s === 'd' && v.c === 'loan'));
+
 function cleanWorthItem(k: string, v: Raw): WorthItem | null {
   if (!isTidy(v.n) || v.n === '' || v.n.length > 40 || (v.s !== 'a' && v.s !== 'd') || !isDay(v.d)) return null;
   const classes: readonly string[] = v.s === 'a' ? ASSET_CLASSES : DEBT_CLASSES;
   if (typeof v.c !== 'string' || !classes.includes(v.c) || !worthAmountOk(v.a)) return null;
   if (v.p !== null && !worthAmountOk(v.p)) return null;
   if (v.pd !== '' && !isDay(v.pd)) return null;
-  if (!worthAmountOk(v.e) || typeof v.r !== 'number' || !Number.isFinite(v.r) || v.r < 0 || v.r > 60 || round2(v.r) !== v.r) return null;
-  if ((v.e > 0 || v.r > 0) && !(v.s === 'd' && v.c === 'loan')) return null; // an EMI and a rate belong to a loan only
+  if (!worthTermsOk(v)) return null;
   return { id: k, k: 'w', n: v.n, s: v.s, c: v.c, a: v.a, d: v.d, p: v.p, pd: v.pd, e: v.e, r: v.r, x: v.x, t: v.t };
 }
 
@@ -296,23 +300,31 @@ const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => Go
 
 const hasCommonFields = (k: string, v: Raw): boolean => UUID_RE.test(k) && v?.id === k && (v.x === 0 || v.x === 1) && Number.isFinite(parseTs(v.t));
 
+// The items that pass the common check, live ones first and the newest first, so that when a kind has too many it is the oldest that go.
+const inCleaningOrder = (p: Record<string, Raw>): [string, Raw][] =>
+  Object.entries(p).filter(([k, v]) => hasCommonFields(k, v)).sort(([, a], [, b]) => a.x - b.x || parseTs(b.t) - parseTs(a.t));
+
+// How many of each kind have been kept, live and removed apart, and whether another fits (a kind's cap, or REMOVED_ROOM times it for removed ones).
+function roomKeeper(): { hasRoom: (v: Raw, max: number) => boolean; keep: (v: Raw) => void } {
+  const kept = { live: {} as Record<string, number>, gone: {} as Record<string, number> };
+  const countsOf = (v: Raw): Record<string, number> => (v.x === 1 ? kept.gone : kept.live);
+  return {
+    hasRoom: (v, max) => (countsOf(v)[v.k] ?? 0) < (v.x === 1 ? max * REMOVED_ROOM : max),
+    keep: (v) => { const counts = countsOf(v); counts[v.k] = (counts[v.k] ?? 0) + 1; },
+  };
+}
+
 export function cleanGoals(p: Raw): Goals {
   const out: Goals = {};
   if (!p || typeof p !== 'object') return out;
-  const live: Record<string, number> = {};
-  const gone: Record<string, number> = {};
-  const room = (n: Record<string, number>, kind: string, max: number): boolean => (n[kind] ?? 0) < max;
-  // newest removals first, so that when there are too many it is the oldest that go
-  const entries = Object.entries(p as Record<string, Raw>).filter(([k, v]) => hasCommonFields(k, v));
-  entries.sort(([, a], [, b]) => a.x - b.x || parseTs(b.t) - parseTs(a.t));
-  for (const [k, v] of entries) {
+  const room = roomKeeper();
+  for (const [k, v] of inCleaningOrder(p as Record<string, Raw>)) {
     const kind = Object.hasOwn(ITEM_KINDS, v.k) ? ITEM_KINDS[v.k] : undefined;
-    const counts = v.x === 1 ? gone : live;
-    if (!kind || !room(counts, v.k, v.x === 1 ? kind.max * REMOVED_ROOM : kind.max)) continue;
+    if (!kind || !room.hasRoom(v, kind.max)) continue;
     const item = kind.clean(k, v);
     if (!item) continue;
     out[k] = item;
-    counts[v.k] = (counts[v.k] ?? 0) + 1;
+    room.keep(v);
   }
   return out;
 }
