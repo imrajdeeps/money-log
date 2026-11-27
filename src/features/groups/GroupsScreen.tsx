@@ -55,7 +55,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
   }
 
   // what others did in a group since this phone last looked (the same figure the group page lists)
-  const news = (g: Group): number => { const r = groupActivity(app.groupEntries, app.settlements, g.id, app.me, seen[g.id] ?? null, () => '', g); return r.items.length + r.more; };
+  const news = (g: Group): number => { const r = groupActivity(app.groupEntries, app.settlements, g.id, app.me, seen[g.id] ?? null, () => '', { group: g, repeats: app.groupRepeats }); return r.items.length + r.more; };
 
   if (creating) {
     return (

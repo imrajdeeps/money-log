@@ -46,6 +46,8 @@ export interface MockState {
   members: Map<string, any>; // `${group}|${user}`
   invites: Map<string, any>; // by group
   settlements: Map<string, any>;
+  repeats: Map<string, any>; // version 2.2: group_repeats, by id
+  repeatsTableMissing: boolean; // the database has not had the version 2.2 SQL: PostgREST answers 404
   receipts: Map<string, any>;
   objects: Map<string, { bytes: number; owner: string; type: string; data: Buffer }>; // Storage: path -> file
   history: any[];
@@ -58,7 +60,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     otp: '123456', accessTtlSec: 3600,
     users: new Map(), codes: new Map(), passwords: new Map(), confirmSignups: false, unconfirmed: new Set(), signupsOpen: true, recoveries: [],
     access: new Map(), refresh: new Map(),
-    entries: new Map(), plans: new Map(), profiles: new Map(), sharedGoals: new Map(), sharedMembers: new Map(), sharedTopups: new Map(), circleLinks: new Set(), circleInvites: new Map(), sessions: [], signIns: [], signInFunctionsMissing: false, profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(),
+    entries: new Map(), plans: new Map(), profiles: new Map(), sharedGoals: new Map(), sharedMembers: new Map(), sharedTopups: new Map(), circleLinks: new Set(), circleInvites: new Map(), sessions: [], signIns: [], signInFunctionsMissing: false, profilesTableMissing: false, groups: new Map(), members: new Map(), invites: new Map(), settlements: new Map(), repeats: new Map(), repeatsTableMissing: false,
     receipts: new Map(), objects: new Map(), history: [],
     requests: [], failNext: null,
   };
@@ -153,6 +155,98 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
     if (old && (changed || old.deleted_at !== r.deleted_at) && [old.from_user, old.to_user].some((u) => !active(old.group_id, u))) return refuse('This settlement involves someone who has left the group, so it is frozen');
     return null;
   };
+
+  // ---------- repeats in a group (2.2), in outline: the people in it act on it, a month counts once, the expense is added here
+  const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+  const monthNow = (shiftDays: number) => new Date(Date.now() + shiftDays * 86400000).toISOString().slice(0, 7);
+  const thisMonthSomewhere = (m: unknown) => typeof m === 'string' && MONTH.test(m) && m >= monthNow(-0.5) && m <= monthNow(14 / 24);
+  const afterMonth = (m: string) => { const [y, mo] = m.split('-').map(Number) as [number, number]; return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`; };
+  const dayIn = (m: string, d: number) => { const [y, mo] = m.split('-').map(Number) as [number, number]; return `${m}-${String(Math.min(d, new Date(Date.UTC(y, mo, 0)).getUTCDate())).padStart(2, '0')}`; };
+  const splitProblem = (gid: string, amount: number, paidBy: string, shares: any): { status: number; body: unknown } | null => {
+    if (!(amount > 0 && amount < 1e9) || Math.round(amount * 100) !== amount * 100) return err(400, '22023', 'Enter an amount above zero, in rupees and paise');
+    if (!shares || typeof shares !== 'object' || Array.isArray(shares) || Object.keys(shares).length === 0) return err(400, '22023', 'A repeat needs a split');
+    if (!active(gid, paidBy) || Object.keys(shares).some((u) => !active(gid, u))) return err(400, '22023', 'A share names someone who is not a current member of this group');
+    const total = Object.values<number>(shares).reduce((t, v) => t + money(v), 0);
+    return total === money(amount) ? null : err(400, '22023', `The shares add up to ${total / 100} but the amount is ${amount}`);
+  };
+  const addLoggedEntry = (id: string, uid: string, r: any, date: string, month: string) => {
+    const now = new Date().toISOString();
+    state.entries.set(id, { id, owner_id: uid, entry_date: date, kind: 'out', category: r.category, amount: r.amount, note: r.note, method: null, created_at: now, updated_at: now,
+      deleted_at: null, exported_at: null, group_id: r.group_id, paid_by: r.paid_by, shares: r.shares, share_of: null, repeat_id: r.id, repeat_month: month, synced_at: stamp() });
+  };
+  function lockRepeat(id: string, uid: string, adminOk = false): { r: any } | { status: number; body: unknown } {
+    const r = state.repeats.get(id);
+    if (!r || !active(r.group_id, uid)) return err(400, '22023', 'That repeat is gone');
+    if (r.stopped_at) return err(400, '22023', 'That repeat was stopped');
+    const admin = adminOk && member(r.group_id, uid)?.role === 'admin';
+    if (r.paid_by !== uid && !(uid in r.shares) && !admin) return err(403, '42501', 'Only the people in this repeat can change it');
+    return { r };
+  }
+  function addRepeat(a: any, uid: string): { status: number; body: unknown } {
+    const ok = { status: 200, body: null };
+    if (!active(a.p_group, uid)) return denied('group_repeats');
+    if (state.repeats.has(a.p_id)) return state.repeats.get(a.p_id).created_by === uid && state.entries.get(a.p_entry)?.repeat_id === a.p_id ? ok : err(409, '23505', 'That repeat already exists');
+    if ([...state.repeats.values()].filter((r) => r.group_id === a.p_group && !r.stopped_at).length >= 20) return err(400, '53400', 'A group can have 20 repeats at a time');
+    if (state.groups.get(a.p_group)?.closed_at) return refuse('This trip is closed');
+    const cat = String(a.p_category ?? '').trim();
+    if (!cat || cat.length > 80 || String(a.p_note ?? '').length > 200 || !(Number.isInteger(a.p_day) && a.p_day >= 1 && a.p_day <= 31)) return err(400, '22023', 'Check the category, note and day');
+    const month = String(a.p_date ?? '').slice(0, 7);
+    if (!MONTH.test(month) || month > monthNow(14 / 24)) return err(400, '22023', 'The first expense of a repeat cannot be in a later month');
+    if (a.p_paid_by !== uid && !(a.p_shares && uid in a.p_shares)) return err(403, '42501', 'You can only set up a repeat that you pay or share in');
+    const bad = splitProblem(a.p_group, a.p_amount, a.p_paid_by, a.p_shares);
+    if (bad) return bad;
+    const now = new Date().toISOString();
+    const r = { id: a.p_id, group_id: a.p_group, category: cat, note: String(a.p_note ?? '').trim(), amount: a.p_amount, day: a.p_day, paid_by: a.p_paid_by, shares: a.p_shares,
+      done_through: month, created_by: uid, created_at: now, change: 'add', change_month: null, changed_by: uid, changed_at: now, stopped_at: null, synced_at: stamp() };
+    state.repeats.set(r.id, r);
+    addLoggedEntry(a.p_entry, uid, r, a.p_date, month);
+    return ok;
+  }
+  function groupRepeatCall(name: string, a: any, uid: string): { status: number; body: unknown } | null {
+    const ok = { status: 200, body: null };
+    if (!name.endsWith('_group_repeat')) return null;
+    if (state.repeatsTableMissing) return err(404, 'PGRST202', 'Could not find the function in the schema cache');
+    if (name === 'add_group_repeat') return addRepeat(a, uid);
+    if (name === 'log_group_repeat') {
+      const e = state.entries.get(a.p_entry);
+      if (e && e.owner_id === uid && e.repeat_id === a.p_repeat && e.repeat_month === a.p_month) return ok;
+      const got = lockRepeat(a.p_repeat, uid);
+      if (!('r' in got)) return got;
+      const r = got.r;
+      if (!thisMonthSomewhere(a.p_month)) return err(400, '22023', 'Only this month can be logged');
+      if (r.done_through && r.done_through >= a.p_month) return err(409, '23505', 'That month is already done');
+      if (dayIn(a.p_month, r.day) > new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10)) return err(400, '22023', 'It can be logged from its day on');
+      if (state.groups.get(r.group_id)?.closed_at) return refuse('This trip is closed');
+      if (!active(r.group_id, r.paid_by) || Object.keys(r.shares).some((u) => !active(r.group_id, u))) return refuse('A share names someone who is not a current member of this group');
+      addLoggedEntry(a.p_entry, uid, r, dayIn(a.p_month, r.day), a.p_month);
+      Object.assign(r, { done_through: a.p_month, synced_at: stamp() });
+      return ok;
+    }
+    const got = lockRepeat(a.p_repeat, uid, name === 'stop_group_repeat');
+    if (!('r' in got)) return got;
+    const r = got.r;
+    const now = new Date().toISOString();
+    if (name === 'skip_group_repeat') {
+      if (r.done_through && a.p_month && r.done_through >= a.p_month) return err(409, '23505', 'That month is already done');
+      const next = r.done_through ? afterMonth(r.done_through) : null;
+      if (!(thisMonthSomewhere(a.p_month) || (next !== null && a.p_month === next && next <= afterMonth(monthNow(14 / 24))))) return err(400, '22023', 'Only this month, or next month once this one is done, can be skipped');
+      Object.assign(r, { done_through: a.p_month, change: 'skip', change_month: a.p_month, changed_by: uid, changed_at: now, synced_at: stamp() });
+      return ok;
+    }
+    if (name === 'edit_group_repeat') {
+      if (!(Number.isInteger(a.p_day) && a.p_day >= 1 && a.p_day <= 31)) return err(400, '22023', 'The day must be between 1 and 31');
+      if (r.paid_by !== uid && !(a.p_shares && uid in a.p_shares)) return err(403, '42501', 'You can only change a repeat so that you still pay or share in it');
+      const bad = splitProblem(r.group_id, a.p_amount, r.paid_by, a.p_shares);
+      if (bad) return bad;
+      Object.assign(r, { amount: a.p_amount, day: a.p_day, shares: a.p_shares, change: 'edit', change_month: null, changed_by: uid, changed_at: now, synced_at: stamp() });
+      return ok;
+    }
+    if (name === 'stop_group_repeat') {
+      Object.assign(r, { stopped_at: now, change: 'stop', change_month: null, changed_by: uid, changed_at: now, synced_at: stamp() });
+      return ok;
+    }
+    return null;
+  }
 
   function rpc(name: string, a: any, uid: string): { status: number; body: unknown } {
     const ok = (body: unknown = null) => ({ status: 200, body });
@@ -389,6 +483,8 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (g.simplify !== a.p_on) Object.assign(g, { simplify: a.p_on, simplify_by: uid, simplify_at: new Date().toISOString() });
       return ok();
     }
+    const repeatCall = groupRepeatCall(name, a, uid);
+    if (repeatCall) return repeatCall;
     if (name === 'set_usual_split') {
       if (!adminOf(a.p_group)) return lockedOut;
       const g = state.groups.get(a.p_group);
@@ -595,11 +691,14 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
             if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
             const problem = entryProblem({ group_id: null, paid_by: null, shares: null, ...r }, existing, uid);
             if (problem) return send(res, problem.status, problem.body);
+            // mirrors keep_repeat_link (2.2): only a repeat's functions write the link, and a logged expense stays in its group
+            if (('repeat_id' in r && r.repeat_id !== (existing?.repeat_id ?? null)) || ('repeat_month' in r && r.repeat_month !== (existing?.repeat_month ?? null))) return send(res, 403, rls('entries'));
+            if (existing?.repeat_id && r.group_id !== existing.group_id) return send(res, 400, { code: '23514', details: null, hint: null, message: 'An expense logged from a repeat stays in its group' });
           }
           for (const r of rows) {
             const existing = state.entries.get(r.id);
             if (existing && parseTs(r.updated_at) < parseTs(existing.updated_at)) continue;
-            const next = { group_id: null, paid_by: null, shares: null, share_of: null, ...r, note: r.note ?? '', synced_at: stamp() };
+            const next = { group_id: null, paid_by: null, shares: null, share_of: null, ...r, repeat_id: existing?.repeat_id ?? null, repeat_month: existing?.repeat_month ?? null, note: r.note ?? '', synced_at: stamp() };
             state.entries.set(r.id, next);
             // mirrors the entries_delete_receipts trigger: deleting a payment deletes its photos
             if (next.deleted_at && !(existing && existing.deleted_at)) {
@@ -621,6 +720,10 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       }
 
       if (path === '/rest/v1/groups' && req.method === 'GET') return send(res, 200, [...state.groups.values()].filter((g) => active(g.id, uid)));
+      if (path === '/rest/v1/group_repeats' && req.method === 'GET') {
+        if (state.repeatsTableMissing) return send(res, 404, { code: 'PGRST205', details: null, hint: null, message: "Could not find the table 'public.group_repeats' in the schema cache" });
+        return send(res, 200, [...state.repeats.values()].filter((r) => active(r.group_id, uid)).sort((x, y) => (x.created_at < y.created_at ? -1 : 1)));
+      }
       if (path === '/rest/v1/group_members' && req.method === 'GET') return send(res, 200, [...state.members.values()].filter((m) => active(m.group_id, uid)));
       if (path === '/rest/v1/group_invites' && req.method === 'GET') {
         return send(res, 200, [...state.invites.values()].filter((i) => active(i.group_id, uid) && member(i.group_id, uid).role === 'admin'));

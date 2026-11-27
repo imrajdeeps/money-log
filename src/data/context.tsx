@@ -29,7 +29,8 @@ import { addUdhaar as addUdhaarTo, editUdhaar as editUdhaarIn, removeUdhaar as r
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
 import type { GroupKind } from '../core/groupKinds.ts';
 import { editEntry, isMine, isoDate, makeEntry, monthOf, parseTs, restoreEntry, softDelete } from '../core/logic.ts';
-import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
+import type { Entry, Group as Cat, NewEntryInput, Shares } from '../core/logic.ts';
+import type { GroupRepeat, NewGroupRepeat } from '../core/groupRepeats.ts';
 import { openStore } from './store.ts';
 import { BASEPATH, appRootUrl } from '../core/paths.ts';
 import { addRecurring as addRecurringTo, editRecurring as editRecurringIn, markHandled, mergeRecurring, removeRecurring as removeRecurringFrom, scheduledDate } from '../core/recurring.ts';
@@ -83,6 +84,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [groupRepeats, setGroupRepeats] = useState<GroupRepeat[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [me, setMe] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
@@ -116,7 +118,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const reload = useCallback(async () => {
     const e = engRef.current;
     if (!e) return;
-    const [entries, mn, rcr, gl, g, m, i, st, owner, rc, lk] = await Promise.all([
+    const [entries, mn, rcr, gl, g, m, i, st, owner, rc, lk, gr] = await Promise.all([
       e.store.allEntries(),
       e.store.getMeta<MineBlock>('mine'),
       e.store.getMeta<RecurBlock>('recurring'),
@@ -128,6 +130,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
       e.store.getMeta<string>('localOwner'),
       e.store.allReceipts(),
       e.store.getMeta<unknown>('lock'),
+      e.store.getMeta<GroupRepeat[]>('groupRepeats'),
     ]);
     await reconcileProfile(e.store);
     const cfg = cleanLock(lk);
@@ -138,6 +141,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     setGroups(g ?? []);
     setMembers(m ?? []);
     setInvites(i ?? []);
+    setGroupRepeats(gr ?? []);
     setSettlements(st);
     setMe(owner ?? null);
     setMine(mn?.items ?? {});
@@ -278,10 +282,10 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     void e.store.setMeta('profile', { name: p.name, whatsapp: p.whatsapp, t: new Date().toISOString(), dirty: 1 } satisfies ProfileBlock).then(afterChange);
   }), [afterChange]);
 
-  const addEntry = useCallback(async (input: NewEntryInput): Promise<string> => {
+  const addEntry = useCallback(async (input: NewEntryInput, id?: string): Promise<string> => {
     const e = engRef.current;
     if (!e) return '';
-    const entry = makeEntry(input, new Date().toISOString());
+    const entry = makeEntry(input, new Date().toISOString(), id);
     await e.store.putEntries([entry]);
     await afterChange();
     return entry.id;
@@ -381,6 +385,11 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const setGroupClosed = useCallback(async (groupId: string, closed: boolean) => { await engine().setGroupClosed(groupId, closed); }, []);
   const setUsualSplit = useCallback(async (groupId: string, split: UsualSplit | null) => { await engine().setUsualSplit(groupId, split); }, []);
   const setGroupSimplify = useCallback(async (groupId: string, on: boolean) => { await engine().setGroupSimplify(groupId, on); }, []);
+  const addGroupRepeat = useCallback(async (r: NewGroupRepeat) => { await engine().addGroupRepeat(r); }, []);
+  const logGroupRepeat = useCallback(async (id: string, month: string, entryId: string) => { await engine().logGroupRepeat(id, month, entryId); }, []);
+  const skipGroupRepeat = useCallback(async (id: string, month: string) => { await engine().skipGroupRepeat(id, month); }, []);
+  const editGroupRepeat = useCallback(async (id: string, amount: number, day: number, shares: Shares) => { await engine().editGroupRepeat(id, amount, day, shares); }, []);
+  const stopGroupRepeat = useCallback(async (id: string) => { await engine().stopGroupRepeat(id); }, []);
 
   const addReceipts = useCallback(async (entryId: string, pictures: Blob[]) => {
     const e = engRef.current;
@@ -734,7 +743,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     entries: own.filter((e) => !e.deleted_at),
     allEntries: own,
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
-    groups, members, invites, settlements, joinCode, clearJoinCode,
+    groups, members, invites, groupRepeats, settlements, joinCode, clearJoinCode,
     dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
     goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, editNetWorth, restoreNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions,
     sync,
@@ -743,9 +752,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     toastAction,
     toast,
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
-    addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify,
+    addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify, addGroupRepeat, logGroupRepeat, skipGroupRepeat, editGroupRepeat, stopGroupRepeat,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, editNetWorth, restoreNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, groupRepeats, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, editNetWorth, restoreNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify, addGroupRepeat, logGroupRepeat, skipGroupRepeat, editGroupRepeat, stopGroupRepeat, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

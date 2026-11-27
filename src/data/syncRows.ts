@@ -10,6 +10,8 @@ import { SyncError } from './syncTypes.ts';
 export const pushable = (e: { owner_id?: string | null; group_id: string | null }, uid: string | null, active: Set<string> | null): boolean =>
   isMine({ owner_id: e.owner_id ?? null }, uid) && (!e.group_id || active === null || active.has(e.group_id));
 
+// Never send repeat_id or repeat_month (2.2): only the server's repeat functions write them, and a trigger refuses them on every
+// insert or upsert from the app, so sending them would make every edit of a logged expense fail.
 export const toRow = (e: Entry, uid: string) => ({
   id: e.id,
   owner_id: uid,

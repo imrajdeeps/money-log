@@ -4,6 +4,7 @@ import { MAX_SEEN, groupActivity, seenKeys } from '../../src/core/groupActivity.
 import { makeEntry } from '../../src/core/logic.ts';
 import type { Entry } from '../../src/core/logic.ts';
 import type { Settlement } from '../../src/core/groups.ts';
+import type { GroupRepeat } from '../../src/core/groupRepeats.ts';
 
 const ME = '00000000-0000-4000-8000-0000000000a1';
 const PRIYA = '00000000-0000-4000-8000-0000000000b2';
@@ -63,4 +64,23 @@ test('at most five are listed and the rest are counted', () => {
   assert.equal(r.items.length, 5);
   assert.equal(r.more, 3);
   assert.equal(r.items[0]!.text.includes('₹107'), true, 'newest first');
+});
+
+test('2.2: someone else setting up, changing, skipping or stopping a repeat is listed once, and your own changes never are', () => {
+  const at = (h: number) => `2026-12-01T${String(h).padStart(2, '0')}:00:00.000Z`;
+  const rep = (id: string, change: GroupRepeat['change'], by: string, h: number, over: Partial<GroupRepeat> = {}): GroupRepeat => ({
+    id, group_id: G, category: 'Rent', note: '', amount: 15000, day: 1, paid_by: ME, shares: { [ME]: 9000, [PRIYA]: 6000 }, done_through: '2026-12',
+    created_by: by, created_at: at(1), change, change_month: change === 'skip' ? '2027-01' : null, changed_by: by, changed_at: at(h), stopped_at: change === 'stop' ? at(h) : null, ...over,
+  });
+  const repeats = [rep('r1', 'add', PRIYA, 2), rep('r2', 'edit', PRIYA, 3, { amount: 16000 }), rep('r3', 'skip', AMIT, 4, { note: 'Wifi' }), rep('r4', 'stop', PRIYA, 5), rep('r5', 'edit', ME, 6), rep('r6', 'add', PRIYA, 7, { group_id: 'other' })];
+  const r = groupActivity([], [], G, ME, [], name, { repeats });
+  assert.deepEqual(r.items.map((a) => a.text), [
+    'Priya stopped repeating Rent',
+    'Amit skipped Wifi for January',
+    'Priya changed Rent, every month, to ₹16,000',
+    'Priya set up Rent every month (₹15,000)',
+  ]);
+  const seen = seenKeys([], [], G, { repeats });
+  assert.deepEqual(groupActivity([], [], G, ME, seen, name, { repeats }).items, [], 'seen once, not listed again');
+  assert.equal(seen.includes('repeat|r6|' + at(7)), false, 'another group\'s repeat is not this group\'s news');
 });

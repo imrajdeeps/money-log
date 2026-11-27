@@ -40,7 +40,7 @@ function device(email = 'me@example.com', cfg?: { supabaseUrl: string; supabaseK
 const iso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
 const entry = (over: Partial<Parameters<typeof makeEntry>[0]> = {}): Entry =>
   makeEntry({ amount: 100, category: 'Rent', method: 'UPI', note: 'n', date: '2026-11-09', ...over }, iso());
-const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.profiles.clear(); mock.state.profilesTableMissing = false; mock.state.sessions.length = 0; mock.state.signIns.length = 0; mock.state.signInFunctionsMissing = false; mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.recoveries.length = 0; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
+const reset = () => { mock.state.entries.clear(); mock.state.plans.clear(); mock.state.profiles.clear(); mock.state.profilesTableMissing = false; mock.state.sessions.length = 0; mock.state.signIns.length = 0; mock.state.signInFunctionsMissing = false; mock.state.groups.clear(); mock.state.members.clear(); mock.state.invites.clear(); mock.state.settlements.clear(); mock.state.repeats.clear(); mock.state.repeatsTableMissing = false; mock.state.receipts.clear(); mock.state.objects.clear(); mock.state.history.length = 0; mock.state.users.clear(); mock.state.passwords.clear(); mock.state.unconfirmed.clear(); mock.state.confirmSignups = false; mock.state.signupsOpen = true; mock.state.recoveries.length = 0; mock.state.requests.length = 0; mock.state.failNext = null; mock.state.accessTtlSec = 3600; };
 
 test('without a Supabase URL and key the app stays local and never touches the network', async () => {
   reset();
@@ -1628,4 +1628,49 @@ test('a server failure while a refused chunk is sent row by row stops there; the
   await d.sync.sync();
   assert.equal(mock.state.entries.size, 2, 'the good rows go up, the refused one stays');
   assert.equal(d.sync.getState().pending, 1);
+});
+
+// ---------------------------------------------------------------- version 2.2: repeats in a group
+import type { GroupRepeat } from '../../src/core/groupRepeats.ts';
+import { newId } from '../../src/core/logic.ts';
+
+test('2.2: a repeat set up on one phone shows on the other; a month counts once; a retry is the same log; an edit keeps the link', async () => {
+  const { a, b, gid, A, B } = await twoInAGroup();
+  const now = new Date();
+  const month = now.toISOString().slice(0, 7);
+  const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10);
+  const rid = newId();
+  const first = newId();
+  await a.sync.addGroupRepeat({ id: rid, groupId: gid, category: 'Rent', note: '', amount: 15000, day: 1, paidBy: A, shares: { [A]: 9000, [B]: 6000 }, entryId: first, date: lastMonth });
+  const back = await a.store.getEntry(first);
+  assert.equal(back?.repeat_id, rid, 'the first month came back from the server with its link');
+  assert.equal(back?.repeat_month, lastMonth.slice(0, 7));
+  assert.equal(back?.dirty, 0);
+  await b.sync.sync();
+  const seen = (await b.store.getMeta<GroupRepeat[]>('groupRepeats')) ?? [];
+  assert.deepEqual(seen.map((r) => [r.id, r.done_through, r.paid_by]), [[rid, lastMonth.slice(0, 7), A]]);
+  // B logs this month; the same tap again (a lost answer) is fine; A's own tap is refused as done
+  const logId = newId();
+  await b.sync.logGroupRepeat(rid, month, logId);
+  await b.sync.logGroupRepeat(rid, month, logId);
+  await assert.rejects(a.sync.logGroupRepeat(rid, month, newId()), (e: unknown) => e instanceof SyncError && e.status === 409);
+  await a.sync.sync();
+  const logs = (await a.store.allEntries()).filter((x) => x.repeat_id === rid && x.repeat_month === month);
+  assert.deepEqual(logs.map((x) => [x.id, x.owner_id, x.paid_by]), [[logId, B, A]], 'one expense for the month, logged by B, paid by A');
+  // A changes the note of the first month: the push does not send the link, and the server keeps it
+  const mine = (await a.store.getEntry(first))!;
+  await a.store.putEntries([{ ...editEntry(mine, { note: 'flat' }, iso(1000)), dirty: 1 }]);
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.equal(mock.state.entries.get(first).note, 'flat');
+  assert.equal(mock.state.entries.get(first).repeat_id, rid, 'the link stays on the server');
+  assert.equal((await a.store.getEntry(first))?.repeat_id, rid, 'and on the phone');
+});
+
+test('2.2: before the SQL is run there are no repeats, and the rest of the sync goes on', async () => {
+  const { a } = await twoInAGroup();
+  mock.state.repeatsTableMissing = true;
+  await a.sync.sync();
+  assert.equal(a.sync.getState().mode, 'idle', a.sync.getState().error ?? '');
+  assert.deepEqual(await a.store.getMeta<GroupRepeat[]>('groupRepeats'), []);
 });

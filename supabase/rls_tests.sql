@@ -1712,6 +1712,281 @@ begin
     reset role;
   end;
   raise notice 'PASS shared udhaar: only the two people see an entry, only Circle people can be asked, it counts after accepting, either settles, open accepted entries cannot be deleted';
+end $$;
+
+-- =====================================================================================
+-- Version 2.2: repeats in a group
+-- Cast: P pays the rent, Q shares it, R is in the group but not in the rent, S is a stranger.
+-- =====================================================================================
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into auth.users (id) values
+  ('f2200001-0000-4000-8000-000000000001'), ('f2200001-0000-4000-8000-000000000002'),
+  ('f2200001-0000-4000-8000-000000000003'), ('f2200001-0000-4000-8000-000000000004');
+
+-- helper: the error code (SQLSTATE) a statement raises, or '' when it runs: so a check proves WHICH rule refused it
+create or replace function pg_temp.code(stmt text) returns text language plpgsql as $$
+begin
+  execute stmt;
+  return '';
+exception when others then
+  return sqlstate;
+end $$;
+grant execute on function pg_temp.code(text) to public;
+
+do $$
+declare
+  p constant text := 'f2200001-0000-4000-8000-000000000001';
+  q constant text := 'f2200001-0000-4000-8000-000000000002';
+  r constant text := 'f2200001-0000-4000-8000-000000000003';
+  s constant text := 'f2200001-0000-4000-8000-000000000004';
+  rp1 constant uuid := 'f2200002-0000-4000-8000-000000000001'; -- Rent, P pays, P 9,000 and Q 6,000
+  rp2 constant uuid := 'f2200002-0000-4000-8000-000000000002'; -- Internet, on the 1st, started last month
+  rp3 constant uuid := 'f2200002-0000-4000-8000-000000000003'; -- in a trip that gets closed
+  rp4 constant uuid := 'f2200002-0000-4000-8000-000000000004'; -- stopped while this month is still open
+  rp5 constant uuid := 'f2200002-0000-4000-8000-000000000005'; -- started four months ago, so an old month is open but out of bounds
+  rp6 constant uuid := 'f2200002-0000-4000-8000-000000000006'; -- on the 31st, for logging before its day
+  e1 constant uuid := 'f2200003-0000-4000-8000-000000000001';
+  e2 constant uuid := 'f2200003-0000-4000-8000-000000000002';
+  e3 constant uuid := 'f2200003-0000-4000-8000-000000000003';
+  e4 constant uuid := 'f2200003-0000-4000-8000-000000000004';
+  e5 constant uuid := 'f2200003-0000-4000-8000-000000000005';
+  e6 constant uuid := 'f2200003-0000-4000-8000-000000000006';
+  g uuid; gt uuid; g2 uuid; g3 uuid; code text; tcode text; code2 text;
+  c text; -- what a call raised, kept before the row is read back (SQL does not promise to evaluate an OR left to right)
+  utc constant timestamp := now() at time zone 'UTC';
+  m constant text := to_char(utc, 'YYYY-MM');                          -- this month (UTC is always "this month somewhere")
+  nxt constant text := to_char(utc + interval '1 month', 'YYYY-MM');
+  far constant text := to_char(utc + interval '3 months', 'YYYY-MM');  -- never this or next month anywhere on earth
+  old constant text := to_char(utc - interval '3 months', 'YYYY-MM');
+  today constant date := utc::date;
+  last_month_end constant date := (date_trunc('month', utc) - interval '1 day')::date;
+  four_ago constant date := (date_trunc('month', utc) - interval '4 months')::date;
+  split constant jsonb := jsonb_build_object('f2200001-0000-4000-8000-000000000001', 9000, 'f2200001-0000-4000-8000-000000000002', 6000);
+  half constant jsonb := jsonb_build_object('f2200001-0000-4000-8000-000000000001', 500, 'f2200001-0000-4000-8000-000000000002', 500);
+  add_q constant text := $q$select public.add_group_repeat(%L, %L, 'Rent', '', %s, 1, %L, %L::jsonb, %L, %L)$q$;
+  fn text;
+  i int;
+  d31 date; -- this month's last day, worked out below as the script's own role (users cannot run repeat_date)
+begin
+  -- structure: members read, nobody writes, functions for signed-in users only, the helpers for nobody
+  if not (select relrowsecurity and relforcerowsecurity from pg_class where oid = 'public.group_repeats'::regclass) then
+    raise exception 'FAIL row-level security is not enabled and forced on group_repeats'; end if;
+  if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'group_repeats') <> 1
+     or (select count(*) from pg_policies where schemaname = 'public' and tablename = 'group_repeats' and cmd = 'SELECT'
+          and roles::text = '{authenticated}' and permissive = 'PERMISSIVE' and position('is_group_member' in qual) > 0) <> 1 then
+    raise exception 'FAIL group_repeats must have exactly one policy, members reading'; end if;
+  if has_table_privilege('anon', 'public.group_repeats', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then
+    raise exception 'FAIL role anon holds a privilege on group_repeats'; end if;
+  if has_table_privilege('authenticated', 'public.group_repeats', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then
+    raise exception 'FAIL users can write group_repeats directly; it must go through the functions'; end if;
+  foreach fn in array array['add_group_repeat(uuid,uuid,text,text,numeric,integer,uuid,jsonb,uuid,date)', 'log_group_repeat(uuid,text,uuid)',
+                            'skip_group_repeat(uuid,text)', 'edit_group_repeat(uuid,numeric,integer,jsonb)', 'stop_group_repeat(uuid)'] loop
+    if not has_function_privilege('authenticated', ('public.' || fn)::regprocedure, 'EXECUTE')
+       or has_function_privilege('anon', ('public.' || fn)::regprocedure, 'EXECUTE')
+       or has_function_privilege('public', ('public.' || fn)::regprocedure, 'EXECUTE') then
+      raise exception 'FAIL % must be for signed-in users only', fn; end if;
+    if not (select prosecdef from pg_proc where oid = ('public.' || fn)::regprocedure) then raise exception 'FAIL % is not security definer', fn; end if;
+  end loop;
+  foreach fn in array array['keep_repeat_link()', 'repeat_month_ok(text,integer)', 'repeat_date(text,integer)',
+                            'check_repeat_split(uuid,numeric,uuid,jsonb)', 'lock_group_repeat(uuid,boolean)'] loop
+    if has_function_privilege('authenticated', ('public.' || fn)::regprocedure, 'EXECUTE')
+       or has_function_privilege('anon', ('public.' || fn)::regprocedure, 'EXECUTE') then
+      raise exception 'FAIL internal function % can be run by users', fn; end if;
+  end loop;
+  foreach fn in array array['add_group_repeat(uuid,uuid,text,text,numeric,integer,uuid,jsonb,uuid,date)', 'log_group_repeat(uuid,text,uuid)',
+                            'skip_group_repeat(uuid,text)', 'edit_group_repeat(uuid,numeric,integer,jsonb)', 'stop_group_repeat(uuid)',
+                            'keep_repeat_link()', 'repeat_month_ok(text,integer)', 'repeat_date(text,integer)',
+                            'check_repeat_split(uuid,numeric,uuid,jsonb)', 'lock_group_repeat(uuid,boolean)'] loop
+    if not (select exists (select 1 from pg_proc p, unnest(p.proconfig) cfg where p.oid = ('public.' || fn)::regprocedure and cfg like 'search_path=%')) then
+      raise exception 'FAIL % does not pin its search_path', fn; end if;
+  end loop;
+  if (select count(*) from pg_trigger where not tgisinternal and tgname in ('entries_keep_repeat_link', 'group_repeats_touch_synced_at')) <> 2 then
+    raise exception 'FAIL the repeat triggers are missing'; end if;
+  if public.repeat_date('2026-02', 31) <> date '2026-02-28' or public.repeat_date('2028-02', 30) <> date '2028-02-29'
+     or public.repeat_date('2026-12', 1) <> date '2026-12-01' or public.repeat_date('2026-04', 31) <> date '2026-04-30' then
+    raise exception 'FAIL a repeat on a day the month does not have is not moved to its last day'; end if;
+  if not public.repeat_month_ok(m, 0) or public.repeat_month_ok(far, 1) or public.repeat_month_ok(old, 0) or public.repeat_month_ok(null, 0)
+     or public.repeat_month_ok('2026-13', 0) or not public.repeat_month_ok(nxt, 1) then
+    raise exception 'FAIL repeat_month_ok does not tell this month (and next, when allowed) from the rest'; end if;
+  d31 := public.repeat_date(m, 31);
+  raise notice 'PASS repeats structure: members read, nobody writes the table, the functions are for signed-in users and pin their search path';
+
+  perform pg_temp.act_as(p);
+  g := public.create_group('Flat 302', 'flatmates', 'Pia');
+  select i.code into code from public.group_invites i where i.group_id = g;
+  perform pg_temp.act_as(q); perform public.join_group(code, 'Qadir');
+  perform pg_temp.act_as(r); perform public.join_group(code, 'Ria');
+
+  -- setting one up: members who pay or share in it, a split that adds up among members, not in a later month
+  perform pg_temp.act_as(s);
+  if not pg_temp.fails(format(add_q, rp1, g, 15000, p, split, e1, today)) then raise exception 'FAIL a stranger set up a repeat in a group'; end if;
+  perform pg_temp.act_as(r);
+  if not pg_temp.fails(format(add_q, rp1, g, 15000, p, split, e1, today)) then raise exception 'FAIL someone not in the split set up a repeat'; end if;
+  perform pg_temp.act_as(p);
+  if not pg_temp.fails(format(add_q, rp1, g, 14000, p, split, e1, today)) then raise exception 'FAIL a repeat whose shares do not add up was set up'; end if;
+  if not pg_temp.fails(format(add_q, rp1, g, 15000, p, jsonb_build_object(p, 9000, s, 6000), e1, today)) then raise exception 'FAIL a repeat gave a share to a stranger'; end if;
+  if not pg_temp.fails(format(add_q, rp1, g, 15000, p, split, e1, today + 45)) then raise exception 'FAIL a repeat started in a later month'; end if;
+  perform public.add_group_repeat(rp1, g, 'Rent', '', 15000, 1, p::uuid, split, e1, today);
+  perform public.add_group_repeat(rp1, g, 'Rent', '', 15000, 1, p::uuid, split, e1, today); -- a retry after a lost answer
+  if (select count(*) from public.entries where repeat_id = rp1) <> 1 or (select done_through from public.group_repeats where id = rp1) <> m
+     or (select owner_id <> p::uuid or paid_by <> p::uuid or shares <> split or repeat_month <> m from public.entries where id = e1) then
+    raise exception 'FAIL setting up a repeat did not add exactly this month''s expense and mark the month done'; end if;
+  if (select change <> 'add' or changed_by <> p::uuid or created_by <> p::uuid from public.group_repeats where id = rp1) then
+    raise exception 'FAIL setting up a repeat was not noted with who did it'; end if;
+
+  -- reading: the group's members, nobody else; writing the table directly: nobody
+  perform pg_temp.act_as(r);
+  if pg_temp.n(format('select 1 from public.group_repeats where id = %L', rp1)) <> 1 then raise exception 'FAIL a member cannot see the group''s repeat'; end if;
+  perform pg_temp.act_as(s);
+  if pg_temp.n(format('select 1 from public.group_repeats where id = %L', rp1)) <> 0 then raise exception 'FAIL a stranger can see a group''s repeat'; end if;
+  perform pg_temp.act_as(q);
+  if not pg_temp.fails(format('update public.group_repeats set amount = 1 where id = %L', rp1)) then raise exception 'FAIL a member changed a repeat by writing the table'; end if;
+  if not pg_temp.fails(format('delete from public.group_repeats where id = %L', rp1)) then raise exception 'FAIL a member deleted a repeat by writing the table'; end if;
+  if not pg_temp.fails(format($q$insert into public.group_repeats (id, group_id, category, amount, day, paid_by, shares) values (gen_random_uuid(), %L, 'X', 1, 1, %L, '{}')$q$, g, q)) then
+    raise exception 'FAIL a member added a repeat by writing the table'; end if;
+
+  -- the link from an expense to its repeat and month: written by the functions only, and fixed
+  if not pg_temp.fails(format($q$insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares, repeat_id, repeat_month)
+                                 values (%L, %L, %L, 'Rent', 15000, %L, %L, %L::jsonb, %L, %L)$q$, e4, q, today, g, p, split, rp1, nxt)) then
+    raise exception 'FAIL an app request wrote an expense as logged by a repeat'; end if;
+  perform pg_temp.act_as(p);
+  if not pg_temp.fails(format('update public.entries set repeat_month = %L, updated_at = now() where id = %L', nxt, e1)) then raise exception 'FAIL the month a repeat logged was changed'; end if;
+  if not pg_temp.fails(format('update public.entries set repeat_id = null, repeat_month = null, updated_at = now() where id = %L', e1)) then raise exception 'FAIL an expense was unlinked from its repeat'; end if;
+  g2 := public.create_group('Flat 9B', 'flatmates', 'Pia');
+  select i.code into code2 from public.group_invites i where i.group_id = g2;
+  perform pg_temp.act_as(q); perform public.join_group(code2, 'Qadir');
+  perform pg_temp.act_as(p);
+  c := pg_temp.code(format('update public.entries set group_id = %L, updated_at = now() where id = %L', g2, e1));
+  if c <> '23514' or (select group_id from public.entries where id = e1) <> g then
+    raise exception 'FAIL a logged expense moved to another group'; end if;
+  if pg_temp.code(format('update public.entries set group_id = null, paid_by = null, shares = null, updated_at = now() where id = %L', e1)) = '' then raise exception 'FAIL a logged expense was made private'; end if;
+  -- even a request that sets the write marker itself is refused: only the repeat functions (running as the owner) write the link
+  perform pg_temp.act_as(q);
+  if pg_temp.fails(format('select set_config(''hisaab.repeat_write'', %L, true)', rp1)) then raise exception 'FAIL setting a custom value failed in the test itself'; end if;
+  if pg_temp.code(format($q$insert into public.entries (id, owner_id, entry_date, category, amount, group_id, paid_by, shares, repeat_id, repeat_month)
+                             values (%L, %L, %L, 'Rent', 15000, %L, %L, %L::jsonb, %L, %L)$q$, e4, q, today, g, p, split, rp1, far)) <> '42501' then
+    raise exception 'FAIL a user''s own request wrote an expense as logged by a repeat'; end if;
+  perform set_config('hisaab.repeat_write', '', true);
+  perform pg_temp.act_as(p);
+  update public.entries set amount = 15500, shares = jsonb_build_object(p, 9300, q, 6200), updated_at = now() where id = e1;
+  if (select amount from public.entries where id = e1) <> 15500 then raise exception 'FAIL whoever logged a month could not change that expense'; end if;
+
+  -- logging: this month only, once, by the people in it
+  if pg_temp.code(format($q$select public.log_group_repeat(%L, %L, %L)$q$, rp1, m, e2)) <> '23505' then raise exception 'FAIL a month that is done was logged again (or refused for another reason)'; end if;
+  if not pg_temp.fails(format($q$select public.log_group_repeat(%L, %L, %L)$q$, rp1, far, e2)) then raise exception 'FAIL a later month was logged early'; end if;
+  perform public.add_group_repeat(rp2, g, 'Internet', 'Airtel', 1000, 1, p::uuid, half, e2, last_month_end);
+  if (select done_through from public.group_repeats where id = rp2) <> to_char(last_month_end, 'YYYY-MM') then
+    raise exception 'FAIL a repeat started with last month''s expense is not done through last month'; end if;
+  perform pg_temp.act_as(r);
+  if pg_temp.code(format($q$select public.log_group_repeat(%L, %L, %L)$q$, rp2, m, e3)) <> '42501' then raise exception 'FAIL someone not in the repeat logged it'; end if;
+  perform pg_temp.act_as(p);
+  perform public.add_group_repeat(rp5, g, 'Gym', '', 1000, 1, p::uuid, half, gen_random_uuid(), four_ago);
+  perform pg_temp.act_as(q);
+  if pg_temp.code(format($q$select public.log_group_repeat(%L, %L, %L)$q$, rp5, old, e3)) <> '22023' then raise exception 'FAIL a month long gone (but not done) was logged'; end if;
+  perform public.log_group_repeat(rp2, m, e3);
+  if (select entry_date <> (m || '-01')::date or owner_id <> q::uuid or paid_by <> p::uuid or shares <> half or note <> 'Airtel'
+             or category <> 'Internet' or amount <> 1000 or repeat_id <> rp2 or repeat_month <> m from public.entries where id = e3) then
+    raise exception 'FAIL the logged expense does not carry the repeat''s day, payer, split and note, added by whoever logged it'; end if;
+  perform public.log_group_repeat(rp2, m, e3); -- a retry after a lost answer
+  perform pg_temp.act_as(p);
+  if pg_temp.code(format($q$select public.log_group_repeat(%L, %L, %L)$q$, rp2, m, e4)) <> '23505' then raise exception 'FAIL a second tap logged the same month again'; end if;
+  -- before its day the month cannot be logged (the 31st is never before the 14th hour of the month's last day only near month end)
+  perform public.add_group_repeat(rp6, g, 'Paper', '', 100, 31, p::uuid, jsonb_build_object(p, 50, q, 50), gen_random_uuid(), last_month_end);
+  if utc + interval '14 hours' < d31 and pg_temp.code(format($q$select public.log_group_repeat(%L, %L, gen_random_uuid())$q$, rp6, m)) <> '22023' then
+    raise exception 'FAIL a month was logged before its day'; end if;
+  if (select count(*) from public.entries where repeat_id = rp2 and repeat_month = m and deleted_at is null) <> 1
+     or (select done_through from public.group_repeats where id = rp2) <> m then
+    raise exception 'FAIL a month was not logged exactly once'; end if;
+
+  -- skipping: this month, or next month once this one is done; the people in it; noted with who did it
+  perform pg_temp.act_as(r);
+  if not pg_temp.fails(format($q$select public.skip_group_repeat(%L, %L)$q$, rp1, nxt)) then raise exception 'FAIL someone not in the repeat skipped it'; end if;
+  perform pg_temp.act_as(q);
+  if not pg_temp.fails(format($q$select public.skip_group_repeat(%L, %L)$q$, rp1, m)) then raise exception 'FAIL a month that is done was skipped'; end if;
+  if not pg_temp.fails(format($q$select public.skip_group_repeat(%L, %L)$q$, rp1, far)) then raise exception 'FAIL a month far ahead was skipped'; end if;
+  perform public.skip_group_repeat(rp1, nxt);
+  if (select done_through <> nxt or change <> 'skip' or change_month <> nxt or changed_by <> q::uuid from public.group_repeats where id = rp1) then
+    raise exception 'FAIL a skip was not stored with its month and who did it'; end if;
+
+  -- changing: the people in it, checked like an expense, and the months already logged keep their expenses
+  perform pg_temp.act_as(r);
+  if pg_temp.code(format($q$select public.edit_group_repeat(%L, 16000, 1, %L::jsonb)$q$, rp1, jsonb_build_object(p, 9600, q, 6400))) <> '42501' then raise exception 'FAIL someone not in the repeat changed it'; end if;
+  perform pg_temp.act_as(q);
+  if pg_temp.code(format($q$select public.edit_group_repeat(%L, 15000, 1, %L::jsonb)$q$, rp1, jsonb_build_object(p, 9000, r, 6000))) <> '42501' then
+    raise exception 'FAIL someone moved their share onto another member and stepped out of the repeat'; end if;
+  if not pg_temp.fails(format($q$select public.edit_group_repeat(%L, 16000, 1, %L::jsonb)$q$, rp1, jsonb_build_object(p, 9600, q, 6000))) then raise exception 'FAIL a change whose shares do not add up was saved'; end if;
+  if not pg_temp.fails(format($q$select public.edit_group_repeat(%L, 16000, 0, %L::jsonb)$q$, rp1, jsonb_build_object(p, 9600, q, 6400))) then raise exception 'FAIL a repeat was moved to day 0'; end if;
+  if not pg_temp.fails(format($q$select public.edit_group_repeat(%L, 16000, 1, %L::jsonb)$q$, rp1, jsonb_build_object(p, 9600, s, 6400))) then raise exception 'FAIL a change gave a share to a stranger'; end if;
+  perform public.edit_group_repeat(rp1, 16000, 5, jsonb_build_object(p, 9600, q, 6400));
+  if (select amount <> 16000 or day <> 5 or change <> 'edit' or changed_by <> q::uuid or done_through <> nxt from public.group_repeats where id = rp1) then
+    raise exception 'FAIL a change was not stored with who made it'; end if;
+  if (select amount from public.entries where id = e1) <> 15500 then raise exception 'FAIL changing a repeat changed a month already logged'; end if;
+
+  -- a closed trip takes no logged month and no new repeat; a refused log leaves the month open
+  perform pg_temp.act_as(p);
+  gt := public.create_group('Hills', 'trip', 'Pia');
+  select i.code into tcode from public.group_invites i where i.group_id = gt;
+  perform pg_temp.act_as(q); perform public.join_group(tcode, 'Qadir');
+  perform pg_temp.act_as(p);
+  perform public.add_group_repeat(rp3, gt, 'Stay', '', 1000, 1, p::uuid, half, e5, last_month_end);
+  perform public.set_group_closed(gt, true);
+  if not pg_temp.fails(format($q$select public.log_group_repeat(%L, %L, %L)$q$, rp3, m, e6)) then raise exception 'FAIL a repeat logged a month into a closed trip'; end if;
+  if (select done_through from public.group_repeats where id = rp3) <> to_char(last_month_end, 'YYYY-MM') then raise exception 'FAIL a refused log marked the month done'; end if;
+  if not pg_temp.fails(format(add_q, gen_random_uuid(), gt, 1000, p, half, gen_random_uuid(), today)) then raise exception 'FAIL a repeat was set up in a closed trip'; end if;
+
+  -- stopping: the people in it; it takes no more changes; the months already logged stay
+  perform pg_temp.act_as(r);
+  if not pg_temp.fails(format($q$select public.stop_group_repeat(%L)$q$, rp1)) then raise exception 'FAIL someone not in the repeat stopped it'; end if;
+  perform pg_temp.act_as(p);
+  perform public.stop_group_repeat(rp1);
+  if (select stopped_at is null or change <> 'stop' or changed_by <> p::uuid from public.group_repeats where id = rp1) then raise exception 'FAIL stopping was not stored with who did it'; end if;
+  if not pg_temp.fails(format($q$select public.edit_group_repeat(%L, 16000, 1, %L::jsonb)$q$, rp1, jsonb_build_object(p, 9600, q, 6400))) then raise exception 'FAIL a stopped repeat was changed'; end if;
+  if (select count(*) from public.entries where repeat_id = rp1 and deleted_at is null) <> 1 then raise exception 'FAIL stopping a repeat removed a month already logged'; end if;
+  -- stopped with this month still open: log and skip are refused because it is stopped, nothing else
+  perform public.add_group_repeat(rp4, g, 'Maid', '', 3000, 1, p::uuid, jsonb_build_object(p, 1500, q, 1500), gen_random_uuid(), last_month_end);
+  perform public.stop_group_repeat(rp4);
+  perform pg_temp.act_as(q);
+  if pg_temp.code(format($q$select public.log_group_repeat(%L, %L, gen_random_uuid())$q$, rp4, m)) <> '22023' then raise exception 'FAIL a stopped repeat was logged'; end if;
+  if pg_temp.code(format($q$select public.skip_group_repeat(%L, %L)$q$, rp4, m)) <> '22023' then raise exception 'FAIL a stopped repeat was skipped'; end if;
+  if (select done_through from public.group_repeats where id = rp4) <> to_char(last_month_end, 'YYYY-MM') then raise exception 'FAIL a stopped repeat''s month changed'; end if;
+  -- a repeat whose people have all left the group can still be stopped by an admin of the group (P made R an admin of Flat 302)
+  perform pg_temp.act_as(p);
+  perform public.make_admin(g, r::uuid);
+  perform pg_temp.act_as(r);
+  c := pg_temp.code(format($q$select public.stop_group_repeat(%L)$q$, rp5));
+  if c <> '' or (select stopped_at is null from public.group_repeats where id = rp5) then
+    raise exception 'FAIL an admin could not stop a repeat (%)', c; end if;
+  if pg_temp.code(format($q$select public.skip_group_repeat(%L, %L)$q$, rp6, m)) <> '42501' then raise exception 'FAIL an admin who is not in a repeat skipped it'; end if;
+  perform pg_temp.act_as(p);
+
+  -- at most 20 repeats at a time in a group (filled up to 20 from what is already going)
+  for i in 1..(20 - (select count(*) from public.group_repeats where group_id = g and stopped_at is null))::int loop
+    perform public.add_group_repeat(gen_random_uuid(), g, 'Bill ' || i, '', 100, 1, p::uuid, jsonb_build_object(p, 50, q, 50), gen_random_uuid(), today);
+  end loop;
+  if (select count(*) from public.group_repeats where group_id = g and stopped_at is null) <> 20 then raise exception 'FAIL the test did not reach 20 repeats'; end if;
+  if pg_temp.code(format(add_q, gen_random_uuid(), g, 15000, p, split, gen_random_uuid(), today)) <> '53400' then raise exception 'FAIL a group got a 21st repeat'; end if;
+  -- and at most 200 rows in a group, stopped ones included
+  g3 := public.create_group('Flat 12', 'flatmates', 'Pia');
+  reset role;
+  insert into public.group_repeats (id, group_id, category, amount, day, paid_by, shares, done_through, created_by, stopped_at, change)
+    select gen_random_uuid(), g3, 'Old ' || gs.k, 100, 1, p::uuid, jsonb_build_object(p, 100), m, p::uuid, now(), 'stop' from generate_series(1, 200) as gs(k);
+  perform pg_temp.act_as(p);
+  if pg_temp.code(format($q$select public.add_group_repeat(gen_random_uuid(), %L, 'Rent', '', 100, 1, %L, %L::jsonb, gen_random_uuid(), %L)$q$, g3, p, jsonb_build_object(p, 100), today)) <> '53400' then
+    raise exception 'FAIL a group with 200 repeats got another'; end if;
+  if pg_temp.code(format($q$select public.add_group_repeat(gen_random_uuid(), %L, 'Rent', '', 100, 1, %L, %L::jsonb, gen_random_uuid(), '1999-12-01')$q$, g2, p, jsonb_build_object(p, 50, q, 50))) <> '22023' then
+    raise exception 'FAIL a repeat started before the year 2000'; end if;
+
+  -- anonymous visitors and tokens without a user get nothing
+  perform pg_temp.act_as(null);
+  if not pg_temp.fails('select 1 from public.group_repeats') then raise exception 'FAIL anon could read group_repeats'; end if;
+  if not pg_temp.fails(format($q$select public.log_group_repeat(%L, %L, %L)$q$, rp2, m, e6)) then raise exception 'FAIL anon logged a repeat'; end if;
+  perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+  set local role authenticated;
+  if pg_temp.n('select 1 from public.group_repeats') <> 0 then raise exception 'FAIL a token without a user id can read repeats'; end if;
+  if not pg_temp.fails(format($q$select public.skip_group_repeat(%L, %L)$q$, rp2, nxt)) then raise exception 'FAIL a token without a user id skipped a repeat'; end if;
+  reset role;
+  raise notice 'PASS repeats in a group: the people in it set up, log, skip, change and stop it; a month counts once; the expense link is fixed; members read, nobody writes the table';
 
   raise notice 'ALL ACCESS TESTS PASSED';
 end $$;
