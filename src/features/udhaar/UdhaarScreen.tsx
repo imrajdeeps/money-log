@@ -28,7 +28,7 @@ function Row({ u, onEdit }: Readonly<{ u: UdhaarItem; onEdit: () => void }>) {
   const signedIn = app.syncEnabled && app.sync.mode !== 'signedout';
   return (
     <EntryCard who={u.n} sub={[lent ? tr('You lent') : tr('You borrowed'), shortDate(u.d), u.m].filter(Boolean).join(' · ')} amount={u.a} lent={lent}
-      tag={{ text: signedIn ? tr('Private · only you see it') : tr('Only on this phone'), tone: 'plain' }}>
+      tag={{ text: signedIn ? tr('Private · only you see it') : tr('Only on this device'), tone: 'plain' }}>
       <button type="button" className={us.action('primary')} onClick={() => { void app.setUdhaarSettled(u.id, true).then(() => app.toast(tr('Marked as settled'))); }}>{tr('Settled')}</button>
       {lent && <WhatsAppButton size="entry" label={tr('Remind on WhatsApp')} text={udhaarRemindText({ name: u.n, amount: u.a, upi, payeeName: profile.name || (app.sync.email ?? '').split('@')[0] || 'Me' })} />}
       <button type="button" className={us.action()} onClick={onEdit}>{tr('Change')}</button>

@@ -19,9 +19,9 @@ export interface Receipt {
   created_at: string;
   updated_at: string;
   uploaded_at: string | null; // the file is in the cloud
-  deleted_at: string | null; // the photo is gone (soft delete, so other phones learn of it)
+  deleted_at: string | null; // the photo is gone (soft delete, so other devices learn of it)
   purged_at: string | null; // ...and its file has been removed from the cloud
-  dirty: 0 | 1; // 1 = changed on this phone and not yet sent
+  dirty: 0 | 1; // 1 = changed on this device and not yet sent
 }
 
 export const receiptPath = (owner: string, id: string): string => `${owner}/${id}.jpg`;

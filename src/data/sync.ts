@@ -176,7 +176,7 @@ export function createSync(opts: SyncOptions) {
     const sess = toSession(res);
     const owner = await store.getMeta<string>('localOwner');
     if (owner && owner !== sess.user_id) {
-      throw new SyncError('owner-mismatch', tr('This phone still holds data from a different account. Use "Erase everything on this phone" in Settings first, then sign in.'));
+      throw new SyncError('owner-mismatch', tr('This device still holds data from a different account. Use "Erase everything on this device" in Settings first, then sign in.'));
     }
     await store.setMeta('session', sess);
     await store.setMeta('localOwner', sess.user_id);
@@ -459,7 +459,7 @@ export function createSync(opts: SyncOptions) {
     // upload the pictures of photos the database already knows
     for (const r of (await store.allReceipts()).filter((x) => needsUpload(x, uid) && !x.dirty)) {
       const blob = await store.getBlob(r.id);
-      if (!blob) { // the picture is no longer on this phone and never reached the cloud: the photo is lost, so drop it
+      if (!blob) { // the picture is no longer on this device and never reached the cloud: the photo is lost, so drop it
         await store.mutateReceipts([r.id], (cur) => (cur ? markPurged(markDeleted(cur, nowIso()), nowIso()) : undefined));
         continue;
       }

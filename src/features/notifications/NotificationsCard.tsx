@@ -40,7 +40,7 @@ export function NotificationsCard() {
             );
           })}
         </ul>
-        <p className="m-0 text-[13px] leading-[18px] text-muted">{tr('Notes are made on this phone from your own data. Nothing is sent to you by email or push. Your choices, and what you dismiss, follow you to your other phones.')}</p>
+        <p className="m-0 text-[13px] leading-[18px] text-muted">{tr('Notes are made on this device from your own data. Nothing is sent to you by email or push. Your choices, and what you dismiss, follow you to your other devices.')}</p>
       </section>
       <button type="button" className={ui.btn('outline', 'none', 'min-h-12 text-[15px]')} onClick={() => { void app.showDismissed().then(() => app.toast(tr('Dismissed notifications are back.'))); }}>{tr('Show dismissed notifications again')}</button>
       <DailyReminder />

@@ -67,7 +67,7 @@ export function SettingsScreen({ section, onSection }: Readonly<{ section?: Sett
             {sections.map((s) => <PartLink key={s.id} id={s.id} title={tr(s.title)} blurb={blurbs[s.id]} current={s.id === shown} onOpen={() => onSection(s.id)} />)}
           </ul>
         </nav>
-        <p className="m-0 text-[13px] text-muted text-center">{tr('Hisaab {0} · this phone holds {1} payments', VERSION, app.entries.length)}</p>
+        <p className="m-0 text-[13px] text-muted text-center">{tr('Hisaab {0} · this device holds {1} payments', VERSION, app.entries.length)}</p>
       </div>
       <div className={`flex flex-col gap-3.5 min-w-0 ${open ? '' : 'max-lg:hidden'}`}>
         <div className="flex flex-col gap-0.5">

@@ -3,15 +3,15 @@
 export const SETTINGS_SECTIONS = [
   { id: 'profile', title: 'Profile', blurb: 'Name, WhatsApp number, UPI id' },
   { id: 'account', title: 'Cloud sync', blurb: 'Sign in, sync, sign out' },
-  { id: 'password', title: 'Password and sessions', blurb: 'Change password, phones signed in' },
+  { id: 'password', title: 'Password and sessions', blurb: 'Change password, devices signed in' },
   { id: 'recurring', title: 'Recurring payments', blurb: 'Rent, SIPs, subscriptions: log with one tap' },
   { id: 'backup', title: 'Backup', blurb: 'Save or restore a copy of your data' },
-  { id: 'lock', title: 'App lock', blurb: 'A PIN for this phone' },
-  { id: 'receipts', title: 'Receipt photos', blurb: 'Storage used on this phone' },
-  { id: 'appearance', title: 'Appearance, sound and language', blurb: 'Light, dark or match the phone; sounds; language' },
+  { id: 'lock', title: 'App lock', blurb: 'A PIN for this device' },
+  { id: 'receipts', title: 'Receipt photos', blurb: 'Storage used on this device' },
+  { id: 'appearance', title: 'Appearance, sound and language', blurb: 'Light, dark or match the device; sounds; language' },
   { id: 'notifications', title: 'Notifications', blurb: 'What the bell tells you about' },
   { id: 'about', title: 'About', blurb: 'Version, install help, the tour' },
-  { id: 'erase', title: 'Erase everything on this phone', blurb: 'Remove all data from this phone' },
+  { id: 'erase', title: 'Erase everything on this device', blurb: 'Remove all data from this device' },
 ] as const satisfies readonly { id: string; title: string; blurb: string }[];
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]['id'];

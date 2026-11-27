@@ -5,7 +5,7 @@ export interface SyncConfig { supabaseUrl: string; supabaseKey: string }
 export type SyncMode = 'local' | 'signedout' | 'idle' | 'syncing' | 'offline' | 'error';
 export interface SyncState {
   mode: SyncMode;
-  pending: number; // changes on this phone not yet in the cloud
+  pending: number; // changes on this device not yet in the cloud
   lastSync: number | null;
   error: string | null;
   email: string | null;

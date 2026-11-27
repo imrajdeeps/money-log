@@ -43,7 +43,7 @@ export function PasswordCard() {
       </label>
       {msg && <p className={ui.msg(msg.bad ? 'bad' : 'good')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</p>}
       <button type="submit" className={ui.btn('solid', 'none', ps.save)} disabled={busy || !password || !password2}>{tr('Change password')}</button>
-      <p className={ps.small}>{tr('You are signed in, so no old password is needed. Others cannot see the new one and it is not kept on this phone.')}</p>
+      <p className={ps.small}>{tr('You are signed in, so no old password is needed. Others cannot see the new one and it is not kept on this device.')}</p>
     </form>
   );
 }

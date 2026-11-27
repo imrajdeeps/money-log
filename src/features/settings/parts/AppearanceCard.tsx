@@ -6,7 +6,7 @@ import * as ps from './partStyles.ts';
 import { tr } from '../../../core/i18n.ts';
 
 const LOOKS: { id: ThemeChoice; label: string; sub: string }[] = [
-  { id: 'system', label: 'Match my phone', sub: 'Light by day, dark by night, as your phone does' },
+  { id: 'system', label: 'Match my device', sub: 'Light by day, dark by night, as your device does' },
   { id: 'light', label: 'Light', sub: '' },
   { id: 'dark', label: 'Dark', sub: '' },
 ];

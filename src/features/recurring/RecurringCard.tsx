@@ -104,7 +104,7 @@ export function RecurringCard() {
           </div>
         </form>
       )}
-      <p className="m-0 text-[13px] leading-[18px] text-muted">{tr('To add one, tick Repeat every month when you add an expense. Each comes up on its day to log with one tap; nothing is logged on its own.')} {app.syncEnabled ? tr('Your other phones get the list when you sync.') : ''}</p>
+      <p className="m-0 text-[13px] leading-[18px] text-muted">{tr('To add one, tick Repeat every month when you add an expense. Each comes up on its day to log with one tap; nothing is logged on its own.')} {app.syncEnabled ? tr('Your other devices get the list when you sync.') : ''}</p>
       {!draft && <button type="button" className={ui.btn('outline', 'none', 'min-h-12 text-[15px]')} onClick={() => { setDraft(EMPTY); setError(''); setRemoving(null); }}>{tr('Add one here')}</button>}
     </>
   );

@@ -34,7 +34,7 @@ export interface NoticeInput {
   goals: { goal: Goal; progress: GoalProgress; line: GoalLine }[];
   groups: { id: string; name: string; balance: number }[]; // groups with company; balance in rupees: positive = owed to the person
   netWorth: NetNow | null;
-  lastBackupMs: number | null; // when a backup was last downloaded on this phone
+  lastBackupMs: number | null; // when a backup was last downloaded on this device
   hasPayments: boolean;
   sync: { mode: string; pending: number; lastSync: number | null; error: string | null };
   sessions: SessionInfo[] | null; // where the account is signed in now (null: not known: not signed in, offline, or the database has no such function yet)

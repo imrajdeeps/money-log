@@ -67,7 +67,7 @@ export function WelcomeFlow({ onStart, onSkip }: Readonly<{ onStart: (choice: St
         <div className={COLUMN}>
           <StepBar step={2} onSkip={onSkip} />
           <h1 id="welcome-title" className="mt-6 mb-0 text-[28px] leading-[34px] font-[750]">{tr('Write down your first payment')}</h1>
-          <p className="m-0 text-[16px] leading-6 text-muted">{tr('Type what you spent, tap a category, tap Save. About five seconds. It stays on this phone unless you turn on sync.')}</p>
+          <p className="m-0 text-[16px] leading-6 text-muted">{tr('Type what you spent, tap a category, tap Save. About five seconds. It stays on this device unless you turn on sync.')}</p>
           <AddPreview />
           <button type="button" className={BIG} onClick={() => onStart('track')}>{tr('Add your first expense')}</button>
         </div>

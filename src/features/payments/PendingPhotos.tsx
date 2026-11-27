@@ -59,7 +59,7 @@ export function PendingPhotos({ photos, onChange }: Readonly<{ photos: Blob[]; o
           </label>
         </div>
       )}
-      <p className={ui.hint.replace('mt-1.5', 'mt-0')}>{tr('Up to three. Photos stay on this phone until the payment is saved.')}</p>
+      <p className={ui.hint.replace('mt-1.5', 'mt-0')}>{tr('Up to three. Photos stay on this device until the payment is saved.')}</p>
       {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
     </div>
   );
