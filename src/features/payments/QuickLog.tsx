@@ -13,11 +13,14 @@ import { CoupleSplit } from './CoupleSplit.tsx';
 import { SplitEditor, freshSplit } from './SplitEditor.tsx';
 import type { SplitState } from './SplitEditor.tsx';
 import { activeMembers } from '../../core/groups.ts';
+import type { Member } from '../../core/groups.ts';
 import { alreadyAdded, noteFor, parseMessage, suggestCategory } from './smsParse.ts';
-import { METHODS, catKey, fmtINR, isoDate, monthOf, parseAmount } from '../../core/logic.ts';
+import { METHODS, catKey, fmtINR, isoDate, monthOf, newId, parseAmount } from '../../core/logic.ts';
+import { RepeatTick, repeatSaveNote } from './RepeatTick.tsx';
+import type { RepeatGroup } from './RepeatTick.tsx';
 import { readBasics, repeatPart, sharedPart } from './formChecks.ts';
 import type { RecurInput } from './formChecks.ts';
-import { ordinal, shortDate } from '../../core/format.ts';
+import { shortDate } from '../../core/format.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import type { EntryKind, Method, NewEntryInput } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
@@ -34,7 +37,15 @@ function lastMethod(): Method | null {
   }
 }
 
-const saveLabel = (isIn: boolean, shared: boolean): string => {
+// 2.2: the group a repeating shared expense goes to, as the Repeat tick describes it (null while no group and split are chosen).
+function repeatGroupOf(groupId: string, split: SplitState | null, people: readonly Member[], me: string | null, groupName: (id: string) => string): RepeatGroup | null {
+  if (!groupId || !split || !me) return null;
+  const payer = split.paidBy === me ? tr('you') : people.find((m) => m.user_id === split.paidBy)?.display_name ?? '';
+  return { name: groupName(groupId), payer, people: new Set([...split.included, split.paidBy]).size };
+}
+
+const saveLabel = (isIn: boolean, shared: boolean, busy = false): string => {
+  if (busy) return tr('Saving…');
   if (isIn) return tr('Save income');
   return shared ? tr('Save shared expense') : tr('Save payment');
 };
@@ -185,11 +196,19 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
 
   // one save at a time: a quick second tap must not save the payment twice
   const saving = useRef(false);
+  const [busy, setBusy] = useState(false); // shown while a save waits on the server (a shared expense set to repeat)
   async function save(ev?: FormEvent, stay = false) {
     ev?.preventDefault();
     if (saving.current) return;
     saving.current = true;
-    try { await doSave(stay); } finally { saving.current = false; }
+    setBusy(true);
+    try { await doSave(stay); } finally { saving.current = false; setBusy(false); }
+  }
+
+  // After a save: attach the photos, and say if they could not be.
+  async function photoNote(id: string): Promise<string> {
+    if (!photos.length) return '';
+    try { await app.addReceipts(id, photos); return ''; } catch (e) { return tr('. The photo could not be attached: {0}', e instanceof Error ? e.message : String(e)); }
   }
 
   // What to say after a save: the amount and category, whether it was set to repeat, and whether the photos could be attached.
@@ -199,10 +218,25 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
       const why = await app.addRecurring(recur, monthOf(d)); // done for the month it was logged in
       toast += why ? tr('. It could not be set to repeat: {0}', why) : tr('. It will come up every month.');
     }
-    if (photos.length) {
-      try { await app.addReceipts(id, photos); } catch (e) { toast += tr('. The photo could not be attached: {0}', e instanceof Error ? e.message : String(e)); }
+    return toast + (await photoNote(id));
+  }
+
+  // 2.2: a shared expense that repeats is set up on the server together with this first month, so the month counts once for
+  // everyone. Offline or refused, the expense is still saved (with the same id, so a set-up whose answer was lost is not doubled).
+  async function saveRepeating(amt: number, d: string, g: NonNullable<NewEntryInput['group']>, stay: boolean) {
+    const entryId = newId();
+    let toast = tr('Saved {0} · {1}', fmtINR(amt), category);
+    try {
+      await app.addGroupRepeat({ id: newId(), groupId: g.group_id, category, note: note.trim(), amount: amt, day: Number(d.slice(8, 10)), paidBy: g.paid_by, shares: g.shares, entryId, date: d });
+      toast += tr('. It comes up every month in {0}.', groupName(g.group_id));
+    } catch (e) {
+      await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group: g }, entryId);
+      const why = e instanceof Error ? e.message : String(e);
+      // with no connection the answer may only have been lost on the way back: say so, so nobody sets it up twice
+      toast += why === 'No connection' ? tr('. With no connection it may not be set to repeat: look under Every month in {0} before setting it up again.', groupName(g.group_id)) : tr('. It could not be set to repeat: {0}', why);
     }
-    return toast;
+    app.toast(toast + (await photoNote(entryId)));
+    clearForm(stay);
   }
 
   async function doSave(stay: boolean) {
@@ -214,12 +248,14 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
     if ('problem' in shared) return fail(shared.problem);
     const again = repeatPart({ repeat, groupId, category, amt, date: d, method, note: note.trim() });
     if ('problem' in again) return fail(again.problem);
+    if (repeat && shared.group) return saveRepeating(amt, d, shared.group, stay);
     const id = await app.addEntry({ amount: amt, category, method, note: note.trim(), date: d, group: shared.group });
     app.toast(await saidAfter(id, amt, d, again.recur));
     clearForm(stay);
   }
 
   const openGroups = app.groups.filter((g) => !g.closed_at);
+  const repeatGroup = repeatGroupOf(groupId, split, people, app.me, groupName);
   const groupPick = (
     <label className={ui.fieldBare}>
       <span>{tr('Group')}</span>
@@ -307,12 +343,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
 
         {!isIn && (
           <div className={ui.tickCard}>
-            {!groupId && (
-              <label className={ui.tickRow}>
-                <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
-                <span><b>{tr('Repeat every month')}</b><small>{tr('It comes up on the {0} each month, to log with one tap.', ordinal(Number((date ?? today).slice(8, 10))))}</small></span>
-              </label>
-            )}
+            <RepeatTick checked={repeat} onChange={setRepeat} date={date ?? today} group={repeatGroup} />
             {openGroups.length > 0 && (
               <label className={ui.tickRow}>
                 <input type="checkbox" checked={splitOn} onChange={(e) => { setSplitOn(e.target.checked); if (!e.target.checked) { setGroupId(''); setSplit(null); } }} />
@@ -336,7 +367,8 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
 
         <p className={ui.msg('bad')} role="alert" hidden={!error}>{error}</p>
         <div className="flex flex-col gap-2.5">
-          <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')}>{saveLabel(isIn, groupId !== '')}</button>
+          <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')} disabled={busy}>{saveLabel(isIn, groupId !== '', busy)}</button>
+          {repeatGroup && repeat && <p className="m-0 text-[13px] leading-[18px] text-muted">{repeatSaveNote(note.trim(), category, date ?? today, today)}</p>}
           <button type="button" className={ui.btn('outline', 'md')} onClick={() => { void save(undefined, true); }}>{tr('Save and add another')}</button>
         </div>
       </div>

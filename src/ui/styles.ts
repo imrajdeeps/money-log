@@ -60,6 +60,8 @@ const FIELD_LABEL = '[&>span]:block [&>span]:text-[13px] [&>span]:font-semibold 
 /** the label above a field when it is not inside the label (13px, 600) */
 export const label = 'block m-0 mb-1.5 text-[13px] font-semibold text-ink';
 /** the line of help under a field */
+/** a row of a bottom sheet's menu (an icon and words); the colour and weight come with each row */
+export const sheetRow = 'w-full min-h-14 flex items-center gap-3 text-left border-0 bg-transparent text-[16px] p-0 cursor-pointer [font-family:inherit]';
 export const hint = 'm-0 mt-1.5 text-[13px] leading-[18px] text-muted';
 /** a two-way (or three-way) switch: a grey track with the chosen one raised in white */
 export const segment = (n: 2 | 3 = 2) => cx('grid gap-1 p-1 rounded-[14px] bg-press', n === 3 ? 'grid-cols-3' : 'grid-cols-2');
