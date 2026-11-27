@@ -9,6 +9,7 @@ import { buildNotices } from '../../core/notifications.ts';
 import type { Notice, NoticeInput } from '../../core/notifications.ts';
 import { budgetEntries, isoDate, monthOf, summarizeMonth } from '../../core/logic.ts';
 import { recurringThisMonth } from '../../core/recurring.ts';
+import { noticeKindsShown } from '../../core/features.ts';
 
 // The notifications to show now. Worked out from what the phone already holds, again whenever that changes or the day does.
 export function useNotices(): Notice[] {
@@ -16,7 +17,7 @@ export function useNotices(): Notice[] {
   const lastBackup = useLastBackup();
   const today = isoDate();
   const spend = useSpendEntries();
-  const { dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, noticeKinds, dismissed, sessions } = app;
+  const { dueItems, recurring, entries, me, mine, goals, groups, members, groupEntries, settlements, sync, noticeKinds, dismissed, sessions, features } = app;
   return useMemo(() => {
     const own = budgetEntries(spend, me);
     const month = monthOf(today);
@@ -39,6 +40,7 @@ export function useNotices(): Notice[] {
       sync: { mode: sync.mode, pending: sync.pending, lastSync: sync.lastSync, error: sync.error },
       sessions,
     };
-    return buildNotices(input, noticeKinds, dismissed);
-  }, [today, dueItems, recurring, entries, spend, me, mine, goals, groups, members, groupEntries, settlements, sync, lastBackup, noticeKinds, dismissed, sessions]);
+    // the notes of a part that is turned off (Settings, Features) stay away, whatever the switches say
+    return buildNotices(input, noticeKindsShown(noticeKinds, features), dismissed);
+  }, [today, dueItems, recurring, entries, spend, me, mine, goals, groups, members, groupEntries, settlements, sync, lastBackup, noticeKinds, features, dismissed, sessions]);
 }

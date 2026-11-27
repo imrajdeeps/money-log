@@ -117,7 +117,7 @@ test('dueOverview counts overdue and open items and lists the next ones', () => 
 test('groupsOverview adds up what I am owed and what I owe across groups', () => {
   const G1 = U(11);
   const G2 = U(12);
-  const groups = [G1, G2].map((id) => ({ id, name: id, kind: 'trip' as const, created_at: T0, starts_on: null, ends_on: null, closed_at: null, usual_split: null, primary_admin: null }));
+  const groups = [G1, G2].map((id) => ({ id, name: id, kind: 'trip' as const, created_at: T0, starts_on: null, ends_on: null, closed_at: null, usual_split: null, primary_admin: null, simplify: true, simplify_by: null, simplify_at: null }));
   const entries = [
     mk(1000, 'Eating out', '2026-11-01', { group_id: G1, paid_by: ME, shares: { [ME]: 500, [OTHER]: 500 } }),
     mk(300, 'Eating out', '2026-11-01', { group_id: G2, paid_by: OTHER, shares: { [ME]: 150, [OTHER]: 150 } }),
@@ -173,7 +173,7 @@ test('all payments: search finds words in any order, amounts without commas, and
 const CA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const CB = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const grp = (id: string, kind: 'couple' | 'family' | 'trip'): import('../../../src/core/groups.ts').Group =>
-  ({ id, name: id, kind, created_at: '2026-11-10T00:00:00Z', starts_on: null, ends_on: null, closed_at: null, usual_split: null, primary_admin: null });
+  ({ id, name: id, kind, created_at: '2026-11-10T00:00:00Z', starts_on: null, ends_on: null, closed_at: null, usual_split: null, primary_admin: null, simplify: true, simplify_by: null, simplify_at: null });
 const mem = (gid: string, uid: string, name: string, left: string | null = null) =>
   ({ group_id: gid, user_id: uid, display_name: name, role: 'member' as const, joined_at: '2026-11-10T00:00:00Z', left_at: left });
 const G1 = '11111111-1111-4111-8111-111111111111';

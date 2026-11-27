@@ -22,7 +22,10 @@ const PATHS = {
   check: 'M5 12.5l4.5 4.5L19 7.5',
   target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 12h.01',
   bell: 'M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 21a2 2 0 0 0 4 0',
+  edit: 'M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z',
   trash: 'M4 7h16M9.5 7V4.5h5V7M6.5 7l.9 12.5a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9L17.5 7M10 11v5.5M14 11v5.5',
+  udhaar: 'M4 8h14l-3.5-3.5M20 16H6l3.5 3.5', // money going one way and coming back (Udhaar in the bottom bar when Plan is off)
+  list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01', // All payments in the bottom bar when Plan and Udhaar are off
 } as const;
 
 export type IconName = keyof typeof PATHS;

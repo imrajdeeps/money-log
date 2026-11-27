@@ -4,10 +4,10 @@
 // (data/phonePrefs.ts); this file works out the list. Pure.
 import type { Entry } from './logic.ts';
 import { fmtINR, parseTs } from './logic.ts';
-import type { Settlement } from './groups.ts';
+import type { Group, Settlement } from './groups.ts';
 import { tr } from './i18n.ts';
 
-export type ActivityKind = 'added' | 'changed' | 'paid';
+export type ActivityKind = 'added' | 'changed' | 'paid' | 'setting';
 export interface Activity { kind: ActivityKind; who: string; text: string; at: string }
 
 const MAX_SHOWN = 5;
@@ -15,13 +15,26 @@ export const MAX_SEEN = 400; // the newest rows remembered for a group
 
 const entryKey = (e: Pick<Entry, 'id' | 'updated_at'>): string => `${e.id}|${e.updated_at}`;
 const settlementKey = (s: Pick<Settlement, 'id' | 'updated_at'>): string => `${s.id}|${s.updated_at}`;
+// 2.1: an admin changing Simplify repayments is news for the group too ("the group gets a note when it changes", from the design)
+type GroupSetting = Pick<Group, 'simplify' | 'simplify_by' | 'simplify_at'>;
+const simplifyKey = (g: GroupSetting): string | null => (g.simplify_at ? `simplify|${g.simplify_at}` : null);
 
 /** The keys of everything in a group right now (the newest MAX_SEEN): what "seen" is made of. */
-export function seenKeys(entries: readonly Entry[], settlements: readonly Settlement[], groupId: string): string[] {
+export function seenKeys(entries: readonly Entry[], settlements: readonly Settlement[], groupId: string, group?: GroupSetting): string[] {
   const rows: { key: string; at: number }[] = [];
+  const setting = group ? simplifyKey(group) : null;
+  if (setting) rows.push({ key: setting, at: parseTs(group!.simplify_at!) });
   for (const e of entries) if (e.group_id === groupId) rows.push({ key: entryKey(e), at: parseTs(e.updated_at) });
   for (const s of settlements) if (s.group_id === groupId) rows.push({ key: settlementKey(s), at: parseTs(s.updated_at) });
   return rows.sort((a, b) => b.at - a.at).slice(0, MAX_SEEN).map((r) => r.key);
+}
+
+/** An admin other than you changed Simplify repayments since you last looked. */
+function settingNote(group: GroupSetting, me: string, known: ReadonlySet<string>, nameOf: (uid: string | null) => string): Activity | null {
+  const key = simplifyKey(group);
+  if (!key || group.simplify_by === me || known.has(key)) return null;
+  const who = nameOf(group.simplify_by);
+  return { kind: 'setting', who, at: group.simplify_at!, text: group.simplify ? tr('{0} turned on Simplify repayments', who) : tr('{0} turned off Simplify repayments', who) };
 }
 
 /**
@@ -31,7 +44,7 @@ export function seenKeys(entries: readonly Entry[], settlements: readonly Settle
  */
 export function groupActivity(
   entries: readonly Entry[], settlements: readonly Settlement[], groupId: string, me: string | null, seen: readonly string[] | null,
-  nameOf: (uid: string | null) => string,
+  nameOf: (uid: string | null) => string, group?: GroupSetting,
 ): { items: Activity[]; more: number } {
   if (!seen || !me) return { items: [], more: 0 };
   const known = new Set(seen);
@@ -48,6 +61,8 @@ export function groupActivity(
     const who = nameOf(s.created_by);
     all.push({ kind: 'paid', who, at: s.updated_at, text: tr('{0} recorded that {1} paid {2} {3}', who, nameOf(s.from_user), nameOf(s.to_user), fmtINR(s.amount)) });
   }
+  const note = group ? settingNote(group, me, known, nameOf) : null;
+  if (note) all.push(note);
   all.sort((a, b) => parseTs(b.at) - parseTs(a.at));
   return { items: all.slice(0, MAX_SHOWN), more: Math.max(0, all.length - MAX_SHOWN) };
 }

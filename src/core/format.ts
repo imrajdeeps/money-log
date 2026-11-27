@@ -27,6 +27,18 @@ export function shortDate(iso: string): string {
   return (y === new Date().getFullYear() ? dayMonth() : dayMonthYear()).format(date);
 }
 
+/** "24 Sept 2026": a day with its year, always. */
+export function longDate(iso: string): string {
+  const [y, m, d] = parts(iso);
+  return dayMonthYear().format(new Date(y, m - 1, d));
+}
+
+/** "Sept": a month's short name, for the labels under a chart. */
+export function shortMonth(iso: string): string {
+  const [y, m] = parts(iso);
+  return fmt('m', { month: 'short' }).format(new Date(y, m - 1, 1));
+}
+
 /** "Tuesday, 24 Nov": a day heading in a list of payments, in the chosen language. */
 export function dayHeading(iso: string): string {
   const [y, m, d] = parts(iso);

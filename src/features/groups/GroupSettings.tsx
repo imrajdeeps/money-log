@@ -7,13 +7,14 @@ import { kindLabel } from '../../core/groupKinds.ts';
 import { InviteCard } from './InviteCard.tsx';
 import { PeopleCard } from './PeopleCard.tsx';
 import { ShareCountCard } from './ShareCountCard.tsx';
+import { SimplifyCard } from './SimplifyCard.tsx';
 import { TripSettings } from './TripSettings.tsx';
 import { UsualSplitCard } from './UsualSplitCard.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
-// The settings of ONE group, on a page of its own (/groups/<id>/settings): invite people, the usual split (flatmates), the trip's
-// dates, the people, and leaving. What only an admin may do is shown to admins only; nothing here is shared between groups.
+// The settings of ONE group, on a page of its own (/groups/<id>/settings): In my month, invite people, the usual split (flatmates),
+// Simplify repayments, the trip's dates, the people, and leaving. What only an admin may do is shown to admins only; nothing here is shared between groups.
 export function GroupSettings({ group, onBack, onLeft }: Readonly<{ group: Group; onBack: () => void; onLeft: () => void }>) {
   const app = useApp();
   const people = useMemo(() => activeMembers(app.members, group.id), [app.members, group.id]);
@@ -34,6 +35,7 @@ export function GroupSettings({ group, onBack, onLeft }: Readonly<{ group: Group
           <ShareCountCard group={group} />
           {isAdmin && <InviteCard group={group} people={people} />}
           {group.kind === 'flatmates' && <UsualSplitCard group={group} people={people} isAdmin={isAdmin} />}
+          <SimplifyCard group={group} people={people} isAdmin={isAdmin} />
           {group.kind === 'trip' && <TripSettings group={group} isAdmin={isAdmin} />}
         </div>
         <div className="flex flex-col gap-4">

@@ -1,5 +1,6 @@
 import { useApp } from '../../data/context.tsx';
 import { NOTICE_KINDS } from '../../core/noticeKinds.ts';
+import { noticeKindsShown } from '../../core/features.ts';
 import type { NoticeKind } from '../../core/noticeKinds.ts';
 import { DailyReminder } from './DailyReminder.tsx';
 import * as ui from '../../ui/styles.ts';
@@ -23,12 +24,13 @@ function describe(kind: NoticeKind): { name: string; example: string } {
 // Notifications: one switch per kind, and a way to bring dismissed notifications back. Both sync with the rest of the data.
 export function NotificationsCard() {
   const app = useApp();
+  const offered = noticeKindsShown(new Set(NOTICE_KINDS), app.features); // a part that is turned off has no switch here
   return (
     <>
       <section className="flex flex-col gap-2">
         <h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('Which notes appear')}</h3>
         <ul className="list-none m-0 px-4 bg-card border border-line rounded-card [&>li+li]:border-t [&>li+li]:border-line">
-          {NOTICE_KINDS.map((kind) => {
+          {NOTICE_KINDS.filter((kind) => offered.has(kind)).map((kind) => {
             const d = describe(kind);
             return (
               <li key={kind}>

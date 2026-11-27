@@ -296,7 +296,7 @@ declare
   rpc constant text[] := array['create_group(text,text,text)', 'join_group(text,text)', 'reset_invite(uuid)', 'leave_group(uuid)',
                                'remove_member(uuid,uuid)', 'make_admin(uuid,uuid)', 'revoke_admin(uuid,uuid)', 'make_primary_admin(uuid,uuid)', 'claim_primary_admin(uuid)',
                                'circle_new_invite()', 'circle_join(text)', 'circle_remove(uuid)', 'my_circle()', 'set_display_name(uuid,text)',
-                               'set_trip_dates(uuid,date,date)', 'set_group_closed(uuid,boolean)', 'set_usual_split(uuid,jsonb)'];
+                               'set_trip_dates(uuid,date,date)', 'set_group_closed(uuid,boolean)', 'set_usual_split(uuid,jsonb)', 'set_group_simplify(uuid,boolean)'];
   internal constant text[] := array['group_balance(uuid,uuid)', 'was_group_member(uuid,uuid)', 'new_invite_code()',
                                     'validate_entry_group()', 'validate_settlement()', 'names_former_member(uuid,uuid,jsonb)', 'enforce_row_cap()', 'circle_link_count(uuid)'];
   helpers constant text[] := array['is_group_member(uuid)', 'is_group_admin(uuid)', 'is_primary_admin(uuid)'];
@@ -747,6 +747,24 @@ begin
     perform public.set_usual_split(gf, null);
     if (select usual_split from public.groups where id = gf) is not null then raise exception 'FAIL the usual split was not cleared'; end if;
     raise notice 'PASS flatmates: the usual split is checked and only admins can set it';
+
+    -- Simplify repayments (2.1): on by default, admins only, and the change is noted with who made it
+    if (select simplify from public.groups where id = gf) is not true then raise exception 'FAIL a group does not simplify by default'; end if;
+    perform pg_temp.act_as(b);
+    if not pg_temp.fails(format($q$select public.set_group_simplify(%L, false)$q$, gf)) then raise exception 'FAIL a member who is not an admin changed Simplify repayments'; end if;
+    perform pg_temp.act_as(null);
+    if not pg_temp.fails(format($q$select public.set_group_simplify(%L, false)$q$, gf)) then raise exception 'FAIL an anonymous visitor changed Simplify repayments'; end if;
+    perform pg_temp.act_as(a);
+    if not pg_temp.fails(format($q$select public.set_group_simplify(%L, null)$q$, gf)) then raise exception 'FAIL Simplify repayments was set to null'; end if;
+    perform public.set_group_simplify(gf, false);
+    if (select simplify or simplify_by is distinct from a::uuid or simplify_at is null from public.groups where id = gf) then raise exception 'FAIL turning Simplify repayments off was not stored with who did it'; end if;
+    perform pg_temp.act_as(b);
+    if (select simplify from public.groups where id = gf) is not false then raise exception 'FAIL a member does not see the group no longer simplifies'; end if;
+    if not pg_temp.fails(format($q$update public.groups set simplify = true where id = %L$q$, gf)) and (select simplify from public.groups where id = gf) then raise exception 'FAIL a member turned Simplify repayments on by writing the table'; end if;
+    perform pg_temp.act_as(a);
+    perform public.set_group_simplify(gf, true);
+    if (select simplify from public.groups where id = gf) is not true then raise exception 'FAIL Simplify repayments could not be turned back on'; end if;
+    raise notice 'PASS Simplify repayments: on by default, only admins change it, and who changed it is kept';
   end;
 
   -- coming back is as a plain member, even for a former admin; a group with no admin is taken over by the next joiner

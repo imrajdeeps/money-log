@@ -124,21 +124,37 @@ function DueSection() {
   );
 }
 
-export function PlanScreen({ onUdhaar }: Readonly<{ onUdhaar: () => void }>) {
+// With Net worth off (Settings, Features, version 2.1): one quiet row that says where it is turned on.
+function WorthHint({ onOpen }: Readonly<{ onOpen: () => void }>) {
+  return (
+    <button type="button" onClick={onOpen} className="w-full grid grid-cols-[minmax(0,1fr)_18px] gap-2.5 items-center min-h-[52px] px-3.5 py-3 rounded-[14px] border-0 bg-press text-ink text-left cursor-pointer [font-family:inherit]">
+      <span className="flex flex-col gap-0.5"><span className="text-[14px] font-[650]">{tr('Want your net worth here too?')}</span><span className="text-[13px] leading-[18px] text-muted">{tr('Turn it on in Settings, Features.')}</span></span>
+      <Icon name="chevron" size={18} />
+    </button>
+  );
+}
+
+export function PlanScreen({ onUdhaar, onFeatures, onNetWorth }: Readonly<{ onUdhaar: () => void; onFeatures: () => void; onNetWorth: () => void }>) {
+  const app = useApp();
+  const worth = app.features.has('worth');
+  const udhaar = app.features.has('udhaar') && <button type="button" className={ui.btn('outline')} onClick={onUdhaar}>{tr('Udhaar: money lent and borrowed')}</button>;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col">
         <h2 className="m-0 text-[24px] leading-[30px] font-bold">{tr('Plan')}</h2>
-        <p className="m-0 text-[14px] text-muted">{tr('What you own and owe, what you are saving for, and what is due.')}</p>
+        <p className="m-0 text-[14px] text-muted">{worth ? tr('What you own and owe, what you are saving for, and what is due.') : tr('What you are saving for, and what is due.')}</p>
       </div>
-      <div className="grid gap-x-7 gap-y-4 items-start lg:grid-cols-2">
-        <section aria-label={tr('Net worth')}><NetWorthCard /></section>
-        <div className="flex flex-col gap-4">
-          <GoalsScreen />
-          <DueSection />
-          <button type="button" className={ui.btn('outline')} onClick={onUdhaar}>{tr('Udhaar: money lent and borrowed')}</button>
+      {worth ? (
+        <div className="grid gap-x-7 gap-y-4 items-start lg:grid-cols-2">
+          <section aria-label={tr('Net worth')}><NetWorthCard onHistory={onNetWorth} /></section>
+          <div className="flex flex-col gap-4"><GoalsScreen /><DueSection />{udhaar}</div>
         </div>
-      </div>
+      ) : (
+        <div className="grid gap-x-7 gap-y-4 items-start lg:grid-cols-2">
+          <GoalsScreen />
+          <div className="flex flex-col gap-4"><DueSection />{udhaar}<WorthHint onOpen={onFeatures} /></div>
+        </div>
+      )}
     </div>
   );
 }
