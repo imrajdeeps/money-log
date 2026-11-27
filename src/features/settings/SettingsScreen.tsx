@@ -17,6 +17,7 @@ import { AboutCard } from './parts/AboutCard.tsx';
 import { AppLockCard } from './parts/AppLockCard.tsx';
 import { ProfileCard } from './parts/ProfileCard.tsx';
 import { LanguageCard } from './parts/LanguageCard.tsx';
+import { FeaturesCard } from './parts/FeaturesCard.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -51,6 +52,7 @@ export function SettingsScreen({ section, onSection }: Readonly<{ section?: Sett
     password: <><PasswordCard /><LoginHistoryCard /></>,
     recurring: <RecurringCard />,
     appearance: <><AppearanceCard /><LanguageCard /></>,
+    features: <FeaturesCard />,
     notifications: null, // opens the Notifications page, where the choices sit under the notes
     receipts: <ReceiptsCard />,
     lock: <AppLockCard />,

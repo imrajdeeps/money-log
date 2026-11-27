@@ -94,10 +94,10 @@ its own. Every page has its own address, so a refresh, the back button and a boo
 |---|---|
 | Overview | `/` |
 | Month (a group tile such as Saving opens just that group's categories) | `/month`, `/month?g=Saving` |
-| Plan, All payments | `/plan`, `/payments` |
+| Plan, its net worth history, All payments | `/plan`, `/networth`, `/payments` |
 | Add expense (or income), and Add opened on Received | `/add`, `/add?kind=in` |
 | Cash flow | `/cashflow` |
-| Groups, and one group | `/groups`, `/groups/<id>` |
+| Groups, one group, and its settings | `/groups`, `/groups/<id>`, `/groups/<id>/settings` |
 | Settings, and one part of it | `/settings`, `/settings/password` |
 
 The top bar (wide screens) and the bottom bar (phones) switch between them. Add expense is a page too; it keeps what you
@@ -115,9 +115,9 @@ the field before its keyboard comes up).
 | Groups | What you are owed or owe across your groups | **Groups** |
 
 **+ Add expense** (the round button in the middle of the bottom bar on a phone, the button at the top right on a wider
-screen) opens the payment form with the amount ready to type; saving closes it. The bottom bar on a phone also has Home,
-Month, Plan and Groups; Settings is the gear at the top right. On a wider screen all of them are
-links at the top. Tiles without data say where the data comes from instead, and while you have logged fewer than five payments the
+screen) opens the payment form with the amount ready to type; saving closes it. The bottom bar on a phone has Groups first,
+then Home, Month and Plan (Udhaar when Plan is turned off, All payments when Udhaar is off too); Settings is the gear at the top
+right. On a wider screen all of them are links at the top, Groups first. Tiles without data say where the data comes from instead, and while you have logged fewer than five payments the
 Overview hides the tiles that would only be empty.
 
 **Settings** is a short list of headings (Cloud sync, Password and sessions, Appearance, and so on); tapping one opens
@@ -154,6 +154,19 @@ alter table public.plan_blocks add constraint plan_blocks_block_known
 everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
+
+## Groups first, parts you turn on, net worth history (version 2.1.0)
+**Needs the SQL in `supabase/schema.sql` run once** (the whole file is safe to run again; the new part is the section *Version 2.1: Simplify repayments* at the end), then `supabase/rls_tests.sql` (it must end with `ALL ACCESS TESTS PASSED`). Without the SQL everything else works: every group simplifies, as before, and turning Simplify repayments off says the server refused. From `docs/prd-2.1.md` and the design on the Claude Design canvas.
+
+- **Groups first.** Groups is the first tab on a phone and the first link on a wide screen. The app still opens on the Overview.
+- **Features** (Settings, Features). Plan (goals, the due list, the calendar file) and Net worth start **off**; Udhaar and Insights and cash flow start on. Net worth lives inside Plan, so it shows only while Plan is on. A part that is off is only hidden: its pages, Overview tiles, notes on the bell, tour steps and what's-new cards. Nothing is deleted, everything keeps syncing, and turning it on brings it back as it was. With Plan off its tab goes to Udhaar. The choice is one item in the account's goals block, so it follows the account to every device (no SQL). A name a later version adds is kept as it is, so an older device that saves the item does not switch it off.
+- **A short tour, and only this month's news.** Seven cards: Welcome, Groups, Add, Overview, Month, Plan (only when Plan is on) and Done. *What is new* shows the cards of releases made this calendar month, the newest three, each with its release day, and leaves out cards about a part that is off. Settings, About says *Nothing new this month* when that is so.
+- **Logo C.** Two ledger lines and a tick, lime on deep green, with the line *Hisaab barabar*: the header, the start screen, the lock screen, the home-screen icons and the favicon.
+- **Net worth history** (Plan, Net worth, *See every update · change or delete one*; `/networth`). A chart over 6 months, 1 year or all of it, with the highest and lowest figure; every update newest first, with how it moved and whether it was a check-in or typed in. Change or delete any update (a sheet on a phone, Edit and Delete on a wide screen), with Undo. An update far from the ones around it, such as a ₹0 typed by mistake, says *Looks wrong?* with *Delete it* / *It is right* (the answer is kept on this device). Typing ₹0, or a figure under half or over double the last one, is asked about once before it is saved, when typing a new figure and when changing one. Deleting an update removes only that point; what you own and owe is untouched. Edits, deletes and Undo are stamped later than what they replace, so a device whose clock is behind still wins.
+- **In my month: Counted from.** Turning a group's *In my month* on asks from which day your share counts: *Start of this month* (the default), *Today*, or *Another day*. It stays on this device, as before.
+- **Simplify repayments**, a setting of each group (Group settings). On, the default and how every group worked before: the fewest payments that settle everyone, and your payment can say *Why this amount?*. Off: each person pays back exactly whom they owe, two people's debts to each other cancel out (and money that only goes round in a loop cancels out too), and each payment says what it is for: *Wi-Fi, Gas and Water ₹1,132, less Electricity ₹400*. Either way everyone pays the same in total. Only admins change it (members see who can); the group page shows *Simplified* or *Not simplified* with *Change*, and the group gets a note when an admin changes it. SQL: `groups.simplify` (default true), `simplify_by`, `simplify_at` and `set_group_simplify()`, admins only.
+- **Not in 2.1:** a payment that repeats in a group (rent split ₹9,000 / ₹6,000). It is designed first and comes in 2.2. Shared-goal invitations show on the Plan page only, so with Plan off they wait unseen until Plan is turned on (on the list for 2.2).
+- **Checks:** `npm run check`, `npm test` (new tests for Features, the tour, the history, Counted from and the repayments), the access tests on a scratch Postgres 18, an independent review (its findings are fixed), and the built app in the browser at phone and desktop width, light and dark, with three test accounts on the local mock server (the simplified and pair-by-pair lists, Why this amount, the member's view and the group note).
 
 ## Fixes from the owner's screenshots (version 2.0.1)
 No SQL, no new package. From the owner's list of 2026-11-27.

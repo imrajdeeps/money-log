@@ -1,6 +1,8 @@
 import { useApp } from '../../../data/context.tsx';
 import { VERSION } from './shared.ts';
 import { startTour } from '../../tour/index.ts';
+import { replay } from '../../../core/tour.ts';
+import { isoDate } from '../../../core/logic.ts';
 import * as ui from '../../../ui/styles.ts';
 import * as ps from './partStyles.ts';
 import { tr } from '../../../core/i18n.ts';
@@ -11,6 +13,7 @@ const LINK = 'min-h-11 px-0 border-0 bg-transparent text-brand text-[15px] font-
 export function AboutCard() {
   const app = useApp();
   const ROW = 'flex justify-between items-center min-h-14 text-[15px]';
+  const news = replay('news', VERSION, { today: isoDate(), on: app.features }).steps.length > 0; // what is new is this month's only
   return (
     <>
       {app.storageKind === 'memory' && (
@@ -19,7 +22,9 @@ export function AboutCard() {
       <ul className={ps.listCard + ' list-none m-0 [&>li+li]:border-t [&>li+li]:border-line'} data-tour="about-tour">
         <li className={ROW}><span>{tr('Version')}</span><span className="font-semibold">{VERSION}</span></li>
         <li className={ROW}><span>{tr('Take the tour')}</span><button type="button" className={LINK} onClick={() => startTour('first')}>{tr('Start')}</button></li>
-        <li className={ROW}><span>{tr('What is new')}</span><button type="button" className={LINK} onClick={() => startTour('news')}>{tr('See')}</button></li>
+        <li className={ROW}><span>{tr('What is new')}</span>{news
+          ? <button type="button" className={LINK} onClick={() => startTour('news')}>{tr('See')}</button>
+          : <span className="text-muted">{tr('Nothing new this month')}</span>}</li>
         <li className={ROW}><span>{tr('Amounts')}</span><span className="font-semibold">{tr('In rupees')}</span></li>
       </ul>
       <div className={ps.card + ' gap-2'}>

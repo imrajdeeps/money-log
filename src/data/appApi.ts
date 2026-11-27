@@ -1,6 +1,7 @@
 import type { DueItem } from '../core/blocks.ts';
 import type { DueInput } from '../core/dueItems.ts';
 import type { NoticeKind } from '../core/noticeKinds.ts';
+import type { Feature } from '../core/featureKinds.ts';
 import type { SessionInfo, SignInEvent } from '../core/signins.ts';
 import type { BackupParse } from './backup.ts';
 import type { AddResult, CategoryInfo, Mine } from '../core/categories.ts';
@@ -102,6 +103,8 @@ export interface AppApi {
   removeTopUp: (id: string) => Promise<void>;
   addNetWorth: (amount: number, date: string) => Promise<string | null>; // a net worth update; the error text, or null
   removeNetWorth: (id: string) => Promise<void>;
+  editNetWorth: (id: string, amount: number, date: string) => Promise<string | null>; // change an update; the error text, or null
+  restoreNetWorth: (id: string) => Promise<void>; // bring back an update just deleted (Undo)
   incomeCats: string[]; // what can be picked for income: built-in, then the person's own
   addIncomeCategory: (name: string) => Promise<IncomeCatResult>;
   removeIncomeCategory: (name: string) => Promise<void>; // one of the person's own only
@@ -110,6 +113,9 @@ export interface AppApi {
   noticeKinds: ReadonlySet<NoticeKind>; // the kinds of notification that are switched on
   dismissNotice: (key: string) => Promise<void>;
   setNoticeKind: (kind: NoticeKind, on: boolean) => Promise<void>;
+  features: ReadonlySet<Feature>; // the parts that show (Settings, Features; Net worth needs Plan)
+  chosenFeatures: ReadonlySet<Feature>; // the parts as the person switched them (Net worth stays chosen while Plan is off)
+  setFeature: (feature: Feature, on: boolean) => Promise<void>;
   showDismissed: () => Promise<void>; // bring every dismissed notification back
   categories: CategoryInfo[]; // everything that can be picked: built-in, own and the imported plan's, merged
   sync: SyncState;
@@ -151,6 +157,7 @@ export interface AppApi {
   setTripDates: (groupId: string, starts: string | null, ends: string | null) => Promise<void>; // admins, trips
   setGroupClosed: (groupId: string, closed: boolean) => Promise<void>; // admins, trips: close or reopen
   setUsualSplit: (groupId: string, split: UsualSplit | null) => Promise<void>; // admins, flatmates
+  setGroupSimplify: (groupId: string, on: boolean) => Promise<void>; // admins: settle up in the fewest payments, or pair by pair (2.1)
   restoreBackup: (b: Extract<BackupParse, { ok: true }>) => Promise<{ added: number; updated: number }>;
   syncNow: () => void;
   signUp: (email: string, password: string) => Promise<'signed-in' | 'confirm'>;

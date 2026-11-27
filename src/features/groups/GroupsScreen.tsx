@@ -18,6 +18,7 @@ import { PeopleLines } from './PeopleLines.tsx';
 import { JoinInvite } from './JoinInvite.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
+import type { Group } from '../../core/groups.ts';
 
 // groupId: the group named in the address (/groups/<id>), or none for the list. settings: that group's settings are open
 // (/groups/<id>/settings). onOpen(id) goes to a group, onOpen(id, true) to its settings, onOpen() to the list.
@@ -54,7 +55,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
   }
 
   // what others did in a group since this phone last looked (the same figure the group page lists)
-  const news = (id: string): number => { const r = groupActivity(app.groupEntries, app.settlements, id, app.me, seen[id] ?? null, () => ''); return r.items.length + r.more; };
+  const news = (g: Group): number => { const r = groupActivity(app.groupEntries, app.settlements, g.id, app.me, seen[g.id] ?? null, () => '', g); return r.items.length + r.more; };
 
   if (creating) {
     return (
@@ -78,10 +79,10 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
       {app.groups.length === 0 && !app.joinCode && <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('No groups yet. Make one for the family or a trip, or join one with a code.')}</p>}
       {sorted.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-3">
-          {sorted.map((g) => <GroupCard key={g.id} id={g.id} news={news(g.id)} onOpen={() => onOpen(g.id)} />)}
+          {sorted.map((g) => <GroupCard key={g.id} id={g.id} news={news(g)} onOpen={() => onOpen(g.id)} />)}
         </div>
       )}
-      <PeopleLines onOpen={openUdhaar} />
+      {app.features.has('udhaar') && <PeopleLines onOpen={openUdhaar} />}
       <JoinCard />
       <CircleLink onOpen={openCircle} />
     </section>

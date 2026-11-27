@@ -6,7 +6,10 @@ import { useApp } from '../../data/context.tsx';
 import { EditDialog, ExpenseDialog } from '../payments/index.ts';
 import { shortDate } from '../../core/format.ts';
 import { activeMembers, fromPaise, groupBalances, ledger, memberName, simplifyDebts } from '../../core/groups.ts';
-import type { Group, Member, Settlement } from '../../core/groups.ts';
+import { myWhy, pairwiseDebts } from '../../core/repayments.ts';
+import type { PairDebt } from '../../core/repayments.ts';
+import { pairLine, paymentsText, whyLines } from './repaymentText.ts';
+import type { Debt, Group, Member, Settlement } from '../../core/groups.ts';
 import { coupleLine } from '../../core/couple.ts';
 import { expenseEffect } from '../../core/groupHistory.ts';
 import { kindLabel } from '../../core/groupKinds.ts';
@@ -91,6 +94,40 @@ function LedgerRow({ it, first, me, people, nameOf, onOpen }: Readonly<{ it: Led
   );
 }
 
+// "To settle up" with the group's setting beside it (2.1): Simplified or Not simplified, and Change (the group's settings).
+function SettleHeader({ simplify, onChange }: Readonly<{ simplify: boolean; onChange: () => void }>) {
+  return (
+    <div className="flex justify-between items-center gap-2">
+      <h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('To settle up')}</h3>
+      <button type="button" className="min-h-11 flex items-center gap-1.5 border-0 bg-transparent p-0 text-brand text-[13px] font-[650] cursor-pointer [font-family:inherit]" onClick={onChange}>
+        <span className={ui.cx('px-2 py-0.5 rounded-md', simplify ? 'bg-good-bg text-good' : 'bg-press text-ink')}>{simplify ? tr('Simplified') : tr('Not simplified')}</span>{tr('Change')}
+      </button>
+    </div>
+  );
+}
+
+const subOf = (simplify: boolean, d: Debt): string | undefined => (simplify ? undefined : pairLine(d as PairDebt));
+
+// The payments that settle the group, by its setting; simplified, your first payment says why it is that amount when simplifying
+// changed what you pay or get.
+function useSettleUp(group: Group, bal: Record<string, number>, me: string, nameOf: (uid: string) => string) {
+  const app = useApp();
+  const simple = useMemo(() => simplifyDebts(bal), [bal]);
+  const pairs = useMemo(() => pairwiseDebts(group.id, app.groupEntries, app.settlements), [group.id, app.groupEntries, app.settlements]);
+  if (!group.simplify) return { debts: pairs as Debt[], simple, pairs, whyRow: undefined, why: undefined };
+  const w = myWhy(me, simple, pairs);
+  const whyRow = w.changed ? simple.find((d) => d.from === me || d.to === me) : undefined;
+  const why = whyRow ? [...whyLines(w, me, nameOf), tr('Everyone ends up even, in {0} instead of {1}.', paymentsText(simple.length), pairs.length)] : undefined;
+  return { debts: simple, simple, pairs, whyRow, why };
+}
+
+// Under "To settle up" (2.1): what the group's setting does, and who can change it.
+function settleFooter(simplify: boolean, simple: number, pairs: number): string {
+  if (!simplify) return tr("Each of you pays back the person you owe; two people's debts to each other cancel out. An admin can turn on Simplify repayments for fewer payments.");
+  const same = tr('The totals are the same either way; an admin can turn this off in Group settings.');
+  return simple < pairs ? `${tr('{0} instead of {1}.', paymentsText(simple), pairs)} ${same}` : same;
+}
+
 export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ group: Group; onBack: () => void; onSettings: () => void; onAdd: () => void }>) {
   const app = useApp();
   const me = app.me ?? '';
@@ -102,8 +139,8 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
   const people = useMemo(() => activeMembers(app.members, group.id), [app.members, group.id]);
   const former = app.members.filter((m) => m.group_id === group.id && m.left_at); // left, but may still be owed or owe
   const bal = useMemo(() => groupBalances(group.id, app.groupEntries, app.settlements), [group.id, app.groupEntries, app.settlements]);
-  const debts = useMemo(() => simplifyDebts(bal), [bal]);
   const nameOf = (uid: string) => (uid === me ? tr('You') : memberName(app.members, group.id, uid));
+  const { debts, simple, pairs, whyRow, why } = useSettleUp(group, bal, me, nameOf);
   const partner = group.kind === 'couple' && people.length === 2 ? people.find((m) => m.user_id !== me) : undefined; // the other half of a couple
   const line = coupleLine(bal[me] ?? 0, partner?.display_name ?? '');
   const closed = group.closed_at !== null; // a closed trip: no new expenses, no new people
@@ -157,11 +194,12 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
       <BalancesCard group={group} people={people} former={former} bal={bal} me={me} nameOf={nameOf} partnerLine={partner && group.kind === 'couple' ? line : null} />
 
       <section className="flex flex-col gap-2">
-        <h3 className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('To settle up')}</h3>
+        <SettleHeader simplify={group.simplify} onChange={onSettings} />
         <div className="bg-card border border-line rounded-card px-4">
           {debts.length > 0 ? (
             <ul className="list-none m-0 p-0 [&>li+li]:border-t [&>li+li]:border-line">
-              {debts.map((d) => <DebtRow key={`${d.from}>${d.to}`} debt={d} group={group.name} me={me} myName={people.find((m) => m.user_id === me)?.display_name ?? ''} nameOf={nameOf} onRecord={() => startSettle(d)} />)}
+              {debts.map((d) => <DebtRow key={`${d.from}>${d.to}`} debt={d} group={group.name} me={me} myName={people.find((m) => m.user_id === me)?.display_name ?? ''} nameOf={nameOf} onRecord={() => startSettle(d)}
+                sub={subOf(group.simplify, d)} why={d === whyRow ? why : undefined} />)}
             </ul>
           ) : <p className="m-0 py-3.5 text-[14px] text-muted">{tr('Nobody owes anybody anything.')}</p>}
           {!settle && !debts.some((d) => d.from === me || d.to === me) && <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-4 text-[15px] mb-3.5')} onClick={() => setSettle({ dir: 'paid', other: people.find((m) => m.user_id !== me)?.user_id ?? '', amount: '', date: isoDate() })}>{tr('Record a payment')}</button>}
@@ -191,6 +229,7 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
             </form>
           )}
         </div>
+        {debts.length > 0 && <p className="m-0 text-[13px] leading-[19px] text-muted">{settleFooter(group.simplify, simple.length, pairs.length)}</p>}
       </section>
 
       {group.kind === 'trip' && <TripSummary group={group} />}

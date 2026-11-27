@@ -163,7 +163,7 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (nm.length < 1 || nm.length > 60 || !['family', 'trip', 'flatmates', 'couple'].includes(a.p_kind) || dn.length < 1 || dn.length > 40) return err(400, '22023', 'Check the group name, kind and your name');
       if ([...state.groups.values()].filter((g) => g.created_by === uid).length >= 10) return err(400, '53400', 'You can create at most 10 groups');
       const id = randomUUID();
-      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, primary_admin: uid, created_at: new Date().toISOString(), starts_on: null, ends_on: null, closed_at: null, usual_split: null });
+      state.groups.set(id, { id, name: nm, kind: a.p_kind, created_by: uid, primary_admin: uid, created_at: new Date().toISOString(), starts_on: null, ends_on: null, closed_at: null, usual_split: null, simplify: true, simplify_by: null, simplify_at: null });
       state.members.set(`${id}|${uid}`, { group_id: id, user_id: uid, display_name: dn, role: 'admin', joined_at: new Date().toISOString(), left_at: null });
       state.invites.set(id, { group_id: id, code: code12(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() });
       return ok(id);
@@ -380,6 +380,13 @@ export async function startMock(opts: { staticDir?: string; port?: number } = {}
       if (typeof a.p_closed !== 'boolean') return err(400, '22023', 'Say whether the trip is closed');
       if (!g || g.kind !== 'trip') return err(400, '22023', 'Only a trip can be closed');
       g.closed_at = a.p_closed ? (g.closed_at ?? new Date().toISOString()) : null;
+      return ok();
+    }
+    if (name === 'set_group_simplify') {
+      if (!adminOf(a.p_group)) return lockedOut;
+      const g = state.groups.get(a.p_group);
+      if (!g || typeof a.p_on !== 'boolean') return err(400, '22023', 'Simplify repayments is on or off');
+      if (g.simplify !== a.p_on) Object.assign(g, { simplify: a.p_on, simplify_by: uid, simplify_at: new Date().toISOString() });
       return ok();
     }
     if (name === 'set_usual_split') {

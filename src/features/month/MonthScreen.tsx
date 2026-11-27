@@ -165,10 +165,12 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights, onCashFl
         </section>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <button type="button" className={LINK_TILE} onClick={onInsights}>{tr('Insights')}<Icon name="chevron" size={18} /></button>
-        <button type="button" className={LINK_TILE} onClick={onCashFlow}>{tr('Cash flow')}<Icon name="chevron" size={18} /></button>
-      </div>
+      {app.features.has('insights') && (
+        <div className="grid grid-cols-2 gap-3">
+          <button type="button" className={LINK_TILE} onClick={onInsights}>{tr('Insights')}<Icon name="chevron" size={18} /></button>
+          <button type="button" className={LINK_TILE} onClick={onCashFlow}>{tr('Cash flow')}<Icon name="chevron" size={18} /></button>
+        </div>
+      )}
       <button type="button" className="self-start min-h-11 border-0 bg-transparent p-0 text-brand text-[15px] font-[650] underline underline-offset-2 cursor-pointer [font-family:inherit]" onClick={() => setEditing(true)}>{tr('Categories and budgets')}</button>
       {picked && (
         <CategoryActions

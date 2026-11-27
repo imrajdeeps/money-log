@@ -9,6 +9,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'lock', title: 'App lock', blurb: 'A PIN for this device' },
   { id: 'receipts', title: 'Receipt photos', blurb: 'Storage used on this device' },
   { id: 'appearance', title: 'Appearance, sound and language', blurb: 'Light, dark or match the device; sounds; language' },
+  { id: 'features', title: 'Features', blurb: 'Plan, net worth, udhaar, insights: turn on what you use' },
   { id: 'notifications', title: 'Notifications', blurb: 'What the bell tells you about' },
   { id: 'about', title: 'About', blurb: 'Version, install help, the tour' },
   { id: 'erase', title: 'Erase everything on this device', blurb: 'Remove all data from this device' },

@@ -688,6 +688,7 @@ export function createSync(opts: SyncOptions) {
   const setTripDates = (groupId: string, starts: string | null, ends: string | null) => rpc<null>('set_trip_dates', { p_group: groupId, p_starts: starts, p_ends: ends });
   const setGroupClosed = (groupId: string, closed: boolean) => rpc<null>('set_group_closed', { p_group: groupId, p_closed: closed });
   const setUsualSplit = (groupId: string, split: UsualSplit | null) => rpc<null>('set_usual_split', { p_group: groupId, p_split: split });
+  const setGroupSimplify = (groupId: string, on: boolean) => rpc<null>('set_group_simplify', { p_group: groupId, p_on: on });
 
   // The Circle (version 1.28): answered by the server on demand, not part of the sync, so nothing here is kept on the phone.
   async function circleCall<T>(name: string, args: Record<string, unknown>): Promise<T> {
@@ -764,7 +765,7 @@ export function createSync(opts: SyncOptions) {
     eraseAll,
     sync,
     refreshPending,
-    createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
+    createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify,
     fetchCircle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar,
     receiptBlob, fetchHistory, fetchSessions, fetchSignInLog,
   };

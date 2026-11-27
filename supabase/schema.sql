@@ -2086,3 +2086,32 @@ grant execute on function public.answer_shared_udhaar(uuid, boolean)            
 grant execute on function public.settle_shared_udhaar(uuid, boolean)                             to authenticated;
 grant execute on function public.delete_shared_udhaar(uuid)                                      to authenticated;
 grant execute on function public.my_shared_udhaar()                                              to authenticated;
+
+-- =================================================================================
+-- Version 2.1: Simplify repayments, a setting of each group
+-- =================================================================================
+
+-- On (the default, and how every group worked before): the fewest payments that settle everyone, so someone may pay a person they did not
+-- share that expense with. Off: each person pays back exactly whom they owe, and two people's debts to each other cancel out. Everyone
+-- in the group sees the same list. Who changed it last, and when, give the group its note ("Aakash turned off Simplify repayments").
+alter table public.groups add column if not exists simplify boolean not null default true;
+alter table public.groups add column if not exists simplify_by uuid;
+alter table public.groups add column if not exists simplify_at timestamptz;
+
+-- Admins only. Setting it to what it already is changes nothing (and makes no note).
+create or replace function public.set_group_simplify(p_group uuid, p_on boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_group_admin(p_group) then raise exception 'Only a group admin can do this' using errcode = '42501'; end if;
+  if p_on is null then raise exception 'Simplify repayments is on or off' using errcode = '22023'; end if;
+  update public.groups set simplify = p_on, simplify_by = (select auth.uid()), simplify_at = now()
+    where id = p_group and simplify is distinct from p_on;
+end;
+$$;
+
+revoke all on function public.set_group_simplify(uuid, boolean) from public, anon, authenticated;
+grant execute on function public.set_group_simplify(uuid, boolean) to authenticated;

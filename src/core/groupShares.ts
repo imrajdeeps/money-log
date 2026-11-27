@@ -23,6 +23,15 @@ export function shareFrom(g: Pick<Group, 'id' | 'kind'>, sw: ShareSwitches, defa
 
 export const countsShare = (g: Pick<Group, 'id' | 'kind'>, sw: ShareSwitches, defaultFrom: string): boolean => shareFrom(g, sw, defaultFrom) !== null;
 
+/** Version 2.1: turning the switch on counts from the start of this month by default, so this month's budget already has the group in it. */
+export const monthStart = (todayIso: string): string => `${todayIso.slice(0, 8)}01`;
+
+/** Which of the three choices a day is (Start of this month, Today, or Another day), for the chips on the group's settings. */
+export function fromChoice(from: string, todayIso: string): 'month' | 'today' | 'pick' {
+  if (from === monthStart(todayIso)) return 'month';
+  return from === todayIso ? 'today' : 'pick';
+}
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Anything that is not a map of group id to { on: true/false, from: a day } is no choices at all. */

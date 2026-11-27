@@ -4,7 +4,9 @@
 // the same moment keep both. Removed items stay (marked) so the removal reaches the other phones.
 import { isNoticeKind } from './noticeKinds.ts';
 import type { NoticeKind } from './noticeKinds.ts';
-import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, newId, normName, parseTs, round2, uuidFromKey } from './logic.ts';
+import { FEATURES, isFeature } from './featureKinds.ts';
+import type { Feature } from './featureKinds.ts';
+import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, laterThan, newId, normName, parseTs, round2, uuidFromKey } from './logic.ts';
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';
 
@@ -34,7 +36,9 @@ export interface Goal { id: string; k: 'g'; n: string; a: number; d: string; s: 
 export interface TopUp { id: string; k: 't'; g: string; a: number; d: string; x: 0 | 1; t: string }
 // A net worth update: what the person's net worth was on a day (a number that may be negative). Kept in the same block as the goals
 // (so it syncs and is backed up with them, with no new database block), one item per update so two phones never overwrite each other.
-export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1; t: string }
+// s: where the figure came from (version 2.1, shown on the history): c a check-in, t typed in; older updates have none.
+export type NetSource = 'c' | 't';
+export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1; t: string; s?: NetSource }
 // An item on the due list (a one-off payment or a to-do) made in the app; the logic is in dueItems.ts. n title, d due day ('' = no date),
 // a amount in rupees (0 = none; one-off payments only), f done, x removed. Kept in this block like net worth updates.
 export type DueEntryKind = 'oneoff' | 'todo';
@@ -59,7 +63,13 @@ export type WorthSide = 'a' | 'd';
 export const ASSET_CLASSES = ['liquid', 'invest', 'retire', 'gold', 'property', 'other'] as const;
 export const DEBT_CLASSES = ['loan', 'card', 'other'] as const;
 export interface WorthItem { id: string; k: 'w'; n: string; s: WorthSide; c: string; a: number; d: string; p: number | null; pd: string; e: number; r: number; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem | WorthItem;
+// The parts of the app the person turned on in Settings, Features (version 2.1): on lists them (one item with a fixed id, like the
+// notification switches); with no item the defaults apply (features.ts). Lives here so it follows the account to every device.
+export const FEATURES_ID = uuidFromKey('feature-settings');
+// on: the parts switched on. A name this version does not know (a part added later) is kept as it is, so an older device that saves the
+// item does not switch that part off on the newer ones; only the known names are acted on (features.ts).
+export interface FeatureSettings { id: string; k: 'f'; on: string[]; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem | WorthItem | FeatureSettings;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -137,16 +147,31 @@ export function parseNetAmount(text: unknown): number | null {
   return netOk(n) ? n + 0 : null; // + 0: no negative zero
 }
 
-export function addNetUpdate(items: Goals, amount: number, date: string, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
+export function addNetUpdate(items: Goals, amount: number, date: string, todayIso: string, nowIso: string, id: string = newId(), source: NetSource = 't'): GoalResult {
   if (!netOk(amount)) return { ok: false, error: tr('Enter your net worth as a number, with at most two decimals. It can be negative.') };
   if (!isValidDate(date) || date > todayIso) return { ok: false, error: tr('Pick a date that is today or earlier.') };
   if (count(items, 'n') >= MAX_NET_UPDATES) return { ok: false, error: tr('That is the most net worth updates one account can keep. Remove some old ones.') };
-  return { ok: true, items: { ...items, [id]: { id, k: 'n', a: amount, d: date, x: 0, t: nowIso } } };
+  return { ok: true, items: { ...items, [id]: { id, k: 'n', a: amount, d: date, x: 0, t: nowIso, s: source } } };
 }
 
 export function removeNetUpdate(items: Goals, id: string, nowIso: string): Goals {
   const cur = items[id];
-  return cur?.k !== 'n' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
+  return cur?.k !== 'n' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: laterThan(cur.t, nowIso) } };
+}
+
+/** Change an update's figure or day (version 2.1, the net worth history): checked like a new one, same id. */
+export function editNetUpdate(items: Goals, id: string, amount: number, date: string, todayIso: string, nowIso: string): GoalResult {
+  const cur = items[id];
+  if (cur?.k !== 'n' || cur.x) return { ok: false, error: tr('That update is gone.') };
+  if (!netOk(amount)) return { ok: false, error: tr('Enter your net worth as a number, with at most two decimals. It can be negative.') };
+  if (!isValidDate(date) || date > todayIso) return { ok: false, error: tr('Pick a date that is today or earlier.') };
+  return { ok: true, items: { ...items, [id]: { ...cur, a: amount, d: date, t: laterThan(cur.t, nowIso) } } };
+}
+
+/** Undo a delete: the update comes back as it was (its removal is replaced by a later change). */
+export function restoreNetUpdate(items: Goals, id: string, nowIso: string): Goals {
+  const cur = items[id];
+  return cur?.k === 'n' && cur.x ? { ...items, [id]: { ...cur, x: 0, t: laterThan(cur.t, nowIso) } } : items;
 }
 
 /** The updates still kept, newest day first (on one day, the one entered last first). */
@@ -201,12 +226,13 @@ function sameItem(x: GoalItem, y: GoalItem | undefined): boolean {
   switch (x.k) {
     case 'g': return y.k === 'g' && x.n === y.n && x.a === y.a && x.d === y.d && x.s === y.s && x.c === y.c && x.b === y.b;
     case 't': return y.k === 't' && x.g === y.g && x.a === y.a && x.d === y.d;
-    case 'n': return y.k === 'n' && x.a === y.a && x.d === y.d;
+    case 'n': return y.k === 'n' && x.a === y.a && x.d === y.d && x.s === y.s;
     case 'd': return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.a === y.a && x.d === y.d && x.f === y.f;
     case 'k': return y.k === 'k' && x.key === y.key;
     case 'i': return y.k === 'i' && x.n === y.n;
     case 'w': return y.k === 'w' && x.n === y.n && x.s === y.s && x.c === y.c && x.a === y.a && x.d === y.d && x.p === y.p && x.pd === y.pd && x.e === y.e && x.r === y.r;
     case 'u': return y.k === 'u' && x.n === y.n && x.a === y.a && x.w === y.w && x.d === y.d && x.m === y.m && x.s === y.s;
+    case 'f': return y.k === 'f' && x.on.join() === y.on.join();
     default: return y.k === 's' && x.off.join() === y.off.join();
   }
 }
@@ -236,7 +262,9 @@ function cleanTopUpItem(k: string, v: Raw): TopUp | null {
 
 function cleanNetItem(k: string, v: Raw): NetUpdate | null {
   if (!netOk(v.a) || !isDay(v.d)) return null;
-  return { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
+  const u: NetUpdate = { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
+  if (v.s === 'c' || v.s === 't') u.s = v.s;
+  return u;
 }
 
 function cleanDueItem(k: string, v: Raw): DueEntry | null {
@@ -286,7 +314,15 @@ function cleanNoticeSettingsItem(k: string, v: Raw): NoticeSettings | null {
   return { id: k, k: 's', off: [...new Set<NoticeKind>(v.off)].sort((a, b) => a.localeCompare(b)), x: v.x, t: v.t };
 }
 
+const PART_NAME = /^[a-z][a-z0-9-]{0,23}$/;
+function cleanFeatureSettingsItem(k: string, v: Raw): FeatureSettings | null {
+  if (k !== FEATURES_ID || !Array.isArray(v.on) || v.on.length > 16 || !v.on.every((n: unknown) => typeof n === 'string' && PART_NAME.test(n))) return null;
+  const on = new Set<string>(v.on);
+  return { id: k, k: 'f', on: [...FEATURES.filter((f) => on.has(f)), ...[...on].filter((n) => !isFeature(n))], x: v.x, t: v.t };
+}
+
 const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => GoalItem | null }> = {
+  f: { max: 1, clean: cleanFeatureSettingsItem },
   g: { max: MAX_GOALS, clean: cleanGoalItem },
   t: { max: MAX_TOPUPS, clean: cleanTopUpItem },
   n: { max: MAX_NET_UPDATES, clean: cleanNetItem },
