@@ -1355,4 +1355,8 @@ export const HI: Record<string, string> = {
   "The report has no amounts, names or notes. Paste it in a message to us if it keeps happening.": "रिपोर्ट में कोई रकम, नाम या नोट नहीं होते। ऐसा बार-बार हो तो इसे हमें एक संदेश में भेजें।",
   "Your payments are kept on this device and are not lost. Reloading usually fixes it.": "आपके भुगतान इस डिवाइस पर रखे हैं और खोए नहीं हैं। दोबारा लोड करने से आमतौर पर ठीक हो जाता है।",
   "Your payments are safe. Reload the page, or copy a report if it keeps happening.": "आपके भुगतान सुरक्षित हैं। पेज दोबारा लोड करें, या बार-बार हो तो रिपोर्ट कॉपी करें।",
+  'so far this month': 'इस महीने अब तक',
+  'Likely {0} by the end of the month at this pace.': 'इसी रफ़्तार से महीने के अंत तक लगभग {0}।',
+  '{0} is the biggest: {1} of it.': 'सबसे बड़ा हिस्सा {0} का है: {1}।',
+  'From next month it compares with a usual month.': 'अगले महीने से यह आम महीने से तुलना करेगा।',
 };

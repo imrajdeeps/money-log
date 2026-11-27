@@ -1355,4 +1355,8 @@ export const HINGLISH: Record<string, string> = {
   "The report has no amounts, names or notes. Paste it in a message to us if it keeps happening.": "Report mein koi rakam, naam ya note nahi hote. Aisa baar-baar ho to ise humein ek message mein bhejein.",
   "Your payments are kept on this device and are not lost. Reloading usually fixes it.": "Aapke payments is device par rakhe hain aur khoye nahi hain. Reload karne se aamtaur par theek ho jaata hai.",
   "Your payments are safe. Reload the page, or copy a report if it keeps happening.": "Aapke payments safe hain. Page reload karein, ya baar-baar ho to report copy karein.",
+  'so far this month': 'is mahine ab tak',
+  'Likely {0} by the end of the month at this pace.': 'Isi raftaar se mahine ke ant tak lagbhag {0}.',
+  '{0} is the biggest: {1} of it.': 'Sabse bada hissa {0} ka hai: {1}.',
+  'From next month it compares with a usual month.': 'Agle mahine se yeh aam mahine se compare karega.',
 };

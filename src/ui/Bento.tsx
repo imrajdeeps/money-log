@@ -1,4 +1,4 @@
-import { Children, useId } from 'react';
+import { Children, createContext, useContext, useId } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from './Icon.tsx';
 import * as ui from './styles.ts';
@@ -9,19 +9,23 @@ import { tr } from '../core/i18n.ts';
 // works inside anything.
 export type Span = 3 | 4 | 6 | 8 | 12;
 
-const SPAN_WIDE: Record<Span, string> = {
-  3: '@min-[900px]:col-span-3',
-  4: '@min-[900px]:col-span-4',
-  6: '@min-[900px]:col-span-6',
-  8: '@min-[900px]:col-span-8',
-  12: '@min-[900px]:col-span-12',
+// Every width a tile can end up with on a wide screen (written out so the style tool keeps each class).
+const SPAN_WIDE: Record<number, string> = {
+  1: '@min-[900px]:col-span-1', 2: '@min-[900px]:col-span-2', 3: '@min-[900px]:col-span-3', 4: '@min-[900px]:col-span-4',
+  5: '@min-[900px]:col-span-5', 6: '@min-[900px]:col-span-6', 7: '@min-[900px]:col-span-7', 8: '@min-[900px]:col-span-8',
+  9: '@min-[900px]:col-span-9', 10: '@min-[900px]:col-span-10', 11: '@min-[900px]:col-span-11', 12: '@min-[900px]:col-span-12',
 };
 
-export function BentoGrid({ children, label }: Readonly<{ children: ReactNode; label?: string }>) {
+/** A width (of 12) worked out for the tile inside by core/bento.ts packTiles; none: the tile's own span. */
+export const TileSpan = createContext<number | null>(null);
+
+// packed: the tiles come already in their order, with widths that fill every row (packTiles), so a wide screen places them as they
+// come instead of packing them itself.
+export function BentoGrid({ children, label, packed = false }: Readonly<{ children: ReactNode; label?: string; packed?: boolean }>) {
   return (
     <div className="@container">
       <div
-        className="grid grid-cols-2 gap-3 items-stretch [grid-auto-flow:row_dense] @min-[900px]:grid-cols-12 @min-[900px]:gap-5"
+        className={ui.cx('grid grid-cols-2 gap-3 items-stretch [grid-auto-flow:row_dense] @min-[900px]:grid-cols-12 @min-[900px]:gap-5', packed && '@min-[900px]:[grid-auto-flow:row]')}
         role={label ? 'group' : undefined}
         aria-label={label}
       >
@@ -61,8 +65,9 @@ const CARD_ACTION =
 // text stays plain text for screen readers and the button says what it opens.
 export function BentoCard({ title, span = 4, half = false, tall = false, pad = 'wide', gap = 6, hero = false, chevron = false, onOpen, openLabel, action, children }: CardProps) {
   const id = useId();
+  const wide = useContext(TileSpan) ?? span;
   const cls = ui.cx(
-    CARD, half ? 'col-span-1' : 'col-span-2', SPAN_WIDE[span], tall && '@min-[900px]:row-span-2', GAP[gap],
+    CARD, half ? 'col-span-1' : 'col-span-2', SPAN_WIDE[wide], tall && '@min-[900px]:row-span-2', GAP[gap],
     hero ? 'hero rounded-card-lg p-[18px]' : `rounded-card ${PAD[pad]}`, onOpen && CARD_ACTION,
   );
   return (

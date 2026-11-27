@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { SyncPill } from '../../ui/SyncPill.tsx';
 import { useApp } from '../../data/context.tsx';
 import { udhaarTotals } from '../../core/udhaar.ts';
 import { safeToSpend } from '../../core/safeToSpend.ts';
-import { WeekRecapCard } from './WeekRecapCard.tsx';
+import { useWeekRecap, WeekRecapCard } from './WeekRecapCard.tsx';
+import type { WeekRecap } from '../../core/weekRecap.ts';
+import { activeRecurring } from '../../core/recurring.ts';
+import { packTiles } from '../../core/bento.ts';
+import type { TileSize } from '../../core/bento.ts';
 import { useSpendEntries } from '../../data/useSpendEntries.ts';
-import { BentoGrid } from '../../ui/Bento.tsx';
+import { BentoGrid, TileSpan } from '../../ui/Bento.tsx';
 import { MonthTile } from './MonthTile.tsx';
 import { CashFlowTile, CategoryGroupTile, CoupleTile, DueTile, GoalsTile, GroupsTile, InsightsTile, NetWorthTile, RecentTile, UdhaarTile, WhereItWentTile } from './Tiles.tsx';
 import { RecurringTile } from '../recurring/index.ts';
@@ -78,7 +83,16 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   const netHistory = useMemo(() => Object.values(app.goals).filter((g): g is NetUpdate => g.k === 'n' && !g.x).sort((a, b) => a.d.localeCompare(b.d)).slice(-6).map((g) => g.a), [app.goals]);
   // The design's three states: no payments at all, getting started (a few), and the whole Overview.
   const state = app.entries.length === 0 ? 'empty' : starting ? 'getting' : 'full';
-  const full = state === 'full';
+  const recap = useWeekRecap();
+  const hasRecurring = useMemo(() => activeRecurring(app.recurring).length > 0, [app.recurring]);
+
+  const monthTile = <MonthTile state={state} ov={ov} safe={safe} projected={projected} month={month} count={app.entries.length} onOpen={() => open('month')} openAdd={openAdd} openBudgets={() => openMonth()} />;
+  const data: TileData = {
+    monthTile, recap, hasRecurring, net, netHistory, tiles, ov, due, flow, usual, projected, cats, couples, shared, goalTile, udhaar,
+    hasUdhaar: app.udhaar.length > 0, open, openMonth, openGroup, openAdd, openAddIncome, goSettings,
+  };
+  const specs = state === 'full' ? fullTiles(data) : startTiles(data);
+  const nodes = new Map(specs.map((s) => [s.id, s.node]));
 
   return (
     <section aria-labelledby="home-title">
@@ -86,22 +100,69 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
         <div><h2 id="home-title">{tr('Overview')}</h2><p className="text-muted text-[14px]">{monthLabel(month)}</p></div>
         <span className="lg:hidden"><SyncPill onOpenSettings={openAccount} /></span>
       </div>
-      <BentoGrid>
-        <MonthTile state={state} ov={ov} safe={safe} projected={projected} month={month} count={app.entries.length} onOpen={() => open('month')} openAdd={openAdd} openBudgets={() => openMonth()} />
-        {full && <WeekRecapCard />}
-        {full && <NetWorthTile net={net} history={netHistory} open={open} />}
-        {full && tiles.map((g) => <CategoryGroupTile key={g} g={g} ov={ov} openMonth={openMonth} />)}
-        {full && <RecurringTile />}
-        <RecentTile open={open} tall={full} />
-        {full && <DueTile due={due} open={open} />}
-        {full && <CashFlowTile flow={flow} open={open} openAddIncome={openAddIncome} />}
-        {full && <InsightsTile usual={usual} projected={projected} ov={ov} open={open} />}
-        {full && <WhereItWentTile cats={cats} open={open} openAdd={openAdd} />}
-        {full && couples.map((c) => <CoupleTile key={c.id} c={c} openGroup={openGroup} />)}
-        <GroupsTile shared={shared} open={open} goSettings={goSettings} half={full} />
-        {full && <GoalsTile goal={goalTile} open={open} />}
-        {full && <UdhaarTile totals={udhaar} hasEntries={app.udhaar.length > 0} open={open} />}
+      {/* the order and the wide-screen widths come from packTiles, so every row is full (version 2.0.1) */}
+      <BentoGrid packed>
+        {packTiles(specs).map((p) => <TileSpan.Provider key={p.id} value={p.span}>{nodes.get(p.id)}</TileSpan.Provider>)}
       </BentoGrid>
     </section>
   );
+}
+
+interface TileSpec extends TileSize { node: ReactNode }
+
+interface TileData {
+  monthTile: ReactNode;
+  recap: WeekRecap | null;
+  hasRecurring: boolean;
+  net: ReturnType<typeof netNow>;
+  netHistory: number[];
+  tiles: Group[];
+  ov: ReturnType<typeof monthOverview>;
+  due: ReturnType<typeof dueOverview>;
+  flow: ReturnType<typeof cashFlow>;
+  usual: number;
+  projected: number | null;
+  cats: ReturnType<typeof topCategories>;
+  couples: ReturnType<typeof coupleTiles>;
+  shared: ReturnType<typeof groupsOverview>;
+  goalTile: ReturnType<typeof nearestGoal>;
+  udhaar: ReturnType<typeof udhaarTotals>;
+  hasUdhaar: boolean;
+  open: Props['open'];
+  openMonth: Props['openMonth'];
+  openGroup: Props['openGroup'];
+  openAdd: () => void;
+  openAddIncome: () => void;
+  goSettings: () => void;
+}
+
+// The whole Overview, in the order of the design. Each tile says the width it would like on a wide screen; packTiles may widen it.
+function fullTiles(d: TileData): TileSpec[] {
+  const recap: TileSpec[] = d.recap ? [{ id: 'recap', span: 4, node: <WeekRecapCard recap={d.recap} /> }] : [];
+  const recurring: TileSpec[] = d.hasRecurring ? [{ id: 'recurring', span: 4, node: <RecurringTile /> }] : [];
+  return [
+    { id: 'month', span: 8, tall: true, node: d.monthTile },
+    ...recap,
+    { id: 'net', span: 4, node: <NetWorthTile net={d.net} history={d.netHistory} open={d.open} /> },
+    ...d.tiles.map((g) => ({ id: `group-${g}`, span: 3, node: <CategoryGroupTile g={g} ov={d.ov} openMonth={d.openMonth} /> })),
+    ...recurring,
+    { id: 'recent', span: 8, tall: true, node: <RecentTile open={d.open} tall /> },
+    { id: 'due', span: 4, node: <DueTile due={d.due} open={d.open} /> },
+    { id: 'cash', span: 3, node: <CashFlowTile flow={d.flow} open={d.open} openAddIncome={d.openAddIncome} /> },
+    { id: 'insights', span: 3, node: <InsightsTile usual={d.usual} projected={d.projected} ov={d.ov} cats={d.cats} open={d.open} /> },
+    { id: 'where', span: 6, node: <WhereItWentTile cats={d.cats} open={d.open} openAdd={d.openAdd} /> },
+    ...d.couples.map((c) => ({ id: `couple-${c.id}`, span: 3, node: <CoupleTile c={c} openGroup={d.openGroup} /> })),
+    { id: 'groups', span: 3, node: <GroupsTile shared={d.shared} open={d.open} goSettings={d.goSettings} half /> },
+    { id: 'goals', span: 3, node: <GoalsTile goal={d.goalTile} open={d.open} /> },
+    { id: 'udhaar', span: 3, node: <UdhaarTile totals={d.udhaar} hasEntries={d.hasUdhaar} open={d.open} /> },
+  ];
+}
+
+// No payments yet, or only a few: the month, the last payments and the groups.
+function startTiles(d: TileData): TileSpec[] {
+  return [
+    { id: 'month', span: 8, node: d.monthTile },
+    { id: 'recent', span: 8, node: <RecentTile open={d.open} tall={false} /> },
+    { id: 'groups', span: 4, node: <GroupsTile shared={d.shared} open={d.open} goSettings={d.goSettings} half={false} /> },
+  ];
 }

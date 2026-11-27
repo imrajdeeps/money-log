@@ -9,6 +9,7 @@ import { budgetText } from '../../ui/budgetMeter.ts';
 import { BudgetsDialog } from './BudgetsDialog.tsx';
 import { CategoryActions } from './CategoryActions.tsx';
 import { planForMonth } from '../../core/categories.ts';
+import { splitColumns } from '../../core/columns.ts';
 import type { Group } from '../../core/logic.ts';
 import { GROUPS, budgetEntries, fmtINR, isoDate, monthOf, shiftMonth, summarizeMonth } from '../../core/logic.ts';
 import * as ui from '../../ui/styles.ts';
@@ -140,8 +141,13 @@ export function MonthScreen({ group, onGroup, onAddExpense, onInsights, onCashFl
       )}
       {group && shown.length === 0 && <p className="m-0 text-muted">{tr('No {0} categories have a budget or a payment this month.', group)}</p>}
       {sections.length > 0 && (
+        // two columns that fill on their own (a long group no longer leaves a hole beside a short one); one after the other on a phone
         <div className="grid gap-x-6 gap-y-4 items-start lg:grid-cols-2">
-          {sections.map((x, i) => <GroupSection key={x.g} g={x.g} rows={x.rows} total={s.groups[x.g]} over={monthIsOver} onPick={setPicked} first={i === 0} />)}
+          {splitColumns(sections, (x) => x.rows.length + 0.6).map((col) => (
+            <div key={col[0]?.g ?? 'none'} className="flex flex-col gap-4 min-w-0">
+              {col.map((x) => <GroupSection key={x.g} g={x.g} rows={x.rows} total={s.groups[x.g]} over={monthIsOver} onPick={setPicked} first={x === sections[0]} />)}
+            </div>
+          ))}
         </div>
       )}
 
