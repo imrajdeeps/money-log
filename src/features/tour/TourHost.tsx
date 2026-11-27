@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { compareVersions, pickTour, replay } from '../../core/tour.ts';
-import type { Tour, TourKind, TourPage } from '../../core/tour.ts';
+import type { Tour, TourContext, TourKind, TourPage } from '../../core/tour.ts';
+import type { Feature } from '../../core/featureKinds.ts';
+import { isoDate } from '../../core/logic.ts';
 import { loadTourSeen, saveTourSeen } from '../../data/tour.ts';
 import { WelcomeFlow } from './WelcomeFlow.tsx';
 import type { StartChoice } from './WelcomeFlow.tsx';
@@ -24,7 +26,10 @@ function findTarget(name: string | undefined): HTMLElement | null {
   return [...document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }) ?? null;
 }
 
-export function TourHost({ version, ready, hasData, go, onStart }: Readonly<{ version: string; ready: boolean; hasData: boolean; go: (to: TourPage) => void; onStart: (choice: StartChoice) => void }>) {
+export function TourHost({ version, ready, hasData, features, go, onStart }: Readonly<{ version: string; ready: boolean; hasData: boolean; features: ReadonlySet<Feature>; go: (to: TourPage) => void; onStart: (choice: StartChoice) => void }>) {
+  // what the rules need: today (what is new is this month's) and the parts that are on (a part that is off has no card)
+  const ctxRef = useRef<TourContext>({ today: isoDate(), on: features });
+  ctxRef.current = { today: isoDate(), on: features };
   const [tour, setTour] = useState<Tour | null>(null);
   const [welcome, setWelcome] = useState(false); // a person new to the app gets the short welcome, not the long tour
   const [i, setI] = useState(0);
@@ -39,14 +44,14 @@ export function TourHost({ version, ready, hasData, go, onStart }: Readonly<{ ve
     if (!ready || decided.current) return;
     decided.current = true;
     const seen = loadTourSeen();
-    const t = pickTour(seen, version, hasData);
+    const t = pickTour(seen, version, hasData, ctxRef.current);
     if (t?.kind === 'first') setWelcome(true);
     else if (t) { setTour(t); setI(0); } else if (seen === null || compareVersions(version, seen) > 0) saveTourSeen(version);
   }, [ready, version, hasData]);
 
   // when asked to
   useEffect(() => {
-    const on = (kind: TourKind) => { const t = replay(kind, version); if (t.steps.length) { setTour(t); setI(0); } };
+    const on = (kind: TourKind) => { const t = replay(kind, version, ctxRef.current); if (t.steps.length) { setTour(t); setI(0); } };
     listeners.add(on);
     return () => { listeners.delete(on); };
   }, [version]);
