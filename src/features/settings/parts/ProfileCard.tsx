@@ -73,11 +73,11 @@ export function ProfileCard() {
     saveProfile({ name: cleanName(name), whatsapp: checked.whatsapp });
     setName(cleanName(name));
     setNumber(localDigits(checked.whatsapp));
-    setNote({ text: email ? tr('Saved. It follows you to your other phones.') : tr('Saved on this phone.'), bad: false });
+    setNote({ text: email ? tr('Saved. It follows you to your other devices.') : tr('Saved on this device.'), bad: false });
   }
 
   const goals = Object.values(app.goals).filter((g) => g.k === 'g' && !g.x).length;
-  const holds = tr('This phone holds {0} payments · {1} groups · {2} goals', app.entries.length, app.groups.length, goals);
+  const holds = tr('This device holds {0} payments · {1} groups · {2} goals', app.entries.length, app.groups.length, goals);
   const qrBtn = ui.btn('outline', 'none', ps.outline44);
   return (
     <form className={ps.card + ' gap-3.5'} onSubmit={save} noValidate>
@@ -104,10 +104,10 @@ export function ProfileCard() {
           <label className={qrBtn}><input type="file" accept="image/*" onChange={(e) => void readQr(e)} />{tr('Upload QR image')}</label>
         </div>
         {note && <p className={note.bad ? ui.msg('bad') : 'm-0 text-[14px] leading-5 font-semibold text-good bg-good-bg px-2.5 py-2 rounded-[10px]'} role={note.bad ? 'alert' : 'status'}>{note.text}</p>}
-        <span className={ps.small}>{tr('The QR image is read on this phone and not kept. Group members see your UPI id when they pay you.')}</span>
+        <span className={ps.small}>{tr('The QR image is read on this device and not kept. Group members see your UPI id when they pay you.')}</span>
       </div>
       <button type="submit" className={ui.btn('solid', 'none', ps.save)}>{tr('Save profile')}</button>
-      <p className={ps.small}>{email ? tr('Your name and number are kept on this phone and in your account, where only you can see them. The number is not verified, and nothing is sent to it.') : tr('Kept on this phone. Sign in and your name and number also follow you to your other phones.')}</p>
+      <p className={ps.small}>{email ? tr('Your name and number are kept on this device and in your account, where only you can see them. The number is not verified, and nothing is sent to it.') : tr('Kept on this device. Sign in and your name and number also follow you to your other devices.')}</p>
     </form>
   );
 }

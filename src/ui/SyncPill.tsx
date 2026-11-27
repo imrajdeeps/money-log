@@ -11,7 +11,7 @@ export function SyncPill({ onOpenSettings }: Readonly<{ onOpenSettings: () => vo
   let cls: PillTone = 'idle';
   let action = app.syncNow;
   switch (s.mode) {
-    case 'local': label = tr('This phone only'); cls = 'muted'; action = onOpenSettings; break;
+    case 'local': label = tr('This device only'); cls = 'muted'; action = onOpenSettings; break;
     case 'signedout': label = tr('Sign in to sync'); cls = 'signin'; action = onOpenSettings; break;
     case 'syncing': label = 'Syncing…'; cls = 'busy'; break;
     case 'offline': label = s.pending ? tr('Offline · {0} waiting', s.pending) : tr('Offline'); cls = 'warn'; break;

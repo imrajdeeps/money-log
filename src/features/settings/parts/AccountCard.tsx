@@ -58,7 +58,7 @@ function useSignInForm() {
     setBusy(true); setResetNote(null);
     try {
       await app.requestPasswordReset(email.trim());
-      setResetNote({ text: tr('If {0} can receive email from this project, a link is on its way. Open it on this phone: it works once and runs out quickly. Nothing after a few minutes? Check the spam folder, then see the README (email setup).', email.trim()), bad: false });
+      setResetNote({ text: tr('If {0} can receive email from this project, a link is on its way. Open it on this device: it works once and runs out quickly. Nothing after a few minutes? Check the spam folder, then see the README (email setup).', email.trim()), bad: false });
     } catch (e) { setResetNote({ text: errText(e), bad: true }); } finally { setBusy(false); }
   }
 
@@ -72,7 +72,7 @@ function ForgotPanel({ f }: Readonly<{ f: SignInForm }>) {
   const typed = f.email.trim();
   return (
     <div className={ui.newCat} role="group" aria-label={tr('Reset your password')}>
-      <p className="text-[13px]">{tr('We will email')}{' '}{typed ? <b>{typed}</b> : 'the address above'}{' '}{tr('a link to choose a new password. Open it on this phone.')}</p>
+      <p className="text-[13px]">{tr('We will email')}{' '}{typed ? <b>{typed}</b> : 'the address above'}{' '}{tr('a link to choose a new password. Open it on this device.')}</p>
       <button type="button" className={ui.btn()} disabled={f.busy || !typed} onClick={f.sendReset}>{tr('Email me a reset link')}</button>
       {f.resetNote && <p className={ui.msg(f.resetNote.bad ? 'bad' : 'good')} role={f.resetNote.bad ? 'alert' : 'status'}>{f.resetNote.text}</p>}
       <p className="text-muted text-[13px]">{tr('It reaches the addresses this project\'s email can send to: today that is the project owner\'s. For anyone else, ask whoever runs the project to reset it (README, "If someone forgets their password").')}</p>
@@ -115,7 +115,7 @@ function SignedOutCard({ f }: Readonly<{ f: SignInForm }>) {
           {app.authNotice.text} <button type="button" className={ui.linkBtn} onClick={app.dismissAuthNotice}>{tr('Dismiss')}</button>
         </p>
       )}
-      <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('Sync keeps a copy of your payments in your own account, so a new phone can have them too. Without it everything stays on this phone.')}</p>
+      <p className="m-0 text-[15px] leading-[22px] text-muted">{tr('Sync keeps a copy of your payments in your own account, so a new device can have them too. Without it everything stays on this device.')}</p>
       <div className={ui.segment(2)} role="radiogroup" aria-label={tr('Sign in or create')}>
         <button type="button" role="radio" className={ui.segBtn} aria-checked={how === 'signin'} onClick={() => f.choose('signin')}>{tr('Sign in')}</button>
         <button type="button" role="radio" className={ui.segBtn} aria-checked={how === 'signup'} onClick={() => f.choose('signup')}>{tr('Create account')}</button>
@@ -175,7 +175,7 @@ export function AccountCard() {
   if (!app.syncEnabled) {
     return (
       <div className={ps.card}>
-        <p className={ps.note}>{tr('Cloud sync is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.')}</p>
+        <p className={ps.note}>{tr('Cloud sync is not set up in this build, so payments stay on this device only. The README explains how to turn it on.')}</p>
       </div>
     );
   }

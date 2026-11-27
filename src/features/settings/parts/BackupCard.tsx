@@ -47,12 +47,12 @@ export function BackupCard() {
     <>
       <div className={ps.card + ' gap-2.5'}>
         <h3 className={ps.title}>{tr('Download a backup')}</h3>
-        <p className={ps.note}>{tr('One file with every payment, category and budget, recurring payment, goal, net worth and due item.')} {last ? tr('Last backup: {0}.', shortDate(isoDate(new Date(last)))) : tr('No backup from this phone yet.')} {tr('Photos are not included.')}</p>
+        <p className={ps.note}>{tr('One file with every payment, category and budget, recurring payment, goal, net worth and due item.')} {last ? tr('Last backup: {0}.', shortDate(isoDate(new Date(last)))) : tr('No backup from this device yet.')} {tr('Photos are not included.')}</p>
         <button type="button" className={ui.btn('solid', 'none', ps.main)} onClick={download}>{tr('Download backup')}</button>
       </div>
       <div className={ps.card + ' gap-2.5'}>
         <h3 className={ps.title}>{tr('Restore from a backup')}</h3>
-        <p className={ps.note}>{tr('Adds what is in the file. Payments already on this phone are kept; nothing is saved twice.')}</p>
+        <p className={ps.note}>{tr('Adds what is in the file. Payments already on this device are kept; nothing is saved twice.')}</p>
         <label className={ui.btn('outline', 'none', ps.main)}>
           {tr('Choose a backup file')}
           <input type="file" accept=".json,application/json" onChange={restore} />
