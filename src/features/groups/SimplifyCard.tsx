@@ -16,7 +16,8 @@ export function SimplifyCard({ group, people, isAdmin }: Readonly<{ group: Group
   const on = group.simplify;
   const counts = useMemo(() => {
     const bal = groupBalances(group.id, app.groupEntries, app.settlements);
-    return { simple: simplifyDebts(bal).length, pairs: pairwiseDebts(group.id, app.groupEntries, app.settlements).length };
+    const paidBack = app.settlements.some((x) => x.group_id === group.id && !x.deleted_at);
+    return { simple: simplifyDebts(bal).length, pairs: pairwiseDebts(group.id, app.groupEntries, app.settlements).length, paidBack };
   }, [group.id, app.groupEntries, app.settlements]);
   const admins = people.filter((m) => m.role === 'admin' && m.user_id !== app.me).map((m) => m.display_name).join(', ');
   let now = tr('Right now nobody owes anybody anything.');
@@ -39,6 +40,7 @@ export function SimplifyCard({ group, people, isAdmin }: Readonly<{ group: Group
         ? tr('Hisaab works out the shortest way to settle everyone. You may pay someone you did not share that expense with, but nobody pays more or less in total.')
         : tr("Everyone pays back exactly the person they owe, and two people's debts to each other cancel out. More payments, no surprises.")}</p>
       <p className="m-0 bg-press rounded-xl px-3 py-2.5 text-[14px] leading-5">{now}</p>
+      {counts.pairs > 0 && counts.paidBack && <p className="m-0 text-[13px] leading-[18px] text-muted">{tr('Payments already recorded stay as they are, so after a change a line can include money paid back the other way. Nobody pays more or less in total.')}</p>}
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
       <p className="m-0 text-[13px] leading-[18px] text-muted">{isAdmin
         ? tr('Only admins can change this. Everyone in {0} sees the same list, and the group gets a note when it changes.', group.name)

@@ -1457,4 +1457,5 @@ export const HINGLISH: Record<string, string> = {
   '{0} from {1}': '{1} se {0}',
   'Simplified, you pay the same {0} in all: {1}.': 'Simplify karne par bhi aap total wahi {0} dete hain: {1}.',
   'Simplified, you get the same {0} in all: {1}.': 'Simplify karne par bhi aapko total wahi {0} milte hain: {1}.',
+  'Payments already recorded stay as they are, so after a change a line can include money paid back the other way. Nobody pays more or less in total.': 'Pehle record kiye payments waise hi rehte hain, isliye badalne ke baad kisi line mein ulti taraf lautaya gaya paisa bhi ho sakta hai. Total mein koi zyada ya kam nahi deta.',
 };

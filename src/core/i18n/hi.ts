@@ -1457,4 +1457,5 @@ export const HI: Record<string, string> = {
   '{0} from {1}': '{1} से {0}',
   'Simplified, you pay the same {0} in all: {1}.': 'आसान करने पर भी आप कुल वही {0} चुकाते हैं: {1}।',
   'Simplified, you get the same {0} in all: {1}.': 'आसान करने पर भी आपको कुल वही {0} मिलते हैं: {1}।',
+  'Payments already recorded stay as they are, so after a change a line can include money paid back the other way. Nobody pays more or less in total.': 'पहले दर्ज भुगतान वैसे ही रहते हैं, इसलिए बदलने के बाद किसी लाइन में उल्टी तरफ़ लौटाया गया पैसा भी हो सकता है। कुल मिलाकर कोई ज़्यादा या कम नहीं चुकाता।',
 };
