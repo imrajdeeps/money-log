@@ -155,6 +155,14 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Fixes from the owner's screenshots (version 2.0.1)
+No SQL, no new package. From the owner's list of 2026-11-27.
+
+- **"This device", not "this phone".** Hisaab runs on phones, tablets and laptops, so every text about where data is kept says *this device* (and *other devices*); Hindi says इस डिवाइस, Hinglish *is device*. Texts about a real phone stay as they were (install steps, the phone's calendar, silent mode, the phone's own lock).
+- **No holes on a wide screen.** The Overview's tiles are packed by `src/core/bento.ts`: tiles are placed the way the browser places them, a gap is filled by the next tile that fits, and the spare columns of a row are shared among its tiles, so every row ends at the right edge (a 3-wide Spending tile beside *This month* used to leave one column empty). The Month page puts its groups in two columns cut where their heights come closest (`src/core/columns.ts`), so a long Spending list no longer leaves an empty block beside EMI. Phones are unchanged.
+- **Insights in the first month.** With no earlier month to compare with, the Overview's Insights tile now shows what was spent so far, the likely month end at this pace and the biggest category, instead of only "Insights fill in once you have logged a month or two of payments" (that note stays for a month with nothing spent yet).
+- **Checks:** `npm run check`, `npm test` (497; new tests for the packing and the columns), and the built app in the browser at 1280 px and at phone width.
+
 ## Hisaab 2.0: the new design, the new name, udhaar with your Circle (version 2.0.0)
 **Needs the SQL in `supabase/schema.sql` run once** (the whole file is safe to run again; the new part is the section *shared udhaar (version 2.0)* at the end), then `supabase/rls_tests.sql` (it must end with `ALL ACCESS TESTS PASSED`; section 14 covers shared udhaar). Without the SQL everything else works and Udhaar keeps every entry private. From `docs/prd-2.0.md` and the design on the Claude Design canvas.
 
