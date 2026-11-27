@@ -1462,4 +1462,8 @@ export const HINGLISH: Record<string, string> = {
   'less {0} that goes round the group and cancels out': 'minus {0} jo group mein ghoomkar aapas mein kat jaate hain',
   'Edit the update of {0}': '{0} ka update edit karein',
   'New in {0} · {1}': '{0} mein naya · {1}',
+  'New: groups first, and parts you turn on': 'Naya: groups sabse pehle, aur hisse jinhe aap on karte hain',
+  'Groups is the first tab now. Plan and Net worth stay hidden until you turn them on in Settings, Features: nothing was deleted, and turning one on brings everything back. A group can choose Simplify repayments, and In my month asks from which day it counts.': 'Ab Groups pehla tab hai. Plan aur Net worth tab tak chhupe rehte hain jab tak aap unhe Settings, Features mein on nahi karte: kuch delete nahi hua, aur on karte hi sab wapas aa jaata hai. Group Simplify repayments chun sakta hai, aur In my month poochta hai ki kis din se gina jaaye.',
+  'New: every net worth update': 'Naya: net worth ka har update',
+  'Under Net worth, See every update shows the chart and each figure you saved. Change or delete one, with Undo, and a figure that looks like a typo is pointed out.': 'Net worth mein, Har update dekhein par chart aur aapka save kiya har figure dikhta hai. Kisi ko badlein ya delete karein, Undo ke saath, aur typo jaisa dikhne wala figure bataya jaata hai.',
 };

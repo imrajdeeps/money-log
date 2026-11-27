@@ -1462,4 +1462,8 @@ export const HI: Record<string, string> = {
   'less {0} that goes round the group and cancels out': 'घटाएँ {0} जो ग्रुप में घूमकर आपस में कट जाते हैं',
   'Edit the update of {0}': '{0} का अपडेट बदलें',
   'New in {0} · {1}': '{0} में नया · {1}',
+  'New: groups first, and parts you turn on': 'नया: ग्रुप सबसे पहले, और हिस्से जिन्हें आप चालू करते हैं',
+  'Groups is the first tab now. Plan and Net worth stay hidden until you turn them on in Settings, Features: nothing was deleted, and turning one on brings everything back. A group can choose Simplify repayments, and In my month asks from which day it counts.': 'अब ग्रुप पहला टैब है। प्लान और कुल संपत्ति तब तक छिपे रहते हैं जब तक आप उन्हें सेटिंग्स, फ़ीचर में चालू नहीं करते: कुछ हटाया नहीं गया, और चालू करते ही सब वापस आ जाता है। ग्रुप रकम लौटाना आसान करना चुन सकता है, और मेरे महीने में पूछता है कि किस दिन से गिना जाए।',
+  'New: every net worth update': 'नया: कुल संपत्ति का हर अपडेट',
+  'Under Net worth, See every update shows the chart and each figure you saved. Change or delete one, with Undo, and a figure that looks like a typo is pointed out.': 'कुल संपत्ति में, हर अपडेट देखें पर चार्ट और आपकी सहेजी हर रकम दिखती है। किसी को बदलें या हटाएँ, पूर्ववत के साथ, और टाइपिंग की गलती जैसी दिखने वाली रकम बताई जाती है।',
 };
