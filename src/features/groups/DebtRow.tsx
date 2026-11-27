@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { fmtINR } from '../../core/logic.ts';
 import { extractUpi, remindText, upiLink } from '../../core/upi.ts';
 import { myUpi, theirUpi } from '../../data/phonePrefs.ts';
@@ -32,14 +33,26 @@ function UpiPay({ debt, group, nameOf }: Readonly<{ debt: Debt; group: string; n
   );
 }
 
+// Why a simplified payment of yours is this amount: what you owe pair by pair, what it comes to simplified, and how many payments that saves.
+function WhyBox({ lines }: Readonly<{ lines: string[] }>) {
+  return (
+    <div className="bg-press rounded-xl p-3 text-[14px] leading-5 flex flex-col gap-1.5">
+      {lines.map((l, i) => <span key={l} className={ui.cx(i === lines.length - 1 && 'text-muted')}>{l}</span>)}
+    </div>
+  );
+}
+
 // One line of "To settle up": who pays whom and how much. When it involves you there is something to do about it: record it (as before),
 // remind the person who owes you through WhatsApp (your UPI id, if you set one, rides in the message), or pay the person you owe by
 // opening your UPI app with their id and the amount filled in. Money never moves through this app.
-export function DebtRow({ debt, group, me, myName, nameOf, onRecord }: Readonly<{
+export function DebtRow({ debt, group, me, myName, nameOf, onRecord, sub, why }: Readonly<{
   debt: Debt; group: string; me: string; myName: string; nameOf: (uid: string) => string; onRecord: () => void;
+  sub?: string; // 2.1, not simplified: what the payment is for
+  why?: string[]; // 2.1, simplified: why your payment is this amount
 }>) {
   const mine = myUpi.use();
   const [paying, setPaying] = useState(false);
+  const [showWhy, setShowWhy] = useState(false);
   const iOwe = debt.from === me;
   const involved = iOwe || debt.to === me;
   // whole sentences, so each language can put the words in its own order
@@ -47,14 +60,19 @@ export function DebtRow({ debt, group, me, myName, nameOf, onRecord }: Readonly<
 
   return (
     <li className="flex flex-col gap-3 py-3.5">
-      <span className="text-[17px] font-bold [overflow-wrap:anywhere]">{who} <span className="tabular-nums">{fmtINR(debt.amount)}</span></span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-[17px] font-bold [overflow-wrap:anywhere]">{who} <span className="tabular-nums">{fmtINR(debt.amount)}</span></span>
+        {sub && <span className="text-[13px] leading-[18px] text-muted">{sub}</span>}
+      </span>
       {involved && (
         <div className="flex flex-wrap gap-2">
           <button type="button" className={ui.btn(iOwe ? 'solid' : 'outline', 'none', 'min-h-11 px-[18px] text-[15px]')} onClick={onRecord}>{tr('Record')}</button>
           {iOwe && <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-4 text-[15px]')} aria-expanded={paying} onClick={() => setPaying(!paying)}>{tr('Pay by UPI')}</button>}
           {debt.to === me && <WhatsAppButton size="row" label={tr('Remind on WhatsApp')} text={remindText({ name: nameOf(debt.from), amount: debt.amount, group, upi: mine, payeeName: myName })} />}
+          {why && <button type="button" className="min-h-11 px-1.5 border-0 bg-transparent text-brand text-[14px] font-[650] underline cursor-pointer [font-family:inherit]" aria-expanded={showWhy} onClick={() => setShowWhy(!showWhy)}>{tr('Why this amount?')}</button>}
         </div>
       )}
+      {why && showWhy && <WhyBox lines={why} />}
       {iOwe && paying && <UpiPay debt={debt} group={group} nameOf={nameOf} />}
     </li>
   );

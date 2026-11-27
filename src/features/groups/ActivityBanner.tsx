@@ -15,15 +15,15 @@ export function ActivityBanner({ group }: Readonly<{ group: Group }>) {
   const known = seen[group.id] ?? null;
   const nameOf = (uid: string | null) => (uid === app.me ? tr('You') : memberName(app.members, group.id, uid));
   const { items, more } = useMemo(
-    () => groupActivity(app.groupEntries, app.settlements, group.id, app.me, known, nameOf),
+    () => groupActivity(app.groupEntries, app.settlements, group.id, app.me, known, nameOf, group),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [app.groupEntries, app.settlements, app.members, group.id, app.me, known],
+    [app.groupEntries, app.settlements, app.members, group, app.me, known],
   );
   // what is in the group right now is "seen" the first time, and again when the page is left (read from a ref: the latest rows at that moment)
-  const latest = useRef({ entries: app.groupEntries, settlements: app.settlements });
-  latest.current = { entries: app.groupEntries, settlements: app.settlements };
+  const latest = useRef({ entries: app.groupEntries, settlements: app.settlements, group });
+  latest.current = { entries: app.groupEntries, settlements: app.settlements, group };
   useEffect(() => {
-    const mark = () => groupSeen.save({ ...groupSeen.load(), [group.id]: seenKeys(latest.current.entries, latest.current.settlements, group.id) });
+    const mark = () => groupSeen.save({ ...groupSeen.load(), [group.id]: seenKeys(latest.current.entries, latest.current.settlements, group.id, latest.current.group) });
     if (!groupSeen.load()[group.id]) mark();
     return mark;
   }, [group.id]);
@@ -35,7 +35,7 @@ export function ActivityBanner({ group }: Readonly<{ group: Group }>) {
         <span className="text-[15px] font-bold">{tr('{0} new since you last opened', total)}</span>
         <span className="text-[13px] text-muted">{items.map((a) => a.text).join('. ')}{more > 0 ? ` ${tr('and {0} more', more)}` : ''}</span>
       </span>
-      <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-3.5 text-[14px]')} onClick={() => groupSeen.save({ ...groupSeen.load(), [group.id]: seenKeys(latest.current.entries, latest.current.settlements, group.id) })}>{tr('Seen')}</button>
+      <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-3.5 text-[14px]')} onClick={() => groupSeen.save({ ...groupSeen.load(), [group.id]: seenKeys(latest.current.entries, latest.current.settlements, group.id, latest.current.group) })}>{tr('Seen')}</button>
     </div>
   );
 }

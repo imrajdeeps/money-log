@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanShareSwitches, countsByDefault, countsShare, shareEntries, shareFrom } from '../../src/core/groupShares.ts';
+import { cleanShareSwitches, countsByDefault, countsShare, fromChoice, monthStart, shareEntries, shareFrom } from '../../src/core/groupShares.ts';
 import { budgetEntries, makeEntry } from '../../src/core/logic.ts';
 import type { Entry } from '../../src/core/logic.ts';
 
@@ -69,4 +69,12 @@ test('choices read from storage are checked', () => {
   const good = { on: false, from: '2026-11-10' };
   assert.deepEqual(cleanShareSwitches({ [FLAT.toUpperCase()]: good, [TRIP]: { on: true, from: '2026-11-11' }, nope: good, [PRIYA]: 'yes', [ME]: { on: 'yes', from: '2026-11-10' }, '00000000-0000-4000-8000-0000000000d4': { on: true, from: 'yesterday' } }), { [FLAT]: good, [TRIP]: { on: true, from: '2026-11-11' } });
   for (const bad of [null, [], 'x', 5]) assert.deepEqual(cleanShareSwitches(bad), {});
+});
+
+test('turning it on counts from the start of this month; the chips name the day it counts from', () => {
+  assert.equal(monthStart('2026-11-27'), '2026-11-01');
+  assert.equal(fromChoice('2026-11-01', '2026-11-27'), 'month');
+  assert.equal(fromChoice('2026-11-27', '2026-11-27'), 'today');
+  assert.equal(fromChoice('2026-10-15', '2026-11-27'), 'pick', 'a day of an earlier month is another day');
+  assert.equal(fromChoice('2026-11-01', '2026-11-01'), 'month', 'on the 1st, the start of the month wins');
 });

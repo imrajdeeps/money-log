@@ -7,7 +7,7 @@ import type { Group, Member } from '../../../src/core/groups.ts';
 const ME = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OTHER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const PRIMARY = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
-const group = (primary: string | null): Group => ({ id: 'g', name: 'Flat', kind: 'family', created_at: '2026-11-01T00:00:00Z', starts_on: null, ends_on: null, closed_at: null, usual_split: null, primary_admin: primary });
+const group = (primary: string | null): Group => ({ id: 'g', name: 'Flat', kind: 'family', created_at: '2026-11-01T00:00:00Z', starts_on: null, ends_on: null, closed_at: null, usual_split: null, primary_admin: primary, simplify: true, simplify_by: null, simplify_at: null });
 const member = (user_id: string, role: Member['role']): Member => ({ group_id: 'g', user_id, display_name: 'X', role, joined_at: '2026-11-01T00:00:00Z', left_at: null });
 const NONE = { rename: false, makeAdmin: false, revokeAdmin: false, makePrimary: false, remove: false };
 const primaryPowers: Powers = { isAdmin: true, manageAdmins: true };

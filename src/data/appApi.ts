@@ -157,6 +157,7 @@ export interface AppApi {
   setTripDates: (groupId: string, starts: string | null, ends: string | null) => Promise<void>; // admins, trips
   setGroupClosed: (groupId: string, closed: boolean) => Promise<void>; // admins, trips: close or reopen
   setUsualSplit: (groupId: string, split: UsualSplit | null) => Promise<void>; // admins, flatmates
+  setGroupSimplify: (groupId: string, on: boolean) => Promise<void>; // admins: settle up in the fewest payments, or pair by pair (2.1)
   restoreBackup: (b: Extract<BackupParse, { ok: true }>) => Promise<{ added: number; updated: number }>;
   syncNow: () => void;
   signUp: (email: string, password: string) => Promise<'signed-in' | 'confirm'>;
