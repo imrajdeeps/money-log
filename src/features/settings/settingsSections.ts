@@ -8,7 +8,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'backup', title: 'Backup', blurb: 'Save or restore a copy of your data' },
   { id: 'lock', title: 'App lock', blurb: 'A PIN for this device' },
   { id: 'receipts', title: 'Receipt photos', blurb: 'Storage used on this device' },
-  { id: 'appearance', title: 'Appearance, sound and language', blurb: 'Light, dark or match the phone; sounds; language' },
+  { id: 'appearance', title: 'Appearance, sound and language', blurb: 'Light, dark or match the device; sounds; language' },
   { id: 'notifications', title: 'Notifications', blurb: 'What the bell tells you about' },
   { id: 'about', title: 'About', blurb: 'Version, install help, the tour' },
   { id: 'erase', title: 'Erase everything on this device', blurb: 'Remove all data from this device' },

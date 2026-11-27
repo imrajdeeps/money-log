@@ -92,7 +92,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
     hasUdhaar: app.udhaar.length > 0, open, openMonth, openGroup, openAdd, openAddIncome, goSettings,
   };
   const specs = state === 'full' ? fullTiles(data) : startTiles(data);
-  const nodes = new Map(specs.map((s) => [s.id, s.node]));
+  // each tile's wide-screen width and place, so every row is full there (version 2.0.1); the page itself keeps the design's order
+  const places = new Map(packTiles(specs).map((p, order) => [p.id, { span: p.span, order }]));
 
   return (
     <section aria-labelledby="home-title">
@@ -100,9 +101,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
         <div><h2 id="home-title">{tr('Overview')}</h2><p className="text-muted text-[14px]">{monthLabel(month)}</p></div>
         <span className="lg:hidden"><SyncPill onOpenSettings={openAccount} /></span>
       </div>
-      {/* the order and the wide-screen widths come from packTiles, so every row is full (version 2.0.1) */}
       <BentoGrid packed>
-        {packTiles(specs).map((p) => <TileSpan.Provider key={p.id} value={p.span}>{nodes.get(p.id)}</TileSpan.Provider>)}
+        {specs.map((s) => <TileSpan.Provider key={s.id} value={places.get(s.id) ?? null}>{s.node}</TileSpan.Provider>)}
       </BentoGrid>
     </section>
   );

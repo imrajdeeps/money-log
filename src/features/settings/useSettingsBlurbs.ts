@@ -10,7 +10,7 @@ import type { SettingsSection } from './settingsSections.ts';
 import { useTheme } from './theme.ts';
 import { VERSION } from './parts/shared.ts';
 
-const THEME_WORDS = { system: 'Match my phone', light: 'Light', dark: 'Dark' } as const;
+const THEME_WORDS = { system: 'Match my device', light: 'Light', dark: 'Dark' } as const;
 
 // The line under each part of the Settings list, as on the design: what it is set to now, in a few words.
 export function useSettingsBlurbs(): Record<SettingsSection, string> {

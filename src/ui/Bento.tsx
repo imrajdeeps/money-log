@@ -1,4 +1,4 @@
-import { Children, createContext, useContext, useId } from 'react';
+import { Children, createContext, isValidElement, useContext, useId } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from './Icon.tsx';
 import * as ui from './styles.ts';
@@ -16,11 +16,15 @@ const SPAN_WIDE: Record<number, string> = {
   9: '@min-[900px]:col-span-9', 10: '@min-[900px]:col-span-10', 11: '@min-[900px]:col-span-11', 12: '@min-[900px]:col-span-12',
 };
 
-/** A width (of 12) worked out for the tile inside by core/bento.ts packTiles; none: the tile's own span. */
-export const TileSpan = createContext<number | null>(null);
+/**
+ * Where the tile inside goes on a wide screen, worked out by core/bento.ts packTiles: its width (of 12) and its place in the packed order.
+ * The page keeps the tiles in the design's order (a phone reads them so); a wide screen moves them with CSS order. None: the tile's own span.
+ */
+export interface TilePlace { span: number; order: number }
+export const TileSpan = createContext<TilePlace | null>(null);
 
-// packed: the tiles come already in their order, with widths that fill every row (packTiles), so a wide screen places them as they
-// come instead of packing them itself.
+// packed: the tiles carry their wide-screen place (TileSpan), with widths that fill every row, so a wide screen places them in that
+// order as they come instead of packing them itself. A phone is not touched: it keeps the design's order and its own packing.
 export function BentoGrid({ children, label, packed = false }: Readonly<{ children: ReactNode; label?: string; packed?: boolean }>) {
   return (
     <div className="@container">
@@ -30,7 +34,8 @@ export function BentoGrid({ children, label, packed = false }: Readonly<{ childr
         aria-label={label}
       >
         {/* each tile gets its place in the order (--i), so the tiles rise one after another; the wrapper adds no box */}
-        {Children.toArray(children).map((child, i) => <div key={i} className="contents" style={{ '--i': Math.min(i, 8) } as CSSProperties}>{child}</div>)}
+        {/* keyed by the tile's own key, so a tile coming or going does not redraw the ones after it (an open dialog in one would close) */}
+        {Children.toArray(children).map((child, i) => <div key={isValidElement(child) && child.key !== null ? child.key : i} className="contents" style={{ '--i': Math.min(i, 8) } as CSSProperties}>{child}</div>)}
       </div>
     </div>
   );
@@ -65,13 +70,13 @@ const CARD_ACTION =
 // text stays plain text for screen readers and the button says what it opens.
 export function BentoCard({ title, span = 4, half = false, tall = false, pad = 'wide', gap = 6, hero = false, chevron = false, onOpen, openLabel, action, children }: CardProps) {
   const id = useId();
-  const wide = useContext(TileSpan) ?? span;
+  const place = useContext(TileSpan);
   const cls = ui.cx(
-    CARD, half ? 'col-span-1' : 'col-span-2', SPAN_WIDE[wide], tall && '@min-[900px]:row-span-2', GAP[gap],
-    hero ? 'hero rounded-card-lg p-[18px]' : `rounded-card ${PAD[pad]}`, onOpen && CARD_ACTION,
+    CARD, half ? 'col-span-1' : 'col-span-2', SPAN_WIDE[place?.span ?? span], tall && '@min-[900px]:row-span-2', GAP[gap],
+    hero ? 'hero rounded-card-lg p-[18px]' : `rounded-card ${PAD[pad]}`, onOpen && CARD_ACTION, place && '@min-[900px]:[order:var(--o)]',
   );
   return (
-    <section className={cls} aria-labelledby={id}>
+    <section className={cls} aria-labelledby={id} style={place ? ({ '--o': place.order } as CSSProperties) : undefined}>
       <header className="flex items-center justify-between gap-2">
         <h3 id={id} className={hero ? 'm-0 text-[15px] font-[650] text-ink' : 'm-0 text-[14px] font-[650] text-ink'}>{title}</h3>
         {action}
