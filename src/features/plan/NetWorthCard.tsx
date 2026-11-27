@@ -3,13 +3,13 @@ import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { netNow, netUpdates, parseNetAmount } from '../../core/goals.ts';
 import { worthItems, worthSummary } from '../../core/worth.ts';
+import { typedCheck } from '../../core/worthHistory.ts';
 import { WorthPanel } from './WorthPanel.tsx';
 import type { WorthMode } from './WorthPanel.tsx';
 import { useAutoLines } from './useAutoLines.ts';
-import type { NetUpdate } from '../../core/goals.ts';
 import { shortDate } from '../../core/format.ts';
 import { fmtINR, isoDate } from '../../core/logic.ts';
-import { SwipeRow } from '../../ui/SwipeRow.tsx';
+import { Icon } from '../../ui/Icon.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -44,18 +44,27 @@ function Change({ by, since }: Readonly<{ by: number; since: string }>) {
 }
 
 // Typing a new figure: the amount (it can be negative: debts can outweigh what you own) and the day it was true.
-function UpdateForm({ onDone }: Readonly<{ onDone: () => void }>) {
+// ₹0 after a figure that was not, or one far from the last, is asked about once before it is saved (the owner once typed a ₹0 by mistake).
+function checkText(kind: 'zero' | 'jump', last: number): string {
+  return kind === 'zero' ? tr('That is ₹0. Your last figure was {0}. Save ₹0 anyway?', fmtINR(last)) : tr('That is far from your last figure, {0}. Check it, or save it anyway.', fmtINR(last));
+}
+
+function UpdateForm({ last, onDone }: Readonly<{ last: number | null; onDone: () => void }>) {
   const app = useApp();
   const today = isoDate();
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(today);
   const [error, setError] = useState('');
+  const [asked, setAsked] = useState(''); // the amount the check was shown for: saving it again goes ahead
   const [busy, setBusy] = useState(false);
+  const check = (() => { const n = parseNetAmount(amount); return n === null ? null : typedCheck(n, last); })();
+  const askNow = check !== null && asked === amount;
 
   async function submit(ev: FormEvent) {
     ev.preventDefault();
     const n = parseNetAmount(amount);
     if (n === null) return setError(tr('Enter your net worth as a number, with at most two decimals. It can be negative.'));
+    if (check && !askNow) return setAsked(amount);
     setBusy(true);
     setError('');
     const problem = await app.addNetWorth(n, date);
@@ -69,7 +78,7 @@ function UpdateForm({ onDone }: Readonly<{ onDone: () => void }>) {
     <form onSubmit={submit} noValidate className="bg-card border border-line rounded-card p-4">
       <label className={ui.field}>
         <span>{tr('Net worth now (₹)')}</span>
-        <input inputMode="decimal" autoFocus value={amount} placeholder="6,21,302" onChange={(e) => { setAmount(e.target.value); setError(''); }} />
+        <input inputMode="decimal" autoFocus value={amount} placeholder="6,21,302" onChange={(e) => { setAmount(e.target.value); setError(''); setAsked(''); }} />
       </label>
       <label className={ui.field}>
         <span>{tr('As of')}</span>
@@ -77,36 +86,22 @@ function UpdateForm({ onDone }: Readonly<{ onDone: () => void }>) {
       </label>
       <p className="mt-2 mb-0 text-[13px] text-muted">{tr('What you own minus what you owe. Use a minus sign if it is below zero.')}</p>
       {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      {askNow && last !== null && <p className={ui.msg('bad')} role="alert">{checkText(check, last)}</p>}
       <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{tr('Save')}</button>
+        <button type="submit" className={ui.btn()} disabled={busy}>{askNow ? tr('Save anyway') : tr('Save')}</button>
         <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
       </div>
     </form>
   );
 }
 
-function History({ updates }: Readonly<{ updates: NetUpdate[] }>) {
-  const app = useApp();
-  return (
-    <details className="text-[14px] text-[#dce9df]">
-      <summary className="min-h-9 flex items-center cursor-pointer font-semibold">{tr('Earlier updates ({0})', updates.length)}</summary>
-      <ul className="list-none m-0 p-0 pb-1.5 flex flex-col gap-1">
-        {updates.map((u) => (
-          <SwipeRow key={u.id} label={shortDate(u.d)} onDelete={() => { void app.removeNetWorth(u.id).then(() => app.toast(tr('Removed: {0}', shortDate(u.d)))); }}>
-            <span className="tabular-nums">{shortDate(u.d)} · {fmtINR(u.a)}</span>
-          </SwipeRow>
-        ))}
-      </ul>
-    </details>
-  );
-}
-
+const HISTORY_LINK = 'relative z-[2] min-h-11 flex items-center justify-between gap-2 border-0 border-t border-[rgba(255,255,255,0.14)] bg-transparent p-0 text-left text-[#dce9df] text-[14px] font-semibold cursor-pointer [font-family:inherit]';
 const HERO_LIME = 'relative z-[2] flex-1 inline-flex items-center justify-center min-h-12 rounded-xl border-0 bg-primary text-primary-ink text-[16px] font-bold cursor-pointer [font-family:inherit]';
 const HERO_OUTLINE = 'relative z-[2] flex-1 inline-flex items-center justify-center min-h-12 rounded-xl border border-[rgba(255,255,255,0.35)] bg-transparent text-[#fff] text-[16px] font-[650] cursor-pointer [font-family:inherit]';
 
 // The net worth part of the Plan page, as on the design: the green tile (the figure, how it moved, a little line of the updates, the
-// earlier ones, Check in and Add an item), then what is owned and owed, what moved, where it sits and the automatic lines.
-export function NetWorthCard() {
+// link to every update (the history page), Check in and Add an item), then what is owned and owed, what moved, where it sits and the automatic lines.
+export function NetWorthCard({ onHistory }: Readonly<{ onHistory: () => void }>) {
   const app = useApp();
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<WorthMode>(null);
@@ -135,7 +130,11 @@ export function NetWorthCard() {
         ) : (
           <p className="m-0 text-[15px] leading-[22px] text-[#dce9df]">{tr('List what you own and what you owe, and your net worth is worked out for you. A monthly check-in takes a minute.')}</p>
         )}
-        {updates.length > 1 && <History updates={updates.slice(1)} />}
+        {updates.length > 0 && (
+          <button type="button" className={HISTORY_LINK} onClick={onHistory}>
+            <span>{tr('See every update · change or delete one')}</span><Icon name="chevron" size={18} stroke={2} />
+          </button>
+        )}
         <div className="flex gap-2.5 pt-1">
           {hasItems
             ? <button type="button" className={HERO_LIME} onClick={() => setMode('checkin')}>{tr('Check in')}</button>
@@ -145,7 +144,7 @@ export function NetWorthCard() {
             : <button type="button" className={HERO_OUTLINE} onClick={() => setEditing(true)}>{now ? tr('Type a new number') : tr('Or just type a number')}</button>}
         </div>
       </section>
-      {editing && !hasItems && <UpdateForm onDone={() => setEditing(false)} />}
+      {editing && !hasItems && <UpdateForm last={now?.value ?? null} onDone={() => setEditing(false)} />}
       <WorthPanel mode={mode} setMode={setMode} />
     </div>
   );

@@ -23,7 +23,7 @@ import type { Section } from '../features/home/index.ts';
 import type { Group } from '../core/logic.ts';
 import { MonthScreen } from '../features/month/index.ts';
 import { NotificationBell, NotificationsScreen } from '../features/notifications/index.ts';
-import { PlanScreen } from '../features/plan/index.ts';
+import { NetWorthHistory, PlanScreen } from '../features/plan/index.ts';
 import { TourHost } from '../features/tour/index.ts';
 import type { OpenTarget } from '../core/notifications.ts';
 import type { TourPage } from '../core/tour.ts';
@@ -39,9 +39,9 @@ import { tr } from '../core/i18n.ts';
 // the other pages are drawn only while they are showing.
 type Page = 'home' | 'settings' | 'add' | Section;
 
-const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', udhaar: '/udhaar', notifications: '/notifications' } as const;
+const ROUTES = { month: '/month', plan: '/plan', groups: '/groups', payments: '/payments', goals: '/goals', analytics: '/analytics', cashflow: '/cashflow', circle: '/circle', udhaar: '/udhaar', notifications: '/notifications', networth: '/networth' } as const;
 const SECTIONS = Object.keys(ROUTES) as Section[];
-const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Your Circle', udhaar: 'Udhaar', notifications: 'Notifications' };
+const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 'Groups', payments: 'All payments', goals: 'Goals', analytics: 'Insights', cashflow: 'Cash flow', circle: 'Your Circle', udhaar: 'Udhaar', notifications: 'Notifications', networth: 'Net worth history' };
 
 const SPLASH_MS = 500; // how long the start screen stays, at least
 
@@ -184,7 +184,7 @@ function Shell() {
     </div>
   ); // a new message is a new element, so it slides in again
   // a page shows under its tab, as on the design: Goals under Plan, the Circle under Groups; Insights and Cash flow keep the Month tab lit on a phone only
-  const PARENT: Partial<Record<Page, Page>> = { goals: 'plan', circle: 'groups' };
+  const PARENT: Partial<Record<Page, Page>> = { goals: 'plan', circle: 'groups', networth: 'plan' };
   const TAB_PARENT: Partial<Record<Page, Page>> = { ...PARENT, analytics: 'month', cashflow: 'month' };
   const current = (id: Page) => (page === id || PARENT[page] === id ? 'page' : undefined);
   const currentTab = (id: Page) => (page === id || TAB_PARENT[page] === id ? 'page' : undefined);
@@ -230,12 +230,13 @@ function Shell() {
           <PageBody title={tr('Add expense')} back onBack={goHome} wide><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} onSeeAll={() => goPage('payments')} /></PageBody>
         </div>
         {page === 'month' && <div className="animate-page-in"><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></div>}
-        {(page === 'plan' || page === 'goals') && <div className="animate-page-in"><FeatureGate feature="plan" heading={TITLES.plan} onOpen={openFeatures}><PlanScreen onUdhaar={() => goPage('udhaar')} onFeatures={openFeatures} /></FeatureGate></div>}
+        {(page === 'plan' || page === 'goals') && <div className="animate-page-in"><FeatureGate feature="plan" heading={TITLES.plan} onOpen={openFeatures}><PlanScreen onUdhaar={() => goPage('udhaar')} onFeatures={openFeatures} onNetWorth={() => goPage('networth')} /></FeatureGate></div>}
         {page === 'groups' && <div className="animate-page-in"><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} openUdhaar={() => goPage('udhaar')} onAdd={goAddGroup} /></div>}
         {page === 'udhaar' && <PageBody title={TITLES.udhaar} intro={tr('Money lent or borrowed with friends. Private unless you share an entry with someone in your Circle.')} back onBack={goHome} wide><FeatureGate feature="udhaar" onOpen={openFeatures}><UdhaarScreen /></FeatureGate></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} lead intro={tr('People you can add to a group or a shared goal without a code. They see only what you share with them.')} back backLabel={tr('Groups')} onBack={() => goPage('groups')} wide><CircleScreen /></PageBody>}
         {page === 'cashflow' && <PageBody title={TITLES.cashflow} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><FeatureGate feature="insights" onOpen={openFeatures}><CashFlowScreen onAdd={goAddIncome} /></FeatureGate></PageBody>}
         {page === 'analytics' && <PageBody title={TITLES.analytics} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><FeatureGate feature="insights" onOpen={openFeatures}><AnalyticsScreen /></FeatureGate></PageBody>}
+        {page === 'networth' && <PageBody title={TITLES.networth} intro={tr('Every figure you saved, from a check-in or typed in. You can change or delete any of them.')} back backLabel={tr('Plan')} onBack={() => goPage('plan')} wide><FeatureGate feature="worth" onOpen={openFeatures}><NetWorthHistory /></FeatureGate></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications} intro={tr('Gentle notes. They stay here until you act on them or dismiss them.')} width="notes"><NotificationsScreen onOpen={openNotice} /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome} width="payments"><AllPayments /></PageBody>}
       </main>

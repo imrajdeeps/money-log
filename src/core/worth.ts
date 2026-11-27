@@ -219,8 +219,8 @@ export const debtShare = (assets: number, debts: number): number | null => (asse
  */
 export function snapshotWorth(items: Goals, net: number, todayIso: string, nowIso: string): Goals {
   const today = netUpdates(items).find((u) => u.d === todayIso);
-  if (today) return { ...items, [today.id]: { ...today, a: net, t: laterThan(today.t, nowIso) } };
-  const r = addNetUpdate(items, net, todayIso, todayIso, nowIso);
+  if (today) return { ...items, [today.id]: { ...today, a: net, s: 'c', t: laterThan(today.t, nowIso) } };
+  const r = addNetUpdate(items, net, todayIso, todayIso, nowIso, newId(), 'c');
   return r.ok ? r.items : items;
 }
 

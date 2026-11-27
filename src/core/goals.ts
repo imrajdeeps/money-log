@@ -36,7 +36,9 @@ export interface Goal { id: string; k: 'g'; n: string; a: number; d: string; s: 
 export interface TopUp { id: string; k: 't'; g: string; a: number; d: string; x: 0 | 1; t: string }
 // A net worth update: what the person's net worth was on a day (a number that may be negative). Kept in the same block as the goals
 // (so it syncs and is backed up with them, with no new database block), one item per update so two phones never overwrite each other.
-export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1; t: string }
+// s: where the figure came from (version 2.1, shown on the history): c a check-in, t typed in; older updates have none.
+export type NetSource = 'c' | 't';
+export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1; t: string; s?: NetSource }
 // An item on the due list (a one-off payment or a to-do) made in the app; the logic is in dueItems.ts. n title, d due day ('' = no date),
 // a amount in rupees (0 = none; one-off payments only), f done, x removed. Kept in this block like net worth updates.
 export type DueEntryKind = 'oneoff' | 'todo';
@@ -143,16 +145,31 @@ export function parseNetAmount(text: unknown): number | null {
   return netOk(n) ? n + 0 : null; // + 0: no negative zero
 }
 
-export function addNetUpdate(items: Goals, amount: number, date: string, todayIso: string, nowIso: string, id: string = newId()): GoalResult {
+export function addNetUpdate(items: Goals, amount: number, date: string, todayIso: string, nowIso: string, id: string = newId(), source: NetSource = 't'): GoalResult {
   if (!netOk(amount)) return { ok: false, error: tr('Enter your net worth as a number, with at most two decimals. It can be negative.') };
   if (!isValidDate(date) || date > todayIso) return { ok: false, error: tr('Pick a date that is today or earlier.') };
   if (count(items, 'n') >= MAX_NET_UPDATES) return { ok: false, error: tr('That is the most net worth updates one account can keep. Remove some old ones.') };
-  return { ok: true, items: { ...items, [id]: { id, k: 'n', a: amount, d: date, x: 0, t: nowIso } } };
+  return { ok: true, items: { ...items, [id]: { id, k: 'n', a: amount, d: date, x: 0, t: nowIso, s: source } } };
 }
 
 export function removeNetUpdate(items: Goals, id: string, nowIso: string): Goals {
   const cur = items[id];
   return cur?.k !== 'n' || cur.x ? items : { ...items, [id]: { ...cur, x: 1, t: nowIso } };
+}
+
+/** Change an update's figure or day (version 2.1, the net worth history): checked like a new one, same id. */
+export function editNetUpdate(items: Goals, id: string, amount: number, date: string, todayIso: string, nowIso: string): GoalResult {
+  const cur = items[id];
+  if (cur?.k !== 'n' || cur.x) return { ok: false, error: tr('That update is gone.') };
+  if (!netOk(amount)) return { ok: false, error: tr('Enter your net worth as a number, with at most two decimals. It can be negative.') };
+  if (!isValidDate(date) || date > todayIso) return { ok: false, error: tr('Pick a date that is today or earlier.') };
+  return { ok: true, items: { ...items, [id]: { ...cur, a: amount, d: date, t: nowIso } } };
+}
+
+/** Undo a delete: the update comes back as it was (its removal is replaced by a later change). */
+export function restoreNetUpdate(items: Goals, id: string, nowIso: string): Goals {
+  const cur = items[id];
+  return cur?.k === 'n' && cur.x ? { ...items, [id]: { ...cur, x: 0, t: nowIso } } : items;
 }
 
 /** The updates still kept, newest day first (on one day, the one entered last first). */
@@ -243,7 +260,9 @@ function cleanTopUpItem(k: string, v: Raw): TopUp | null {
 
 function cleanNetItem(k: string, v: Raw): NetUpdate | null {
   if (!netOk(v.a) || !isDay(v.d)) return null;
-  return { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
+  const u: NetUpdate = { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
+  if (v.s === 'c' || v.s === 't') u.s = v.s;
+  return u;
 }
 
 function cleanDueItem(k: string, v: Raw): DueEntry | null {

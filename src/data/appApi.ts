@@ -103,6 +103,8 @@ export interface AppApi {
   removeTopUp: (id: string) => Promise<void>;
   addNetWorth: (amount: number, date: string) => Promise<string | null>; // a net worth update; the error text, or null
   removeNetWorth: (id: string) => Promise<void>;
+  editNetWorth: (id: string, amount: number, date: string) => Promise<string | null>; // change an update; the error text, or null
+  restoreNetWorth: (id: string) => Promise<void>; // bring back an update just deleted (Undo)
   incomeCats: string[]; // what can be picked for income: built-in, then the person's own
   addIncomeCategory: (name: string) => Promise<IncomeCatResult>;
   removeIncomeCategory: (name: string) => Promise<void>; // one of the person's own only

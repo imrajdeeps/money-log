@@ -28,7 +28,7 @@ import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
 // The pages a tile can open (App.tsx owns them; each has its own address).
-export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'goals' | 'analytics' | 'cashflow' | 'circle' | 'udhaar' | 'notifications';
+export type Section = 'payments' | 'month' | 'plan' | 'groups' | 'goals' | 'analytics' | 'cashflow' | 'circle' | 'udhaar' | 'notifications' | 'networth';
 
 interface Props {
   open: (s: Section, anchor?: string) => void;

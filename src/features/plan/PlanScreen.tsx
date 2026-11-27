@@ -134,7 +134,7 @@ function WorthHint({ onOpen }: Readonly<{ onOpen: () => void }>) {
   );
 }
 
-export function PlanScreen({ onUdhaar, onFeatures }: Readonly<{ onUdhaar: () => void; onFeatures: () => void }>) {
+export function PlanScreen({ onUdhaar, onFeatures, onNetWorth }: Readonly<{ onUdhaar: () => void; onFeatures: () => void; onNetWorth: () => void }>) {
   const app = useApp();
   const worth = app.features.has('worth');
   const udhaar = app.features.has('udhaar') && <button type="button" className={ui.btn('outline')} onClick={onUdhaar}>{tr('Udhaar: money lent and borrowed')}</button>;
@@ -146,7 +146,7 @@ export function PlanScreen({ onUdhaar, onFeatures }: Readonly<{ onUdhaar: () => 
       </div>
       {worth ? (
         <div className="grid gap-x-7 gap-y-4 items-start lg:grid-cols-2">
-          <section aria-label={tr('Net worth')}><NetWorthCard /></section>
+          <section aria-label={tr('Net worth')}><NetWorthCard onHistory={onNetWorth} /></section>
           <div className="flex flex-col gap-4"><GoalsScreen /><DueSection />{udhaar}</div>
         </div>
       ) : (
