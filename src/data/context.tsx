@@ -14,6 +14,8 @@ import { clearLastActive, loadLastActive, saveLastActive } from './lockSeen.ts';
 import { clearLastBackup } from './backupSeen.ts';
 import { dismissNotice as dismissNoticeIn, dismissedKeys, enabledKinds, setNoticeKind as setNoticeKindIn, showDismissedAgain } from '../core/notifications.ts';
 import type { NoticeKind } from '../core/noticeKinds.ts';
+import { chosenFeatures as chosenFeaturesIn, featuresOn, setFeature as setFeatureIn } from '../core/features.ts';
+import type { Feature } from '../core/features.ts';
 import type { SessionInfo } from '../core/signins.ts';
 import type { LockConfig, LockTries } from './lock.ts';
 import { MAX_ACCOUNT_PHOTOS, MAX_PHOTOS, liveFor, makeReceipt, markDeleted, photoRoom } from '../core/receipts.ts';
@@ -606,6 +608,10 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const showDismissed = useCallback(() => changeGoals((items, nowIso) => showDismissedAgain(items, nowIso)), [changeGoals]);
   const dismissed = useMemo(() => dismissedKeys(goals), [goals]);
   const noticeKinds = useMemo(() => enabledKinds(goals), [goals]);
+  // The parts the person turned on (Settings, Features): one item in the goals block, so the choice follows the account (version 2.1).
+  const setFeature = useCallback((feature: Feature, on: boolean) => changeGoals((items, nowIso) => setFeatureIn(items, feature, on, nowIso)), [changeGoals]);
+  const features = useMemo(() => featuresOn(goals), [goals]);
+  const chosenFeatures = useMemo(() => chosenFeaturesIn(goals), [goals]);
 
   // The person's own income categories, kept in the goals block (kind 'i'): the same read-modify-write.
   const addIncomeCategory = useCallback(async (name: string): Promise<IncomeCatResult> => {
@@ -726,7 +732,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, settlements, joinCode, clearJoinCode,
     dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
-    goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions,
+    goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions,
     sync,
     syncEnabled,
     toastMsg,
@@ -735,7 +741,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

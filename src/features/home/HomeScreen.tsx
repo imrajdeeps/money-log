@@ -9,6 +9,7 @@ import type { WeekRecap } from '../../core/weekRecap.ts';
 import { activeRecurring } from '../../core/recurring.ts';
 import { packTiles } from '../../core/bento.ts';
 import type { TileSize } from '../../core/bento.ts';
+import type { Feature } from '../../core/features.ts';
 import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { BentoGrid, TileSpan } from '../../ui/Bento.tsx';
 import { MonthTile } from './MonthTile.tsx';
@@ -68,9 +69,11 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   const starting = app.entries.length < GETTING_STARTED;
   const udhaar = useMemo(() => udhaarTotals(app.goals), [app.goals]);
   // what is safe to spend each day for the rest of the month, once there is a budget (after what is still to come this month)
+  // (items on the due list count only while Plan, where they live, is on: a hidden list would be an unexplained number)
+  const planOn = app.features.has('plan');
   const safe = useMemo(
-    () => (ov.budgeted ? safeToSpend(ov.budget, ov.spent, upcomingThisMonth(app.dueItems, app.recurring, today, groupLookup(app.categories)), today) : null),
-    [ov.budgeted, ov.budget, ov.spent, app.dueItems, app.recurring, app.categories, today],
+    () => (ov.budgeted ? safeToSpend(ov.budget, ov.spent, upcomingThisMonth(planOn ? app.dueItems : [], app.recurring, today, groupLookup(app.categories)), today) : null),
+    [ov.budgeted, ov.budget, ov.spent, planOn, app.dueItems, app.recurring, app.categories, today],
   );
   const tiles = overviewGroups(ov.summary.groups, starting);
   const projected = projectedMonthEnd(ov.daily, month, ov.lastDaily); // where the month ends at this pace, once there are days enough to say
@@ -91,7 +94,8 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
     monthTile, recap, hasRecurring, net, netHistory, tiles, ov, due, flow, usual, projected, cats, couples, shared, goalTile, udhaar,
     hasUdhaar: app.udhaar.length > 0, open, openMonth, openGroup, openAdd, openAddIncome, goSettings,
   };
-  const specs = state === 'full' ? fullTiles(data) : startTiles(data);
+  // a tile of a part that is turned off (Settings, Features) is left out
+  const specs = (state === 'full' ? fullTiles(data) : startTiles(data)).filter((s) => !s.needs || app.features.has(s.needs));
   // each tile's wide-screen width and place, so every row is full there (version 2.0.1); the page itself keeps the design's order
   const places = new Map(packTiles(specs).map((p, order) => [p.id, { span: p.span, order }]));
 
@@ -108,7 +112,7 @@ export function HomeScreen({ open, openMonth, openGroup, openAdd, openAddIncome,
   );
 }
 
-interface TileSpec extends TileSize { node: ReactNode }
+interface TileSpec extends TileSize { node: ReactNode; needs?: Feature } // needs: the part (Settings, Features) the tile belongs to
 
 interface TileData {
   monthTile: ReactNode;
@@ -143,18 +147,18 @@ function fullTiles(d: TileData): TileSpec[] {
   return [
     { id: 'month', span: 8, tall: true, node: d.monthTile },
     ...recap,
-    { id: 'net', span: 4, node: <NetWorthTile net={d.net} history={d.netHistory} open={d.open} /> },
+    { id: 'net', span: 4, needs: 'worth', node: <NetWorthTile net={d.net} history={d.netHistory} open={d.open} /> },
     ...d.tiles.map((g) => ({ id: `group-${g}`, span: 3, node: <CategoryGroupTile g={g} ov={d.ov} openMonth={d.openMonth} /> })),
     ...recurring,
     { id: 'recent', span: 8, tall: true, node: <RecentTile open={d.open} tall /> },
-    { id: 'due', span: 4, node: <DueTile due={d.due} open={d.open} /> },
-    { id: 'cash', span: 3, node: <CashFlowTile flow={d.flow} open={d.open} openAddIncome={d.openAddIncome} /> },
-    { id: 'insights', span: 3, node: <InsightsTile usual={d.usual} projected={d.projected} ov={d.ov} cats={d.cats} open={d.open} /> },
+    { id: 'due', span: 4, needs: 'plan', node: <DueTile due={d.due} open={d.open} /> },
+    { id: 'cash', span: 3, needs: 'insights', node: <CashFlowTile flow={d.flow} open={d.open} openAddIncome={d.openAddIncome} /> },
+    { id: 'insights', span: 3, needs: 'insights', node: <InsightsTile usual={d.usual} projected={d.projected} ov={d.ov} cats={d.cats} open={d.open} /> },
     { id: 'where', span: 6, node: <WhereItWentTile cats={d.cats} open={d.open} openAdd={d.openAdd} /> },
     ...d.couples.map((c) => ({ id: `couple-${c.id}`, span: 3, node: <CoupleTile c={c} openGroup={d.openGroup} /> })),
     { id: 'groups', span: 3, node: <GroupsTile shared={d.shared} open={d.open} goSettings={d.goSettings} half /> },
-    { id: 'goals', span: 3, node: <GoalsTile goal={d.goalTile} open={d.open} /> },
-    { id: 'udhaar', span: 3, node: <UdhaarTile totals={d.udhaar} hasEntries={d.hasUdhaar} open={d.open} /> },
+    { id: 'goals', span: 3, needs: 'plan', node: <GoalsTile goal={d.goalTile} open={d.open} /> },
+    { id: 'udhaar', span: 3, needs: 'udhaar', node: <UdhaarTile totals={d.udhaar} hasEntries={d.hasUdhaar} open={d.open} /> },
   ];
 }
 

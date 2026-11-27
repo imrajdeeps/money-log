@@ -81,7 +81,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
           {sorted.map((g) => <GroupCard key={g.id} id={g.id} news={news(g.id)} onOpen={() => onOpen(g.id)} />)}
         </div>
       )}
-      <PeopleLines onOpen={openUdhaar} />
+      {app.features.has('udhaar') && <PeopleLines onOpen={openUdhaar} />}
       <JoinCard />
       <CircleLink onOpen={openCircle} />
     </section>

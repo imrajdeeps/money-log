@@ -4,6 +4,8 @@
 // the same moment keep both. Removed items stay (marked) so the removal reaches the other phones.
 import { isNoticeKind } from './noticeKinds.ts';
 import type { NoticeKind } from './noticeKinds.ts';
+import { FEATURES, isFeature } from './featureKinds.ts';
+import type { Feature } from './featureKinds.ts';
 import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, newId, normName, parseTs, round2, uuidFromKey } from './logic.ts';
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';
@@ -59,7 +61,11 @@ export type WorthSide = 'a' | 'd';
 export const ASSET_CLASSES = ['liquid', 'invest', 'retire', 'gold', 'property', 'other'] as const;
 export const DEBT_CLASSES = ['loan', 'card', 'other'] as const;
 export interface WorthItem { id: string; k: 'w'; n: string; s: WorthSide; c: string; a: number; d: string; p: number | null; pd: string; e: number; r: number; x: 0 | 1; t: string }
-export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem | WorthItem;
+// The parts of the app the person turned on in Settings, Features (version 2.1): on lists them (one item with a fixed id, like the
+// notification switches); with no item the defaults apply (features.ts). Lives here so it follows the account to every device.
+export const FEATURES_ID = uuidFromKey('feature-settings');
+export interface FeatureSettings { id: string; k: 'f'; on: Feature[]; x: 0 | 1; t: string }
+export type GoalItem = Goal | TopUp | NetUpdate | DueEntry | DismissEntry | NoticeSettings | IncomeCat | UdhaarItem | WorthItem | FeatureSettings;
 export type Goals = Record<string, GoalItem>;
 
 export interface GoalInput { name: string; target: number; date: string; saved: number; category: string }
@@ -207,6 +213,7 @@ function sameItem(x: GoalItem, y: GoalItem | undefined): boolean {
     case 'i': return y.k === 'i' && x.n === y.n;
     case 'w': return y.k === 'w' && x.n === y.n && x.s === y.s && x.c === y.c && x.a === y.a && x.d === y.d && x.p === y.p && x.pd === y.pd && x.e === y.e && x.r === y.r;
     case 'u': return y.k === 'u' && x.n === y.n && x.a === y.a && x.w === y.w && x.d === y.d && x.m === y.m && x.s === y.s;
+    case 'f': return y.k === 'f' && x.on.join() === y.on.join();
     default: return y.k === 's' && x.off.join() === y.off.join();
   }
 }
@@ -286,7 +293,14 @@ function cleanNoticeSettingsItem(k: string, v: Raw): NoticeSettings | null {
   return { id: k, k: 's', off: [...new Set<NoticeKind>(v.off)].sort((a, b) => a.localeCompare(b)), x: v.x, t: v.t };
 }
 
+function cleanFeatureSettingsItem(k: string, v: Raw): FeatureSettings | null {
+  if (k !== FEATURES_ID || !Array.isArray(v.on) || !v.on.every(isFeature)) return null;
+  const on = new Set<Feature>(v.on);
+  return { id: k, k: 'f', on: FEATURES.filter((f) => on.has(f)), x: v.x, t: v.t };
+}
+
 const ITEM_KINDS: Record<string, { max: number; clean: (k: string, v: Raw) => GoalItem | null }> = {
+  f: { max: 1, clean: cleanFeatureSettingsItem },
   g: { max: MAX_GOALS, clean: cleanGoalItem },
   t: { max: MAX_TOPUPS, clean: cleanTopUpItem },
   n: { max: MAX_NET_UPDATES, clean: cleanNetItem },

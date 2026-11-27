@@ -2,7 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { ReactNode } from 'react';
 import { useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { AppProvider, useApp } from '../data/context.tsx';
-import { LockScreen, SettingsScreen, ThemeToggle, cleanSection } from '../features/settings/index.ts';
+import { FeatureGate, LockScreen, SettingsScreen, ThemeToggle, cleanSection } from '../features/settings/index.ts';
+import { lastTab } from '../core/features.ts';
+import type { LastTab } from '../core/features.ts';
 import type { SettingsSection } from '../features/settings/index.ts';
 import { Splash } from '../ui/Splash.tsx';
 import { Logo } from '../ui/Logo.tsx';
@@ -43,11 +45,28 @@ const TITLES: Record<Section, string> = { month: 'Month', plan: 'Plan', groups: 
 
 const SPLASH_MS = 500; // how long the start screen stays, at least
 
-const NAV: { id: Section; label: string; icon: IconName }[] = [
-  { id: 'month', label: 'Month', icon: 'month' },
-  { id: 'plan', label: 'Plan', icon: 'plan' },
-  { id: 'groups', label: 'Groups', icon: 'groups' },
-];
+// The places in the bars (version 2.1): Groups first, as groups are what the app is mostly for. The fourth follows Settings, Features:
+// Plan when it is on, else Udhaar, else All payments. wide: the word on a wide screen, where there is room.
+type NavId = 'groups' | 'home' | 'month' | LastTab;
+const NAV_ITEMS: Record<NavId, { label: string; wide?: string; icon: IconName }> = {
+  groups: { label: 'Groups', icon: 'groups' },
+  home: { label: 'Home', wide: 'Overview', icon: 'home' },
+  month: { label: 'Month', icon: 'month' },
+  plan: { label: 'Plan', icon: 'plan' },
+  udhaar: { label: 'Udhaar', icon: 'udhaar' },
+  payments: { label: 'Payments', wide: 'All payments', icon: 'list' },
+};
+const navIds = (last: LastTab): NavId[] => ['groups', 'home', 'month', last];
+
+// One place in the phone's bottom bar: an icon with its word, the open one lit.
+function TabButton({ id, current, onClick }: Readonly<{ id: NavId; current: boolean; onClick: () => void }>) {
+  const item = NAV_ITEMS[id];
+  return (
+    <button type="button" data-tour={id} className={sh.tabBtn(current)} aria-current={current ? 'page' : undefined} onClick={onClick}>
+      <span className={sh.tabIcon(current)}><Icon name={item.icon} size={23} stroke={current ? 2 : 1.75} /></span>{tr(item.label)}
+    </button>
+  );
+}
 
 function PageBody({ title, intro, lead = false, back, backLabel = tr('Overview'), onBack, wide = false, width, children }: Readonly<{ title: string; intro?: string; lead?: boolean; back?: boolean; backLabel?: string; onBack?: () => void; wide?: boolean; width?: 'payments' | 'notes'; children: ReactNode }>) {
   // the page's width on a wide screen, as on the design: All payments 880, Notifications 760 (with the 32px sides), the rest 720 or the whole frame
@@ -169,6 +188,9 @@ function Shell() {
   const TAB_PARENT: Partial<Record<Page, Page>> = { ...PARENT, analytics: 'month', cashflow: 'month' };
   const current = (id: Page) => (page === id || PARENT[page] === id ? 'page' : undefined);
   const currentTab = (id: Page) => (page === id || TAB_PARENT[page] === id ? 'page' : undefined);
+  const nav = navIds(lastTab(app.features));
+  const openNav = (id: NavId) => (id === 'home' ? goHome() : goPage(id));
+  const openFeatures = () => goSettings('features');
 
   return (
     <>
@@ -180,8 +202,7 @@ function Shell() {
         <div className={sh.topRow}>
         <div className={sh.brand}><Logo size={30} /><h1>{tr('Hisaab')}</h1></div>
         <nav className={sh.topNav} aria-label={tr('Sections')}>
-          <button type="button" data-tour="home" className={sh.topNavBtn(!!current('home'))} aria-current={current('home')} onClick={goHome}>{tr('Overview')}</button>
-          {NAV.map((n) => <button key={n.id} type="button" data-tour={n.id} className={sh.topNavBtn(!!current(n.id))} aria-current={current(n.id)} onClick={() => goPage(n.id)}>{tr(n.label)}</button>)}
+          {nav.map((id) => <button key={id} type="button" data-tour={id} className={sh.topNavBtn(!!current(id))} aria-current={current(id)} onClick={() => openNav(id)}>{tr(NAV_ITEMS[id].wide ?? NAV_ITEMS[id].label)}</button>)}
           <button type="button" data-tour="settings" className={sh.topNavBtn(!!current('settings'))} aria-current={current('settings')} onClick={() => goSettings()}>{tr('Settings')}</button>
         </nav>
         <div className={sh.topActions}>
@@ -209,25 +230,22 @@ function Shell() {
           <PageBody title={tr('Add expense')} back onBack={goHome} wide><QuickLog amountRef={amountRef} onSaved={goHome} category={addCategory} kind={addKind} group={addGroup} sms={sms} onSms={clearSms} onSeeAll={() => goPage('payments')} /></PageBody>
         </div>
         {page === 'month' && <div className="animate-page-in"><MonthScreen group={group} onGroup={goMonth} onAddExpense={goAddFor} onInsights={() => goPage('analytics')} onCashFlow={() => goPage('cashflow')} /></div>}
-        {(page === 'plan' || page === 'goals') && <div className="animate-page-in"><PlanScreen onUdhaar={() => goPage('udhaar')} /></div>}
+        {(page === 'plan' || page === 'goals') && <div className="animate-page-in"><FeatureGate feature="plan" heading={TITLES.plan} onOpen={openFeatures}><PlanScreen onUdhaar={() => goPage('udhaar')} onFeatures={openFeatures} /></FeatureGate></div>}
         {page === 'groups' && <div className="animate-page-in"><GroupsScreen groupId={groupId} settings={routeId === '/groups/$groupId/settings'} onOpen={goGroup} openSettings={() => goSettings('account')} openCircle={() => goPage('circle')} openUdhaar={() => goPage('udhaar')} onAdd={goAddGroup} /></div>}
-        {page === 'udhaar' && <PageBody title={TITLES.udhaar} intro={tr('Money lent or borrowed with friends. Private unless you share an entry with someone in your Circle.')} back onBack={goHome} wide><UdhaarScreen /></PageBody>}
+        {page === 'udhaar' && <PageBody title={TITLES.udhaar} intro={tr('Money lent or borrowed with friends. Private unless you share an entry with someone in your Circle.')} back onBack={goHome} wide><FeatureGate feature="udhaar" onOpen={openFeatures}><UdhaarScreen /></FeatureGate></PageBody>}
         {page === 'circle' && <PageBody title={TITLES.circle} lead intro={tr('People you can add to a group or a shared goal without a code. They see only what you share with them.')} back backLabel={tr('Groups')} onBack={() => goPage('groups')} wide><CircleScreen /></PageBody>}
-        {page === 'cashflow' && <PageBody title={TITLES.cashflow} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><CashFlowScreen onAdd={goAddIncome} /></PageBody>}
-        {page === 'analytics' && <PageBody title={TITLES.analytics} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><AnalyticsScreen /></PageBody>}
+        {page === 'cashflow' && <PageBody title={TITLES.cashflow} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><FeatureGate feature="insights" onOpen={openFeatures}><CashFlowScreen onAdd={goAddIncome} /></FeatureGate></PageBody>}
+        {page === 'analytics' && <PageBody title={TITLES.analytics} back backLabel={tr('Month')} onBack={() => goPage('month')} wide><FeatureGate feature="insights" onOpen={openFeatures}><AnalyticsScreen /></FeatureGate></PageBody>}
         {page === 'notifications' && <PageBody title={TITLES.notifications} intro={tr('Gentle notes. They stay here until you act on them or dismiss them.')} width="notes"><NotificationsScreen onOpen={openNotice} /></PageBody>}
         {page === 'payments' && <PageBody title={TITLES.payments} back onBack={goHome} width="payments"><AllPayments /></PageBody>}
       </main>
 
 
+      {/* Groups first (version 2.1: "main use is groups"); the last place follows Settings, Features */}
       <nav className={page === 'add' ? `${sh.tabs} max-lg:hidden` : sh.tabs} aria-label={tr('Sections')}>
-        <button type="button" data-tour="home" className={sh.tabBtn(!!currentTab('home'))} aria-current={currentTab('home')} onClick={goHome}>
-          <span className={sh.tabIcon(!!currentTab('home'))}><Icon name="home" size={23} stroke={currentTab('home') ? 2 : 1.75} /></span>{tr('Home')}
-        </button>
-        <button type="button" data-tour="month" className={sh.tabBtn(!!currentTab('month'))} aria-current={currentTab('month')} onClick={() => goPage('month')}><span className={sh.tabIcon(!!currentTab('month'))}><Icon name="month" size={23} stroke={currentTab('month') ? 2 : 1.75} /></span>{tr('Month')}</button>
+        {nav.slice(0, 2).map((id) => <TabButton key={id} id={id} current={!!currentTab(id)} onClick={() => openNav(id)} />)}
         <button type="button" data-tour="add" className={sh.fab} aria-label={tr('Add expense')} aria-current={currentTab('add')} onClick={goAdd}><Icon name="plus" size={28} stroke={2.2} /></button>
-        <button type="button" data-tour="plan" className={sh.tabBtn(!!currentTab('plan'))} aria-current={currentTab('plan')} onClick={() => goPage('plan')}><span className={sh.tabIcon(!!currentTab('plan'))}><Icon name="plan" size={23} stroke={currentTab('plan') ? 2 : 1.75} /></span>{tr('Plan')}</button>
-        <button type="button" data-tour="groups" className={sh.tabBtn(!!currentTab('groups'))} aria-current={currentTab('groups')} onClick={() => goPage('groups')}><span className={sh.tabIcon(!!currentTab('groups'))}><Icon name="groups" size={23} stroke={currentTab('groups') ? 2 : 1.75} /></span>{tr('Groups')}</button>
+        {nav.slice(2).map((id) => <TabButton key={id} id={id} current={!!currentTab(id)} onClick={() => openNav(id)} />)}
       </nav>
       {toast}
       </div>
