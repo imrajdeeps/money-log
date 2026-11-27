@@ -705,7 +705,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const signOut = useCallback(async () => { await engRef.current?.sync.signOut(); setRecovering(false); }, []);
   const eraseAll = useCallback(async () => {
     await engRef.current?.sync.eraseAll();
-    clearProfile(); // the name and the WhatsApp number are on this phone too
+    clearProfile(); // the name and the WhatsApp number are on this device too
     clearSent(); // so is the memory of what went into calendar files
     clearLastActive(); // and when the app was last in use
     clearLastBackup(); // and when a backup was last downloaded

@@ -83,7 +83,7 @@ export function AppLockCard() {
         {mode === 'change' && <LockPanel mode="change" timeoutSec={timeoutSec} onDone={done} onCancel={() => setMode(null)} />}
       </div>
       {msg && <p className={ui.msg(msg.bad ? 'bad' : 'good')} role="status">{msg.text}</p>}
-      <p className={ps.small}>{tr('Opening or refreshing the app inside that time does not ask again. It does not encrypt the data on the phone, so your phone\'s own lock is still what protects it. If you forget the PIN, the only way back in is to erase this phone\'s copy and sign in again.')}</p>
+      <p className={ps.small}>{tr('Opening or refreshing the app inside that time does not ask again. It does not encrypt the data on the device, so your phone\'s own lock is still what protects it. If you forget the PIN, the only way back in is to erase this device\'s copy and sign in again.')}</p>
     </>
   );
 }

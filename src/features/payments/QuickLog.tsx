@@ -240,7 +240,7 @@ export function QuickLog({ amountRef, onSaved, category: preset, kind: startKind
   const pasteBox = (
     <div className="flex flex-col bg-card border border-line rounded-card">
       <button type="button" className={PASTE_HEAD} aria-expanded={pasteOpen} onClick={() => setPasteOpen((o) => !o)}>
-        <span className="flex flex-col gap-px"><span className="text-[15px] font-[650] text-brand">{tr('Paste a payment message')}</span><span className="text-[13px] text-muted">{tr('A bank or UPI SMS. It is read here, on this phone.')}</span></span>
+        <span className="flex flex-col gap-px"><span className="text-[15px] font-[650] text-brand">{tr('Paste a payment message')}</span><span className="text-[13px] text-muted">{tr('A bank or UPI SMS. It is read here, on this device.')}</span></span>
         <span className={ui.cx('text-muted transition-transform duration-150', pasteOpen ? 'rotate-180' : 'rotate-0')} aria-hidden="true"><Icon name="down" size={20} /></span>
       </button>
       {pasteOpen && (

@@ -21,7 +21,7 @@ function UpiPay({ debt, group, nameOf }: Readonly<{ debt: Debt; group: string; n
         <span>{tr('{0}\'s UPI id', nameOf(debt.to))}</span>
         <input value={typed} placeholder="name@bank" autoCapitalize="none" autoComplete="off" spellCheck={false} onChange={(e) => setTyped(e.target.value)} />
       </label>
-      <p className="m-0 mt-1.5 text-[13px] text-muted">{tr('Ask them for it, or copy it from their reminder. It stays on this phone.')}</p>
+      <p className="m-0 mt-1.5 text-[13px] text-muted">{tr('Ask them for it, or copy it from their reminder. It stays on this device.')}</p>
       {payeeId ? (
         <a className={ui.btn('solid', 'small') + ' mt-2 inline-flex items-center no-underline'} href={upiLink({ upi: payeeId, name: nameOf(debt.to), amount: debt.amount, note: group })} onClick={rememberIt}>{tr('Open my UPI app to pay {0}', fmtINR(debt.amount))}</a>
       ) : (

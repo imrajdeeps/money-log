@@ -130,12 +130,12 @@ export function CashFlowTile({ flow, open, openAddIncome }: Readonly<{ flow: Ret
   );
 }
 
-export function InsightsTile({ usual, projected, ov, open }: Readonly<{ usual: number; projected: number | null; ov: MonthOverview; open: Open }>) {
+type Cats = ReturnType<typeof topCategories>;
+
+export function InsightsTile({ usual, projected, ov, cats, open }: Readonly<{ usual: number; projected: number | null; ov: MonthOverview; cats: Cats; open: Open }>) {
   const toDate = ov.daily.at(-1) ?? 0;
-  if (!(usual > 0)) {
-    return <BentoCard title={tr('Insights')} span={3}><p className={hs.line14}>{tr('Insights fill in once you have logged a month or two of payments.')}</p></BentoCard>;
-  }
   const likely = projected !== null && ov.day < ov.days ? Math.round(projected) : null;
+  if (!(usual > 0)) return <FirstMonthInsights toDate={toDate} likely={likely} cats={cats} open={open} />;
   const vs = likely === null ? 0 : likely - usual;
   return (
     <BentoCard title={tr('Insights')} span={3} chevron onOpen={() => open('analytics')} openLabel={tr('Open insights')}>
@@ -146,6 +146,23 @@ export function InsightsTile({ usual, projected, ov, open }: Readonly<{ usual: n
             : vs < 0 ? tr('Likely {0} by the end of the month, {1} less than usual.', fmtINR(likely), fmtINR(-vs))
               : tr('Likely {0} by the end of the month, the same as usual.', fmtINR(likely))}
       </p>
+    </BentoCard>
+  );
+}
+
+// No earlier month to compare with yet (the first month of payments): what this month says on its own, instead of only a note
+// (version 2.0.1; the owner: "why no insights are not visible here").
+function FirstMonthInsights({ toDate, likely, cats, open }: Readonly<{ toDate: number; likely: number | null; cats: Cats; open: Open }>) {
+  const top = cats.top[0];
+  if (toDate <= 0 || !top) {
+    return <BentoCard title={tr('Insights')} span={3}><p className={hs.line14}>{tr('Insights fill in once you have logged a month or two of payments.')}</p></BentoCard>;
+  }
+  return (
+    <BentoCard title={tr('Insights')} span={3} chevron onOpen={() => open('analytics')} openLabel={tr('Open insights')}>
+      <p className={hs.statNum}>{fmtINR(toDate)} <span className={hs.statUnit}>{tr('so far this month')}</span></p>
+      {likely !== null && <p className={hs.line14}>{tr('Likely {0} by the end of the month at this pace.', fmtINR(likely))}</p>}
+      <p className={hs.line14}>{tr('{0} is the biggest: {1} of it.', top.category, whole(top.share))}</p>
+      <p className={hs.note}>{tr('From next month it compares with a usual month.')}</p>
     </BentoCard>
   );
 }

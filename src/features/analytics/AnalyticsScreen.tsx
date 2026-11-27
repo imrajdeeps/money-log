@@ -164,7 +164,7 @@ export function AnalyticsScreen() {
           </section>
         )}
       </div>
-      <p className="m-0 text-muted text-[13px]">{tr('Shared expenses count at your own share, and what you put in a Saving category is not counted as spending. All of this is worked out on this phone, from your payments: nothing is sent anywhere.')}</p>
+      <p className="m-0 text-muted text-[13px]">{tr('Shared expenses count at your own share, and what you put in a Saving category is not counted as spending. All of this is worked out on this device, from your payments: nothing is sent anywhere.')}</p>
     </div>
   );
 }

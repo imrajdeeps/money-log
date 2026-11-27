@@ -12,7 +12,7 @@ export function SignOutPanel() {
   return (
     <div className={ps.card + ' gap-2.5'} role="group" aria-label={tr('Sign out')}>
       <h3 className={ps.title}>{tr('Sign out')}</h3>
-      <p className={ps.note}>{tr('Choose what happens to the payments on this phone.')}</p>
+      <p className={ps.note}>{tr('Choose what happens to the payments on this device.')}</p>
       {pending > 0 && (
         <p className={ui.msg('bad')} role="alert">
           {tr('{0} change{1} not reached the cloud. Erasing loses {2}; signing out and keeping the data does not.', pending, pending === 1 ? ' has' : 's have', pending === 1 ? 'it' : 'them')}
@@ -20,9 +20,9 @@ export function SignOutPanel() {
       )}
       <button type="button" className={ui.btn('outline', 'none', ps.second)} onClick={() => { void app.signOut(); }}>{tr('Sign out and keep them here')}</button>
       <button type="button" className={ui.btn('dangerOutline', 'none', ps.second)} onClick={async () => {
-        if (!(await ask(tr('Sign out and erase this phone\'s copy? Everything already in the cloud stays there and comes back when you sign in again.'), tr('Sign out and erase')))) return;
-        await app.eraseAll(); app.toast(tr('Signed out and erased this phone.'));
-      }}>{tr('Sign out and erase them from this phone')}</button>
+        if (!(await ask(tr('Sign out and erase this device\'s copy? Everything already in the cloud stays there and comes back when you sign in again.'), tr('Sign out and erase')))) return;
+        await app.eraseAll(); app.toast(tr('Signed out and erased this device.'));
+      }}>{tr('Sign out and erase them from this device')}</button>
     </div>
   );
 }

@@ -22,14 +22,14 @@ const waitText = (wait: number): string => (wait > 0 ? ' ' + tr('Try again in {0
 function ForgotPin() {
   const app = useApp();
   async function forgot() {
-    if (!(await ask(tr('Erase everything on this phone and sign out? Data already in the cloud is not touched, and you can sign in again afterwards. Payments that have not been uploaded yet will be lost.'), tr('Erase everything')))) return;
+    if (!(await ask(tr('Erase everything on this device and sign out? Data already in the cloud is not touched, and you can sign in again afterwards. Payments that have not been uploaded yet will be lost.'), tr('Erase everything')))) return;
     await app.eraseAll();
   }
   return (
     <details className="mt-auto w-full text-[14px] leading-5 text-muted text-center flex flex-col gap-2">
       <summary className="min-h-11 flex items-center justify-center cursor-pointer text-brand font-[650] list-none [&::-webkit-details-marker]:hidden">{tr('Forgot your PIN?')}</summary>
-      <p className="m-0 mb-2">{tr('The PIN cannot be recovered. You can erase this phone\'s copy of your data and sign in again; what is in the cloud stays.')}</p>
-      <button type="button" className={ui.btn('danger')} onClick={() => { void forgot(); }}>{tr('Erase this phone and start again')}</button>
+      <p className="m-0 mb-2">{tr('The PIN cannot be recovered. You can erase this device\'s copy of your data and sign in again; what is in the cloud stays.')}</p>
+      <button type="button" className={ui.btn('danger')} onClick={() => { void forgot(); }}>{tr('Erase this device and start again')}</button>
     </details>
   );
 }

@@ -54,8 +54,8 @@ export interface ToastAction { label: string; run: () => void | Promise<void> }
 export interface AppApi {
   ready: boolean;
   storageKind: Store['kind'];
-  me: string | null; // this phone's account id once it has signed in
-  receipts: Receipt[]; // every photo record this phone holds, mine and other people's, deleted ones included
+  me: string | null; // this device's account id once it has signed in
+  receipts: Receipt[]; // every photo record this device holds, mine and other people's, deleted ones included
   lock: LockConfig | null; // the PIN lock, when one is set
   locked: boolean;
   unlock: (pin: string) => Promise<{ ok: true } | { ok: false; waitSec: number }>;
@@ -70,7 +70,7 @@ export interface AppApi {
   loadSignInLog: (limit?: number) => Promise<SignInEvent[]>; // what happened to the account, newest first
   entries: Entry[]; // this account's own payments, not deleted (shared ones included, at their full amount)
   allEntries: Entry[]; // this account's own payments including deleted ones, for backups
-  groupEntries: Entry[]; // every live shared expense this phone holds, whoever made it
+  groupEntries: Entry[]; // every live shared expense this device holds, whoever made it
   groups: Group[];
   members: Member[];
   invites: Invite[]; // the join codes of the groups this account administers

@@ -21,7 +21,7 @@ function SessionRow({ s, now }: Readonly<{ s: SessionInfo; now: number }>) {
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center min-h-16 py-2">
       <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold [overflow-wrap:anywhere]">{deviceName(s.userAgent)}</span><span className="text-[13px] text-muted">{tr('Signed in {0} · last active {1}', dateTimeLabel(s.createdMs), agoText(now, s.lastMs))}</span></span>
-      {s.isCurrent ? <span className="rounded-md bg-good-bg px-2 py-[3px] text-[12px] font-semibold text-good">{tr('This phone')}</span> : <span />}
+      {s.isCurrent ? <span className="rounded-md bg-good-bg px-2 py-[3px] text-[12px] font-semibold text-good">{tr('This device')}</span> : <span />}
     </li>
   );
 }
@@ -73,7 +73,7 @@ export function LoginHistoryCard() {
           : <ul className="list-none m-0 pl-4 pr-3 bg-card border border-line rounded-card [&>li+li]:border-t [&>li+li]:border-line">{data.sessions.map((s) => <SessionRow key={s.id} s={s} now={now} />)}</ul>)}
         {done && <p className={ui.msg('good')} role="status">{done}</p>}
         <button type="button" className={ui.btn('outline', 'none', ps.second)} disabled={busy} onClick={() => { void signOut('others'); }}>{ask === 'others' ? tr('Tap again: sign out other devices') : tr('Sign out everywhere else')}</button>
-        <button type="button" className="self-center min-h-11 px-2 border-0 bg-transparent text-bad text-[14px] font-semibold cursor-pointer [font-family:inherit] disabled:opacity-50" disabled={busy} onClick={() => { void signOut('everywhere'); }}>{ask === 'everywhere' ? tr('Tap again: sign out everywhere') : tr('Sign out everywhere, this phone too')}</button>
+        <button type="button" className="self-center min-h-11 px-2 border-0 bg-transparent text-bad text-[14px] font-semibold cursor-pointer [font-family:inherit] disabled:opacity-50" disabled={busy} onClick={() => { void signOut('everywhere'); }}>{ask === 'everywhere' ? tr('Tap again: sign out everywhere') : tr('Sign out everywhere, this device too')}</button>
         {ask && <button type="button" className="self-center min-h-11 px-2 border-0 bg-transparent text-brand text-[14px] font-semibold cursor-pointer [font-family:inherit]" onClick={() => setAsk(null)}>{tr('Cancel')}</button>}
       </section>
       {data && data.log.length > 0 && (

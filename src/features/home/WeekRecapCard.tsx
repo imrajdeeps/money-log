@@ -5,6 +5,7 @@ import { groupLookup } from '../../core/analytics.ts';
 import { shortDate } from '../../core/format.ts';
 import { budgetEntries, fmtINR, isoDate } from '../../core/logic.ts';
 import { isRecapDay, weekRecap } from '../../core/weekRecap.ts';
+import type { WeekRecap } from '../../core/weekRecap.ts';
 import { localPref } from '../../data/localPref.ts';
 import { BentoCard } from '../../ui/Bento.tsx';
 import * as hs from '../../ui/tileStyles.ts';
@@ -13,8 +14,8 @@ import { tr } from '../../core/i18n.ts';
 // The week recapped last, so a dismissed recap does not come back (this phone only).
 const recapSeen = localPref<string>('money-log.recap-seen', (v) => (typeof v === 'string' ? v : ''), '');
 
-// Monday and Tuesday: last week's spending in a few lines, against a usual week. Worked out on this phone from the payments already here.
-export function WeekRecapCard() {
+/** Monday and Tuesday: last week's recap, or null (another day, or dismissed). The Overview asks first, so it knows whether the tile shows. */
+export function useWeekRecap(): WeekRecap | null {
   const app = useApp();
   const spend = useSpendEntries();
   const seen = recapSeen.use();
@@ -23,7 +24,11 @@ export function WeekRecapCard() {
     () => (isRecapDay(today) ? weekRecap(budgetEntries(spend, app.me), groupLookup(app.categories), today) : null),
     [spend, app.me, app.categories, today],
   );
-  if (!recap || seen === recap.weekOf) return null;
+  return recap && seen !== recap.weekOf ? recap : null;
+}
+
+// Last week's spending in a few lines, against a usual week. Worked out on this device from the payments already here.
+export function WeekRecapCard({ recap }: Readonly<{ recap: WeekRecap }>) {
   const diff = recap.change === null ? null : Math.round(recap.total - recap.usual);
   return (
     <BentoCard title={tr('Last week')} span={4} gap={8} action={<button type="button" className={hs.seeAll} onClick={() => recapSeen.save(recap.weekOf)}>{tr('Dismiss')}</button>}>

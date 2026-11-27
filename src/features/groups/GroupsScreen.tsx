@@ -31,7 +31,7 @@ export function GroupsScreen({ groupId, settings = false, onOpen, openSettings, 
 
   const titled = (node: ReactNode) => <section className="flex flex-col gap-4"><h2 className="m-0 text-[24px] leading-[30px] font-bold">{tr('Groups')}</h2>{node}</section>;
   if (!app.syncEnabled) {
-    return titled(<div className={ui.card('notice')}><p><strong>{tr('Groups need cloud sync.')}</strong>{' '}{tr('It is not set up in this build, so payments stay on this phone only. The README explains how to turn it on.')}</p></div>);
+    return titled(<div className={ui.card('notice')}><p><strong>{tr('Groups need cloud sync.')}</strong>{' '}{tr('It is not set up in this build, so payments stay on this device only. The README explains how to turn it on.')}</p></div>);
   }
   if (app.sync.mode === 'signedout' || !app.me) {
     if (app.joinCode) return <JoinInvite />; // an invitation link: the way in is on this screen

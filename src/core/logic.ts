@@ -16,7 +16,7 @@ export interface Entry {
   id: string;
   owner_id: string | null;
   entry_date: string; // YYYY-MM-DD, the day the payment happened
-  kind: EntryKind; // an entry saved before 1.26 has none on this phone: read it through isIncome, which treats that as out
+  kind: EntryKind; // an entry saved before 1.26 has none on this device: read it through isIncome, which treats that as out
   category: string;
   amount: number; // rupees, at most 2 decimals, > 0
   note: string;
@@ -29,7 +29,7 @@ export interface Entry {
   paid_by: string | null; // user id of whoever paid (shared expenses only)
   shares: Shares | null; // each person's share (shared expenses only)
   share_of: string | null; // private payments only: the shared expense this records the account's share of
-  dirty: 0 | 1; // 1 = changed on this phone and not yet pushed to the cloud
+  dirty: 0 | 1; // 1 = changed on this device and not yet pushed to the cloud
 }
 
 // u = 1 marks a category with no budget at all (one made in the app and left without an amount): its zero is "nothing set",

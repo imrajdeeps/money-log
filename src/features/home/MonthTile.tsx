@@ -69,7 +69,7 @@ export function MonthTile({ state, ov, safe, projected, month, count, onOpen, op
     return (
       <BentoCard title={tr('This month')} span={8} hero gap={10} chevron onOpen={onOpen} openLabel={`Open ${monthLabel(month)}: groups, categories and budgets`}>
         <p className="m-0 text-[28px] leading-[34px] font-[750]">{tr('No payments yet')}</p>
-        <p className="m-0 text-[16px] leading-[23px] text-[#dce9df]">{tr('Write down what you spent today. It takes about five seconds, and it stays on this phone.')}</p>
+        <p className="m-0 text-[16px] leading-[23px] text-[#dce9df]">{tr('Write down what you spent today. It takes about five seconds, and it stays on this device.')}</p>
         <button type="button" className={ui.cx(LIME_BTN, 'self-start min-h-[52px] mt-1.5 px-5 text-[17px]')} onClick={openAdd}>{tr('Add your first expense')}</button>
       </BentoCard>
     );
