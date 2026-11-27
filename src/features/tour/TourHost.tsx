@@ -9,6 +9,7 @@ import { WelcomeFlow } from './WelcomeFlow.tsx';
 import type { StartChoice } from './WelcomeFlow.tsx';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
+import { shortDate } from '../../core/format.ts';
 
 // The guided tour: a dimmed page with a spotlight on the part being explained and a card beside it. It shows by itself once
 // (the full tour to a new person, what is new to someone who already uses the app) and again whenever startTour() is called
@@ -24,6 +25,12 @@ function findTarget(name: string | undefined): HTMLElement | null {
   if (!name) return null;
   // the same part can be in the page twice (a phone's bottom bar and a wide screen's header): the one that is showing
   return [...document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }) ?? null;
+}
+
+// "New in 1.33 · 25 Nov": the release and its day (2.1: what is new shows only this month's releases, each with its date).
+function newsLabel(since: string, on: string | undefined): string {
+  const version = since.replace(/\.0$/, '');
+  return on ? tr('New in {0} · {1}', version, shortDate(on)) : tr('New in {0}', version);
 }
 
 export function TourHost({ version, ready, hasData, features, go, onStart }: Readonly<{ version: string; ready: boolean; hasData: boolean; features: ReadonlySet<Feature>; go: (to: TourPage) => void; onStart: (choice: StartChoice) => void }>) {
@@ -120,7 +127,7 @@ export function TourHost({ version, ready, hasData, features, go, onStart }: Rea
         />
       )}
       <div className="fixed z-[81] bg-card text-ink rounded-[20px] p-5 flex flex-col gap-2.5 [box-shadow:0_12px_40px_rgba(0,0,0,0.25)]" style={place}>
-        <p className="m-0 text-[12px] font-bold tracking-[0.06em] uppercase text-brand" aria-live="polite">{tour.kind === 'news' && step.since ? tr('New in {0}', step.since.replace(/\.0$/, '')) : tr('Step {0} of {1}', i + 1, tour.steps.length)}</p>
+        <p className="m-0 text-[12px] font-bold tracking-[0.06em] uppercase text-brand" aria-live="polite">{tour.kind === 'news' && step.since ? newsLabel(step.since, step.on) : tr('Step {0} of {1}', i + 1, tour.steps.length)}</p>
         <h2 id="tour-title" className="m-0 text-[20px] leading-[26px] font-bold">{tr(step.title)}</h2>
         <p className="m-0 text-[15px] leading-[22px] text-muted">{tr(step.text)}</p>
         <div className="flex items-center justify-end gap-2.5 pt-1.5">

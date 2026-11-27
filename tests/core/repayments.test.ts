@@ -66,3 +66,14 @@ test('why your simplified payment is that amount', () => {
   const two = [ex('Dinner', AAKASH, { [ME]: 100, [AAKASH]: 100 })];
   assert.equal(myWhy(ME, simplifyDebts(groupBalances(G, two, [])), pairwiseDebts(G, two, [])).changed, false, 'nothing to explain when simplifying changes nothing');
 });
+
+test('money that only goes round in a loop cancels out: a settled group shows nothing, and no payment grows', () => {
+  const C = 'chirag';
+  const loop = [ex('Lunch', AAKASH, { [ME]: 100 }), ex('Taxi', C, { [AAKASH]: 100 })]; // you owe Aakash, Aakash owes Chirag
+  const settled: Settlement = { id: 's9', group_id: G, from_user: ME, to_user: C, amount: 100, settle_date: '2026-11-20', created_by: ME, created_at: T, updated_at: T, deleted_at: null } as Settlement;
+  assert.deepEqual(pairwiseDebts(G, loop, [settled]), [], 'you paid Chirag as the simplified list said: everyone is even');
+  const bigger = [ex('Lunch', AAKASH, { [ME]: 300 }), ex('Taxi', C, { [AAKASH]: 100 }), ex('Tea', ME, { [C]: 100 })];
+  const pairs = pairwiseDebts(G, bigger, []);
+  assert.deepEqual(pairs.map((d) => [d.from, d.to, d.amount]), [[ME, AAKASH, 200]], 'the ₹100 loop cancels; what is left was owed already');
+  assert.equal(pairLine(pairs[0]!), 'Lunch ₹300, less ₹100 that goes round the group and cancels out');
+});

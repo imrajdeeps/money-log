@@ -24,6 +24,7 @@ export function pairLine(d: PairDebt): string {
   if (o.paidBack > 0) parts.push(tr('{0} paid the other way', fmtINR(o.paidBack)));
   if (l.names.length > 0) parts.push(tr('less {0}', `${joinNames(l.names)} ${fmtINR(l.expenses)}`));
   if (l.paidBack > 0) parts.push(tr('less {0} already paid', fmtINR(l.paidBack)));
+  if (d.loop > 0) parts.push(tr('less {0} that goes round the group and cancels out', fmtINR(d.loop)));
   return parts.join(', ');
 }
 

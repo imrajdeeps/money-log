@@ -4,7 +4,8 @@
 // deleted and everything keeps syncing. Pure.
 import { FEATURES_ID } from './goals.ts';
 import type { FeatureSettings, Goals } from './goals.ts';
-import { FEATURES } from './featureKinds.ts';
+import { FEATURES, isFeature } from './featureKinds.ts';
+import { laterThan } from './logic.ts';
 import type { Feature } from './featureKinds.ts';
 import type { NoticeKind } from './noticeKinds.ts';
 
@@ -20,7 +21,8 @@ const settingsOf = (items: Goals): FeatureSettings | null => {
 
 /** The parts switched on as the person chose them (the defaults until they change one). */
 export function chosenFeatures(items: Goals): Set<Feature> {
-  return new Set(settingsOf(items)?.on ?? DEFAULT_ON);
+  const s = settingsOf(items);
+  return new Set(s ? s.on.filter(isFeature) : DEFAULT_ON);
 }
 
 /** The parts that show: as chosen, except that Net worth lives inside Plan, so it shows only while Plan is on. */
@@ -31,10 +33,13 @@ export function featuresOn(items: Goals): Set<Feature> {
 }
 
 export function setFeature(items: Goals, feature: Feature, on: boolean, nowIso: string): Goals {
+  const cur = settingsOf(items);
   const chosen = chosenFeatures(items);
-  if (chosen.has(feature) === on && settingsOf(items)) return items;
+  if (chosen.has(feature) === on && cur) return items;
   if (on) chosen.add(feature); else chosen.delete(feature);
-  return { ...items, [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: FEATURES.filter((f) => chosen.has(f)), x: 0, t: nowIso } };
+  const later = (cur?.on ?? []).filter((n) => !isFeature(n)); // parts a newer version added: kept as they are
+  const prev = items[FEATURES_ID]?.t;
+  return { ...items, [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: [...FEATURES.filter((f) => chosen.has(f)), ...later], x: 0, t: prev ? laterThan(prev, nowIso) : nowIso } };
 }
 
 // The notes on the bell that belong to a part: they go when the part is off.

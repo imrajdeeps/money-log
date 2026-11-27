@@ -10,6 +10,11 @@ import { tr } from '../../core/i18n.ts';
 
 // Simplify repayments on the group's settings (version 2.1, from the design): on, the fewest payments settle everyone; off, each person
 // pays back exactly whom they owe. One setting for the whole group, so only admins change it; everyone sees what it does right now.
+function footnote(isAdmin: boolean, admins: string, group: string): string {
+  if (isAdmin) return tr('Only admins can change this. Everyone in {0} sees the same list, and the group gets a note when it changes.', group);
+  return admins ? tr('Only admins can change this ({0}). Everyone in {1} sees the same list.', admins, group) : tr('Only admins can change this. Everyone in {0} sees the same list.', group);
+}
+
 export function SimplifyCard({ group, people, isAdmin }: Readonly<{ group: Group; people: Member[]; isAdmin: boolean }>) {
   const app = useApp();
   const act = useAction();
@@ -42,9 +47,7 @@ export function SimplifyCard({ group, people, isAdmin }: Readonly<{ group: Group
       <p className="m-0 bg-press rounded-xl px-3 py-2.5 text-[14px] leading-5">{now}</p>
       {counts.pairs > 0 && counts.paidBack && <p className="m-0 text-[13px] leading-[18px] text-muted">{tr('Payments already recorded stay as they are, so after a change a line can include money paid back the other way. Nobody pays more or less in total.')}</p>}
       {act.error && <p className={ui.msg('bad')} role="alert">{act.error}</p>}
-      <p className="m-0 text-[13px] leading-[18px] text-muted">{isAdmin
-        ? tr('Only admins can change this. Everyone in {0} sees the same list, and the group gets a note when it changes.', group.name)
-        : tr('Only admins can change this ({0}). Everyone in {1} sees the same list.', admins, group.name)}</p>
+      <p className="m-0 text-[13px] leading-[18px] text-muted">{footnote(isAdmin, admins, group.name)}</p>
     </section>
   );
 }

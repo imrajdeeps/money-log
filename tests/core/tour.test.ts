@@ -74,3 +74,12 @@ test('a person who has never seen the app gets the short welcome (a "first" tour
   assert.equal(pickTour(null, '1.32.0', false, nov('24'))!.kind, 'first');
   assert.equal(pickTour(null, '1.32.0', true, nov('24'))!.kind, 'news', 'someone with payments who never saw the tour gets what is new since the baseline');
 });
+
+test('a news card about a part that is turned off is left out (with Plan off nobody is sent to the Plan page)', () => {
+  const planOff: TourContext = { today: '2026-11-27', on: new Set<Feature>(['udhaar', 'insights']) };
+  const ids = newsSince('1.32.0', '2.0.1', planOff).map((s) => s.id);
+  assert.ok(!ids.includes('news-net-worth'), ids.join());
+  assert.ok(newsSince('1.32.0', '2.0.1', planOff).every((s) => s.go !== 'plan'));
+  const withWorth: TourContext = { today: '2026-11-27', on: new Set<Feature>(['plan', 'worth', 'udhaar', 'insights']) };
+  assert.ok(newsSince('1.32.0', '2.0.1', withWorth).some((s) => s.id === 'news-net-worth'));
+});

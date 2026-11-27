@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { axisDays, chartPoints, historyRows, inRange, looksWrong, typedCheck } from '../../src/core/worthHistory.ts';
-import { addNetUpdate, editNetUpdate, netUpdates, removeNetUpdate, restoreNetUpdate } from '../../src/core/goals.ts';
+import { addNetUpdate, editNetUpdate, mergeGoals, netUpdates, removeNetUpdate, restoreNetUpdate } from '../../src/core/goals.ts';
 import type { Goals, NetUpdate } from '../../src/core/goals.ts';
 
 const T = '2026-11-27T10:00:00.000Z';
@@ -86,11 +86,22 @@ test('the labels under the chart spread across the updates, and an only-zero fir
 
 test('a check-in marks its update, a typed figure says so, and the mark survives a sync', async () => {
   const { snapshotWorth } = await import('../../src/core/worth.ts');
-  const { mergeGoals } = await import('../../src/core/goals.ts');
-  const typed = addNetUpdate({}, 100, '2026-11-01', '2026-11-27', T, 'a');
+  const { cleanGoals, mergeGoals } = await import('../../src/core/goals.ts');
+  const typed = addNetUpdate({}, 100, '2026-11-01', '2026-11-27', T, '22222222-2222-4222-8222-222222222222'); // a real id: the cleaner keeps only those
   assert.ok(typed.ok);
   const both = snapshotWorth(typed.items, 200, '2026-11-27', T);
   assert.deepEqual(netUpdates(both).map((x) => [x.a, x.s]), [[200, 'c'], [100, 't']]);
-  const merged = mergeGoals({}, JSON.parse(JSON.stringify(both)));
+  const merged = mergeGoals({}, cleanGoals(JSON.parse(JSON.stringify(both)))); // as a sync reads it: through the cleaner
   assert.deepEqual(netUpdates(merged).map((x) => x.s), ['c', 't']);
+});
+
+test('an edit, a delete or an Undo from a device whose clock is behind still wins', () => {
+  const add = addNetUpdate({}, 0, '2026-11-25', '2026-11-27', '2026-11-27T10:05:00.000Z', 'z'); // saved on a phone 5 minutes fast
+  assert.ok(add.ok);
+  const edited = editNetUpdate(add.items, 'z', 450000, '2026-11-25', '2026-11-27', '2026-11-27T10:02:00.000Z');
+  assert.ok(edited.ok);
+  assert.equal(netUpdates(mergeGoals(add.items, edited.items))[0]!.a, 450000);
+  const gone = removeNetUpdate(add.items, 'z', '2026-11-27T10:02:00.000Z');
+  assert.equal(netUpdates(mergeGoals(add.items, gone)).length, 0);
+  assert.equal(netUpdates(mergeGoals(gone, restoreNetUpdate(gone, 'z', '2026-11-27T10:01:00.000Z'))).length, 1);
 });

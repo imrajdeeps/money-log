@@ -1458,4 +1458,8 @@ export const HINGLISH: Record<string, string> = {
   'Simplified, you pay the same {0} in all: {1}.': 'Simplify karne par bhi aap total wahi {0} dete hain: {1}.',
   'Simplified, you get the same {0} in all: {1}.': 'Simplify karne par bhi aapko total wahi {0} milte hain: {1}.',
   'Payments already recorded stay as they are, so after a change a line can include money paid back the other way. Nobody pays more or less in total.': 'Pehle record kiye payments waise hi rehte hain, isliye badalne ke baad kisi line mein ulti taraf lautaya gaya paisa bhi ho sakta hai. Total mein koi zyada ya kam nahi deta.',
+  'Only admins can change this. Everyone in {0} sees the same list.': 'Ise sirf admins badal sakte hain. {0} mein sabko ek hi list dikhti hai.',
+  'less {0} that goes round the group and cancels out': 'minus {0} jo group mein ghoomkar aapas mein kat jaate hain',
+  'Edit the update of {0}': '{0} ka update edit karein',
+  'New in {0} · {1}': '{0} mein naya · {1}',
 };

@@ -48,9 +48,14 @@ test('the item survives the cleaner and merges by its latest change, like the ot
   assert.ok(!sameGoals(a, b));
 });
 
-test('the cleaner refuses a wrong id, an unknown part and a second item', () => {
-  const bad = { [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: ['plan', 'hacker'], x: 0, t: T1 } };
-  assert.deepEqual(cleanGoals(bad), {});
+test('the cleaner refuses a wrong id, junk and a second item, and keeps a part a newer version added', () => {
+  assert.deepEqual(cleanGoals({ [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: ['plan', 'Not A Name!'], x: 0, t: T1 } }), {});
+  assert.deepEqual(cleanGoals({ [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: ['plan', 7], x: 0, t: T1 } }), {});
+  const newer = cleanGoals({ [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: ['repeats', 'plan'], x: 0, t: T1 } });
+  assert.deepEqual(newer[FEATURES_ID], { id: FEATURES_ID, k: 'f', on: ['plan', 'repeats'], x: 0, t: T1 }, 'an unknown part is kept, known ones first');
+  assert.deepEqual([...featuresOn(newer)], ['plan'], 'and only the known ones act');
+  const flipped = setFeature(newer, 'udhaar', true, T1);
+  assert.deepEqual(flipped[FEATURES_ID] && (flipped[FEATURES_ID] as { on: string[] }).on, ['plan', 'udhaar', 'repeats'], 'switching a part here keeps the newer one on');
   const otherId = '11111111-1111-4111-8111-111111111111';
   assert.deepEqual(cleanGoals({ [otherId]: { id: otherId, k: 'f', on: ['plan'], x: 0, t: T1 } }), {});
   const dup = cleanGoals({ [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: ['worth', 'plan', 'plan'], x: 0, t: T1 } });
@@ -70,4 +75,11 @@ test('the bottom bar ends with Plan, else Udhaar, else All payments', () => {
   assert.equal(lastTab(new Set(['plan', 'udhaar'])), 'plan');
   assert.equal(lastTab(new Set(['udhaar'])), 'udhaar');
   assert.equal(lastTab(new Set()), 'payments');
+});
+
+test('a change from a device whose clock is behind still wins over the change it replaces', () => {
+  const ahead = setFeature({}, 'plan', true, '2026-11-27T10:05:00.000Z'); // a phone 5 minutes fast
+  const later = setFeature(ahead, 'plan', false, '2026-11-27T10:02:00.000Z'); // the laptop, after it
+  assert.ok(later[FEATURES_ID]!.t > ahead[FEATURES_ID]!.t);
+  assert.deepEqual([...featuresOn(mergeGoals(ahead, later))].includes('plan'), false);
 });

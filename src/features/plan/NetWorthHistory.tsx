@@ -4,7 +4,8 @@ import { useApp } from '../../data/context.tsx';
 import { localPref } from '../../data/localPref.ts';
 import { netUpdates, parseNetAmount } from '../../core/goals.ts';
 import type { NetUpdate } from '../../core/goals.ts';
-import { axisDays, chartPoints, compactINR, historyRows, inRange } from '../../core/worthHistory.ts';
+import { axisDays, chartPoints, compactINR, historyRows, inRange, typedCheck } from '../../core/worthHistory.ts';
+import { checkText } from './netWorthCheck.ts';
 import type { HistoryRange, HistoryRow } from '../../core/worthHistory.ts';
 import { longDate, shortDate, shortMonth } from '../../core/format.ts';
 import { fmtINR, isoDate } from '../../core/logic.ts';
@@ -106,16 +107,22 @@ function Hero({ all, shown, odd }: Readonly<{ all: NetUpdate[]; shown: NetUpdate
 }
 
 // Change an update in place: the figure and its day.
-function EditUpdate({ u, onDone }: Readonly<{ u: NetUpdate; onDone: () => void }>) {
+// ₹0 after a figure that was not, or one far from the update before it, is asked about once before it is saved (as when typing a new one).
+function EditUpdate({ u, before, onDone }: Readonly<{ u: NetUpdate; before: NetUpdate | null; onDone: () => void }>) {
   const app = useApp();
   const [amount, setAmount] = useState(String(u.a));
   const [date, setDate] = useState(u.d);
   const [error, setError] = useState('');
+  const [asked, setAsked] = useState(''); // the amount the check was shown for: saving it again goes ahead
   const [busy, setBusy] = useState(false);
+  const parsed = parseNetAmount(amount);
+  const check = parsed === null || parsed === u.a || !before ? null : typedCheck(parsed, before.a);
+  const askNow = check !== null && asked === amount;
   async function save(ev: FormEvent) {
     ev.preventDefault();
     const n = parseNetAmount(amount);
     if (n === null) return setError(tr('Enter your net worth as a number, with at most two decimals. It can be negative.'));
+    if (check && !askNow) return setAsked(amount);
     setBusy(true);
     const problem = await app.editNetWorth(u.id, n, date);
     setBusy(false);
@@ -126,12 +133,13 @@ function EditUpdate({ u, onDone }: Readonly<{ u: NetUpdate; onDone: () => void }
   return (
     <form onSubmit={save} noValidate className="pb-3" aria-label={tr('Change the update of {0}', shortDate(u.d))}>
       <div className="grid grid-cols-2 gap-2.5">
-        <label className={ui.field}><span>{tr('Net worth (₹)')}</span><input inputMode="decimal" value={amount} autoFocus onChange={(e) => { setAmount(e.target.value); setError(''); }} /></label>
+        <label className={ui.field}><span>{tr('Net worth (₹)')}</span><input inputMode="decimal" value={amount} autoFocus onChange={(e) => { setAmount(e.target.value); setError(''); setAsked(''); }} /></label>
         <label className={ui.field}><span>{tr('As of')}</span><input type="date" value={date} max={isoDate()} onChange={(e) => { setDate(e.target.value); setError(''); }} /></label>
       </div>
       {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
+      {askNow && before && <p className={ui.msg('bad')} role="alert">{checkText(check, before.a)}</p>}
       <div className={ui.btnRow}>
-        <button type="submit" className={ui.btn()} disabled={busy}>{tr('Save')}</button>
+        <button type="submit" className={ui.btn()} disabled={busy}>{askNow ? tr('Save anyway') : tr('Save')}</button>
         <button type="button" className={ui.btn('ghost')} disabled={busy} onClick={onDone}>{tr('Cancel')}</button>
       </div>
     </form>
@@ -204,12 +212,12 @@ function UpdateRow({ row, first, odd, onKeep }: Readonly<{ row: HistoryRow; firs
         </span>
         <span className={ui.cx('text-[16px] font-bold tabular-nums', odd && 'text-bad')}>{fmtINR(u.a)}</span>
         <span className="max-lg:hidden flex gap-1">
-          <button type="button" className={ui.cx(ROW_BTN, 'text-brand')} aria-label={tr('Change the update of {0}', shortDate(u.d))} aria-expanded={editing} onClick={() => setEditing(true)}>{tr('Edit')}</button>
+          <button type="button" className={ui.cx(ROW_BTN, 'text-brand')} aria-label={tr('Edit the update of {0}', shortDate(u.d))} aria-expanded={editing} onClick={() => setEditing(true)}>{tr('Edit')}</button>
           <button type="button" className={ui.cx(ROW_BTN, 'text-bad')} aria-label={tr('Delete the update of {0}', shortDate(u.d))} onClick={() => { void remove(); }}>{tr('Delete')}</button>
         </span>
         <button type="button" className={ui.cx(ui.iconBtn, 'lg:hidden')} aria-label={tr('Change or delete the update of {0}', shortDate(u.d))} onClick={() => setMenu(true)}><Icon name="dotsFill" size={20} /></button>
       </div>
-      {editing && <EditUpdate u={u} onDone={() => setEditing(false)} />}
+      {editing && <EditUpdate u={u} before={before} onDone={() => setEditing(false)} />}
       {odd && before && !editing && <OddNote u={u} before={before} onDelete={() => { void remove(); }} onKeep={onKeep} />}
       {menu && <UpdateActions u={u} onEdit={() => setEditing(true)} onDelete={() => { void remove(); }} onClose={() => setMenu(false)} />}
     </li>
@@ -235,7 +243,7 @@ export function NetWorthHistory() {
             {shown.length > 0 ? <Hero all={all} shown={shown} odd={odd} /> : <p className="m-0 text-[15px] text-muted">{tr('No updates in this time. Pick a longer one.')}</p>}
           </div>
           <section className="flex flex-col gap-2" aria-labelledby="every-update">
-            <div className="flex justify-between items-baseline"><h2 id="every-update" className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('Every update')}</h2><span className="text-[14px] text-muted">{shown.length === 1 ? tr('1 update') : tr('{0} updates', shown.length)}</span></div>
+            <div className="flex justify-between items-baseline"><h3 id="every-update" className="m-0 text-[16px] leading-[22px] font-[650] text-ink">{tr('Every update')}</h3><span className="text-[14px] text-muted">{shown.length === 1 ? tr('1 update') : tr('{0} updates', shown.length)}</span></div>
             {shown.length > 0 && (
               <ul className="list-none m-0 bg-card border border-line rounded-card pl-4 pr-1 lg:pr-2">
                 {rows.filter((r) => shownIds.has(r.u.id)).map((r, i) => <UpdateRow key={r.u.id} row={r} first={i === 0} odd={odd.has(r.u.id)} onKeep={() => keptOdd.save([...kept, r.u.id])} />)}

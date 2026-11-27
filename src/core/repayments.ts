@@ -9,7 +9,7 @@ import { fromPaise, simplifyDebts, toPaise } from './groups.ts';
 /** One thing a pair's payment is made of: a shared expense (its name), or money already paid back between them (what = null). */
 export interface Part { what: string | null; paise: number }
 /** A payment between two people, with what `from` owes `to` for (owes) and what comes off it (less). */
-export interface PairDebt extends Debt { owes: Part[]; less: Part[] }
+export interface PairDebt extends Debt { owes: Part[]; less: Part[]; loop: number } // loop: rupees taken off because they went round in a loop
 
 const pairKey = (from: string, to: string): string => `${from}>${to}`;
 
@@ -33,11 +33,12 @@ function owedParts(gid: string, entries: readonly Entry[], settlements: readonly
 
 const total = (parts: readonly Part[]): number => parts.reduce((n, p) => n + p.paise, 0);
 
-/** Simplify off: one payment for each pair who owe each other, what they owe each other cancelled out; the biggest first. */
+/** Simplify off: one payment for each pair who owe each other, what they owe each other cancelled out, and any loop cancelled (see
+ * cancelLoops); the biggest first. */
 export function pairwiseDebts(gid: string, entries: readonly Entry[], settlements: readonly Settlement[]): PairDebt[] {
   const parts = owedParts(gid, entries, settlements);
   const done = new Set<string>();
-  const out: PairDebt[] = [];
+  const edges: Edge[] = [];
   for (const k of parts.keys()) {
     const [a, b] = k.split('>') as [string, string];
     if (done.has(pairKey(b, a))) continue;
@@ -45,10 +46,46 @@ export function pairwiseDebts(gid: string, entries: readonly Entry[], settlement
     const ab = parts.get(k) ?? [];
     const ba = parts.get(pairKey(b, a)) ?? [];
     const net = total(ab) - total(ba);
-    if (net > 0) out.push({ from: a, to: b, amount: fromPaise(net), owes: ab, less: ba });
-    else if (net < 0) out.push({ from: b, to: a, amount: fromPaise(-net), owes: ba, less: ab });
+    if (net > 0) edges.push({ from: a, to: b, paise: net, loop: 0, owes: ab, less: ba });
+    else if (net < 0) edges.push({ from: b, to: a, paise: -net, loop: 0, owes: ba, less: ab });
   }
-  return out.sort((x, y) => y.amount - x.amount || (x.from + x.to < y.from + y.to ? -1 : 1));
+  cancelLoops(edges);
+  return edges.filter((e) => e.paise > 0)
+    .map((e) => ({ from: e.from, to: e.to, amount: fromPaise(e.paise), owes: e.owes, less: e.less, loop: fromPaise(e.loop) }))
+    .sort((x, y) => y.amount - x.amount || (x.from + x.to < y.from + y.to ? -1 : 1));
+}
+
+interface Edge { from: string; to: string; paise: number; loop: number; owes: Part[]; less: Part[] }
+
+// A path of open payments from `node` back to `goal`, or null (depth first, in a fixed order so every device finds the same loops).
+function pathBack(node: string, goal: string, out: Map<string, Edge[]>, seen: Set<string>): Edge[] | null {
+  for (const e of out.get(node) ?? []) {
+    if (e.paise <= 0) continue;
+    if (e.to === goal) return [e];
+    if (seen.has(e.to)) continue;
+    seen.add(e.to);
+    const rest = pathBack(e.to, goal, out, seen);
+    if (rest) return [e, ...rest];
+  }
+  return null;
+}
+
+/**
+ * A owes B, B owes C and C owes A: the same money goes round. Take the smallest of them off every payment in the loop, until no loop is
+ * left. Each payment only gets smaller, so nobody pays someone they do not owe; a group where everyone is even shows nothing.
+ */
+function cancelLoops(edges: Edge[]): void {
+  const out = new Map<string, Edge[]>();
+  for (const e of [...edges].sort((x, y) => (x.from + x.to < y.from + y.to ? -1 : 1))) {
+    const list = out.get(e.from);
+    if (list) list.push(e); else out.set(e.from, [e]);
+  }
+  for (const start of [...out.keys()].sort()) {
+    for (let loop = pathBack(start, start, out, new Set([start])); loop; loop = pathBack(start, start, out, new Set([start]))) {
+      const least = Math.min(...loop.map((e) => e.paise));
+      for (const e of loop) { e.paise -= least; e.loop += least; }
+    }
+  }
 }
 
 /** The list the group shows: simplified, or pair by pair. */

@@ -4,6 +4,7 @@ import { useApp } from '../../data/context.tsx';
 import { netNow, netUpdates, parseNetAmount } from '../../core/goals.ts';
 import { worthItems, worthSummary } from '../../core/worth.ts';
 import { typedCheck } from '../../core/worthHistory.ts';
+import { checkText } from './netWorthCheck.ts';
 import { WorthPanel } from './WorthPanel.tsx';
 import type { WorthMode } from './WorthPanel.tsx';
 import { useAutoLines } from './useAutoLines.ts';
@@ -44,10 +45,6 @@ function Change({ by, since }: Readonly<{ by: number; since: string }>) {
 }
 
 // Typing a new figure: the amount (it can be negative: debts can outweigh what you own) and the day it was true.
-// ₹0 after a figure that was not, or one far from the last, is asked about once before it is saved (the owner once typed a ₹0 by mistake).
-function checkText(kind: 'zero' | 'jump', last: number): string {
-  return kind === 'zero' ? tr('That is ₹0. Your last figure was {0}. Save ₹0 anyway?', fmtINR(last)) : tr('That is far from your last figure, {0}. Check it, or save it anyway.', fmtINR(last));
-}
 
 function UpdateForm({ last, onDone }: Readonly<{ last: number | null; onDone: () => void }>) {
   const app = useApp();
