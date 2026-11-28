@@ -198,3 +198,29 @@ test('a loan left at its estimate shows its paydown under "what moved" at the ne
   assert.deepEqual([item(twice, 1).p, item(twice, 1).pd], [item(again, 1).p, item(again, 1).pd], 'a second save the same day keeps what the first remembered');
   assert.ok(before > valueNow(item(items, 1), later));
 });
+
+// ---------------------------------------------------------------- 2.2.1: what a newer version keeps on an item survives here
+import { cleanGoals as cleanAll, mergeGoals as mergeAll, sameGoals as sameAll } from '../../src/core/goals.ts';
+
+test('2.2.1: settings a newer version keeps on an item (w) survive cleaning, a change and a check-in, and count in a merge', () => {
+  const r = addWorthItem({}, { name: 'HDFC savings', side: 'a', cls: 'liquid', amount: '80000', emi: '', rate: '' }, '2026-11-01', '2026-11-01T10:00:00.000Z', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  assert.ok(r.ok);
+  const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const withW = { ...r.items, [id]: { ...r.items[id]!, w: { pay: ['UPI'], inc: 1 } } } as Goals;
+  const cleaned = cleanAll(JSON.parse(JSON.stringify(withW)));
+  assert.deepEqual((cleaned[id] as WorthItem).w, { pay: ['UPI'], inc: 1 }, 'kept as it is');
+  const edited = editWorthItem(cleaned, id, { name: 'HDFC', side: 'a', cls: 'liquid', amount: '90000', emi: '', rate: '' }, '2026-11-20', '2026-11-20T10:00:00.000Z');
+  assert.ok(edited.ok);
+  assert.deepEqual((edited.items[id] as WorthItem).w, { pay: ['UPI'], inc: 1 }, 'a change here keeps it');
+  const checked = checkInWorth(cleaned, { [id]: 85000 }, '2026-11-21', '2026-11-21T10:00:00.000Z');
+  assert.deepEqual((checked[id] as WorthItem).w, { pay: ['UPI'], inc: 1 }, 'a check-in here keeps it');
+  // not a small plain object: dropped, the item itself kept
+  for (const bad of [['UPI'], 'x', 5, { big: 'y'.repeat(2100) }]) {
+    const c = cleanAll(JSON.parse(JSON.stringify({ ...r.items, [id]: { ...r.items[id]!, w: bad } })));
+    assert.ok(c[id] && !('w' in c[id]!), JSON.stringify(bad).slice(0, 20));
+  }
+  // a newer copy that differs only in w is a different copy, and the newer one wins
+  const later = { ...cleaned, [id]: { ...(cleaned[id] as WorthItem), w: { pay: ['UPI', 'Card'] }, t: '2026-11-22T10:00:00.000Z' } } as Goals;
+  assert.equal(sameAll(cleaned, later), false);
+  assert.deepEqual((mergeAll(cleaned, later)[id] as WorthItem).w, { pay: ['UPI', 'Card'] });
+});
