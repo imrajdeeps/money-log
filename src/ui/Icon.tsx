@@ -14,6 +14,7 @@ const PATHS = {
   close: 'M6 6l12 12M18 6 6 18',
   backspace: 'M9 5h11v14H9l-6-7zM12.5 9.5l5 5M17.5 9.5l-5 5', // delete one digit (the lock screen's keypad)
   chevron: 'M9 5l7 7-7 7',
+  skip: 'M5 12h14M13 6l6 6-6 6', // 2.2: skip a month of a repeat
   back: 'M15 5l-7 7 7 7',
   down: 'M6 9.5l6 6 6-6',
   sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4',

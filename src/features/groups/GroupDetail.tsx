@@ -17,12 +17,21 @@ import { fmtINR, isValidDate, isoDate, parseAmount } from '../../core/logic.ts';
 import type { Entry } from '../../core/logic.ts';
 import { ActivityBanner } from './ActivityBanner.tsx';
 import { DebtRow } from './DebtRow.tsx';
+import { RepeatsCard } from './RepeatsCard.tsx';
 import { TripSummary } from './TripSummary.tsx';
 import { FamilyMonth } from './FamilyMonth.tsx';
 import { tripDatesLabel } from '../../core/groupSummary.ts';
 import { personLetters } from '../../core/profile.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
+
+// The line under an expense in the history: who paid; for a month a repeat logged (2.2), "Every month · logged by Aakash · you paid ₹15,000".
+function expenseLine(e: Entry, me: string, nameOf: (uid: string) => string): string {
+  const who = (uid: string | null) => (uid === me ? tr('you') : nameOf(uid ?? ''));
+  if (!e.repeat_id) return tr('{0} paid {1}', nameOf(e.paid_by ?? ''), fmtINR(e.amount));
+  const paid = tr('{0} paid {1}', who(e.paid_by), fmtINR(e.amount));
+  return e.owner_id === e.paid_by ? tr('Every month · {0}', paid) : tr('Every month · logged by {0} · {1}', who(e.owner_id), paid);
+}
 
 const owes = (paise: number): string => (paise === 0 ? tr('All settled') : paise > 0 ? tr('is owed {0}', fmtINR(fromPaise(paise))) : tr('owes {0}', fmtINR(fromPaise(-paise))));
 
@@ -84,7 +93,7 @@ function LedgerRow({ it, first, me, people, nameOf, onOpen }: Readonly<{ it: Led
     <li>
       <button type="button" className={ui.cx(ROW, 'cursor-pointer')} onClick={() => onOpen(e)}>
         {day(e.entry_date)}
-        <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold truncate">{e.note ? e.note.split(' · ')[0] : e.category}</span><span className="text-[13px] text-muted truncate">{tr('{0} paid {1}', nameOf(e.paid_by ?? ''), fmtINR(e.amount))}</span></span>
+        <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold truncate">{e.note ? e.note.split(' · ')[0] : e.category}</span><span className="text-[13px] text-muted truncate">{expenseLine(e, me, nameOf)}</span></span>
         <span className="flex flex-col items-end">
           <span className={ui.cx('text-[15px] font-bold tabular-nums', effect.side === 'owed' ? 'text-good' : effect.side === 'owe' ? 'text-bad' : '')}>{effect.side === 'none' ? fmtINR(e.amount) : fmtINR(effect.amount)}</span>
           {effect.side !== 'none' && <span className={ui.cx('text-[12px] font-semibold', effect.side === 'owed' ? 'text-good' : 'text-bad')}>{effect.side === 'owed' ? tr('you are owed') : tr('you owe')}</span>}
@@ -191,6 +200,7 @@ export function GroupDetail({ group, onBack, onSettings, onAdd }: Readonly<{ gro
 
       <div className="grid grid-cols-1 gap-4 items-start lg:grid-cols-2 lg:gap-x-7">
       <div className="flex flex-col gap-4">
+      <RepeatsCard group={group} me={me} nameOf={nameOf} />
       <BalancesCard group={group} people={people} former={former} bal={bal} me={me} nameOf={nameOf} partnerLine={partner && group.kind === 'couple' ? line : null} />
 
       <section className="flex flex-col gap-2">

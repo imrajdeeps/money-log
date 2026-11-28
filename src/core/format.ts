@@ -73,6 +73,12 @@ export function compactINR(n: number): string {
   return `${n < 0 ? '-' : ''}₹${body}`;
 }
 
+/** "December", from a month key like 2026-12, in the chosen language. */
+export function monthName(key: string): string {
+  const [y, m] = parts(`${key}-01`);
+  return fmt('ml', { month: 'long' }).format(new Date(y, m - 1, 1));
+}
+
 /** "Nov", from a month key like 2026-11, in the chosen language. */
 export function monthShort(key: string): string {
   const [y, m] = parts(`${key}-01`);

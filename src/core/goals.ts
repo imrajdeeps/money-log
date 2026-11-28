@@ -5,7 +5,6 @@
 import { isNoticeKind } from './noticeKinds.ts';
 import type { NoticeKind } from './noticeKinds.ts';
 import { FEATURES, isFeature } from './featureKinds.ts';
-import type { Feature } from './featureKinds.ts';
 import { MAX_AMOUNT, UUID_RE, asText, catKey, daysInMonth, isValidDate, laterThan, newId, normName, parseTs, round2, uuidFromKey } from './logic.ts';
 import type { Entry } from './logic.ts';
 import { tr } from './i18n.ts';

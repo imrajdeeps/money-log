@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { fmtINR } from '../../core/logic.ts';
 import { extractUpi, remindText, upiLink } from '../../core/upi.ts';
 import { myUpi, theirUpi } from '../../data/phonePrefs.ts';
