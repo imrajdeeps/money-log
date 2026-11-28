@@ -61,7 +61,10 @@ export interface UdhaarItem { id: string; k: 'u'; n: string; a: number; w: Udhaa
 export type WorthSide = 'a' | 'd';
 export const ASSET_CLASSES = ['liquid', 'invest', 'retire', 'gold', 'property', 'other'] as const;
 export const DEBT_CLASSES = ['loan', 'card', 'other'] as const;
-export interface WorthItem { id: string; k: 'w'; n: string; s: WorthSide; c: string; a: number; d: string; p: number | null; pd: string; e: number; r: number; x: 0 | 1; t: string }
+// w: settings a later version keeps on the item (2.3: the account settings of net worth worked out from payments). This version does not
+// read it; it only carries it, unchanged, so saving an item here does not strip what a newer device wrote (2.2.1).
+export type WorthExtra = Record<string, unknown>;
+export interface WorthItem { id: string; k: 'w'; n: string; s: WorthSide; c: string; a: number; d: string; p: number | null; pd: string; e: number; r: number; x: 0 | 1; t: string; w?: WorthExtra }
 // The parts of the app the person turned on in Settings, Features (version 2.1): on lists them (one item with a fixed id, like the
 // notification switches); with no item the defaults apply (features.ts). Lives here so it follows the account to every device.
 export const FEATURES_ID = uuidFromKey('feature-settings');
@@ -229,7 +232,7 @@ function sameItem(x: GoalItem, y: GoalItem | undefined): boolean {
     case 'd': return y.k === 'd' && x.kind === y.kind && x.n === y.n && x.a === y.a && x.d === y.d && x.f === y.f;
     case 'k': return y.k === 'k' && x.key === y.key;
     case 'i': return y.k === 'i' && x.n === y.n;
-    case 'w': return y.k === 'w' && x.n === y.n && x.s === y.s && x.c === y.c && x.a === y.a && x.d === y.d && x.p === y.p && x.pd === y.pd && x.e === y.e && x.r === y.r;
+    case 'w': return y.k === 'w' && x.n === y.n && x.s === y.s && x.c === y.c && x.a === y.a && x.d === y.d && x.p === y.p && x.pd === y.pd && x.e === y.e && x.r === y.r && sameExtra(x.w, y.w);
     case 'u': return y.k === 'u' && x.n === y.n && x.a === y.a && x.w === y.w && x.d === y.d && x.m === y.m && x.s === y.s;
     case 'f': return y.k === 'f' && x.on.join() === y.on.join();
     default: return y.k === 's' && x.off.join() === y.off.join();
@@ -305,8 +308,17 @@ function cleanWorthItem(k: string, v: Raw): WorthItem | null {
   if (v.p !== null && !worthAmountOk(v.p)) return null;
   if (v.pd !== '' && !isDay(v.pd)) return null;
   if (!worthTermsOk(v)) return null;
-  return { id: k, k: 'w', n: v.n, s: v.s, c: v.c, a: v.a, d: v.d, p: v.p, pd: v.pd, e: v.e, r: v.r, x: v.x, t: v.t };
+  return { id: k, k: 'w', n: v.n, s: v.s, c: v.c, a: v.a, d: v.d, p: v.p, pd: v.pd, e: v.e, r: v.r, x: v.x, t: v.t, ...extraOf(v.w) };
 }
+
+const MAX_EXTRA = 2000; // characters of JSON: room for a later version's settings, not for a payload
+/** A later version's settings on an item, kept as they are when they are a small plain object; anything else is dropped. */
+function extraOf(w: unknown): { w?: WorthExtra } {
+  if (!w || typeof w !== 'object' || Array.isArray(w)) return {};
+  const text = JSON.stringify(w);
+  return text.length <= MAX_EXTRA ? { w: JSON.parse(text) as WorthExtra } : {};
+}
+const sameExtra = (a: WorthExtra | undefined, b: WorthExtra | undefined): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 function cleanNoticeSettingsItem(k: string, v: Raw): NoticeSettings | null {
   if (k !== NOTICE_SETTINGS_ID || !Array.isArray(v.off) || !v.off.every(isNoticeKind)) return null;
