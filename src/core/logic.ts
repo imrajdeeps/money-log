@@ -29,6 +29,8 @@ export interface Entry {
   paid_by: string | null; // user id of whoever paid (shared expenses only)
   shares: Shares | null; // each person's share (shared expenses only)
   share_of: string | null; // private payments only: the shared expense this records the account's share of
+  repeat_id?: string; // 2.2: logged by this repeat of its group (set by the server only, never sent back)
+  repeat_month?: string; // ...for this month, YYYY-MM
   dirty: 0 | 1; // 1 = changed on this device and not yet pushed to the cloud
 }
 
@@ -38,7 +40,7 @@ export interface PlanRow { c: string; g: Group; p: number[]; u?: 1 }
 export interface PlanData { v: 1; months: string[]; rows: PlanRow[] }
 export interface Plan extends PlanData { importedAt: string; dirty: 0 | 1 }
 
-const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/; // a month, YYYY-MM
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const MAX_AMOUNT = 1e9;
@@ -128,9 +130,9 @@ export interface NewEntryInput {
   kind?: EntryKind; // absent = out
 }
 
-export function makeEntry(input: NewEntryInput, nowIso: string): Entry {
+export function makeEntry(input: NewEntryInput, nowIso: string, id: string = newId()): Entry {
   return {
-    id: newId(),
+    id,
     owner_id: null,
     entry_date: input.date,
     kind: input.kind ?? 'out',
@@ -226,7 +228,7 @@ function validStamps(e: any): boolean {
 
 // The shares of a shared expense: at most 30 people, each a user id with a non-negative amount, adding up to the amount.
 // null: no shares; undefined: not good.
-function cleanShares(raw: unknown, amount: number): Shares | null | undefined {
+export function cleanShares(raw: unknown, amount: number): Shares | null | undefined {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const entries = Object.entries(raw as Record<string, unknown>);
@@ -281,15 +283,27 @@ export function cleanEntry(e: any): Entry | null {
     paid_by: lower(group.paidBy),
     shares: group.shares,
     share_of: lower(group.shareOf),
+    ...repeatLink(e, group.groupId),
     dirty: e.dirty ? 1 : 0,
   };
+}
+
+// 2.2: the repeat and month a group expense was logged for, kept only when both are there and well formed (a private payment has none).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function repeatLink(e: any, groupId: string | null): { repeat_id?: string; repeat_month?: string } {
+  if (groupId === null || typeof e.repeat_id !== 'string' || !UUID_RE.test(e.repeat_id)) return {};
+  if (typeof e.repeat_month !== 'string' || !MONTH_RE.test(e.repeat_month)) return {};
+  return { repeat_id: e.repeat_id.toLowerCase(), repeat_month: e.repeat_month };
 }
 
 // Latest edit wins, on every phone alike. A server copy replaces the local one only if it was edited later; a local
 // entry that is newer (or equal) stays, and if it is still waiting to be pushed it goes out right after this pull.
 export function mergeRemote(local: Entry | undefined, remote: Entry): Entry {
   if (!local) return { ...remote, dirty: 0 };
-  return parseTs(remote.updated_at) > parseTs(local.updated_at) ? { ...remote, dirty: 0 } : local;
+  if (parseTs(remote.updated_at) > parseTs(local.updated_at)) return { ...remote, dirty: 0 };
+  // 2.2: the repeat link is the server's alone, so a local copy that wins (newer, or the same edit) still takes it: a copy pulled
+  // before the app knew about links, or one saved here after a set-up whose answer was lost
+  return remote.repeat_id && !local.repeat_id ? { ...local, repeat_id: remote.repeat_id, repeat_month: remote.repeat_month } : local;
 }
 
 // Whether this phone's account made the entry. Entries that arrive from other people's groups are not ours: they never

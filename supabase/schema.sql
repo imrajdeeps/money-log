@@ -2115,3 +2115,336 @@ $$;
 
 revoke all on function public.set_group_simplify(uuid, boolean) from public, anon, authenticated;
 grant execute on function public.set_group_simplify(uuid, boolean) to authenticated;
+
+-- =================================================================================
+-- Version 2.2: Repeats in a group
+-- =================================================================================
+
+-- A group expense that comes back every month (the flat's rent), with its payer and its split. On its day it shows on the group
+-- page, and the people in it log it with one tap. A month counts once, whoever taps first: logging adds the expense here, on the
+-- server, in the same step that marks the month done (done_through: the last month logged or skipped). Members of the group read
+-- this table; every change goes through the functions below. The change columns say what last happened (set up, changed, skipped,
+-- stopped) and who did it, for the group's note ("Aakash skipped Rent for December"); a logged month is noted by its expense.
+create table if not exists public.group_repeats (
+  id            uuid primary key,                       -- made on the phone, like an expense's
+  group_id      uuid not null references public.groups (id) on delete cascade,
+  category      text not null check (char_length(category) between 1 and 80),
+  note          text not null default '' check (char_length(note) <= 200),
+  amount        numeric(12, 2) not null check (amount > 0 and amount < 1000000000),
+  day           smallint not null check (day between 1 and 31), -- a short month uses its last day
+  paid_by       uuid not null references auth.users (id) on delete cascade,
+  shares        jsonb not null check (jsonb_typeof(shares) = 'object'), -- as on an expense: {<user id>: rupees, ...}, adding up to amount
+  done_through  text check (done_through ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
+  created_by    uuid references auth.users (id) on delete set null,
+  created_at    timestamptz not null default now(),
+  change        text not null default 'add' check (change in ('add', 'edit', 'skip', 'stop')),
+  change_month  text check (change_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'), -- the month a skip was for
+  changed_by    uuid references auth.users (id) on delete set null,
+  changed_at    timestamptz not null default now(),
+  stopped_at    timestamptz,
+  synced_at     timestamptz not null default now()
+);
+create index if not exists group_repeats_group_idx on public.group_repeats (group_id);
+
+drop trigger if exists group_repeats_touch_synced_at on public.group_repeats;
+create trigger group_repeats_touch_synced_at
+  before insert or update on public.group_repeats
+  for each row execute function public.touch_synced_at();
+
+alter table public.group_repeats enable row level security;
+alter table public.group_repeats force row level security;
+revoke all on public.group_repeats from anon, authenticated;
+grant select on public.group_repeats to authenticated; -- writes go through the functions below
+drop policy if exists group_repeats_select on public.group_repeats;
+create policy group_repeats_select on public.group_repeats for select to authenticated
+  using (public.is_group_member(group_id));
+
+-- The expense a repeat logged for a month. Set only by the functions below (they run as the schema's owner, never as a user's
+-- role, and mark the write with a setting for that repeat), never changed afterwards, and once per repeat and month among the expenses that are not deleted. Such an expense
+-- stays in its group; everything else about it (amount, note, deleting it) is an ordinary expense of whoever logged it.
+alter table public.entries add column if not exists repeat_id uuid;
+alter table public.entries add column if not exists repeat_month text;
+alter table public.entries drop constraint if exists entries_repeat_check;
+alter table public.entries add constraint entries_repeat_check check (
+  (repeat_id is null and repeat_month is null)
+  or (repeat_id is not null and group_id is not null and coalesce(repeat_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$', false)));
+create unique index if not exists entries_repeat_once_idx on public.entries (repeat_id, repeat_month)
+  where repeat_id is not null and deleted_at is null;
+
+create or replace function public.keep_repeat_link()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.repeat_id is not null
+       and (current_user in ('authenticated', 'anon') or current_setting('hisaab.repeat_write', true) is distinct from new.repeat_id::text) then
+      raise exception 'Only a repeat can log this expense' using errcode = '42501';
+    end if;
+  elsif new.repeat_id is distinct from old.repeat_id or new.repeat_month is distinct from old.repeat_month then
+    raise exception 'The month a repeat logged cannot change' using errcode = '23514';
+  elsif old.repeat_id is not null and new.group_id is distinct from old.group_id then
+    raise exception 'An expense logged from a repeat stays in its group' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists entries_keep_repeat_link on public.entries;
+create trigger entries_keep_repeat_link
+  before insert or update on public.entries
+  for each row execute function public.keep_repeat_link();
+
+-- Is p_month this calendar month somewhere on earth right now (UTC-12 to UTC+14), or up to p_ahead months after it? A phone's
+-- "this month" is always one of those, whatever its time zone.
+create or replace function public.repeat_month_ok(p_month text, p_ahead int)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(p_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$', false)
+     and p_month >= to_char((now() at time zone 'UTC') - interval '12 hours', 'YYYY-MM')
+     and p_month <= to_char((now() at time zone 'UTC') + interval '14 hours' + make_interval(months => p_ahead), 'YYYY-MM');
+$$;
+
+-- The day a repeat falls on in a month, YYYY-MM: its day, or the month's last day when the month is shorter.
+create or replace function public.repeat_date(p_month text, p_day int)
+returns date
+language sql
+immutable
+set search_path = ''
+as $$
+  select (first + make_interval(days => least(p_day, extract(day from first + interval '1 month' - interval '1 day')::int) - 1))::date
+    from (select to_date(p_month || '-01', 'YYYY-MM-DD') as first) m;
+$$;
+
+-- A repeat's split checked like an expense's: paid by a current member, shares in rupees and paise for current members (at
+-- most 30), adding up to the amount. Raises the reason when it is not.
+create or replace function public.check_repeat_split(p_group uuid, p_amount numeric, p_paid_by uuid, p_shares jsonb)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  k text;
+  v jsonb;
+  amt numeric;
+  total numeric := 0;
+  n int := 0;
+begin
+  if p_amount is null or p_amount <= 0 or p_amount >= 1000000000 or scale(p_amount) > 2 then
+    raise exception 'Enter an amount above zero, in rupees and paise' using errcode = '22023';
+  end if;
+  if p_shares is null or jsonb_typeof(p_shares) <> 'object' then raise exception 'A repeat needs a split' using errcode = '22023'; end if;
+  perform 1 from public.group_members m where m.group_id = p_group and m.user_id = p_paid_by and m.left_at is null;
+  if not found then raise exception 'The payer is not a current member of this group' using errcode = '22023'; end if;
+  for k, v in select key, value from jsonb_each(p_shares) loop
+    n := n + 1;
+    if n > 30 then raise exception 'Too many people in one split' using errcode = '22023'; end if;
+    if k !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+      raise exception 'A share is not keyed by a user id' using errcode = '22023';
+    end if;
+    if jsonb_typeof(v) <> 'number' then raise exception 'A share must be a number' using errcode = '22023'; end if;
+    amt := (v #>> '{}')::numeric;
+    if amt < 0 or scale(amt) > 2 then raise exception 'A share must be zero or more, in rupees and paise' using errcode = '22023'; end if;
+    perform 1 from public.group_members m where m.group_id = p_group and m.user_id = k::uuid and m.left_at is null;
+    if not found then raise exception 'A share names someone who is not a current member of this group' using errcode = '22023'; end if;
+    total := total + amt;
+  end loop;
+  if n = 0 then raise exception 'A repeat needs a split' using errcode = '22023'; end if;
+  if total <> p_amount then raise exception 'The shares add up to % but the amount is %', total, p_amount using errcode = '22023'; end if;
+end;
+$$;
+
+-- The repeat, locked for a change, once the caller may act on it: a current member of its group who pays or shares in it (or, with
+-- p_admin_ok, an admin of the group: so a repeat whose people have all left can still be stopped). A stranger is answered as if it
+-- did not exist. A stopped repeat takes no more changes.
+create or replace function public.lock_group_repeat(p_repeat uuid, p_admin_ok boolean default false)
+returns public.group_repeats
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r public.group_repeats;
+  uid uuid := (select auth.uid());
+begin
+  select * into r from public.group_repeats where id = p_repeat for update;
+  if not found or uid is null or not public.is_group_member(r.group_id) then raise exception 'That repeat is gone' using errcode = '22023'; end if;
+  if r.stopped_at is not null then raise exception 'That repeat was stopped' using errcode = '22023'; end if;
+  if r.paid_by is distinct from uid and not (r.shares ? uid::text) and not (p_admin_ok and public.is_group_admin(r.group_id)) then
+    raise exception 'Only the people in this repeat can change it' using errcode = '42501';
+  end if;
+  return r;
+end;
+$$;
+
+-- Set one up from Add a shared expense: the repeat and its first expense (the one being added, p_entry on p_date), in one step,
+-- so that month is done. Retrying after a lost answer finds both already there and changes nothing. The app calls this BEFORE it
+-- keeps the expense itself, and saves a plain expense (same id) only when this fails: an expense already pushed under p_entry
+-- would make the insert below fail.
+create or replace function public.add_group_repeat(p_id uuid, p_group uuid, p_category text, p_note text, p_amount numeric, p_day int,
+                                                   p_paid_by uuid, p_shares jsonb, p_entry uuid, p_date date)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  uid uuid := (select auth.uid());
+  m text := to_char(p_date, 'YYYY-MM');
+begin
+  if uid is null or p_group is null or not public.is_group_member(p_group) then
+    raise exception 'new row violates row-level security policy for table "group_repeats"' using errcode = '42501';
+  end if;
+  if p_id is null or p_entry is null then raise exception 'A repeat needs an id and an expense id' using errcode = '22023'; end if;
+  if exists (select 1 from public.group_repeats r where r.id = p_id) then
+    if exists (select 1 from public.group_repeats r where r.id = p_id and r.group_id = p_group and r.created_by = uid)
+       and exists (select 1 from public.entries e where e.id = p_entry and e.repeat_id = p_id) then
+      return;
+    end if;
+    raise exception 'That repeat already exists' using errcode = '23505';
+  end if;
+  perform 1 from public.groups g where g.id = p_group for update; -- one at a time per group, so the limits hold
+  if (select count(*) from public.group_repeats r where r.group_id = p_group and r.stopped_at is null) >= 20 then
+    raise exception 'A group can have 20 repeats at a time' using errcode = '53400';
+  end if;
+  if (select count(*) from public.group_repeats r where r.group_id = p_group) >= 200 then
+    raise exception 'This group has reached its limit of repeats' using errcode = '53400';
+  end if;
+  if p_category is null or btrim(p_category) = '' or char_length(btrim(p_category)) > 80 then raise exception 'Choose a category' using errcode = '22023'; end if;
+  if p_note is null or char_length(btrim(p_note)) > 200 then raise exception 'Keep the note under 200 characters' using errcode = '22023'; end if;
+  if p_day is null or p_day not between 1 and 31 then raise exception 'The day must be between 1 and 31' using errcode = '22023'; end if;
+  if p_date is null or p_date < date '2000-01-01' or m > to_char((now() at time zone 'UTC') + interval '14 hours', 'YYYY-MM') then
+    raise exception 'The first expense of a repeat cannot be in a later month' using errcode = '22023';
+  end if;
+  if p_paid_by is distinct from uid and not (coalesce(p_shares, '{}'::jsonb) ? uid::text) then
+    raise exception 'You can only set up a repeat that you pay or share in' using errcode = '42501';
+  end if;
+  perform public.check_repeat_split(p_group, p_amount, p_paid_by, p_shares);
+  insert into public.group_repeats (id, group_id, category, note, amount, day, paid_by, shares, done_through, created_by, change, changed_by)
+    values (p_id, p_group, btrim(p_category), btrim(p_note), p_amount, p_day, p_paid_by, p_shares, m, uid, 'add', uid);
+  perform set_config('hisaab.repeat_write', p_id::text, true);
+  insert into public.entries (id, owner_id, entry_date, category, amount, note, group_id, paid_by, shares, repeat_id, repeat_month, updated_at)
+    values (p_entry, uid, p_date, btrim(p_category), p_amount, btrim(p_note), p_group, p_paid_by, p_shares, p_id, m, now());
+  perform set_config('hisaab.repeat_write', '', true);
+end;
+$$;
+
+-- Log this month (p_month, as the phone sees it): the expense, with the repeat's day, payer and split, added by the caller, and
+-- the month marked done. A month that is already done is refused (someone else logged or skipped it first). Retrying after a lost
+-- answer finds the expense already there and changes nothing.
+create or replace function public.log_group_repeat(p_repeat uuid, p_month text, p_entry uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r public.group_repeats;
+  uid uuid := (select auth.uid());
+begin
+  if uid is not null and exists (select 1 from public.entries e
+                                  where e.id = p_entry and e.owner_id = uid and e.repeat_id = p_repeat and e.repeat_month = p_month) then
+    return;
+  end if;
+  r := public.lock_group_repeat(p_repeat);
+  if p_entry is null then raise exception 'Logging needs an expense id' using errcode = '22023'; end if;
+  if not public.repeat_month_ok(p_month, 0) then raise exception 'Only this month can be logged' using errcode = '22023'; end if;
+  if r.done_through is not null and r.done_through >= p_month then raise exception 'That month is already done' using errcode = '23505'; end if;
+  if public.repeat_date(p_month, r.day) > ((now() at time zone 'UTC') + interval '14 hours')::date then
+    raise exception 'It can be logged from its day on' using errcode = '22023';
+  end if;
+  perform set_config('hisaab.repeat_write', r.id::text, true);
+  insert into public.entries (id, owner_id, entry_date, category, amount, note, group_id, paid_by, shares, repeat_id, repeat_month, updated_at)
+    values (p_entry, uid, public.repeat_date(p_month, r.day), r.category, r.amount, r.note, r.group_id, r.paid_by, r.shares, r.id, p_month, now());
+  perform set_config('hisaab.repeat_write', '', true);
+  update public.group_repeats set done_through = p_month where id = r.id;
+end;
+$$;
+
+-- Skip a month: this month, or next month once this one is done. Nothing is added; the month is marked done.
+create or replace function public.skip_group_repeat(p_repeat uuid, p_month text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r public.group_repeats := public.lock_group_repeat(p_repeat);
+  uid uuid := (select auth.uid());
+  after_done text;
+begin
+  if r.done_through is not null and p_month is not null and r.done_through >= p_month then
+    raise exception 'That month is already done' using errcode = '23505';
+  end if;
+  after_done := case when r.done_through is null then null
+                     else to_char(to_date(r.done_through || '-01', 'YYYY-MM-DD') + interval '1 month', 'YYYY-MM') end;
+  if not (public.repeat_month_ok(p_month, 0) or (p_month = after_done and public.repeat_month_ok(p_month, 1))) then
+    raise exception 'Only this month, or next month once this one is done, can be skipped' using errcode = '22023';
+  end if;
+  update public.group_repeats
+     set done_through = p_month, change = 'skip', change_month = p_month, changed_by = uid, changed_at = now()
+   where id = r.id;
+end;
+$$;
+
+-- Change the amount, the day or the split, from the next month that is not done. The months already logged keep their expenses.
+-- Whoever changes it stays in it (pays, or keeps a share): nobody can move a debt onto others and step out.
+create or replace function public.edit_group_repeat(p_repeat uuid, p_amount numeric, p_day int, p_shares jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r public.group_repeats := public.lock_group_repeat(p_repeat);
+  uid uuid := (select auth.uid());
+begin
+  if p_day is null or p_day not between 1 and 31 then raise exception 'The day must be between 1 and 31' using errcode = '22023'; end if;
+  if r.paid_by is distinct from uid and not (coalesce(p_shares, '{}'::jsonb) ? uid::text) then
+    raise exception 'You can only change a repeat so that you still pay or share in it' using errcode = '42501';
+  end if;
+  perform public.check_repeat_split(r.group_id, p_amount, r.paid_by, p_shares);
+  update public.group_repeats
+     set amount = p_amount, day = p_day, shares = p_shares, change = 'edit', change_month = null, changed_by = (select auth.uid()), changed_at = now()
+   where id = r.id;
+end;
+$$;
+
+-- Stop repeating: the people in it, or an admin of the group. The months already logged keep their expenses; the repeat is kept
+-- (stopped) so the group sees the note.
+create or replace function public.stop_group_repeat(p_repeat uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r public.group_repeats := public.lock_group_repeat(p_repeat, true);
+begin
+  update public.group_repeats
+     set stopped_at = now(), change = 'stop', change_month = null, changed_by = (select auth.uid()), changed_at = now()
+   where id = r.id;
+end;
+$$;
+
+revoke all on function public.keep_repeat_link() from public, anon, authenticated;
+revoke all on function public.repeat_month_ok(text, int) from public, anon, authenticated;
+revoke all on function public.repeat_date(text, int) from public, anon, authenticated;
+revoke all on function public.check_repeat_split(uuid, numeric, uuid, jsonb) from public, anon, authenticated;
+revoke all on function public.lock_group_repeat(uuid, boolean) from public, anon, authenticated;
+revoke all on function public.add_group_repeat(uuid, uuid, text, text, numeric, int, uuid, jsonb, uuid, date) from public, anon, authenticated;
+revoke all on function public.log_group_repeat(uuid, text, uuid) from public, anon, authenticated;
+revoke all on function public.skip_group_repeat(uuid, text) from public, anon, authenticated;
+revoke all on function public.edit_group_repeat(uuid, numeric, int, jsonb) from public, anon, authenticated;
+revoke all on function public.stop_group_repeat(uuid) from public, anon, authenticated;
+grant execute on function public.add_group_repeat(uuid, uuid, text, text, numeric, int, uuid, jsonb, uuid, date) to authenticated;
+grant execute on function public.log_group_repeat(uuid, text, uuid) to authenticated;
+grant execute on function public.skip_group_repeat(uuid, text) to authenticated;
+grant execute on function public.edit_group_repeat(uuid, numeric, int, jsonb) to authenticated;
+grant execute on function public.stop_group_repeat(uuid) to authenticated;

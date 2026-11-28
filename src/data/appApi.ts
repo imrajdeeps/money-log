@@ -40,7 +40,8 @@ export interface SharedUdhaarApi {
   remove: (id: string) => Promise<void>; // the writer, unless accepted and still open
 }
 
-import type { Entry, Group as Cat, NewEntryInput } from '../core/logic.ts';
+import type { Entry, Group as Cat, NewEntryInput, Shares } from '../core/logic.ts';
+import type { GroupRepeat, NewGroupRepeat } from '../core/groupRepeats.ts';
 import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import type { IncomeCatResult } from '../core/income.ts';
@@ -74,6 +75,7 @@ export interface AppApi {
   groupEntries: Entry[]; // every live shared expense this device holds, whoever made it
   groups: Group[];
   members: Member[];
+  groupRepeats: GroupRepeat[]; // 2.2: the repeats of every group this account is in, stopped ones included (for the notes)
   invites: Invite[]; // the join codes of the groups this account administers
   settlements: Settlement[];
   joinCode: string | null; // a code that arrived in the link, waiting for the person to confirm
@@ -123,7 +125,7 @@ export interface AppApi {
   toastMsg: string | null;
   toastAction: ToastAction | null; // a button in the message (Undo)
   toast: (msg: string, action?: ToastAction) => void;
-  addEntry: (input: NewEntryInput) => Promise<string>; // the new payment's id
+  addEntry: (input: NewEntryInput, id?: string) => Promise<string>; // the new payment's id (2.2: a given one, when a repeat's set-up fell back to a plain save)
   updateEntry: (id: string, changes: Partial<NewEntryInput>) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
   undoEntry: (before: Entry) => Promise<void>; // puts a payment back as it was before an edit or a delete
@@ -158,6 +160,12 @@ export interface AppApi {
   setGroupClosed: (groupId: string, closed: boolean) => Promise<void>; // admins, trips: close or reopen
   setUsualSplit: (groupId: string, split: UsualSplit | null) => Promise<void>; // admins, flatmates
   setGroupSimplify: (groupId: string, on: boolean) => Promise<void>; // admins: settle up in the fewest payments, or pair by pair (2.1)
+  // 2.2: repeats in a group, done by the server; they need a connection and throw the server's reason when refused
+  addGroupRepeat: (r: NewGroupRepeat) => Promise<void>;
+  logGroupRepeat: (id: string, month: string, entryId: string) => Promise<void>; // the same entryId on a retry
+  skipGroupRepeat: (id: string, month: string) => Promise<void>;
+  editGroupRepeat: (id: string, amount: number, day: number, shares: Shares) => Promise<void>;
+  stopGroupRepeat: (id: string) => Promise<void>;
   restoreBackup: (b: Extract<BackupParse, { ok: true }>) => Promise<{ added: number; updated: number }>;
   syncNow: () => void;
   signUp: (email: string, password: string) => Promise<'signed-in' | 'confirm'>;

@@ -160,15 +160,14 @@ function UpdateActions({ u, onEdit, onDelete, onClose }: Readonly<{ u: NetUpdate
         <span className="text-[28px] leading-[34px] font-extrabold tabular-nums">{fmtINR(u.a)}</span>
       </div>
       <div className="flex flex-col mt-2 border-t border-line">
-        <button type="button" className={ui.cx(SHEET_ROW, 'border-b border-line text-ink font-semibold')} onClick={() => { close(); onEdit(); }}><Icon name="edit" size={20} stroke={2} />{tr('Change the amount or date')}</button>
-        <button type="button" className={ui.cx(SHEET_ROW, 'text-bad font-[650]')} onClick={() => { close(); onDelete(); }}><Icon name="trash" size={20} stroke={2} />{tr('Delete this update')}</button>
+        <button type="button" className={ui.cx(ui.sheetRow, 'border-b border-line text-ink font-semibold')} onClick={() => { close(); onEdit(); }}><Icon name="edit" size={20} stroke={2} />{tr('Change the amount or date')}</button>
+        <button type="button" className={ui.cx(ui.sheetRow, 'text-bad font-[650]')} onClick={() => { close(); onDelete(); }}><Icon name="trash" size={20} stroke={2} />{tr('Delete this update')}</button>
       </div>
       <p className="m-0 pt-2 text-[13px] leading-[19px] text-muted">{tr('Only this point in the history goes. What you own and owe is not touched, and Undo brings it back.')}</p>
       <button type="button" className={ui.btn('outline', 'none', 'w-full mt-2.5 min-h-[52px] text-[16px]')} onClick={close}>{tr('Cancel')}</button>
     </dialog>
   );
 }
-const SHEET_ROW = 'w-full min-h-14 flex items-center gap-3 text-left border-0 bg-transparent text-[16px] p-0 cursor-pointer [font-family:inherit]'; // the colour and weight come with each row
 
 // "Looks wrong?" under an update that is far from the ones around it.
 function OddNote({ u, before, onDelete, onKeep }: Readonly<{ u: NetUpdate; before: NetUpdate; onDelete: () => void; onKeep: () => void }>) {

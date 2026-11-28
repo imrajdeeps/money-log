@@ -16,7 +16,9 @@ import type { CircleMember } from '../core/circle.ts';
 import { cleanHistory } from '../core/history.ts';
 import type { HistoryRow } from '../core/history.ts';
 import { cleanEntry, mergeRemote, newId, parseTs } from '../core/logic.ts';
-import type { Entry } from '../core/logic.ts';
+import type { Entry, Shares } from '../core/logic.ts';
+import { cleanGroupRepeat } from '../core/groupRepeats.ts';
+import type { GroupRepeat, NewGroupRepeat } from '../core/groupRepeats.ts';
 import { cleanReceipt, markDeleted, markPurged, markUploaded, mergeRemoteReceipt, needsPurge, needsUpload } from '../core/receipts.ts';
 import type { Receipt } from '../core/receipts.ts';
 import { PAGE, PUSH_CHUNK, OVERLAP_MS, SyncError } from './syncTypes.ts';
@@ -547,7 +549,9 @@ export function createSync(opts: SyncOptions) {
     const groups = await list<Group>('/rest/v1/groups?select=*&order=created_at.asc', cleanGroup);
     const members = await list<Member>('/rest/v1/group_members?select=*', cleanMember);
     const invites = await list<Invite>('/rest/v1/group_invites?select=*', cleanInvite);
+    const repeats = await pullRepeats(list);
     await store.setMeta('groups', groups);
+    await store.setMeta('groupRepeats', repeats);
     await store.setMeta('members', members);
     await store.setMeta('invites', invites);
     const key = groups.map((g) => g.id).sort().join(',');
@@ -565,6 +569,17 @@ export function createSync(opts: SyncOptions) {
     const gone = (await store.allReceipts()).filter((r) => r.owner_id !== uid && !held.has(r.entry_id)).map((r) => r.id);
     await store.deleteReceipts(gone);
     await store.deleteBlobs(gone);
+  }
+
+  // 2.2: the repeats of the groups this account is in (the database shows only those). Before the 2.2 SQL is run the table is not
+  // there (404): no repeats, and the rest of the sync goes on.
+  async function pullRepeats(list: <T>(path: string, clean: (r: any) => T | null) => Promise<T[]>): Promise<GroupRepeat[]> {
+    try {
+      return await list<GroupRepeat>('/rest/v1/group_repeats?select=*&order=created_at.asc', cleanGroupRepeat);
+    } catch (e) {
+      if (e instanceof SyncError && e.status === 404) return [];
+      throw e;
+    }
   }
 
   async function pullBlocks(): Promise<void> {
@@ -626,6 +641,8 @@ export function createSync(opts: SyncOptions) {
       // Pull first so that the latest edit wins, then push whatever is still newer on this phone.
       await pullBlocks();
       await pullGroups(s.user_id);
+      // 2.2, once: read every expense again, so a copy pulled before this version knew about repeat links gets its link
+      if (!(await store.getMeta<number>('repeatLinkPull'))) { await store.delMeta('pullCursor'); await store.setMeta('repeatLinkPull', 1); }
       await pullEntries();
       await pullSettlements();
       await pullReceipts();
@@ -689,6 +706,16 @@ export function createSync(opts: SyncOptions) {
   const setGroupClosed = (groupId: string, closed: boolean) => rpc<null>('set_group_closed', { p_group: groupId, p_closed: closed });
   const setUsualSplit = (groupId: string, split: UsualSplit | null) => rpc<null>('set_usual_split', { p_group: groupId, p_split: split });
   const setGroupSimplify = (groupId: string, on: boolean) => rpc<null>('set_group_simplify', { p_group: groupId, p_on: on });
+  // 2.2: repeats in a group. The server does every change (a month counts once, whoever taps first); rpc syncs afterwards, which
+  // brings in the expense a log or a set-up added.
+  const addGroupRepeat = (r: NewGroupRepeat) => rpc<null>('add_group_repeat', {
+    p_id: r.id, p_group: r.groupId, p_category: r.category, p_note: r.note, p_amount: r.amount, p_day: r.day, p_paid_by: r.paidBy, p_shares: r.shares, p_entry: r.entryId, p_date: r.date,
+  });
+  // the expense id comes from the card and stays the same on a retry, so a log whose answer was lost is not refused as "already done"
+  const logGroupRepeat = (id: string, month: string, entryId: string) => rpc<null>('log_group_repeat', { p_repeat: id, p_month: month, p_entry: entryId });
+  const skipGroupRepeat = (id: string, month: string) => rpc<null>('skip_group_repeat', { p_repeat: id, p_month: month });
+  const editGroupRepeat = (id: string, amount: number, day: number, shares: Shares) => rpc<null>('edit_group_repeat', { p_repeat: id, p_amount: amount, p_day: day, p_shares: shares });
+  const stopGroupRepeat = (id: string) => rpc<null>('stop_group_repeat', { p_repeat: id });
 
   // The Circle (version 1.28): answered by the server on demand, not part of the sync, so nothing here is kept on the phone.
   async function circleCall<T>(name: string, args: Record<string, unknown>): Promise<T> {
@@ -766,6 +793,7 @@ export function createSync(opts: SyncOptions) {
     sync,
     refreshPending,
     createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify,
+    addGroupRepeat, logGroupRepeat, skipGroupRepeat, editGroupRepeat, stopGroupRepeat,
     fetchCircle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar,
     receiptBlob, fetchHistory, fetchSessions, fetchSignInLog,
   };

@@ -4,6 +4,7 @@ import type { NoticeKind } from '../../core/noticeKinds.ts';
 import { tr } from '../../core/i18n.ts';
 import { useNotices } from './useNotices.ts';
 import { NotificationsCard } from './NotificationsCard.tsx';
+import { PlanOffInvites, usePlanOffInvites } from './PlanOffInvites.tsx';
 
 const MARK: Record<Tone, string> = { attention: 'bg-bad', soon: 'bg-warn', reminder: 'bg-muted' };
 const ORDER: Record<Tone, number> = { attention: 0, soon: 1, reminder: 2 };
@@ -45,9 +46,12 @@ function NoteCard({ notice, onOpen, onDismiss }: Readonly<{ notice: Notice; onOp
 export function NotificationsScreen({ onOpen }: Readonly<{ onOpen: (t: OpenTarget) => void }>) {
   const app = useApp();
   const notices = [...useNotices()].sort((a, b) => ORDER[a.tone] - ORDER[b.tone]);
+  const invites = usePlanOffInvites();
   return (
     <section aria-label={tr('Notifications')} className="flex flex-col gap-4">
-      {notices.length === 0 ? <p className="m-0 text-[15px] text-muted">{tr('Nothing needs you right now.')}</p> : (
+      <PlanOffInvites invites={invites} onOpen={onOpen} />
+      {notices.length === 0 && invites.length === 0 && <p className="m-0 text-[15px] text-muted">{tr('Nothing needs you right now.')}</p>}
+      {notices.length > 0 && (
         <ul className="list-none m-0 p-0 flex flex-col gap-2.5">
           {notices.map((n) => <NoteCard key={n.key} notice={n} onOpen={() => onOpen(n.open)} onDismiss={() => { void app.dismissNotice(n.key); }} />)}
         </ul>
