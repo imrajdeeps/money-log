@@ -34,6 +34,7 @@ export interface NoticeInput {
   goals: { goal: Goal; progress: GoalProgress; line: GoalLine }[];
   groups: { id: string; name: string; balance: number }[]; // groups with company; balance in rupees: positive = owed to the person
   netWorth: NetNow | null;
+  worthCheck?: { day: number; last: string | null; asks: number } | null; // 2.3: net worth worked out from accounts: the check-in day, the last check-in, how many figures it asks
   lastBackupMs: number | null; // when a backup was last downloaded on this device
   hasPayments: boolean;
   sync: { mode: string; pending: number; lastSync: number | null; error: string | null };
@@ -130,7 +131,16 @@ function groupNotices(i: NoticeInput): Notice[] {
   return out;
 }
 
+// 2.3: worked out from accounts, the note comes on the person's check-in day each month, until that month's check-in is saved.
+function checkInNotices(i: NoticeInput, c: NonNullable<NoticeInput['worthCheck']>): Notice[] {
+  const due = `${month(i)}-${String(c.day).padStart(2, '0')}`;
+  if (i.today < due || (c.last !== null && c.last >= due) || c.asks === 0) return [];
+  const detail = c.asks === 1 ? tr('One figure the app cannot work out. The rest moved with your payments.') : tr('{0} figures the app cannot work out. The rest moved with your payments.', c.asks);
+  return [{ key: `networth-check:${month(i)}`, kind: 'networth', tone: 'soon', title: tr('Net worth check-in'), detail, open: { to: 'plan', part: 'networth' } }];
+}
+
 function netWorthNotices(i: NoticeInput): Notice[] {
+  if (i.worthCheck) return checkInNotices(i, i.worthCheck);
   if (!i.netWorth) return []; // nothing entered yet: the Overview tile already invites
   const days = daysBetween(i.netWorth.date, i.today);
   if (days <= STALE_DAYS) return [];

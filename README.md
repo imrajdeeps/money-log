@@ -155,6 +155,16 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Net worth worked out from your accounts (version 2.3.0)
+No SQL, no new package: everything lives in the synced goals block, like net worth before. Needs 2.2.1 on every device first (it keeps the new account settings when it saves an item). From `docs/prd-2.3.md` and the proposal on the Claude Design canvas (row *Net worth, worked out*); still off by default (Settings, Features, Net worth).
+
+- **Set up once** (Plan, *Set up accounts*, about two minutes): where money received lands, what each way of paying takes money from (UPI, card, cash; the app has one *Card*, so it goes to the bank for a debit card or to the credit card), the category the card bill is logged under, where each Saving category goes, how each investment grows (interest at a rate for FD, RD or PPF; a market value for mutual funds or stocks), and what each account holds today, typed once. Items not set up stay as typed.
+- **Worked out, never typed.** An account's figure is the one confirmed on its day plus the payments logged after it, plus interest. Money received raises the salary account; a payment lowers the account its way of paying comes from (a card: what you owe goes up); a payment in a category mapped to an account moves money into it (savings, the card bill), which changes nothing. A shared expense you paid lowers the bank by all of it and the group line gives back the others' shares, so net worth moves by your share. Group balances and Udhaar always count. Loans keep their EMI estimate.
+- **The account page:** now, estimated; confirmed on; in and out; each payment since, with *moved to Mutual funds* and the like; *What moves this account* (Change); *Confirm today's balance*.
+- **The monthly check-in** (a note on the bell on the day picked, the 1st by default, kept with the Features item): only market values, a yes or no on each bank (a *no* shows what went out unlogged, with *Add it to Other* or *Leave it out*), and the items kept by hand. Everything else is worked out for you and confirmed at today's figure.
+- **Why it moved** (Plan): this month's change as what you saved, markets, interest and everything else; *Moved, not changed*; and how much of what came in you kept. The history keeps every typed figure, and the worked-out figure is recorded once a day when it changes.
+- **Checks:** `npm run check`, `npm test` (new tests for the accounts, interest, the check-in, the set-up, why it moved and the check-in day), and the built app in the browser on the local mock server: set-up, the account page, a check-in with a gap added to Other, and the month's why.
+
 ## Keeping what a newer version writes on net worth items (version 2.2.1)
 No SQL, no new package, no what's-new card. Version 2.3 keeps each account's settings on its net worth item (which payments move it, its interest rate) in one extra field. A device on 2.2.0 would drop that field when it saves an item; 2.2.1 carries it unchanged (a small plain object, at most 2,000 characters of JSON) and counts a change in it as a change when two devices' copies are merged. Checks: `npm run check`, `npm test` (a new test for the field through cleaning, a change, a check-in and a merge).
 

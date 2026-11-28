@@ -30,6 +30,7 @@ const BIG = 'text-[clamp(28px,9vw,40px)] leading-[1.05] font-extrabold tabular-n
 const sourceText = (u: NetUpdate): string | null => {
   if (u.s === 'c') return tr('Check-in');
   if (u.s === 't') return tr('Typed in');
+  if (u.s === 'w') return tr('Worked out');
   return null;
 };
 

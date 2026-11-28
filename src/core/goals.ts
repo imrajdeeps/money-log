@@ -36,7 +36,7 @@ export interface TopUp { id: string; k: 't'; g: string; a: number; d: string; x:
 // A net worth update: what the person's net worth was on a day (a number that may be negative). Kept in the same block as the goals
 // (so it syncs and is backed up with them, with no new database block), one item per update so two phones never overwrite each other.
 // s: where the figure came from (version 2.1, shown on the history): c a check-in, t typed in; older updates have none.
-export type NetSource = 'c' | 't';
+export type NetSource = 'c' | 't' | 'w'; // a check-in or a change of the items, typed in, or (2.3) worked out from accounts as payments came in
 export interface NetUpdate { id: string; k: 'n'; a: number; d: string; x: 0 | 1; t: string; s?: NetSource }
 // An item on the due list (a one-off payment or a to-do) made in the app; the logic is in dueItems.ts. n title, d due day ('' = no date),
 // a amount in rupees (0 = none; one-off payments only), f done, x removed. Kept in this block like net worth updates.
@@ -265,7 +265,7 @@ function cleanTopUpItem(k: string, v: Raw): TopUp | null {
 function cleanNetItem(k: string, v: Raw): NetUpdate | null {
   if (!netOk(v.a) || !isDay(v.d)) return null;
   const u: NetUpdate = { id: k, k: 'n', a: v.a, d: v.d, x: v.x, t: v.t };
-  if (v.s === 'c' || v.s === 't') u.s = v.s;
+  if (v.s === 'c' || v.s === 't' || v.s === 'w') u.s = v.s;
   return u;
 }
 

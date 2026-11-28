@@ -11,7 +11,8 @@ import { tr } from '../../core/i18n.ts';
 
 // One thing the person owns or owes: which side, what kind, a name and a value; a loan can also have an EMI and a yearly rate, from which
 // the app estimates the balance month by month. Removing asks first.
-export function WorthForm({ item, auto, onDone }: Readonly<{ item?: WorthItem; auto: readonly AutoLine[]; onDone: () => void }>) {
+// onWorkOut (2.3): offered for an item kept by hand once net worth is worked out from accounts: set it up to move with payments instead.
+export function WorthForm({ item, auto, onDone, onWorkOut }: Readonly<{ item?: WorthItem; auto: readonly AutoLine[]; onDone: () => void; onWorkOut?: () => void }>) {
   const app = useApp();
   const [side, setSide] = useState<WorthSide>(item?.s ?? 'a');
   const [cls, setCls] = useState(item?.c ?? 'liquid');
@@ -72,6 +73,7 @@ export function WorthForm({ item, auto, onDone }: Readonly<{ item?: WorthItem; a
         {error && <p className={ui.msg('bad')} role="alert">{error}</p>}
         <div className="flex flex-col gap-3">
           <button type="submit" className={ui.btn('solid', 'none', 'min-h-14 text-[17px] font-bold')} disabled={busy}>{tr('Save item')}</button>
+          {item && onWorkOut && <button type="button" className={ui.btn('outline', 'md')} disabled={busy} onClick={onWorkOut}>{tr('Work it out from payments')}</button>}
           {item && <button type="button" className={ui.btn('dangerOutline', 'md')} disabled={busy} onClick={() => { void remove(); }}>{tr('Remove this item')}</button>}
         </div>
       </form>

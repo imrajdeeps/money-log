@@ -7,10 +7,14 @@ import { groupsNet } from '../../core/worth.ts';
 import type { AutoLine } from '../../core/worth.ts';
 import { tr } from '../../core/i18n.ts';
 
-/** The automatic lines the person switched on, worked out now from what the app already holds (group balances, Udhaar). */
-export function useAutoLines(): AutoLine[] {
+/**
+ * The automatic lines the person switched on, worked out now from what the app already holds (group balances, Udhaar). With net worth
+ * worked out from accounts (2.3, `always`) both always count: the owner chose that groups and Udhaar count both ways.
+ */
+export function useAutoLines(always = false): AutoLine[] {
   const app = useApp();
-  const on = worthAuto.use();
+  const chosen = worthAuto.use();
+  const on = always ? { groups: true, udhaar: true } : chosen;
   return useMemo(() => {
     const out: AutoLine[] = [];
     if (on.groups) out.push({ key: 'groups', label: tr('Group balances (owed to you less what you owe)'), amount: groupsNet(app.groups, app.groupEntries, app.settlements, app.me) });

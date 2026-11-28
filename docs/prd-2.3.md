@@ -1,6 +1,6 @@
 # PRD: Hisaab 2.3 — net worth worked out from your accounts
 
-**Status:** draft for the owner's review (2026-11-28). Built only after the owner's go-ahead. The screens are the proposal on the design canvas (Claude Design, artifact "Hisaab", row "Net worth, worked out · proposal": `NwPlan`, `NwSetup`, `NwAccount`, `NwCheck`, `NwCheckGap`, `NwWhy`). Branch `version/2.3`, from `main` at 2.2.0. No SQL: everything lives in the synced goals block, like net worth today.
+**Status:** approved by the owner on 2026-11-28 ("Yes, build it"); built as 2.3.0 on `feat/net-worth-accounts`, after the 2.2.1 patch. The screens are the proposal on the design canvas (Claude Design, artifact "Hisaab", row "Net worth, worked out · proposal": `NwPlan`, `NwSetup`, `NwAccount`, `NwCheck`, `NwCheckGap`, `NwWhy`). Branch `version/2.3`, from `main` at 2.2.0. No SQL: everything lives in the synced goals block, like net worth today.
 
 ## The owner's words
 1. On the canvas (27 Nov): "as net-worth is a complex feature, take a flag in the setting by default turned off" (done in 2.1), and from the chat the same day, the proposal: net worth worked out from accounts that payments move, instead of typing every figure.

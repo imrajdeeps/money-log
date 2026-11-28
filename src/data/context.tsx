@@ -14,7 +14,10 @@ import { clearLastActive, loadLastActive, saveLastActive } from './lockSeen.ts';
 import { clearLastBackup } from './backupSeen.ts';
 import { dismissNotice as dismissNoticeIn, dismissedKeys, enabledKinds, setNoticeKind as setNoticeKindIn, showDismissedAgain } from '../core/notifications.ts';
 import type { NoticeKind } from '../core/noticeKinds.ts';
-import { chosenFeatures as chosenFeaturesIn, featuresOn, setFeature as setFeatureIn } from '../core/features.ts';
+import { chosenFeatures as chosenFeaturesIn, featuresOn, setCheckInDay as setCheckInDayIn, setFeature as setFeatureIn } from '../core/features.ts';
+import { accountEntries, applyCheckIn, cashMoves, changeAccount, isWorkedOut, setSettings, startAccounts, workAccounts } from '../core/accounts.ts';
+import type { AccountSettings } from '../core/accounts.ts';
+import type { AccountsSetup } from './appApi.ts';
 import type { Feature } from '../core/features.ts';
 import type { SessionInfo } from '../core/signins.ts';
 import type { LockConfig, LockTries } from './lock.ts';
@@ -23,7 +26,7 @@ import type { Receipt } from '../core/receipts.ts';
 import { joinCodeFromHash, makeSettlement, softDeleteSettlement } from '../core/groups.ts';
 import { circleCodeFromHash } from '../core/circle.ts';
 import type { UdhaarInput } from '../core/udhaar.ts';
-import { addWorthItem as addWorthItemTo, checkInWorth as checkInWorthIn, editWorthItem as editWorthItemIn, removeWorthItem as removeWorthItemFrom, snapshotWorth, worthItems, worthSummary } from '../core/worth.ts';
+import { addWorthItem as addWorthItemTo, checkInWorth as checkInWorthIn, editWorthItem as editWorthItemIn, recordWorked, removeWorthItem as removeWorthItemFrom, snapshotWorth, worthItems, worthSummary } from '../core/worth.ts';
 import type { AutoLine, WorthInput } from '../core/worth.ts';
 import { addUdhaar as addUdhaarTo, editUdhaar as editUdhaarIn, removeUdhaar as removeUdhaarFrom, setUdhaarSettled as setUdhaarSettledIn, udhaarList } from '../core/udhaar.ts';
 import type { Group, Invite, Member, NewSettlementInput, Settlement, UsualSplit } from '../core/groups.ts';
@@ -87,6 +90,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [groupRepeats, setGroupRepeats] = useState<GroupRepeat[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [me, setMe] = useState<string | null>(null);
+  const meRef = useRef<string | null>(null); // read inside a change (2.3: the accounts are worked out for this account)
+  meRef.current = me;
+  const liveRef = useRef<{ entries: Entry[]; settlements: Settlement[] }>({ entries: [], settlements: [] }); // set below, once the entries are known
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [lockCfg, setLockCfg] = useState<LockConfig | null>(null);
   const [locked, setLocked] = useState(false);
@@ -567,12 +573,32 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     return error;
   }, [changeGoals]);
 
-  // net worth items: every change also writes today's snapshot (the same line as the typed updates), unless nothing is left to add up
+  // 2.3: the accounts worked out now from what moves them: the latest payments, settle-ups and Udhaar (read from refs inside a change).
+  const workedOf = (items: Goals) => {
+    const l = liveRef.current;
+    return workAccounts(items, l.entries, meRef.current, isoDate(), cashMoves(l.settlements, items, meRef.current));
+  };
+  // net worth items: every change also writes today's snapshot (the same line as the typed updates), unless nothing is left to add up.
+  // With accounts, the snapshot uses their worked-out figures.
   const withSnapshot = (items: Goals, auto: readonly AutoLine[], nowIso: string): Goals => {
     const today = isoDate();
     const l = worthItems(items, today);
-    return l.assets.length + l.debts.length === 0 ? items : snapshotWorth(items, worthSummary(items, today, auto).net, today, nowIso);
+    if (l.assets.length + l.debts.length === 0) return items;
+    const worked = isWorkedOut(items) ? workedOf(items) : undefined;
+    return snapshotWorth(items, worthSummary(items, today, auto, worked).net, today, nowIso);
   };
+  const setUpAccounts = useCallback((setup: AccountsSetup, auto: readonly AutoLine[]) => changeGoals((items, nowIso) => {
+    let out = items;
+    for (const [id, s] of Object.entries(setup.settings)) out = setSettings(out, id, s, nowIso);
+    out = startAccounts(out, setup.figures, isoDate(), nowIso);
+    return withSnapshot(out, auto, nowIso);
+  }), [changeGoals]);
+  const setAccount = useCallback((id: string, settings: AccountSettings | null, auto: readonly AutoLine[]) =>
+    changeGoals((items, nowIso) => withSnapshot(changeAccount(items, id, settings, workedOf(items), isoDate(), nowIso), auto, nowIso)), [changeGoals]);
+  const checkInAccounts = useCallback((answers: Readonly<Record<string, number>>, auto: readonly AutoLine[]) =>
+    changeGoals((items, nowIso) => withSnapshot(applyCheckIn(items, answers, workedOf(items), isoDate(), nowIso), auto, nowIso)), [changeGoals]);
+  const setCheckInDay = useCallback((day: number) => changeGoals((items, nowIso) => setCheckInDayIn(items, day, nowIso)), [changeGoals]);
+  const recordNetWorth = useCallback((net: number) => changeGoals((items, nowIso) => recordWorked(items, net, isoDate(), nowIso)), [changeGoals]);
   const addWorthItem = useCallback((i: WorthInput, auto: readonly AutoLine[]) => runGoals((items, nowIso) => {
     const r = addWorthItemTo(items, i, isoDate(), nowIso);
     return r.ok ? { ok: true, items: withSnapshot(r.items, auto, nowIso) } : r;
@@ -733,6 +759,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, [reload]);
 
   const own = useMemo(() => all.filter((e) => isMine(e, me)), [all, me]);
+  liveRef.current = { entries: accountEntries(own, all.filter((e) => e.group_id && !e.deleted_at), me), settlements };
   const categories = useMemo(() => categoryList(mine), [mine]);
   const dueItems = useMemo<DueItem[]>(() => dueItemsOf(goals), [goals]);
   const value = useMemo<AppApi>(() => ({
@@ -745,7 +772,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     groupEntries: all.filter((e) => e.group_id && !e.deleted_at),
     groups, members, invites, groupRepeats, settlements, joinCode, clearJoinCode,
     dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring,
-    goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, editNetWorth, restoreNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions,
+    goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, setUpAccounts, setAccount, checkInAccounts, setCheckInDay, recordNetWorth, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, editNetWorth, restoreNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions,
     sync,
     syncEnabled,
     toastMsg,
@@ -754,7 +781,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets,
     addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify, addGroupRepeat, logGroupRepeat, skipGroupRepeat, editGroupRepeat, stopGroupRepeat,
     syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll,
-  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, groupRepeats, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, editNetWorth, restoreNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify, addGroupRepeat, logGroupRepeat, skipGroupRepeat, editGroupRepeat, stopGroupRepeat, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
+  }), [loaded, eng, all, own, me, receipts, lockCfg, locked, unlock, setPin, updateLock, addReceipts, removeReceipt, receiptBlob, fetchHistory, loadSessions, loadSignInLog, groups, members, invites, groupRepeats, settlements, joinCode, clearJoinCode, dueItems, mine, categories, recurring, addRecurring, editRecurring, removeRecurring, logRecurring, goals, addWorthItem, editWorthItem, checkInWorth, removeWorthItem, setUpAccounts, setAccount, checkInAccounts, setCheckInDay, recordNetWorth, udhaar, addUdhaar, editUdhaar, setUdhaarSettled, removeUdhaar, addGoal, editGoal, removeGoal, addTopUp, removeTopUp, addNetWorth, removeNetWorth, editNetWorth, restoreNetWorth, incomeCats, addIncomeCategory, removeIncomeCategory, dismissNotice, setNoticeKind, showDismissed, dismissed, noticeKinds, features, chosenFeatures, setFeature, sessions, sync, toastMsg, toastAction, toast, addEntry, updateEntry, removeEntry, undoEntry, addDue, editDue, toggleDone, removeDue, restoreBackup, addCategory, removeCategory, saveBudgets, addSettlement, removeSettlement, createGroup, joinGroup, resetInvite, leaveGroup, removeMember, makeAdmin, revokeAdmin, makePrimaryAdmin, claimPrimaryAdmin, circle, newCircleCode, joinCircle, removeFromCircle, sharedGoals, sharedUdhaar, circleCode, clearCircleCode, setDisplayName, setTripDates, setGroupClosed, setUsualSplit, setGroupSimplify, addGroupRepeat, logGroupRepeat, skipGroupRepeat, editGroupRepeat, stopGroupRepeat, syncNow, signUp, signInWithPassword, requestPasswordReset, recovering, authNotice, dismissAuthNotice, changePassword, signOutOthers, signOutEverywhere, signOut, eraseAll]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

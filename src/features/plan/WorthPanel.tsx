@@ -2,13 +2,20 @@ import { useApp } from '../../data/context.tsx';
 import { useSpendEntries } from '../../data/useSpendEntries.ts';
 import { worthAuto } from '../../data/phonePrefs.ts';
 import { groupLookup } from '../../core/analytics.ts';
-import { budgetEntries, fmtINR, isoDate } from '../../core/logic.ts';
-import { classLabel, debtShare, groupsNet, isEstimated, movedUp, runwayMonths, usualMonthlySpend, valueNow, worthItems, worthMoves, worthSummary } from '../../core/worth.ts';
+import { settingsOf } from '../../core/accounts.ts';
+import type { Worked } from '../../core/accounts.ts';
+import { budgetEntries, fmtINR } from '../../core/logic.ts';
+import { classLabel, debtShare, groupsNet, isEstimated, movedUp, runwayMonths, usualMonthlySpend, valueNow, worthItems, worthMoves } from '../../core/worth.ts';
 import { udhaarTotals } from '../../core/udhaar.ts';
-import type { AutoLine, WorthItem } from '../../core/worth.ts';
+import type { AutoLine, WorthItem, WorthSummary } from '../../core/worth.ts';
 import { WorthCheckIn } from './WorthCheckIn.tsx';
 import { WorthForm } from './WorthForm.tsx';
-import { useAutoLines } from './useAutoLines.ts';
+import { AccountView } from './AccountView.tsx';
+import { AccountsSetup } from './AccountsSetup.tsx';
+import { AccountsCheckIn } from './AccountsCheckIn.tsx';
+import { WhyMoved, WhyRows, useWhy } from './WhyMoved.tsx';
+import { accountLine } from './accountText.ts';
+import type { WorthView } from './useWorth.ts';
 import * as ui from '../../ui/styles.ts';
 import { tr } from '../../core/i18n.ts';
 
@@ -16,14 +23,27 @@ const pct = (f: number): string => `${Math.round(f * 100)}%`;
 
 const SECTION_H = 'm-0 text-[16px] leading-[22px] font-[650] text-ink';
 
-function Row({ item, today, onEdit, first }: Readonly<{ item: WorthItem; today: string; onEdit: () => void; first: boolean }>) {
+// The line under an item and its tag: an account says how it was worked out (2.3); an item kept by hand says its kind and any EMI.
+function lineOf(item: WorthItem, worked: Worked | undefined, today: string): { text: string; tag: string | null } {
+  const s = settingsOf(item);
+  if (s) {
+    const l = accountLine(item, s, worked);
+    return { text: l.text, tag: l.tag === 'check' ? tr('check in') : tr('estimated') };
+  }
+  const emi = item.e > 0 ? ` · ${tr('EMI {0}', fmtINR(item.e))}${item.r > 0 ? ` ${tr('at {0}% a year', item.r)}` : ''}` : '';
+  return { text: `${classLabel(item.s, item.c)}${emi}`, tag: isEstimated(item, today) ? tr('estimated') : null };
+}
+
+function Row({ item, view, onOpen, first }: Readonly<{ item: WorthItem; view: WorthView; onOpen: () => void; first: boolean }>) {
+  const w = view.worked[item.id];
+  const line = lineOf(item, w, view.today);
   return (
     <li>
-      <button type="button" className={ui.cx(ROW, first ? 'border-t-0' : 'border-t')} onClick={onEdit} aria-label={tr('Change {0}', item.n)}>
-        <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold truncate">{item.n}</span><span className="text-[13px] text-muted truncate">{classLabel(item.s, item.c)}{item.e > 0 ? ` · ${tr('EMI {0}', fmtINR(item.e))}${item.r > 0 ? ` ${tr('at {0}% a year', item.r)}` : ''}` : ''}</span></span>
+      <button type="button" className={ui.cx(ROW, first ? 'border-t-0' : 'border-t')} onClick={onOpen} aria-label={tr('Open {0}', item.n)}>
+        <span className="flex flex-col min-w-0"><span className="text-[15px] font-semibold truncate">{item.n}</span><span className="text-[13px] text-muted truncate">{line.text}</span></span>
         <span className="flex flex-col items-end gap-0.5">
-          <span className="text-[16px] font-bold tabular-nums">{fmtINR(valueNow(item, today))}</span>
-          {isEstimated(item, today) && <span className="px-1.5 py-px rounded-md bg-press text-[11px] font-semibold">{tr('estimated')}</span>}
+          <span className="text-[16px] font-bold tabular-nums">{fmtINR(w?.value ?? valueNow(item, view.today))}</span>
+          {line.tag && <span className="px-1.5 py-px rounded-md bg-press text-[11px] font-semibold">{line.tag}</span>}
         </span>
       </button>
     </li>
@@ -40,26 +60,26 @@ function AutoRow({ line, first }: Readonly<{ line: AutoLine; first: boolean }>) 
   );
 }
 
-type Summary = ReturnType<typeof worthSummary>;
-
 // One side of the list ("What you own", "What you owe"): its total and a card of rows.
-function Side({ title, total, items, lines, today, onEdit }: Readonly<{ title: string; total: number; items: WorthItem[]; lines: AutoLine[]; today: string; onEdit: (i: WorthItem) => void }>) {
+function Side({ title, total, items, lines, view, onOpen }: Readonly<{ title: string; total: number; items: WorthItem[]; lines: AutoLine[]; view: WorthView; onOpen: (i: WorthItem) => void }>) {
   if (items.length + lines.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
       <div className="flex justify-between items-baseline"><h3 className={SECTION_H}>{title}</h3><span className="text-[14px] font-bold tabular-nums">{fmtINR(total)}</span></div>
       <ul className="list-none m-0 px-4 bg-card border border-line rounded-card">
-        {items.map((i, n) => <Row key={i.id} item={i} today={today} onEdit={() => onEdit(i)} first={n === 0} />)}
+        {items.map((i, n) => <Row key={i.id} item={i} view={view} onOpen={() => onOpen(i)} first={n === 0} />)}
         {lines.map((l, n) => <AutoRow key={l.key} line={l} first={items.length === 0 && n === 0} />)}
       </ul>
     </section>
   );
 }
 
-// Which automatic lines are on (group balances, Udhaar): switches, each the person's choice, kept on this phone only.
-function AutoToggles() {
+// Which automatic lines are on (group balances, Udhaar): switches, each the person's choice, kept on this phone only. Worked out from
+// accounts (2.3) both always count, as the owner chose.
+function AutoToggles({ always }: Readonly<{ always: boolean }>) {
   const app = useApp();
   const on = worthAuto.use();
+  if (always) return <p className="m-0 text-[13px] leading-[19px] text-muted">{tr('Group balances and Udhaar count automatically: what people owe you adds to it, and what you owe them takes from it.')}</p>;
   const groups = groupsNet(app.groups, app.groupEntries, app.settlements, app.me);
   const u = udhaarTotals(app.goals);
   const rows = [
@@ -102,9 +122,38 @@ function MovesCard({ moves }: Readonly<{ moves: ReturnType<typeof worthMoves> }>
   );
 }
 
+// 2.3: this month's change, worked out from payments: what was saved, markets, interest; and the full page behind it.
+function WhyCard({ view, onWhy }: Readonly<{ view: WorthView; onWhy: () => void }>) {
+  const app = useApp();
+  const w = useWhy(view);
+  // A market account not yet checked in this month (its value was last given on or before the day before the month).
+  const unchecked = Object.values(app.goals).some((g) => g.k === 'w' && !g.x && settingsOf(g)?.mk === true && g.d <= w.from);
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className={SECTION_H}>{tr('Why it moved')}</h3>
+      <div className="bg-card border border-line rounded-card px-4 py-1">
+        <WhyRows w={w} />
+        {w.markets === 0 && unchecked && <p className="m-0 pb-2 text-[13px] text-muted">{tr('Markets: check in to know.')}</p>}
+        <button type="button" className="w-full min-h-11 border-0 border-t border-line bg-transparent text-brand text-[14px] font-[650] text-left cursor-pointer [font-family:inherit]" onClick={onWhy}>{tr('See why it moved this month')}</button>
+      </div>
+    </section>
+  );
+}
+
+// Offered while net worth is still typed by hand: set up the accounts once and let the payments keep it up to date.
+function SetupOffer({ onSetup }: Readonly<{ onSetup: () => void }>) {
+  return (
+    <section className="flex flex-col gap-2 bg-card border border-line rounded-card p-4">
+      <h3 className="m-0 text-[16px] font-[650]">{tr('Let your payments keep it up to date')}</h3>
+      <p className="m-0 text-[14px] leading-5 text-muted">{tr('Set up your accounts once, in about two minutes: your bank, card and investments then move with the payments you log, and a monthly check-in asks only what the app cannot know.')}</p>
+      <button type="button" className={ui.btn('outline', 'none', 'min-h-11 px-4 text-[15px] self-start')} onClick={onSetup}>{tr('Set up accounts')}</button>
+    </section>
+  );
+}
+
 // Where the money sits (what is owned, by kind, as a share of it), cash and bank against the rest, and the two honest numbers: how long the
 // cash would last, and the debts against what is owned.
-function SitsCard({ sum, today, spend }: Readonly<{ sum: Summary; today: string; spend: ReturnType<typeof useSpendEntries> }>) {
+function SitsCard({ sum, today, spend }: Readonly<{ sum: WorthSummary; today: string; spend: ReturnType<typeof useSpendEntries> }>) {
   const app = useApp();
   const usual = usualMonthlySpend(budgetEntries(spend, app.me), groupLookup(app.categories), today);
   const runway = runwayMonths(sum.liquid, usual);
@@ -135,33 +184,51 @@ function SitsCard({ sum, today, spend }: Readonly<{ sum: Summary; today: string;
   );
 }
 
-export type WorthMode = null | 'add' | 'checkin' | WorthItem;
+// What is open above the lists: a form (add, change, check in), the 2.3 set-up, an account's page, or why it moved.
+export type WorthMode = null | 'add' | 'checkin' | 'setup' | 'why' | WorthItem | { account: string; editing?: boolean };
 
-// What the net worth is made of: the things owned and owed, what moved, where it sits, and the automatic lines. The green tile above
-// opens the forms (mode).
-export function WorthPanel({ mode, setMode }: Readonly<{ mode: WorthMode; setMode: (m: WorthMode) => void }>) {
+const isAccountMode = (m: WorthMode): m is { account: string; editing?: boolean } => typeof m === 'object' && m !== null && 'account' in m;
+
+function OpenForm({ mode, view, setMode }: Readonly<{ mode: WorthMode; view: WorthView; setMode: (m: WorthMode) => void }>) {
   const app = useApp();
-  const today = isoDate();
-  const auto = useAutoLines();
-  const spend = useSpendEntries(); // read here, as before the split: the hook also sets the day your share starts counting, whichever form is open
-  const { assets, debts } = worthItems(app.goals, today);
-  const none = assets.length + debts.length === 0;
-  const sum = worthSummary(app.goals, today, auto);
-  const moves = worthMoves(app.goals, today);
+  const done = () => setMode(null);
+  if (mode === null) return null;
+  if (mode === 'add') return <WorthForm auto={view.auto} onDone={done} />;
+  if (mode === 'setup') return <AccountsSetup view={view} onAdd={() => setMode('add')} onDone={done} />;
+  if (mode === 'why') return <WhyMoved view={view} onDone={done} />;
+  if (mode === 'checkin') return view.workedOut ? <AccountsCheckIn view={view} onDone={done} /> : <WorthCheckIn auto={view.auto} onDone={done} />;
+  if (isAccountMode(mode)) {
+    const item = app.goals[mode.account];
+    return item?.k === 'w' && !item.x ? <AccountView key={item.id} item={item} view={view} editing={mode.editing} onDone={done} onEditItem={() => setMode(item)} /> : null;
+  }
+  const canWorkOut = view.workedOut && mode.c !== 'loan' && !settingsOf(mode); // loans keep their EMI estimate
+  return <WorthForm key={mode.id} item={mode} auto={view.auto} onDone={done} onWorkOut={canWorkOut ? () => setMode({ account: mode.id, editing: true }) : undefined} />;
+}
 
-  const form = mode === 'add' ? <WorthForm auto={auto} onDone={() => setMode(null)} />
-    : mode === 'checkin' ? <WorthCheckIn auto={auto} onDone={() => setMode(null)} />
-      : mode ? <WorthForm key={mode.id} item={mode} auto={auto} onDone={() => setMode(null)} /> : null;
-  if (none) return <>{form}<AutoToggles /></>;
+// What the net worth is made of: the things owned and owed, what moved (or, worked out from accounts, why it moved), where it sits, and the
+// automatic lines. The green tile above opens the forms (mode).
+export function WorthPanel({ mode, setMode, view }: Readonly<{ mode: WorthMode; setMode: (m: WorthMode) => void; view: WorthView }>) {
+  const app = useApp();
+  const spend = useSpendEntries(); // read here, as before the split: the hook also sets the day your share starts counting, whichever form is open
+  const { assets, debts } = worthItems(app.goals, view.today, view.worked);
+  const none = assets.length + debts.length === 0;
+  const sum = view.summary;
+  const moves = view.workedOut ? [] : worthMoves(app.goals, view.today);
+  const open = (i: WorthItem) => setMode(settingsOf(i) ? { account: i.id } : i);
+  const form = <OpenForm mode={mode} view={view} setMode={setMode} />;
+  if (none) return <>{form}<AutoToggles always={false} /></>;
 
   return (
     <>
       {form}
-      <Side title={tr('What you own')} total={sum.assets} items={assets} lines={auto.filter((l) => l.amount > 0)} today={today} onEdit={setMode} />
-      <Side title={tr('What you owe')} total={sum.debts} items={debts} lines={auto.filter((l) => l.amount < 0)} today={today} onEdit={setMode} />
+      {!view.workedOut && mode !== 'setup' && <SetupOffer onSetup={() => setMode('setup')} />}
+      {view.workedOut && mode !== 'why' && <WhyCard view={view} onWhy={() => setMode('why')} />}
+      <Side title={tr('What you own')} total={sum.assets} items={assets} lines={view.auto.filter((l) => l.amount > 0)} view={view} onOpen={open} />
+      <Side title={tr('What you owe')} total={sum.debts} items={debts} lines={view.auto.filter((l) => l.amount < 0)} view={view} onOpen={open} />
+      {view.workedOut && <p className="m-0 text-[13px] leading-[19px] text-muted">{tr('You do not type these every month. Your payments move them; deposits and loans count their own interest; a check-in asks only for what the app cannot know.')}</p>}
       {moves.length > 0 && <MovesCard moves={moves} />}
-      <SitsCard sum={sum} today={today} spend={spend} />
-      <AutoToggles />
+      <SitsCard sum={sum} today={view.today} spend={spend} />
+      <AutoToggles always={view.workedOut} />
     </>
   );
 }
