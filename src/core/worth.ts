@@ -9,6 +9,7 @@ import { groupBalances, fromPaise } from './groups.ts';
 import type { Group, Settlement } from './groups.ts';
 import { laterThan, newId, normName, round2, shiftMonth } from './logic.ts';
 import type { Entry } from './logic.ts';
+import type { Worked } from './accounts.ts';
 import { tr } from './i18n.ts';
 
 export type { WorthItem, WorthSide };
@@ -150,9 +151,13 @@ export function removeWorthItem(items: Goals, id: string, nowIso: string): Goals
 }
 
 export interface WorthLists { assets: WorthItem[]; debts: WorthItem[] }
+/** 2.3: the figures worked out from payments, by item id (accounts.ts); an item missing from it keeps its typed value or estimate. */
+export type WorkedFigures = Readonly<Record<string, Pick<Worked, 'value'>>>;
+const figure = (i: WorthItem, todayIso: string, worked?: WorkedFigures): number => worked?.[i.id]?.value ?? valueNow(i, todayIso);
+
 /** The items still kept, the biggest first (by today's value). */
-export function worthItems(items: Goals, todayIso: string): WorthLists {
-  const live = all(items).filter((i) => !i.x).sort((a, b) => valueNow(b, todayIso) - valueNow(a, todayIso) || a.n.localeCompare(b.n));
+export function worthItems(items: Goals, todayIso: string, worked?: WorkedFigures): WorthLists {
+  const live = all(items).filter((i) => !i.x).sort((a, b) => figure(b, todayIso, worked) - figure(a, todayIso, worked) || a.n.localeCompare(b.n));
   return { assets: live.filter((i) => i.s === 'a'), debts: live.filter((i) => i.s === 'd') };
 }
 
@@ -162,9 +167,9 @@ export interface ClassTotal { side: WorthSide; cls: string; amount: number }
 export interface WorthSummary { assets: number; debts: number; net: number; liquid: number; byClass: ClassTotal[]; auto: AutoLine[] }
 
 /** Totals, from the items and the automatic lines. A line above zero counts as something owned, below zero as something owed. */
-export function worthSummary(items: Goals, todayIso: string, auto: readonly AutoLine[] = []): WorthSummary {
-  const { assets, debts } = worthItems(items, todayIso);
-  const sum = (list: WorthItem[]) => round2(list.reduce((s, i) => s + valueNow(i, todayIso), 0));
+export function worthSummary(items: Goals, todayIso: string, auto: readonly AutoLine[] = [], worked?: WorkedFigures): WorthSummary {
+  const { assets, debts } = worthItems(items, todayIso, worked);
+  const sum = (list: WorthItem[]) => round2(list.reduce((s, i) => s + figure(i, todayIso, worked), 0));
   const autoUp = round2(auto.filter((l) => l.amount > 0).reduce((s, l) => s + l.amount, 0));
   const autoDown = round2(auto.filter((l) => l.amount < 0).reduce((s, l) => s - l.amount, 0));
   const a = round2(sum(assets) + autoUp);
@@ -173,14 +178,14 @@ export function worthSummary(items: Goals, todayIso: string, auto: readonly Auto
   for (const i of [...assets, ...debts]) {
     const key = `${i.s}|${i.c}`;
     const cur = by.get(key) ?? { side: i.s, cls: i.c, amount: 0 };
-    cur.amount = round2(cur.amount + valueNow(i, todayIso));
+    cur.amount = round2(cur.amount + figure(i, todayIso, worked));
     by.set(key, cur);
   }
   return {
     assets: a,
     debts: d,
     net: round2(a - d),
-    liquid: round2(assets.filter((i) => i.c === 'liquid').reduce((s, i) => s + valueNow(i, todayIso), 0)),
+    liquid: round2(assets.filter((i) => i.c === 'liquid').reduce((s, i) => s + figure(i, todayIso, worked), 0)),
     byClass: [...by.values()].sort((x, y) => y.amount - x.amount),
     auto: [...auto],
   };
@@ -224,6 +229,21 @@ export function snapshotWorth(items: Goals, net: number, todayIso: string, nowIs
   return r.ok ? r.items : items;
 }
 
+/**
+ * 2.3: today's point in the history from the figure worked out as payments come in (source 'w'). At most one such point a week: while the
+ * latest point is a worked-out one from the last six days, it moves to today; a point already today (a check-in) is updated in place.
+ * So the history (at most MAX_NET_UPDATES points) lasts years, and check-ins are never overwritten by an older day's figure.
+ */
+export function recordWorked(items: Goals, net: number, todayIso: string, nowIso: string): Goals {
+  const ups = netUpdates(items);
+  const today = ups.find((u) => u.d === todayIso);
+  if (today) return today.a === net ? items : { ...items, [today.id]: { ...today, a: net, t: laterThan(today.t, nowIso) } };
+  const last = ups[0];
+  if (last?.s === 'w' && daysApart(last.d, todayIso) < 7) return { ...items, [last.id]: { ...last, a: net, d: todayIso, t: laterThan(last.t, nowIso) } };
+  const r = addNetUpdate(items, net, todayIso, todayIso, nowIso, newId(), 'w');
+  return r.ok ? r.items : items;
+}
+const daysApart = (a: string, b: string): number => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 
 /** What friends owe the person less what the person owes them, across every group (above zero: owed to them). */
 export function groupsNet(groups: readonly Pick<Group, 'id'>[], entries: readonly Entry[], settlements: readonly Settlement[], me: string | null): number {

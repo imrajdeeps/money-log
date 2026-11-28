@@ -42,6 +42,10 @@ export interface SharedUdhaarApi {
 
 import type { Entry, Group as Cat, NewEntryInput, Shares } from '../core/logic.ts';
 import type { GroupRepeat, NewGroupRepeat } from '../core/groupRepeats.ts';
+import type { AccountSettings } from '../core/accounts.ts';
+
+/** 2.3: the one-time set-up: each account's settings and what it holds today. */
+export interface AccountsSetup { settings: Readonly<Record<string, AccountSettings>>; figures: Readonly<Record<string, number>> }
 import type { Store } from './store.ts';
 import type { GoalInput, Goals } from '../core/goals.ts';
 import type { IncomeCatResult } from '../core/income.ts';
@@ -93,6 +97,12 @@ export interface AppApi {
   editWorthItem: (id: string, i: WorthInput, auto: readonly AutoLine[]) => Promise<string | null>;
   checkInWorth: (values: Readonly<Record<string, number>>, auto: readonly AutoLine[]) => Promise<void>;
   removeWorthItem: (id: string, auto: readonly AutoLine[]) => Promise<void>;
+  // 2.3: net worth worked out from accounts (the payments, settle-ups and Udhaar that move them are the app's own).
+  setUpAccounts: (setup: AccountsSetup, auto: readonly AutoLine[]) => Promise<void>;
+  setAccount: (id: string, settings: AccountSettings | null, auto: readonly AutoLine[]) => Promise<void>; // from today on; null: kept by hand again
+  checkInAccounts: (answers: Readonly<Record<string, number>>, auto: readonly AutoLine[]) => Promise<void>; // only the accounts answered are confirmed
+  setCheckInDay: (day: number) => Promise<void>;
+  recordNetWorth: (net: number) => Promise<void>; // today's point in the history, when the worked-out figure moved
   udhaar: UdhaarItem[]; // money lent or borrowed, open ones first
   addUdhaar: (i: UdhaarInput) => Promise<string | null>; // null when it worked, else what to tell the person
   editUdhaar: (id: string, i: UdhaarInput) => Promise<string | null>;

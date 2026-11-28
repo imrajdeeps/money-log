@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useApp } from '../../data/context.tsx';
 import { netNow, netUpdates, parseNetAmount } from '../../core/goals.ts';
-import { worthItems, worthSummary } from '../../core/worth.ts';
+import { checkInAsks } from '../../core/accounts.ts';
 import { typedCheck } from '../../core/worthHistory.ts';
 import { checkText } from './netWorthCheck.ts';
 import { WorthPanel } from './WorthPanel.tsx';
 import type { WorthMode } from './WorthPanel.tsx';
-import { useAutoLines } from './useAutoLines.ts';
+import { useWorth } from './useWorth.ts';
+import { useWhy } from './WhyMoved.tsx';
 import { shortDate } from '../../core/format.ts';
 import { fmtINR, isoDate } from '../../core/logic.ts';
 import { Icon } from '../../ui/Icon.tsx';
@@ -92,6 +93,16 @@ function UpdateForm({ last, onDone }: Readonly<{ last: number | null; onDone: ()
   );
 }
 
+function subtitle(workedOut: boolean, hasItems: boolean, date: string): string {
+  if (workedOut) return tr('Worked out from your accounts and the payments you logged. Nothing typed.');
+  return hasItems ? tr('From what you own and owe, as of today') : tr('As of {0}', shortDate(date));
+}
+
+function checkLabel(workedOut: boolean, asks: number): string {
+  if (!workedOut) return tr('Check in');
+  return asks === 1 ? tr('Check 1 number') : tr('Check {0} numbers', asks);
+}
+
 const HISTORY_LINK = 'relative z-[2] min-h-11 flex items-center justify-between gap-2 border-0 border-t border-[rgba(255,255,255,0.14)] bg-transparent p-0 text-left text-[#dce9df] text-[14px] font-semibold cursor-pointer [font-family:inherit]';
 const HERO_LIME = 'relative z-[2] flex-1 inline-flex items-center justify-center min-h-12 rounded-xl border-0 bg-primary text-primary-ink text-[16px] font-bold cursor-pointer [font-family:inherit]';
 const HERO_OUTLINE = 'relative z-[2] flex-1 inline-flex items-center justify-center min-h-12 rounded-xl border border-[rgba(255,255,255,0.35)] bg-transparent text-[#fff] text-[16px] font-[650] cursor-pointer [font-family:inherit]';
@@ -104,13 +115,16 @@ export function NetWorthCard({ onHistory }: Readonly<{ onHistory: () => void }>)
   const [mode, setMode] = useState<WorthMode>(null);
   const updates = useMemo(() => netUpdates(app.goals), [app.goals]);
   const now = useMemo(() => netNow(app.goals), [app.goals]);
-  // with items, the figure is worked out from them (and the automatic lines) now; without, it is the last number typed
-  const auto = useAutoLines();
-  const today = isoDate();
-  const items = useMemo(() => worthItems(app.goals, today), [app.goals, today]);
-  const hasItems = items.assets.length + items.debts.length > 0;
-  const live = useMemo(() => (hasItems ? worthSummary(app.goals, today, auto).net : null), [hasItems, app.goals, today, auto]);
-  const value = live ?? now?.value ?? null;
+  // with items, the figure is worked out from them (and the automatic lines) now; without, it is the last number typed. 2.3: accounts are
+  // worked out from the payments logged, and today's point in the history follows the figure as payments come in.
+  const view = useWorth();
+  const hasItems = view.summary.byClass.length > 0;
+  const value = hasItems ? view.summary.net : now?.value ?? null;
+  const asks = useMemo(() => (view.workedOut ? checkInAsks(app.goals, view.worked, view.today).length : 0), [view.workedOut, app.goals, view.worked, view.today]);
+  const why = useWhy(view);
+  const { workedOut } = view;
+  const record = app.recordNetWorth;
+  useEffect(() => { if (workedOut && value !== null) void record(value); }, [workedOut, value, record]);
   const spark = useMemo(() => updates.slice(0, SPARK_POINTS).map((u) => u.a).reverse(), [updates]);
 
   return (
@@ -120,8 +134,9 @@ export function NetWorthCard({ onHistory }: Readonly<{ onHistory: () => void }>)
         {value !== null ? (
           <>
             <span className="text-[40px] leading-[1.05] font-extrabold tabular-nums">{fmtINR(value)}</span>
-            {now && now.change !== null && now.previous && <Change by={now.change} since={shortDate(now.previous.date)} />}
-            <span className="text-[13px] text-muted">{hasItems ? tr('From what you own and owe, as of today') : tr('As of {0}', shortDate(now!.date))}</span>
+            {workedOut && why.change !== null && <Change by={why.change} since={shortDate(`${view.today.slice(0, 7)}-01`)} />}
+            {!workedOut && now && now.change !== null && now.previous && <Change by={now.change} since={shortDate(now.previous.date)} />}
+            <span className="text-[13px] text-muted">{subtitle(workedOut, hasItems, now?.date ?? view.today)}</span>
             {spark.length >= 2 && <Spark values={spark} label={tr('Your last {0} net worth updates, oldest first', spark.length)} />}
           </>
         ) : (
@@ -134,7 +149,7 @@ export function NetWorthCard({ onHistory }: Readonly<{ onHistory: () => void }>)
         )}
         <div className="flex gap-2.5 pt-1">
           {hasItems
-            ? <button type="button" className={HERO_LIME} onClick={() => setMode('checkin')}>{tr('Check in')}</button>
+            ? <button type="button" className={HERO_LIME} onClick={() => setMode('checkin')}>{checkLabel(workedOut, asks)}</button>
             : <button type="button" className={HERO_LIME} onClick={() => setMode('add')}>{tr('Add an item')}</button>}
           {hasItems
             ? <button type="button" className={HERO_OUTLINE} onClick={() => setMode('add')}>{tr('Add an item')}</button>
@@ -142,7 +157,7 @@ export function NetWorthCard({ onHistory }: Readonly<{ onHistory: () => void }>)
         </div>
       </section>
       {editing && !hasItems && <UpdateForm last={now?.value ?? null} onDone={() => setEditing(false)} />}
-      <WorthPanel mode={mode} setMode={setMode} />
+      <WorthPanel mode={mode} setMode={setMode} view={view} />
     </div>
   );
 }

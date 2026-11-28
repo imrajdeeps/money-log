@@ -42,6 +42,25 @@ export function setFeature(items: Goals, feature: Feature, on: boolean, nowIso: 
   return { ...items, [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: [...FEATURES.filter((f) => chosen.has(f)), ...later], x: 0, t: prev ? laterThan(prev, nowIso) : nowIso } };
 }
 
+// 2.3: the day of the month the net worth check-in comes up, kept in the same item as the name "worth-day-N" (2.1 keeps names it does not
+// know, so an older device carries it unchanged). 1 to 28, so every month has it; the 1st until the person picks another.
+const DAY_NAME = /^worth-day-([1-9]|1\d|2[0-8])$/;
+const DAY_PREFIX = 'worth-day-';
+
+/** The day of the month the net worth check-in comes up. */
+export function checkInDay(items: Goals): number {
+  const name = settingsOf(items)?.on.find((n) => DAY_NAME.test(n));
+  return name ? Number(name.slice(DAY_PREFIX.length)) : 1;
+}
+
+export function setCheckInDay(items: Goals, day: number, nowIso: string): Goals {
+  if (!Number.isInteger(day) || day < 1 || day > 28 || (checkInDay(items) === day && settingsOf(items) !== null)) return items;
+  const cur = settingsOf(items);
+  const kept = cur ? cur.on.filter((n) => !DAY_NAME.test(n)) : [...DEFAULT_ON];
+  const prev = items[FEATURES_ID]?.t;
+  return { ...items, [FEATURES_ID]: { id: FEATURES_ID, k: 'f', on: [...kept, `${DAY_PREFIX}${day}`], x: 0, t: prev ? laterThan(prev, nowIso) : nowIso } };
+}
+
 // The notes on the bell that belong to a part: they go when the part is off.
 const NOTICES_OF: Partial<Record<Feature, readonly NoticeKind[]>> = { plan: ['due', 'goal'], worth: ['networth'] };
 
