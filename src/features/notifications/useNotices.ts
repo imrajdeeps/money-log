@@ -9,7 +9,18 @@ import { buildNotices } from '../../core/notifications.ts';
 import type { Notice, NoticeInput } from '../../core/notifications.ts';
 import { budgetEntries, isoDate, monthOf, summarizeMonth } from '../../core/logic.ts';
 import { recurringThisMonth } from '../../core/recurring.ts';
-import { noticeKindsShown } from '../../core/features.ts';
+import { checkInDay, noticeKindsShown } from '../../core/features.ts';
+import { accountEntries, cashMoves, checkInAsks, isWorkedOut, lastCheckIn, workAccounts } from '../../core/accounts.ts';
+import type { Settlement } from '../../core/groups.ts';
+import type { Goals } from '../../core/goals.ts';
+import type { Entry } from '../../core/logic.ts';
+
+// 2.3: what the net worth check-in needs to know when net worth is worked out from accounts (null otherwise).
+function worthCheckOf(goals: Goals, own: readonly Entry[], groupEntries: readonly Entry[], settlements: readonly Settlement[], me: string | null, today: string): NoticeInput['worthCheck'] {
+  if (!isWorkedOut(goals)) return null;
+  const worked = workAccounts(goals, accountEntries(own, groupEntries, me), me, today, cashMoves(settlements, goals, me));
+  return { day: checkInDay(goals), last: lastCheckIn(goals, worked, today), asks: checkInAsks(goals, worked, today).length };
+}
 
 // The notifications to show now. Worked out from what the phone already holds, again whenever that changes or the day does.
 export function useNotices(): Notice[] {
@@ -35,6 +46,7 @@ export function useNotices(): Notice[] {
         .filter((g) => activeMembers(members, g.id).length >= 2)
         .map((g) => ({ id: g.id, name: g.name, balance: me ? fromPaise(groupBalances(g.id, groupEntries, settlements)[me] ?? 0) : 0 })),
       netWorth: netNow(goals),
+      worthCheck: worthCheckOf(goals, entries, groupEntries, settlements, me, today),
       lastBackupMs: lastBackup,
       hasPayments: entries.length > 0,
       sync: { mode: sync.mode, pending: sync.pending, lastSync: sync.lastSync, error: sync.error },
