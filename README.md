@@ -155,6 +155,9 @@ everything else in one go, and is safe to repeat.)
 
 (`supabase/schema.sql` already contains it, so a fresh project needs nothing extra.)
 
+## Keeping what a newer version writes on net worth items (version 2.2.1)
+No SQL, no new package, no what's-new card. Version 2.3 keeps each account's settings on its net worth item (which payments move it, its interest rate) in one extra field. A device on 2.2.0 would drop that field when it saves an item; 2.2.1 carries it unchanged (a small plain object, at most 2,000 characters of JSON) and counts a change in it as a change when two devices' copies are merged. Checks: `npm run check`, `npm test` (a new test for the field through cleaning, a change, a check-in and a merge).
+
 ## Repeats in a group (version 2.2.0)
 **Needs the SQL in `supabase/schema.sql` run once** (the whole file is safe to run again; the new part is the section *Version 2.2: Repeats in a group* at the end), then `supabase/rls_tests.sql` (it must end with `ALL ACCESS TESTS PASSED`). Without the SQL nothing breaks: the group page shows no repeats, and setting one up saves the expense and says it could not be set to repeat. From `docs/prd-2.2.md` and the design on the Claude Design canvas (row *Repeats in a group*).
 
